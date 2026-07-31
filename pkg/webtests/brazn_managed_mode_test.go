@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"code.vikunja.io/api/pkg/config"
+	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/modules/auth"
 	"code.vikunja.io/api/pkg/routes"
 
@@ -94,6 +95,8 @@ func managedModeEcho(t *testing.T, managed bool) *echo.Echo {
 	setConfigForTest(t, config.ServiceTestingtoken, "managed-mode-harness")
 	setConfigForTest(t, config.BraznManagedMode, managed)
 
+	clearManagedTables(t)
+
 	e := routes.NewEcho()
 	routes.RegisterRoutes(e)
 	return e
@@ -108,6 +111,23 @@ func setConfigForTest(t *testing.T, key config.Key, value interface{}) {
 	previous := key.Get()
 	t.Cleanup(func() { key.Set(previous) })
 	key.Set(value)
+}
+
+// clearManagedTables empties the managed-mode tables. They are deliberately not
+// in the fixture set - nothing in the stock product touches them - so without
+// this a projection written by one test would still be there for the next one,
+// and the order tests happened to run in would decide the result.
+func clearManagedTables(t *testing.T) {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	_, err := s.Exec("DELETE FROM brazn_protected_entities")
+	require.NoError(t, err)
+	_, err = s.Exec("DELETE FROM brazn_entitlement_projections")
+	require.NoError(t, err)
+	require.NoError(t, s.Commit())
 }
 
 func managedRequest(t *testing.T, e *echo.Echo, method, path string) *httptest.ResponseRecorder {

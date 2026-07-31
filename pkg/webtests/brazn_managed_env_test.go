@@ -64,25 +64,9 @@ func newManagedEnv(t *testing.T) *managedEnv {
 	setConfigForTest(t, config.BraznEntitlementKeys,
 		managedTestKeyID+":"+base64.StdEncoding.EncodeToString(public))
 
-	env := &managedEnv{t: t, e: e, signingKey: private}
-	env.reset()
-	return env
-}
-
-// reset clears the managed-mode tables. They are deliberately not in the
-// fixture set - nothing in the stock product touches them - so each test that
-// writes to them empties them first.
-func (env *managedEnv) reset() {
-	env.t.Helper()
-
-	s := db.NewSession()
-	defer s.Close()
-
-	_, err := s.Exec("DELETE FROM brazn_protected_entities")
-	require.NoError(env.t, err)
-	_, err = s.Exec("DELETE FROM brazn_entitlement_projections")
-	require.NoError(env.t, err)
-	require.NoError(env.t, s.Commit())
+	// managedModeEcho has already emptied the managed-mode tables, so this
+	// instance starts with no topology and no entitlement of any kind.
+	return &managedEnv{t: t, e: e, signingKey: private}
 }
 
 // grant writes a correctly signed projection for a user.
