@@ -32,7 +32,7 @@ var (
 // PrintResults writes all check groups to the given writer with colored output.
 func PrintResults(w io.Writer, groups []CheckGroup) {
 	fmt.Fprintln(w, bold("Brazn Tasks Doctor"))
-	fmt.Fprintln(w, "==============")
+	fmt.Fprintln(w, "==================")
 	fmt.Fprintln(w)
 
 	for _, group := range groups {
