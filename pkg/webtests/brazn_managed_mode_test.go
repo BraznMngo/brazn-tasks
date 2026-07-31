@@ -158,12 +158,30 @@ func concreteURL(path string) string {
 	return strings.Join(segments, "/")
 }
 
-// fixtureTaskProjectID is the project fixture task 1 belongs to.
-const fixtureTaskProjectID = 1
-
 // unreachableProjectID names a project that does not exist, so a request
 // carrying it is unambiguously a move to somewhere else.
 const unreachableProjectID = 9999
+
+// currentTaskProjectID reads the project a task is actually in.
+//
+// The move tests restate that project to show restating it is not a move, and
+// restating the wrong one would turn the request into a genuine move - the test
+// would then pass while asserting the exact opposite of what it claims. A
+// hardcoded id cannot notice when a fixture changes underneath it, so this is
+// read, never assumed.
+func currentTaskProjectID(t *testing.T, e *echo.Echo, taskID int64) int64 {
+	t.Helper()
+
+	rec := managedRequest(t, e, http.MethodGet, fmt.Sprintf("/api/v1/tasks/%d", taskID), "")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	var task struct {
+		ProjectID int64 `json:"project_id"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &task))
+	require.NotZero(t, task.ProjectID)
+	return task.ProjectID
+}
 
 // guardedProbe returns a body that puts a route in its guarded meaning.
 //
@@ -271,6 +289,8 @@ func TestManagedModeSeparatesATaskEditFromATaskMove(t *testing.T) {
 		}
 
 		t.Run(route.key(), func(t *testing.T) {
+			currentProject := currentTaskProjectID(t, e, 1)
+
 			t.Run("an edit that names no project passes through", func(t *testing.T) {
 				rec := managedRequest(t, e, route.Method, concreteURL(route.Path),
 					taskBody(route, 0, "edited with no entitlement at all"))
@@ -284,7 +304,7 @@ func TestManagedModeSeparatesATaskEditFromATaskMove(t *testing.T) {
 			// is the only thing standing between that and a release.
 			t.Run("an edit that restates the current project passes through", func(t *testing.T) {
 				rec := managedRequest(t, e, route.Method, concreteURL(route.Path),
-					taskBody(route, fixtureTaskProjectID, "edited in place"))
+					taskBody(route, currentProject, "edited in place"))
 				assert.NotEqualf(t, http.StatusForbidden, rec.Code,
 					"restating the project a task is already in moves nothing: %s", rec.Body.String())
 			})
