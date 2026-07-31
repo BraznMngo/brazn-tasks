@@ -1,16 +1,16 @@
 {
   "name": "vikunja-desktop",
   "version": "v0.1.0",
-  "description": "Vikunja's frontend as a standalone desktop application.",
+  "description": "The Brazn Tasks frontend as a standalone desktop application.",
   "main": "main.js",
-  "repository": "https://code.vikunja.io/desktop",
+  "repository": "https://github.com/BraznMngo/brazn-tasks",
   "license": "GPL-3.0-or-later",
   "packageManager": "pnpm@11.13.1",
   "author": {
-    "email": "maintainers@vikunja.io",
-    "name": "Vikunja Team"
+    "email": "hello@braznmngo.com",
+    "name": "Brazn Mngo"
   },
-  "homepage": "https://vikunja.io",
+  "homepage": "https://github.com/BraznMngo/brazn-tasks",
   "scripts": {
     "build:frontend": "cd ../frontend && pnpm run build && cd ../desktop && rm -rf frontend && cp -r ../frontend/dist frontend",
     "start": "electron .",
@@ -18,16 +18,16 @@
     "dist": "electron-builder --publish never"
   },
   "build": {
-    "appId": "io.vikunja.desktop",
+    "appId": "com.braznmngo.tasks.desktop",
     "files": [
       "**/*",
       "preload-quick-entry.js"
     ],
-    "productName": "Vikunja Desktop",
+    "productName": "Brazn Tasks Desktop",
     "artifactName": "${productName}-${version}.${ext}",
     "icon": "build/icon.icns",
     "protocols": {
-      "name": "Vikunja Desktop",
+      "name": "Brazn Tasks Desktop",
       "schemes": ["vikunja-desktop"]
     },
     "linux": {

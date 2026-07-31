@@ -44,11 +44,11 @@ var testmailCmd = &cobra.Command{
 	Run: func(_ *cobra.Command, args []string) {
 		log.Info("Sending testmail...")
 		message := notifications.NewMail().
-			From("Vikunja <"+config.MailerFromEmail.GetString()+">").
+			From("Brazn Tasks <"+config.MailerFromEmail.GetString()+">").
 			To(args[0]).
-			Subject("Test from Vikunja").
+			Subject("Test from Brazn Tasks").
 			Line("This is a test mail!").
-			Line("If you received this, Vikunja is correctly set up to send emails.").
+			Line("If you received this, Brazn Tasks is correctly set up to send emails.").
 			Action("Go to your instance", config.ServicePublicURL.GetString())
 
 		opts, err := notifications.RenderMail(message, "en")

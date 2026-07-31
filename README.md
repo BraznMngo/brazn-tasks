@@ -1,61 +1,63 @@
-<img src="https://vikunja.io/images/vikunja-logo.svg" alt="" style="display: block;width: 50%;margin: 0 auto;" width="50%"/>
-
-[![Build Status](https://github.com/go-vikunja/vikunja/actions/workflows/ci.yml/badge.svg)](https://github.com/go-vikunja/vikunja/actions/workflows/ci.yml)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](LICENSE)
-[![Install](https://img.shields.io/badge/download-v2.4.0-brightgreen.svg)](https://vikunja.io/docs/installing)
-[![Docker Pulls](https://img.shields.io/docker/pulls/vikunja/vikunja.svg)](https://hub.docker.com/r/vikunja/vikunja/)
-[![Swagger Docs](https://img.shields.io/badge/swagger-docs-brightgreen.svg)](https://try.vikunja.io/api/v1/docs)
-[![Go Report Card](https://goreportcard.com/badge/code.vikunja.io/api)](https://goreportcard.com/report/code.vikunja.io/api)
 
-# Vikunja
+# Brazn Tasks
 
 > The Todo-app to organize your life.
 
-If Vikunja is useful to you, please consider [buying me a coffee](https://www.buymeacoffee.com/kolaente), [sponsoring me on GitHub](https://github.com/sponsors/kolaente) or buying [a sticker pack](https://vikunja.io/stickers).
-I'm also offering [a hosted version of Vikunja](https://vikunja.cloud/) if you want a hassle-free solution for yourself or your team.
+**Brazn Tasks is a modified fork of [Vikunja](https://vikunja.io), based on
+upstream v2.4.0.** It is not affiliated with, endorsed by, or a product of the
+Vikunja project, and "Vikunja" and the Vikunja logo are marks of that project —
+they are referenced here only to identify what this software is derived from.
+
+The full modification notice, including what has been changed and how to obtain
+the corresponding source, is in [`NOTICE.md`](NOTICE.md).
+
+- Upstream project: <https://vikunja.io> — source at <https://github.com/go-vikunja/vikunja>
+- This fork's source: <https://github.com/BraznMngo/brazn-tasks>
 
 ## Table of contents
 
+- [Modification notice](#modification-notice)
 - [Security Reports](#security-reports)
-- [Features](#features)
 - [Docs](#docs)
-	- [Roadmap](#roadmap)
-- [Contributing](#contributing)
 - [License](#license)
 	- [Unsplash Images](#unsplash-images)
 
+## Modification notice
+
+This is a modified version of Vikunja v2.4.0, distributed under the same
+licence. Changes are visible in the commit history of this repository, and the
+running application links to this repository so that anyone using it over a
+network can obtain the corresponding source (AGPL-3.0 section 13).
+
+See [`NOTICE.md`](NOTICE.md) for the complete statement.
+
 ## Security Reports
 
-If you find any security-related issues you don't want to disclose publicly, please use [the contact information on our website](https://vikunja.io/contact/#security).
+If you find a security-related issue in Brazn Tasks that you don't want to
+disclose publicly, report it privately through the security advisory form on
+<https://github.com/BraznMngo/brazn-tasks>.
 
-## Features
-
-See [the features page](https://vikunja.io/features/) on our website for a more exhaustive list or 
-try it on [try.vikunja.io](https://try.vikunja.io)!
+If the issue is inherited from upstream and also affects Vikunja, please also
+report it to the Vikunja project so their users are protected.
 
 ## Docs
 
-* [Installing](https://vikunja.io/docs/installing/)
-* [Build from source](https://vikunja.io/docs/build-from-sources/)
-* [Development setup](https://vikunja.io/docs/development/)
-* [Magefile](https://vikunja.io/docs/magefile/)
-* [Testing](https://vikunja.io/docs/testing/)
-
-All docs can be found on [the Vikunja home page](https://vikunja.io/docs/).
-
-### Roadmap
-
-See [the roadmap](https://my.vikunja.cloud/share/QFyzYEmEYfSyQfTOmIRSwLUpkFjboaBqQCnaPmWd/auth) (hosted on Vikunja!) for more!
-
-## Contributing
-
-Please check out the contribution guidelines on [the website](https://vikunja.io/docs/development/).
+This fork does not host its own documentation site. Because the API, CalDAV
+support, configuration keys, database schema and route namespaces are unchanged
+from upstream, [the Vikunja documentation](https://vikunja.io/docs/) remains
+accurate for operating this software — substituting `brazn-tasks` for `vikunja`
+where a package or product name is meant.
 
 ## License
 
 Most of this repository is licensed under [AGPL‑3.0‑or‑later](LICENSE).
 The contents of [`desktop/`](desktop/) are licensed under
 [GPL‑3.0‑or‑later](desktop/LICENSE).
+
+Copyright in the overwhelming majority of this code remains with the upstream
+Vikunja authors. Their copyright headers and the `LICENSE` file are unmodified,
+and nothing in this fork reassigns or removes their attribution.
 
 ### Unsplash Images
 

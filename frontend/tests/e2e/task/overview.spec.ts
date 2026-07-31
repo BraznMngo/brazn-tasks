@@ -164,7 +164,7 @@ test.describe('Home Page Task Overview', () => {
 
 		await page.goto('/')
 
-		await expect(page.locator('.home.app-content .content')).toContainText('Import your projects and tasks from other services into Vikunja:')
+		await expect(page.locator('.home.app-content .content')).toContainText('Import your projects and tasks from other services into Brazn Tasks:')
 	})
 
 	test('Should not show the cta buttons for new project when there are tasks', async ({authenticatedPage: page, apiContext}) => {
@@ -173,6 +173,6 @@ test.describe('Home Page Task Overview', () => {
 		await page.goto('/')
 
 		await expect(page.locator('.home.app-content .content')).not.toContainText('You can create a new project for your new tasks:')
-		await expect(page.locator('.home.app-content .content')).not.toContainText('Or import your projects and tasks from other services into Vikunja:')
+		await expect(page.locator('.home.app-content .content')).not.toContainText('Or import your projects and tasks from other services into Brazn Tasks:')
 	})
 })

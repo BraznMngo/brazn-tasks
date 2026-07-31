@@ -1,7 +1,9 @@
 import AbstractService from './abstractService'
 import {downloadBlob} from '../helpers/downloadBlob'
 
-const DOWNLOAD_NAME = 'vikunja-export.zip'
+// Suggested filename for the user's download only — the import side detects the
+// archive by its contents, not its name, so renaming this cannot break re-import.
+const DOWNLOAD_NAME = 'brazn-tasks-export.zip'
 
 export default class DataExportService extends AbstractService {
 	request(password: string) {

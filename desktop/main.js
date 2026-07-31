@@ -17,6 +17,10 @@ const portInUse = require('./portInUse.js')
 const oauth = require('./oauth.js')
 
 const frontendPath = 'frontend/'
+// Deliberately still `vikunja-`: upstream's OAuth redirect validation only
+// accepts redirect schemes with that prefix, so renaming this here — without the
+// server-side relaxation shipping first — silently breaks desktop OAuth login.
+// Renaming is a follow-up to the redirect-scheme patch, not part of debranding.
 const PROTOCOL = 'vikunja-desktop'
 const SAFE_PROTOCOLS = new Set([
 	'http:', 'https:', 'mailto:',
@@ -90,7 +94,7 @@ function registerAppImageProtocolHandler() {
 		const quotedExecPath = '"' + appImagePath.replace(/["`$\\]/g, '\\$&').replace(/%/g, '%%') + '"'
 		const desktopEntry = [
 			'[Desktop Entry]',
-			'Name=Vikunja Desktop',
+			'Name=Brazn Tasks Desktop',
 			'Type=Application',
 			`Exec=${quotedExecPath} %u`,
 			'Terminal=false',
@@ -473,7 +477,7 @@ function setupTray() {
 		const iconPath = path.join(__dirname, 'icon.png')
 		const icon = nativeImage.createFromPath(iconPath).resize({width: 16, height: 16})
 		tray = new Tray(icon)
-		tray.setToolTip('Vikunja')
+		tray.setToolTip('Brazn Tasks')
 		tray.on('click', () => {
 			if (mainWindow) {
 				mainWindow.show()
@@ -486,7 +490,7 @@ function setupTray() {
 
 	const contextMenu = Menu.buildFromTemplate([
 		{
-			label: 'Show Vikunja',
+			label: 'Show Brazn Tasks',
 			click: () => {
 				if (mainWindow) {
 					mainWindow.show()

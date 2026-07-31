@@ -1,11 +1,15 @@
 publiccode-yml-version: '0.2'
-name: 'Vikunja'
-url: 'https://code.vikunja.io/vikunja'
-landingURL: 'https://vikunja.io'
-isBasedOn: 'https://go.dev/'
+name: 'Brazn Tasks'
+url: 'https://github.com/BraznMngo/brazn-tasks'
+landingURL: 'https://github.com/BraznMngo/brazn-tasks'
+# isBasedOn is the publiccode field for "this is a fork of": upstream had it
+# pointing at go.dev, which is not what the field means. Pointing it at Vikunja
+# is both correct and part of stating that this is a modified fork.
+isBasedOn: 'https://github.com/go-vikunja/vikunja'
 softwareVersion: 'v2.4.0'
 releaseDate: '2026-07-19'
-logo: 'https://vikunja.io/images/vikunja-logo.svg'
+# logo: intentionally absent until a Brazn Tasks mark exists. The upstream value
+# pointed at the Vikunja logo, which is not licensed to this fork.
 platforms:
   - 'web'
   - 'linux'
@@ -21,37 +25,35 @@ categories:
   - 'project-management'
   - 'task-management'
   - 'workflow-management'
-usedBy:
-  - 'City of Treuchtlingen'
-roadmap: 'https://my.vikunja.cloud/projects/16/list#share-auth-token=QFyzYEmEYfSyQfTOmIRSwLUpkFjboaBqQCnaPmWd'
+# usedBy and roadmap dropped: both listed upstream's adopters and upstream's
+# roadmap, neither of which this fork may claim as its own.
 developmentStatus: 'stable'
 softwareType: 'standalone/web'
 intendedAudience:
   scope:
     - 'Providers of standard based workflow management services who wish or are required to use Open Source solutions'
 description:
-  en: ' The open-source, self-hostable to-do app. Organize everything, on all platforms.'
-documentation: 'https://vikunja.io/docs/'
-apiDocumentation: 'https://vikunja.io/docs/api-documentation/'
+  en: 'The open-source, self-hostable to-do app. Organize everything, on all platforms. Brazn Tasks is a modified fork of Vikunja v2.4.0 and is not affiliated with, endorsed by, or a product of the Vikunja project.'
+documentation: 'https://github.com/BraznMngo/brazn-tasks#readme'
 features:
   - 'workflow management'
   - 'CalDAV provider'
   - 'kanban tool'
   - 'gantt display tool'
   - 'ticket system'
-screenshots:
-  - 'https://vikunja.io/images/vikunja/09-task-detail-dark.webp'
+# screenshots dropped: the upstream entry pointed at Vikunja-branded imagery.
 videos:
   - 'none'
 legal:
   license: 'GNU AFFERO GENERAL PUBLIC LICENSE Version 3'
+  # mainCopyrightOwner and authorsFile stay pointed at upstream: the copyright in
+  # the overwhelming majority of this code is theirs and must not be reassigned.
+  # Only repoOwner changes, because this repository is genuinely ours.
   mainCopyrightOwner: 'Konrad Langenberg Software'
-  repoOwner: 'Konrad Langenberg Software'
+  repoOwner: 'Brazn Mngo'
   authorsFile: 'hello@vikunja.io'
 maintenance:
-  type: 'https://vikunja.cloud/'
-  contractors:
-    - name: 'Vikunja Cloud '
+  type: 'internal'
 localisation:
   localisationReady: 'true'
   availableLanguages:

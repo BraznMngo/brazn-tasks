@@ -39,12 +39,15 @@ RUN mkdir -p /tmp && chmod 1777 /tmp
 # The actual image
 FROM scratch
 
-LABEL org.opencontainers.image.authors='maintainers@vikunja.io'
-LABEL org.opencontainers.image.url='https://vikunja.io'
-LABEL org.opencontainers.image.documentation='https://vikunja.io/docs'
-LABEL org.opencontainers.image.source='https://code.vikunja.io/vikunja'
+# image.source must point at the corresponding source for what is in the image
+# (AGPL-3.0 section 13), which is this fork, not upstream.
+LABEL org.opencontainers.image.authors='hello@braznmngo.com'
+LABEL org.opencontainers.image.url='https://github.com/BraznMngo/brazn-tasks'
+LABEL org.opencontainers.image.documentation='https://github.com/BraznMngo/brazn-tasks#readme'
+LABEL org.opencontainers.image.source='https://github.com/BraznMngo/brazn-tasks'
 LABEL org.opencontainers.image.licenses='AGPLv3'
-LABEL org.opencontainers.image.title='Vikunja'
+LABEL org.opencontainers.image.title='Brazn Tasks'
+LABEL org.opencontainers.image.description='Brazn Tasks, a modified fork of Vikunja v2.4.0. Not affiliated with or endorsed by the Vikunja project.'
 
 WORKDIR /app/vikunja
 ENTRYPOINT [ "/app/vikunja/vikunja" ]
