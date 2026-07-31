@@ -20,12 +20,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // teamsTopology is a provisioned organization: one member Inbox, one Public
@@ -251,6 +253,71 @@ func TestTeamsPolicyKeepsInboxesPrivate(t *testing.T) {
 		rec := env.request(http.MethodPost, "/api/v1/tasks/1",
 			fmt.Sprintf(`{"id":1,"title":"task #1","project_id":%d}`, topology.underTeam), &testuser1)
 		assertAllowed(t, rec)
+	})
+}
+
+// TestTeamsPolicyResolvesV2ProjectParameters exists because every other v2
+// assertion in this file expects a refusal, and a refusal is exactly what a
+// gate that resolved no project at all would also produce.
+//
+// If c.Param("project") came back empty on v2, projectID() would be 0,
+// ProtectedRootOf(0) returns (nil, nil), and every one of those tests would
+// still pass while the gate protected nothing. So these two ask v2 for
+// something policy must ALLOW: they can only pass if the project parameter
+// really resolved. Same shape as the ":project" / ":projectid" prefix bug, one
+// level up.
+func TestTeamsPolicyResolvesV2ProjectParameters(t *testing.T) {
+	env, topology := newTeamsEnv(t)
+
+	t.Run("a read-only link share under Public", func(t *testing.T) {
+		rec := env.request(http.MethodPost,
+			fmt.Sprintf("/api/v2/projects/%d/shares", topology.underPublic), `{"permission":0}`, &testuser1)
+		assertAllowed(t, rec)
+	})
+
+	t.Run("sharing team work with a Teams colleague", func(t *testing.T) {
+		rec := env.request(http.MethodPost,
+			fmt.Sprintf("/api/v2/projects/%d/users", topology.underTeam), `{"username":"user6"}`, &testuser1)
+		assertAllowed(t, rec)
+	})
+}
+
+// TestTeamsPolicyRefusesABodyItCouldNotRead covers the two Teams rules where an
+// unread field used to read as permission.
+//
+// Both were exploitable the same way: pad the body past the gate's read limit
+// and the field it would have refused on simply was not there. The link share
+// one is the sharpest - it granted the anonymous internet admin rights on a
+// project, which is the precise inverse of "Public and its descendants alone
+// permit anonymous read-only links".
+func TestTeamsPolicyRefusesABodyItCouldNotRead(t *testing.T) {
+	env, topology := newTeamsEnv(t)
+	padding := strings.Repeat("a", managedBodyOverflow)
+
+	t.Run("an admin link share hidden behind an oversized body", func(t *testing.T) {
+		rec := env.request(http.MethodPost,
+			fmt.Sprintf("/api/v2/projects/%d/shares", topology.underPublic),
+			fmt.Sprintf(`{"permission":2,"name":%q}`, padding), &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+
+		shares := env.request(http.MethodGet,
+			fmt.Sprintf("/api/v1/projects/%d/shares", topology.underPublic), ``, &testuser1)
+		require.Equal(t, http.StatusOK, shares.Code, shares.Body.String())
+		assert.NotContains(t, shares.Body.String(), `"permission":2`,
+			"no admin link share may exist on a project the policy protects")
+	})
+
+	t.Run("a reparent out of the topology hidden behind an oversized body", func(t *testing.T) {
+		rec := env.request(http.MethodPatch,
+			fmt.Sprintf("/api/v2/projects/%d", topology.underTeam),
+			fmt.Sprintf(`{"parent_project_id":%d,"description":%q}`, topology.inbox, padding), &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+
+		project := env.request(http.MethodGet,
+			fmt.Sprintf("/api/v1/projects/%d", topology.underTeam), ``, &testuser1)
+		require.Equal(t, http.StatusOK, project.Code, project.Body.String())
+		assert.Contains(t, project.Body.String(), fmt.Sprintf(`"parent_project_id":%d`, topology.teamRoot),
+			"the project must still sit under the Team root it was created in")
 	})
 }
 

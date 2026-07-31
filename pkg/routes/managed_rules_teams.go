@@ -54,7 +54,11 @@ func init() {
 // all end in the same question - where would this live - and a project with no
 // authorized root has no answer to it.
 func decideTeamsProjectCreate(e *managedEval) error {
-	return e.requireManagedParent(statedParentID(e.requestBody()))
+	body, err := e.requestBody()
+	if err != nil {
+		return e.refuseUnreadableBody()
+	}
+	return e.requireManagedParent(statedParentID(body))
 }
 
 // decideTeamsProjectDuplicate additionally refuses to copy a protected root.
@@ -69,7 +73,12 @@ func decideTeamsProjectDuplicate(e *managedEval) error {
 	if source != nil {
 		return e.refuse("a protected root cannot be duplicated")
 	}
-	return e.requireManagedParent(statedParentID(e.requestBody()))
+
+	body, err := e.requestBody()
+	if err != nil {
+		return e.refuseUnreadableBody()
+	}
+	return e.requireManagedParent(statedParentID(body))
 }
 
 // decideTeamsProjectUpdate lets teams name their own root and manage their own
@@ -97,7 +106,10 @@ func decideTeamsProjectUpdate(e *managedEval) error {
 	if current.ParentProjectID != nil {
 		currentParent = *current.ParentProjectID
 	}
-	wanted := e.requestedParentID(currentParent)
+	wanted, err := e.requestedParentID(currentParent)
+	if err != nil {
+		return e.refuseUnreadableBody()
+	}
 
 	if protected != nil {
 		if wanted != currentParent {
@@ -157,9 +169,16 @@ func decideTeamsLinkShare(e *managedEval) error {
 		return e.refuse("only the Public root and its subprojects can be shared by link")
 	}
 
+	body, err := e.requestBody()
+	if err != nil {
+		return e.refuseUnreadableBody()
+	}
+
 	// An omitted permission is read-only, which is the default the API already
 	// documents; anything else asks the anonymous internet to be able to write.
-	if permission := e.requestBody().Permission; permission != nil && *permission != 0 {
+	// Absence may only be read that way because requestBody confirmed it read
+	// the body: an unread permission is not an absent one.
+	if body.Permission != nil && *body.Permission != 0 {
 		return e.refuse("a link share may only be read-only")
 	}
 	return nil
@@ -175,7 +194,12 @@ func decideTeamsMembership(e *managedEval) error {
 // decideTeamsTaskMove allows a task into the member's own Inbox, into Percy
 // Feedback, or anywhere inside the collaborative topology - and nowhere else.
 func decideTeamsTaskMove(e *managedEval) error {
-	stated := e.requestBody().destinationProjectID()
+	body, err := e.requestBody()
+	if err != nil {
+		return e.refuseUnreadableBody()
+	}
+
+	stated := body.destinationProjectID()
 	if stated == nil {
 		return nil
 	}
@@ -230,14 +254,18 @@ func statedParentID(body *managedBody) int64 {
 // top level. Reading absence as "leave it alone" would therefore have let any
 // client move a project out of the topology just by not mentioning it. PATCH is
 // the one method that genuinely merges.
-func (e *managedEval) requestedParentID(current int64) int64 {
-	if stated := e.requestBody().ParentProjectID; stated != nil {
-		return *stated
+func (e *managedEval) requestedParentID(current int64) (int64, error) {
+	body, err := e.requestBody()
+	if err != nil {
+		return 0, err
+	}
+	if body.ParentProjectID != nil {
+		return *body.ParentProjectID, nil
 	}
 	if e.c.Request().Method == http.MethodPatch {
-		return current
+		return current, nil
 	}
-	return 0
+	return 0, nil
 }
 
 // requireManagedRoot refuses unless a project already sits inside the
@@ -276,8 +304,12 @@ func (e *managedEval) requireEntitledTarget() error {
 
 	username := e.c.Param("user")
 	if username == "" {
-		if stated := e.requestBody().Username; stated != nil {
-			username = *stated
+		body, err := e.requestBody()
+		if err != nil {
+			return e.refuseUnreadableBody()
+		}
+		if body.Username != nil {
+			username = *body.Username
 		}
 	}
 	if username == "" {
