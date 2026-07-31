@@ -56,7 +56,7 @@ func init() {
 func decideTeamsProjectCreate(e *managedEval) error {
 	body, err := e.requestBody()
 	if err != nil {
-		return e.refuseUnreadableBody()
+		return e.refuseUnreadableBody(err)
 	}
 	return e.requireManagedParent(statedParentID(body))
 }
@@ -76,7 +76,7 @@ func decideTeamsProjectDuplicate(e *managedEval) error {
 
 	body, err := e.requestBody()
 	if err != nil {
-		return e.refuseUnreadableBody()
+		return e.refuseUnreadableBody(err)
 	}
 	return e.requireManagedParent(statedParentID(body))
 }
@@ -108,7 +108,7 @@ func decideTeamsProjectUpdate(e *managedEval) error {
 	}
 	wanted, err := e.requestedParentID(currentParent)
 	if err != nil {
-		return e.refuseUnreadableBody()
+		return e.refuseUnreadableBody(err)
 	}
 
 	if protected != nil {
@@ -171,7 +171,7 @@ func decideTeamsLinkShare(e *managedEval) error {
 
 	body, err := e.requestBody()
 	if err != nil {
-		return e.refuseUnreadableBody()
+		return e.refuseUnreadableBody(err)
 	}
 
 	// An omitted permission is read-only, which is the default the API already
@@ -196,7 +196,7 @@ func decideTeamsMembership(e *managedEval) error {
 func decideTeamsTaskMove(e *managedEval) error {
 	body, err := e.requestBody()
 	if err != nil {
-		return e.refuseUnreadableBody()
+		return e.refuseUnreadableBody(err)
 	}
 
 	stated := body.destinationProjectID()
@@ -306,7 +306,7 @@ func (e *managedEval) requireEntitledTarget() error {
 	if username == "" {
 		body, err := e.requestBody()
 		if err != nil {
-			return e.refuseUnreadableBody()
+			return e.refuseUnreadableBody(err)
 		}
 		if body.Username != nil {
 			username = *body.Username

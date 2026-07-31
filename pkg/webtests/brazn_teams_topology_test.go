@@ -298,7 +298,7 @@ func TestTeamsPolicyRefusesABodyItCouldNotRead(t *testing.T) {
 		rec := env.request(http.MethodPost,
 			fmt.Sprintf("/api/v2/projects/%d/shares", topology.underPublic),
 			fmt.Sprintf(`{"permission":2,"name":%q}`, padding), &testuser1)
-		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+		assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, rec.Body.String())
 
 		shares := env.request(http.MethodGet,
 			fmt.Sprintf("/api/v1/projects/%d/shares", topology.underPublic), ``, &testuser1)
@@ -307,11 +307,34 @@ func TestTeamsPolicyRefusesABodyItCouldNotRead(t *testing.T) {
 			"no admin link share may exist on a project the policy protects")
 	})
 
-	t.Run("a reparent out of the topology hidden behind an oversized body", func(t *testing.T) {
+	// This is the load-bearing reparent case, and it is v1 on purpose.
+	//
+	// The same attempt over v2 PATCH does not discriminate: Huma's autopatch
+	// serves a PATCH by merging and re-entering the root router with a PUT,
+	// which passes through RequireManagedPolicy a second time. Against the bug
+	// the outer PATCH allowed exactly as advertised, the inner PUT then took
+	// the non-PATCH branch and refused, and the 403 surfaced - so the test
+	// passed while the hole it named was wide open. v1 has no autopatch in
+	// front of it, so nothing catches the request on the way back.
+	t.Run("a Team root reparented under an Inbox behind an oversized body", func(t *testing.T) {
+		rec := env.request(http.MethodPost,
+			fmt.Sprintf("/api/v1/projects/%d", topology.teamRoot),
+			fmt.Sprintf(`{"title":"Delivery","parent_project_id":%d,"description":%q}`,
+				topology.inbox, padding), &testuser1)
+		assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, rec.Body.String())
+
+		project := env.request(http.MethodGet,
+			fmt.Sprintf("/api/v1/projects/%d", topology.teamRoot), ``, &testuser1)
+		require.Equal(t, http.StatusOK, project.Code, project.Body.String())
+		assert.NotContains(t, project.Body.String(), fmt.Sprintf(`"parent_project_id":%d`, topology.inbox),
+			"a Team root must not have been reparented under a member's Inbox")
+	})
+
+	t.Run("and the same over v2 PATCH", func(t *testing.T) {
 		rec := env.request(http.MethodPatch,
 			fmt.Sprintf("/api/v2/projects/%d", topology.underTeam),
 			fmt.Sprintf(`{"parent_project_id":%d,"description":%q}`, topology.inbox, padding), &testuser1)
-		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+		assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, rec.Body.String())
 
 		project := env.request(http.MethodGet,
 			fmt.Sprintf("/api/v1/projects/%d", topology.underTeam), ``, &testuser1)
@@ -319,6 +342,25 @@ func TestTeamsPolicyRefusesABodyItCouldNotRead(t *testing.T) {
 		assert.Contains(t, project.Body.String(), fmt.Sprintf(`"parent_project_id":%d`, topology.teamRoot),
 			"the project must still sit under the Team root it was created in")
 	})
+}
+
+// TestTeamsPolicyAllowsAnEmptyBodiedLinkShare is the one place the
+// empty-versus-unreadable distinction changes an outcome.
+//
+// An unreadable body is refused because its fields are unknown. A body that is
+// genuinely empty is not unknown - nothing can be hidden in zero bytes - and
+// the link-share route legitimately takes one, meaning "read-only, no
+// password". Collapsing the two would have broken this quietly, and every
+// other link-share test sends an explicit permission, so nothing would have
+// noticed.
+func TestTeamsPolicyAllowsAnEmptyBodiedLinkShare(t *testing.T) {
+	env, topology := newTeamsEnv(t)
+
+	rec := env.request(http.MethodPut,
+		fmt.Sprintf("/api/v1/projects/%d/shares", topology.underPublic), ``, &testuser1)
+	assertAllowed(t, rec)
+	assert.Contains(t, rec.Body.String(), `"permission":0`,
+		"an unstated permission is read-only, which is what makes the share legal here")
 }
 
 // TestTeamsPolicyRefusesInvitingAPersonalAccount is the receiving half of "a
