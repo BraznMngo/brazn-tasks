@@ -91,6 +91,34 @@ func (s *Signed) Active() bool {
 	return s.State.EffectiveState == stateActive && s.State.SeatStatus == stateActive
 }
 
+// SigningDomain is the domain-separation prefix the v2 entitlement contract
+// puts in front of the signed bytes, terminated by the 0x0A the contract
+// specifies. It is 31 characters and a newline.
+//
+// It is what stops the signing key's other work from becoming this verifier's
+// attack surface: without it, every Ed25519 signature that key has ever made
+// over any JSON document is a candidate projection, because a projection would
+// be nothing more than "some JSON this key signed".
+const SigningDomain = "percy.entitlement-projection.v2\n"
+
+// SigningInput returns the exact bytes a projection signature covers: the
+// domain prefix, then the signed member as received.
+//
+// The signed member is used verbatim and is deliberately never
+// re-canonicalized here. The producer splices its JCS output into the envelope
+// unchanged, so the two agree by construction; a verifier that re-derived the
+// canonical form instead would be one JCS implementation difference away from
+// accepting bytes nobody signed.
+//
+// The consequence is intended: any intermediary that reformats the JSON - a
+// proxy that pretty-prints, a store that round-trips the envelope through a
+// generic JSON type - breaks verification rather than being silently tolerated.
+func SigningInput(signed []byte) []byte {
+	input := make([]byte, 0, len(SigningDomain)+len(signed))
+	input = append(input, SigningDomain...)
+	return append(input, signed...)
+}
+
 type signature struct {
 	KeyID     string `json:"key_id"`
 	Algorithm string `json:"algorithm"`
@@ -98,8 +126,9 @@ type signature struct {
 }
 
 // envelope keeps the signed half as raw bytes on purpose: the signature covers
-// exactly those bytes, so verifying them as received removes any need for a
-// canonical re-encoding to agree with the signer's.
+// the domain prefix followed by exactly those bytes, so verifying them as
+// received removes any need for a canonical re-encoding to agree with the
+// signer's. See SigningInput.
 type envelope struct {
 	Signed    json.RawMessage `json:"signed"`
 	Signature signature       `json:"signature"`
@@ -123,7 +152,7 @@ func Verify(raw []byte) (*Signed, error) {
 	}
 
 	sig, err := base64.StdEncoding.DecodeString(env.Signature.Value)
-	if err != nil || !ed25519.Verify(key, env.Signed, sig) {
+	if err != nil || !ed25519.Verify(key, SigningInput(env.Signed), sig) {
 		return nil, ErrInvalidProjection
 	}
 
