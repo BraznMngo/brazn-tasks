@@ -279,10 +279,11 @@ const maxManagedBodyPeek = 64 << 10
 // from an explicit zero.
 type managedBody struct {
 	ProjectID *int64 `json:"project_id"`
-	// The bulk update route carries the values it applies one level down, and
-	// writes only the fields it is told to.
-	Values *managedBodyValues `json:"values"`
-	Fields []string           `json:"fields"`
+	// The bulk update route carries the values it applies one level down, names
+	// the fields it writes, and names the tasks it writes them to.
+	Values  *managedBodyValues `json:"values"`
+	Fields  []string           `json:"fields"`
+	TaskIDs []int64            `json:"task_ids"`
 }
 
 type managedBodyValues struct {
@@ -361,10 +362,45 @@ func (e *managedEval) ownsProject(projectID int64) (bool, error) {
 // refuse logs why a request was turned down - a policy refusal is otherwise
 // invisible to whoever has to explain it to a customer - and returns the
 // response the caller sees.
+//
+// A preflight rule refuses before there is a user or a projection to name, so
+// both are read defensively: a policy check must not be the thing that panics.
 func (e *managedEval) refuse(reason string) error {
+	userID := int64(0)
+	if e.user != nil {
+		userID = e.user.ID
+	}
+	edition := "unknown"
+	if e.projection != nil {
+		edition = e.projection.State.Edition
+	}
+
 	log.Debugf("[managed] %s %s refused by rule %q for user %d on %q: %s",
-		e.c.Request().Method, e.c.Path(), e.rule, e.user.ID, e.projection.State.Edition, reason)
+		e.c.Request().Method, e.c.Path(), e.rule, userID, edition, reason)
 	return errManagedUnavailable()
+}
+
+// affectedTaskIDs returns the tasks a request would change: the one named in
+// the path on the single-task routes, or the list the bulk route carries.
+func (e *managedEval) affectedTaskIDs() []int64 {
+	if id, err := strconv.ParseInt(e.c.Param("projecttask"), 10, 64); err == nil && id > 0 {
+		return []int64{id}
+	}
+	return e.requestBody().TaskIDs
+}
+
+// movesTaskBetweenProjects reports whether a request would put a task
+// somewhere other than where it already is.
+//
+// It runs before any entitlement is read, so it opens and closes its own
+// session; decideByEdition opens a second one afterwards if the answer is yes.
+// Two short sequential reads, both closed before the handler runs, which is
+// what SQLite needs.
+func (e *managedEval) movesTaskBetweenProjects(destination int64) (bool, error) {
+	s := db.NewSession()
+	defer s.Close()
+
+	return models.TasksOutsideProject(s, e.affectedTaskIDs(), destination)
 }
 
 // projectID returns the id of the project a guarded route acts on, or 0 when

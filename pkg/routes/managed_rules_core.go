@@ -74,16 +74,31 @@ func init() {
 // decideTaskMove separates the two things the task update and bulk-update
 // routes do.
 //
-// A request that does not name a destination project is ordinary task work -
-// retitling, checking off, rescheduling - and must keep working even when no
-// entitlement can be read at all. That is not a loophole in fail-closed: the
-// classification calls these routes access-expanding because they *can* move a
-// task out of a private Inbox, and it is that move which is guarded, not the
-// edit that travels the same way.
+// Ordinary task work - retitling, checking off, rescheduling - must keep
+// working even when no entitlement can be read at all. That is not a loophole
+// in fail-closed: the classification calls these routes access-expanding
+// because they *can* move a task out of a private Inbox, and it is that move
+// which is guarded, not the edit that travels the same way.
 //
-// A request that does name one is a move, and moves are decided per edition.
+// Two things count as not-a-move, and both matter. A request that names no
+// destination is obviously one. So is a request that names the project the
+// task is already in - the v1 update sends the whole task back, project_id
+// included, so treating a restatement as a move would put every ordinary edit
+// made from a browser behind an entitlement check.
+//
+// Everything else, including a question this cannot answer, is a move, and
+// moves are decided per edition.
 func decideTaskMove(e *managedEval) error {
-	if e.requestBody().destinationProjectID() == nil {
+	destination := e.requestBody().destinationProjectID()
+	if destination == nil {
+		return nil
+	}
+
+	moves, err := e.movesTaskBetweenProjects(*destination)
+	if err != nil {
+		return e.refuse("could not establish whether this request moves a task")
+	}
+	if !moves {
 		return nil
 	}
 	return e.decideByEdition()
