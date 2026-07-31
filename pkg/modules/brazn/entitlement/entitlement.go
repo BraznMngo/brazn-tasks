@@ -50,6 +50,19 @@ const (
 	stateActive      = "active"
 )
 
+// Two errors, on purpose: a policy decision cannot act on the difference
+// between a bad signature and an unsupported contract version, and inviting
+// callers to branch on it would invite one of them to treat a subset as
+// recoverable.
+//
+// The sync acknowledgement is a different consumer with a different need. Its
+// contract defines four rejection reasons - invalid_signature, unknown_key,
+// unsupported_contract_version, malformed_projection - which these two cannot
+// be mapped onto without losing information. Whoever builds the ack should
+// widen the vocabulary here rather than guess from the sentinel; the
+// distinctions already exist at the point each error is returned in Verify,
+// and only the return type collapses them. Deliberately not built now: nothing
+// writes projections yet, so there is no ack to send.
 var (
 	// ErrInvalidProjection means the envelope could not be trusted: malformed,
 	// wrongly signed, or from a contract version this build does not accept.

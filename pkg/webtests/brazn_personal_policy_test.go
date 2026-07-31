@@ -218,14 +218,18 @@ func TestPersonalPolicyRefusesABodyItCouldNotRead(t *testing.T) {
 		unregistered, strings.Repeat("a", managedBodyOverflow))
 
 	rec := env.request(http.MethodPost, "/api/v1/tasks/1", padded, &testuser1)
-	assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, rec.Body.String())
+	// 400 rather than the 413 this deserves: the shared error handler rewrites
+	// every 413 into a file-size error. See refuseUnreadableBody.
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	assert.Equal(t, before, currentTaskProjectID(t, env.e, 1),
 		"the task must not have moved on the strength of a body the gate could not read")
 
 	// The refusal has to be actionable. A flat "your account cannot do this"
 	// would be a lie: the account can, the field is just too long.
-	assert.Contains(t, rec.Body.String(), "too large",
+	assert.Contains(t, rec.Body.String(), "too large to be checked",
 		"the caller must be told what to change, not that their account is at fault")
+	assert.NotContains(t, rec.Body.String(), "file",
+		"there is no file in this request, and saying so was the previous wrong answer")
 }
 
 // TestPersonalPolicyReadsEveryTaskSourceTheHandlerMight covers the bulk routes,
