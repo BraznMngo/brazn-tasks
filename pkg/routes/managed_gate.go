@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -400,11 +399,28 @@ func (e *managedEval) readRequestBody() (*managedBody, error) {
 // being vague here - a size limit is not sensitive information - and the flat
 // managed refusal would tell someone their account cannot do a thing when what
 // is actually wrong is one over-long field they could shorten.
+//
+// Both cases answer 400, and the oversized one deliberately does NOT answer
+// 413, which is the status it deserves. CreateHTTPErrorHandler rewrites every
+// 413 it sees into files.ErrFileIsTooLarge, before the branch that would let a
+// structured error through, so a 413 from here reaches the caller as "the
+// uploaded file exceeds the maximum configured file size" - with no file
+// anywhere in the request. That would trade one misleading sentence for
+// another, which is the whole thing this function exists to stop.
+//
+// Narrowing that special case was the alternative. It was rejected: the branch
+// is on the shared error path every request takes, and any narrowing either
+// risks the real upload path - which depends on that rewrite to produce the
+// error code the frontend keys on - or couples upstream's error handler to
+// managed mode. Both are permanent patches re-applied and re-verified on every
+// upstream merge, bought only to improve a status number. 400 is also honest
+// on its own terms: the server is perfectly willing to process a body this
+// size, and what failed is that policy could not evaluate the request as sent.
 func (e *managedEval) refuseUnreadableBody(err error) error {
 	e.logRefusal(err.Error())
 
 	if errors.Is(err, errBodyTooLarge) {
-		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, fmt.Sprintf(
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf(
 			"This request is too large to be checked: at most %d KiB of it can be inspected. "+
 				"Shortening the longest text field, usually a description, will let it through.",
 			maxManagedBodyPeek/1024))
@@ -473,10 +489,16 @@ func (e *managedEval) logRefusal(reason string) {
 // no client produces.
 func (e *managedEval) affectedTaskIDs(body *managedBody) []int64 {
 	ids := make([]int64, 0, len(body.TaskIDs)+2)
+	seen := make(map[int64]struct{}, len(body.TaskIDs)+2)
 	add := func(id int64) {
-		if id > 0 && !slices.Contains(ids, id) {
-			ids = append(ids, id)
+		if id <= 0 {
+			return
 		}
+		if _, dup := seen[id]; dup {
+			return
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
 	}
 
 	if id, err := strconv.ParseInt(e.c.Param("projecttask"), 10, 64); err == nil {
