@@ -29,6 +29,21 @@ func TestValidateRedirectURI(t *testing.T) {
 	t.Run("accepts vikunja-desktop scheme", func(t *testing.T) {
 		assert.True(t, ValidateRedirectURI("vikunja-desktop://auth"))
 	})
+	t.Run("accepts the percy scheme", func(t *testing.T) {
+		assert.True(t, ValidateRedirectURI("percy://oauth/callback"))
+	})
+	t.Run("accepts the percy scheme case-insensitively", func(t *testing.T) {
+		assert.True(t, ValidateRedirectURI("PERCY://oauth/callback"))
+	})
+	// The percy allowance is an exact scheme match, unlike the vikunja- prefix
+	// rule. These two guard that distinction: loosening it to a prefix later
+	// would silently widen what the authorization endpoint accepts.
+	t.Run("rejects percy- prefixed schemes", func(t *testing.T) {
+		assert.False(t, ValidateRedirectURI("percy-evil://callback"))
+	})
+	t.Run("rejects schemes merely starting with percy", func(t *testing.T) {
+		assert.False(t, ValidateRedirectURI("percyevil://callback"))
+	})
 	t.Run("accepts http localhost", func(t *testing.T) {
 		assert.True(t, ValidateRedirectURI("http://localhost/callback"))
 	})
