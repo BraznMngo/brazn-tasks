@@ -61,6 +61,11 @@ jobs:
         with:
           name: vikunja_bin
           path: ./vikunja
+      - name: Route classification check
+        # Brazn fork (BRA-925): fails when a mutating route is registered in
+        # the source without an entry in pkg/routes/route-classification.json.
+        # The test output says exactly which route and what to do about it.
+        run: go test -run TestMutatingRoutesAreClassified ./pkg/routes
 
   api-lint:
     runs-on: ubuntu-latest
