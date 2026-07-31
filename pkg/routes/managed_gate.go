@@ -17,9 +17,11 @@
 package routes
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"sort"
 	"strconv"
@@ -184,18 +186,28 @@ func RequireManagedPolicy() echo.MiddlewareFunc {
 	}
 }
 
-// decideManagedRule resolves the acting user and their entitlement, then hands
-// the request to the rule bound for that edition.
-//
-// The database session is opened after the user is resolved and closed before
-// the handler runs: holding a read session across the handler's write
-// deadlocks SQLite, and GetAuthFromClaims opens its own session.
+// decideManagedRule runs a rule's preflight decision if it has one, and
+// otherwise goes straight to the per-edition policy.
 func decideManagedRule(c *echo.Context, rule managedRule) error {
 	e := &managedEval{c: c, rule: rule}
 
 	if decide, isPreflight := preflightRules[rule]; isPreflight {
 		return decide(e)
 	}
+	return e.decideByEdition()
+}
+
+// decideByEdition resolves the acting user and their entitlement, then hands
+// the request to the rule bound for that edition. A preflight rule calls it
+// when it has worked out that this particular request needs entitlement after
+// all - a route can carry both an ordinary and a guarded meaning, and only the
+// request itself says which one it is.
+//
+// The database session is opened after the user is resolved and closed before
+// the handler runs: holding a read session across the handler's write
+// deadlocks SQLite, and GetAuthFromClaims opens its own session.
+func (e *managedEval) decideByEdition() error {
+	c := e.c
 
 	acting, err := actingUser(c)
 	if err != nil {
@@ -220,7 +232,7 @@ func decideManagedRule(c *echo.Context, rule managedRule) error {
 		return e.refuse("the subscription or seat is not active")
 	}
 
-	decide, hasPolicy := editionRules[rule][projection.State.Edition]
+	decide, hasPolicy := editionRules[e.rule][projection.State.Edition]
 	if !hasPolicy {
 		return e.refuse("no policy is defined for this edition")
 	}
@@ -243,7 +255,7 @@ func actingUser(c *echo.Context) (*user.User, error) {
 }
 
 // managedEval carries what a policy rule needs for one request. Rules read it;
-// only decideManagedRule fills it in.
+// only decideManagedRule and decideByEdition fill it in.
 type managedEval struct {
 	c    *echo.Context
 	s    *xorm.Session
@@ -251,6 +263,98 @@ type managedEval struct {
 
 	user       *user.User
 	projection *entitlement.Signed
+
+	body     *managedBody
+	bodyRead bool
+}
+
+// maxManagedBodyPeek bounds what the gate will read to decide a request.
+// Anything larger is not a policy payload - the routes that carry real uploads
+// are refused before their body is touched.
+const maxManagedBodyPeek = 64 << 10
+
+// managedBody is the small slice of a request body that policy needs. Fields
+// are pointers so "absent" - a PATCH that does not touch them - stays distinct
+// from an explicit zero.
+type managedBody struct {
+	ProjectID *int64 `json:"project_id"`
+	// The bulk update route carries the values it applies one level down, and
+	// writes only the fields it is told to.
+	Values *managedBodyValues `json:"values"`
+	Fields []string           `json:"fields"`
+}
+
+type managedBodyValues struct {
+	ProjectID *int64 `json:"project_id"`
+}
+
+// destinationProjectID returns the project a request asks a task to end up in,
+// or nil when it names none - which is what tells an ordinary edit apart from
+// a move.
+func (b *managedBody) destinationProjectID() *int64 {
+	if b.ProjectID != nil {
+		return b.ProjectID
+	}
+	if b.Values == nil || b.Values.ProjectID == nil {
+		return nil
+	}
+	// A value carried in `values` but not named in `fields` is not applied, so
+	// it is not a move. With no `fields` at all, treat it as one: refusing a
+	// request that would not have moved anything is the safe direction to be
+	// wrong in.
+	if len(b.Fields) == 0 {
+		return b.Values.ProjectID
+	}
+	for _, field := range b.Fields {
+		if field == "project_id" {
+			return b.Values.ProjectID
+		}
+	}
+	return nil
+}
+
+// requestBody reads the body once, puts it back for the handler, and decodes
+// the few fields policy looks at.
+//
+// A body that is missing, oversized, or not JSON decodes to no fields at all.
+// That is the honest answer - the request did not state the thing being asked
+// about - and a rule that needs a field to permit something must refuse when
+// it is absent.
+func (e *managedEval) requestBody() *managedBody {
+	if e.bodyRead {
+		return e.body
+	}
+	e.bodyRead = true
+	e.body = &managedBody{}
+
+	r := e.c.Request()
+	if r.Body == nil {
+		return e.body
+	}
+
+	raw, err := io.ReadAll(io.LimitReader(r.Body, maxManagedBodyPeek+1))
+	// Put back everything that was read, plus whatever is still unread, so the
+	// handler sees the stream it would have seen.
+	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(raw), r.Body))
+	if err != nil || len(raw) > maxManagedBodyPeek {
+		return e.body
+	}
+
+	if err := json.Unmarshal(raw, e.body); err != nil {
+		log.Debugf("[managed] %s %s: body is not policy-readable JSON", r.Method, e.c.Path())
+	}
+	return e.body
+}
+
+// ownsProject reports whether the acting user owns a project. Ownership is
+// checked directly and no administrator flag bypasses it: neither another
+// member nor an organization administrator may reach a member's Inbox.
+func (e *managedEval) ownsProject(projectID int64) (bool, error) {
+	project, err := models.GetProjectSimpleByID(e.s, projectID)
+	if err != nil {
+		return false, err
+	}
+	return project.OwnerID == e.user.ID, nil
 }
 
 // refuse logs why a request was turned down - a policy refusal is otherwise

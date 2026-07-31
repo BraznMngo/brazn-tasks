@@ -78,15 +78,6 @@ func managedModeEcho(t *testing.T, managed bool) *echo.Echo {
 	_, err := setupTestEnv()
 	require.NoError(t, err)
 
-	// Restored afterwards: viper overrides outlive InitDefaultConfig, so
-	// leaving these set would silently change the shape of every later test in
-	// this package.
-	set := func(key config.Key, value interface{}) {
-		previous := key.Get()
-		t.Cleanup(func() { key.Set(previous) })
-		key.Set(value)
-	}
-
 	for _, flag := range []config.Key{
 		config.AuthLocalEnabled,
 		config.AuthOpenIDEnabled,
@@ -98,14 +89,25 @@ func managedModeEcho(t *testing.T, managed bool) *echo.Echo {
 		config.ServiceEnableUserDeletion,
 		config.WebhooksEnabled,
 	} {
-		set(flag, true)
+		setConfigForTest(t, flag, true)
 	}
-	set(config.ServiceTestingtoken, "managed-mode-harness")
-	set(config.BraznManagedMode, managed)
+	setConfigForTest(t, config.ServiceTestingtoken, "managed-mode-harness")
+	setConfigForTest(t, config.BraznManagedMode, managed)
 
 	e := routes.NewEcho()
 	routes.RegisterRoutes(e)
 	return e
+}
+
+// setConfigForTest sets a config key and restores it afterwards. Viper
+// overrides outlive InitDefaultConfig, so leaving one set would silently change
+// the shape of every later test in this package.
+func setConfigForTest(t *testing.T, key config.Key, value interface{}) {
+	t.Helper()
+
+	previous := key.Get()
+	t.Cleanup(func() { key.Set(previous) })
+	key.Set(value)
 }
 
 func managedRequest(t *testing.T, e *echo.Echo, method, path string) *httptest.ResponseRecorder {

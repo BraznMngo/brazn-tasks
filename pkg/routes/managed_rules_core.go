@@ -65,6 +65,28 @@ func init() {
 	// admits no exception that a caller could aim at.
 	registerEditionRule(ruleAccessRevoke, entitlement.EditionPersonal, decideAccessRevoke)
 	registerEditionRule(ruleAccessRevoke, entitlement.EditionTeams, decideAccessRevoke)
+
+	// The task routes are the one place where a single route carries two
+	// different meanings, so which one this request has is decided first.
+	registerPreflightRule(ruleTaskMove, decideTaskMove)
+}
+
+// decideTaskMove separates the two things the task update and bulk-update
+// routes do.
+//
+// A request that does not name a destination project is ordinary task work -
+// retitling, checking off, rescheduling - and must keep working even when no
+// entitlement can be read at all. That is not a loophole in fail-closed: the
+// classification calls these routes access-expanding because they *can* move a
+// task out of a private Inbox, and it is that move which is guarded, not the
+// edit that travels the same way.
+//
+// A request that does name one is a move, and moves are decided per edition.
+func decideTaskMove(e *managedEval) error {
+	if e.requestBody().destinationProjectID() == nil {
+		return nil
+	}
+	return e.decideByEdition()
 }
 
 // decideAccessRevoke allows a share, membership or right to be withdrawn,
