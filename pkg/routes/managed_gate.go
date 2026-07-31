@@ -21,6 +21,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -281,10 +282,14 @@ type managedEval struct {
 // uploads are refused by a preflight rule before their body is touched at all.
 const maxManagedBodyPeek = 64 << 10
 
-// errBodyNotPolicyReadable means the gate could not establish what a request
-// asked for. It is deliberately one error: a rule cannot usefully distinguish
-// "too large" from "not JSON", because its answer to both must be the same.
-var errBodyNotPolicyReadable = errors.New("request body could not be read for a policy decision")
+// The gate could not establish what a request asked for. Every rule answers
+// both the same way - refuse - but the caller is told them apart, because
+// "your account may not do this" is a lie when the truth is "that description
+// is too long", and only one of those is something a user can act on.
+var (
+	errBodyTooLarge   = errors.New("request body is larger than managed mode can inspect")
+	errBodyUnreadable = errors.New("request body could not be read for a policy decision")
+)
 
 // managedBody is the small slice of a request body that policy needs. Fields
 // are pointers so "absent" - a PATCH that does not touch them - stays distinct
@@ -365,12 +370,12 @@ func (e *managedEval) readRequestBody() (*managedBody, error) {
 	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(raw), r.Body))
 	if err != nil {
 		log.Debugf("[managed] %s %s: body could not be read: %s", r.Method, e.c.Path(), err)
-		return nil, errBodyNotPolicyReadable
+		return nil, errBodyUnreadable
 	}
 	if len(raw) > maxManagedBodyPeek {
 		log.Debugf("[managed] %s %s: body exceeds the %d byte policy limit",
 			r.Method, e.c.Path(), maxManagedBodyPeek)
-		return nil, errBodyNotPolicyReadable
+		return nil, errBodyTooLarge
 	}
 	// A genuinely empty body states nothing, and that is safe to act on:
 	// nothing can be hidden in zero bytes.
@@ -381,15 +386,28 @@ func (e *managedEval) readRequestBody() (*managedBody, error) {
 	body := &managedBody{}
 	if err := json.Unmarshal(raw, body); err != nil {
 		log.Debugf("[managed] %s %s: body is not policy-readable JSON", r.Method, e.c.Path())
-		return nil, errBodyNotPolicyReadable
+		return nil, errBodyUnreadable
 	}
 	return body, nil
 }
 
-// refuseUnreadableBody is what every rule returns when requestBody fails. The
-// caller sees the same flat refusal as any other policy decision.
-func (e *managedEval) refuseUnreadableBody() error {
-	return e.refuse("the request body could not be read for a policy decision")
+// refuseUnreadableBody is what every rule returns when requestBody fails.
+//
+// Unlike a policy refusal it says what happened. There is nothing to protect by
+// being vague here - a size limit is not sensitive information - and the flat
+// managed refusal would tell someone their account cannot do a thing when what
+// is actually wrong is one over-long field they could shorten.
+func (e *managedEval) refuseUnreadableBody(err error) error {
+	e.logRefusal(err.Error())
+
+	if errors.Is(err, errBodyTooLarge) {
+		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, fmt.Sprintf(
+			"This request is too large to be checked: at most %d KiB of it can be inspected. "+
+				"Shortening the longest text field, usually a description, will let it through.",
+			maxManagedBodyPeek/1024))
+	}
+	return echo.NewHTTPError(http.StatusBadRequest,
+		"This request could not be read in order to check it. The body must be valid JSON.")
 }
 
 // ownsProject reports whether the acting user owns a project. Ownership is
@@ -410,6 +428,11 @@ func (e *managedEval) ownsProject(projectID int64) (bool, error) {
 // A preflight rule refuses before there is a user or a projection to name, so
 // both are read defensively: a policy check must not be the thing that panics.
 func (e *managedEval) refuse(reason string) error {
+	e.logRefusal(reason)
+	return errManagedUnavailable()
+}
+
+func (e *managedEval) logRefusal(reason string) {
 	userID := int64(0)
 	if e.user != nil {
 		userID = e.user.ID
@@ -421,7 +444,6 @@ func (e *managedEval) refuse(reason string) error {
 
 	log.Debugf("[managed] %s %s refused by rule %q for user %d on %q: %s",
 		e.c.Request().Method, e.c.Path(), e.rule, userID, edition, reason)
-	return errManagedUnavailable()
 }
 
 // affectedTaskIDs returns every task a request could change.
@@ -434,22 +456,37 @@ func (e *managedEval) refuse(reason string) error {
 // explicitly, and acts on task 1.
 //
 // Encoding which binder wins where would be a rule that can silently stop
-// being true under an upstream bump. Both are considered instead: if either
-// task is somewhere other than the destination, the request counts as a move.
-// The cost is refusing a request whose path and body name different tasks and
-// only one of them would actually move - a shape no client produces.
+// being true under an upstream bump. Every source is considered instead - the
+// path parameter, the body id, and the bulk route's task_ids - as a union and
+// never as alternatives. Treating any of them as a fallback reopens exactly
+// the hole this exists to close: a body id on a bulk route would shadow
+// task_ids, which BulkTask has no field for and the handler therefore ignores,
+// so the gate and the handler would again be reading different tasks.
+//
+// Unioning is safe in the fail-closed direction. TasksOutsideProject answers
+// "is any of these somewhere else", so an extra id can only turn "not a move"
+// into "move", and an empty union answers true. The cost is refusing a request
+// whose sources name different tasks where only one would have moved - a shape
+// no client produces.
 func (e *managedEval) affectedTaskIDs(body *managedBody) []int64 {
-	ids := make([]int64, 0, 2)
-	if id, err := strconv.ParseInt(e.c.Param("projecttask"), 10, 64); err == nil && id > 0 {
-		ids = append(ids, id)
+	ids := make([]int64, 0, len(body.TaskIDs)+2)
+	add := func(id int64) {
+		if id > 0 && !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
 	}
-	if body.ID != nil && *body.ID > 0 && !slices.Contains(ids, *body.ID) {
-		ids = append(ids, *body.ID)
+
+	if id, err := strconv.ParseInt(e.c.Param("projecttask"), 10, 64); err == nil {
+		add(id)
 	}
-	if len(ids) > 0 {
-		return ids
+	if body.ID != nil {
+		add(*body.ID)
 	}
-	return body.TaskIDs
+	for _, id := range body.TaskIDs {
+		add(id)
+	}
+
+	return ids
 }
 
 // movesTaskBetweenProjects reports whether a request would put a task
