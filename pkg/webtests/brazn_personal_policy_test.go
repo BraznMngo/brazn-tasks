@@ -28,15 +28,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// personalInboxID is the fixture project used as user1's protected Inbox.
-const personalInboxID = 1
-
 func newPersonalEnv(t *testing.T) *managedEnv {
 	t.Helper()
 
 	env := newManagedEnv(t)
 	env.grant(testuser1.ID, entitlement.EditionPersonal, false)
-	env.protect(models.ProtectedKindInbox, personalInboxID, 0)
+	env.protect(models.ProtectedKindInbox, fixtureInboxProjectID, 0)
 	return env
 }
 
@@ -50,7 +47,7 @@ func newPersonalEnv(t *testing.T) *managedEnv {
 func TestPersonalPolicyRefusesEveryTopologyChange(t *testing.T) {
 	env := newPersonalEnv(t)
 
-	inbox := fmt.Sprintf("%d", personalInboxID)
+	inbox := fmt.Sprintf("%d", fixtureInboxProjectID)
 	for _, c := range []managedCase{
 		{"create a second project (v1)", http.MethodPut, "/api/v1/projects", `{"title":"second"}`, http.StatusForbidden},
 		{"create a second project (v2)", http.MethodPost, "/api/v2/projects", `{"title":"second"}`, http.StatusForbidden},
@@ -190,7 +187,7 @@ func TestPersonalPolicyFailsClosedWithoutEntitlement(t *testing.T) {
 // is the anchor, so the signature being valid is not enough.
 func TestPersonalPolicyRejectsATamperedProjection(t *testing.T) {
 	env := newManagedEnv(t)
-	env.protect(models.ProtectedKindInbox, personalInboxID, 0)
+	env.protect(models.ProtectedKindInbox, fixtureInboxProjectID, 0)
 
 	env.grant(testuser1.ID, entitlement.EditionPersonal, false)
 

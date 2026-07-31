@@ -277,7 +277,10 @@ const maxManagedBodyPeek = 64 << 10
 // are pointers so "absent" - a PATCH that does not touch them - stays distinct
 // from an explicit zero.
 type managedBody struct {
-	ProjectID *int64 `json:"project_id"`
+	ProjectID       *int64  `json:"project_id"`
+	ParentProjectID *int64  `json:"parent_project_id"`
+	Permission      *int    `json:"permission"`
+	Username        *string `json:"username"`
 	// The bulk update route carries the values it applies one level down, and
 	// writes only the fields it is told to.
 	Values *managedBodyValues `json:"values"`
@@ -336,7 +339,7 @@ func (e *managedEval) requestBody() *managedBody {
 	// Put back everything that was read, plus whatever is still unread, so the
 	// handler sees the stream it would have seen.
 	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(raw), r.Body))
-	if err != nil || len(raw) > maxManagedBodyPeek {
+	if err != nil || len(raw) == 0 || len(raw) > maxManagedBodyPeek {
 		return e.body
 	}
 
@@ -384,12 +387,16 @@ func (e *managedEval) projectID() int64 {
 // on, or "" when it targets none. Derived from the registered path because the
 // two API versions name the same thing :project, :projectid and :id, and a
 // per-route table of that would be one more thing to keep in step.
+// The order matters: ":projectid" is tested first because ":project" is a
+// prefix of it, and matching that loosely would silently resolve the duplicate
+// routes to an empty parameter - a policy check reading id 0 and finding
+// nothing to protect.
 func projectIDParam(path string) string {
 	switch {
-	case strings.Contains(path, "/projects/:project"):
-		return "project"
 	case strings.Contains(path, "/projects/:projectid"):
 		return "projectid"
+	case strings.Contains(path, "/projects/:project/"), strings.HasSuffix(path, "/projects/:project"):
+		return "project"
 	case strings.Contains(path, "/projects/:id"):
 		return "id"
 	}

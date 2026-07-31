@@ -40,6 +40,10 @@ import (
 
 const managedTestKeyID = "brazn-test-key"
 
+// fixtureInboxProjectID is the fixture project user1 owns, used as their
+// protected Inbox in managed-mode tests.
+const fixtureInboxProjectID = 1
+
 // managedEnv is an instance running in managed mode, with a signing key this
 // test owns, so a projection can be granted or taken away and the policy
 // observed from outside - the same way a customer, Percy or a raw API client
