@@ -3,19 +3,26 @@ name: ci
 env:
   DO_NOT_TRACK: 1
 
+# Brazn fork: this workflow builds and tests only.
+#
+# Upstream's `ci` also called `.github/workflows/release.yml`, which logs in to
+# ghcr.io as ${{ github.repository_owner }} and pushes images unconditionally --
+# there is no `github.repository == 'go-vikunja/vikunja'` guard. On a fork that
+# publishes artefacts under the Brazn name, so the release job is removed here
+# rather than only disabled at the repository level (BRA-774). Brazn Tasks
+# images are built and promoted by the Percy container pipeline, not here.
+
 on:
   pull_request:
   merge_group:
   push:
-    tags:
-      - v*
     branches:
-      - main
+      - brazn/main
 
 concurrency:
-  # main merges use a unique run_id so they don't cancel each other
+  # brazn/main merges use a unique run_id so they don't cancel each other
   # other branches or PRs share a group to auto-cancel old runs
-  group: ${{ github.ref == 'refs/heads/main' &&
+  group: ${{ github.ref == 'refs/heads/brazn/main' &&
     format('{0}-{1}', github.workflow, github.run_id) ||
     format('{0}-{1}', github.workflow, github.event.pull_request.number || github.ref) }}
   cancel-in-progress: true
@@ -24,12 +31,4 @@ jobs:
   test:
     name: Test
     uses: ./.github/workflows/test.yml
-    secrets: inherit
-
-  release:
-    name: Release
-    if: ${{ github.ref_type == 'tag' || github.ref_name == 'main' }}
-    uses: ./.github/workflows/release.yml
-    needs:
-      - test
     secrets: inherit
