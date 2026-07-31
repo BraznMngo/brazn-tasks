@@ -128,6 +128,29 @@ func GetEntitlement(s *xorm.Session, userID int64) (*entitlement.Signed, error) 
 	return signed, nil
 }
 
+// TasksOutsideProject reports whether any of the given tasks currently lives
+// somewhere other than the given project.
+//
+// This is how the gate tells an edit from a move. A client that sends the whole
+// task back - which the v1 update does on every keystroke's worth of change -
+// restates project_id every time, and restating where something already is
+// moves nothing. Reading that as a move would put ordinary editing behind an
+// entitlement check.
+//
+// Anything it cannot answer counts as a move, because a move is the guarded
+// reading and the safe one to be wrong about.
+func TasksOutsideProject(s *xorm.Session, taskIDs []int64, projectID int64) (bool, error) {
+	if len(taskIDs) == 0 || projectID <= 0 {
+		return true, nil
+	}
+
+	count, err := s.In("id", taskIDs).Where("project_id != ?", projectID).Count(&Task{})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // GetProtectedEntityForProject returns the role a project plays in the managed
 // topology, or nil when it plays none.
 func GetProtectedEntityForProject(s *xorm.Session, projectID int64) (*ProtectedEntity, error) {
