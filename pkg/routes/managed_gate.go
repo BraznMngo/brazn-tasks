@@ -296,8 +296,11 @@ var (
 type managedBody struct {
 	// ID is the task id a v1 update carries in its body, which outranks the
 	// path parameter of the same name. See affectedTaskIDs.
-	ID        *int64 `json:"id"`
-	ProjectID *int64 `json:"project_id"`
+	ID              *int64  `json:"id"`
+	ProjectID       *int64  `json:"project_id"`
+	ParentProjectID *int64  `json:"parent_project_id"`
+	Permission      *int    `json:"permission"`
+	Username        *string `json:"username"`
 	// The bulk update route carries the values it applies one level down, names
 	// the fields it writes, and names the tasks it writes them to.
 	Values  *managedBodyValues `json:"values"`
@@ -543,12 +546,16 @@ func (e *managedEval) projectID() int64 {
 // on, or "" when it targets none. Derived from the registered path because the
 // two API versions name the same thing :project, :projectid and :id, and a
 // per-route table of that would be one more thing to keep in step.
+// The order matters: ":projectid" is tested first because ":project" is a
+// prefix of it, and matching that loosely would silently resolve the duplicate
+// routes to an empty parameter - a policy check reading id 0 and finding
+// nothing to protect.
 func projectIDParam(path string) string {
 	switch {
-	case strings.Contains(path, "/projects/:project"):
-		return "project"
 	case strings.Contains(path, "/projects/:projectid"):
 		return "projectid"
+	case strings.Contains(path, "/projects/:project/"), strings.HasSuffix(path, "/projects/:project"):
+		return "project"
 	case strings.Contains(path, "/projects/:id"):
 		return "id"
 	}

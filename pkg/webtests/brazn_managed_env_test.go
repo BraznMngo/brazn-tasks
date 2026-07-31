@@ -40,6 +40,10 @@ import (
 
 const managedTestKeyID = "brazn-test-key"
 
+// fixtureInboxProjectID is the fixture project user1 owns, used as their
+// protected Inbox in managed-mode tests.
+const fixtureInboxProjectID = 1
+
 // managedBodyOverflow is comfortably past the bounded prefix the gate reads
 // (routes.maxManagedBodyPeek, 64 KiB and unexported). The exact number is not
 // the point of any test that uses it: the property is that a body the gate
