@@ -62,7 +62,7 @@ func RegisterOAuthRoutes(api huma.API) {
 	Register(api, huma.Operation{
 		OperationID:   "oauth-authorize",
 		Summary:       "OAuth 2.0 authorize endpoint",
-		Description:   "Creates a single-use authorization code for the authenticated user. PKCE (code_challenge with method S256) and a loopback or vikunja- scheme redirect_uri are required.",
+		Description:   "Creates a single-use authorization code for the authenticated user. PKCE (code_challenge with method S256) is required, as is a redirect_uri that is either a loopback http URL, a vikunja- prefixed scheme, or the percy scheme.",
 		Method:        http.MethodPost,
 		Path:          "/oauth/authorize",
 		DefaultStatus: http.StatusOK,
