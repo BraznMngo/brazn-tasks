@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/events"
 	"code.vikunja.io/api/pkg/files"
@@ -1141,6 +1142,15 @@ func CreateNewProjectForUser(s *xorm.Session, u *user.User) (err error) {
 	err = p.Create(s, u)
 	if err != nil {
 		return err
+	}
+
+	// Managed mode identifies the Inbox by its immutable id, because the title
+	// is neither unique nor stable. This is the single point every Inbox is
+	// created at, so it is the only place the binding can be made reliably.
+	if config.BraznManagedMode.GetBool() {
+		if err := RegisterProtectedProject(s, ProtectedKindInbox, p.ID, 0); err != nil {
+			return err
+		}
 	}
 
 	if u.DefaultProjectID != 0 {

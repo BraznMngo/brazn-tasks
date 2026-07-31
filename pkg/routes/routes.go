@@ -454,6 +454,12 @@ func registerAPIRoutesV2(e *echo.Echo, a *echo.Group) {
 	// apply to v2 resource endpoints too.
 	setupRateLimit(a, config.RateLimitKind.GetString())
 	setupMetricsMiddleware(a)
+	// v2 registers everything on this one group, authenticated or not, so a
+	// single attachment covers the whole version. It runs before the admin
+	// gate so an admin route refused by managed-mode policy answers the same
+	// on v2 as it does on v1, where the gate is inherited from the parent
+	// group and therefore already runs first.
+	a.Use(RequireManagedPolicy())
 	// Must come after rate limiting: the gate does a per-request admin DB read,
 	// so an unauthenticated flood to /api/v2/admin/* would otherwise be unbounded.
 	a.Use(gateV2AdminRoutes())
@@ -487,6 +493,10 @@ func registerAPIRoutes(a *echo.Group) {
 	// It is its own group to be able to rate limit this based on different heuristics
 	n := a.Group("")
 	setupRateLimit(n, "ip")
+	// v1 splits into three groups that are created before the auth middleware
+	// is attached, so the managed-mode gate is attached to each of them. It is
+	// still one mechanism reading one table; only the plumbing is threefold.
+	n.Use(RequireManagedPolicy())
 
 	// Docs
 	n.GET("/docs.json", apiv1.DocsJSON)
@@ -507,6 +517,7 @@ func registerAPIRoutes(a *echo.Group) {
 	}
 	rateLimiter := createRateLimiter(rate)
 	ur.Use(RateLimit(rateLimiter, "ip"))
+	ur.Use(RequireManagedPolicy())
 
 	if config.AuthLocalEnabled.GetBool() {
 		ur.POST("/register", apiv1.RegisterUser)
@@ -553,6 +564,10 @@ func registerAPIRoutes(a *echo.Group) {
 
 	// Middleware to collect metrics
 	setupMetricsMiddleware(a)
+
+	// Must come after the auth middleware: policy is decided for the
+	// authenticated user, and every group created below inherits this.
+	a.Use(RequireManagedPolicy())
 
 	a.GET("/token/test", apiv1.TestToken)
 	a.POST("/token/test", apiv1.CheckToken)

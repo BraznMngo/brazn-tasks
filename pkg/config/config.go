@@ -239,6 +239,9 @@ const (
 	PluginsDir     Key = `plugins.dir`
 	PluginsLoader  Key = `plugins.loader`
 
+	BraznManagedMode     Key = `brazn.managedmode`
+	BraznEntitlementKeys Key = `brazn.entitlementkeys`
+
 	// LicenseKey gates optional paid features and funds Vikunja's development.
 	// See the package comment in pkg/license/license.go before removing.
 	LicenseKey Key = `license.key`
@@ -504,6 +507,10 @@ func InitDefaultConfig() {
 	PluginsEnabled.setDefault(false)
 	PluginsDir.setDefault(ResolvePath("plugins"))
 	PluginsLoader.setDefault("native")
+	// Brazn managed mode. Off by default: a self-hosted instance of this fork
+	// behaves exactly like stock Vikunja until an operator turns it on.
+	BraznManagedMode.setDefault(false)
+	BraznEntitlementKeys.setDefault("")
 
 	// Migrate deprecated webhook config keys to outgoingrequests.*
 	// This allows removing the old keys in a single place later.
