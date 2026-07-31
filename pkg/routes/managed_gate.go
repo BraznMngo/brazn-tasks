@@ -124,10 +124,11 @@ func registerEditionRule(rule managedRule, edition string, decide managedRuleFun
 	editionRules[rule][edition] = decide
 }
 
+// classifiedRouteEntry reads only what enforcement needs from the
+// classification file. The class itself is the harness's business.
 type classifiedRouteEntry struct {
 	Method  string      `json:"method"`
 	Path    string      `json:"path"`
-	Class   string      `json:"class"`
 	Managed managedRule `json:"managed"`
 }
 
