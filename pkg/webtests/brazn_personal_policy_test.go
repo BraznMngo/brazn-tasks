@@ -19,6 +19,7 @@ package webtests
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"code.vikunja.io/api/pkg/models"
@@ -196,6 +197,59 @@ func TestPersonalPolicyFailsClosedWithoutEntitlement(t *testing.T) {
 			fmt.Sprintf(`{"id":1,"title":"task #1","project_id":%d}`, feedback), &testuser1)
 		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
 	})
+}
+
+// TestPersonalPolicyRefusesABodyItCouldNotRead pins the invariant that the gate
+// never permits on the basis of a field it did not actually read.
+//
+// The gate reads a bounded prefix of the body, and every threshold can be
+// padded past - Task.Description is longtext, so the attacker picks the size.
+// What makes that safe is not the number but the refusal: before this, an
+// oversized body decoded to "no fields stated", and "no destination stated" is
+// how an ordinary edit is recognised, so padding a forbidden move past the
+// limit performed it unchecked.
+func TestPersonalPolicyRefusesABodyItCouldNotRead(t *testing.T) {
+	env := newPersonalEnv(t)
+	unregistered := env.newProject(&testuser1, "Never provisioned", 0)
+
+	before := currentTaskProjectID(t, env.e, 1)
+
+	padded := fmt.Sprintf(`{"id":1,"title":"task #1","project_id":%d,"description":%q}`,
+		unregistered, strings.Repeat("a", managedBodyOverflow))
+
+	rec := env.request(http.MethodPost, "/api/v1/tasks/1", padded, &testuser1)
+	assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	assert.Equal(t, before, currentTaskProjectID(t, env.e, 1),
+		"the task must not have moved on the strength of a body the gate could not read")
+}
+
+// TestPersonalPolicyReadsTheTaskTheHandlerWillActOn covers the gap between what
+// the gate inspects and what the handler does.
+//
+// Task.ID carries both `json:"id"` and `param:"projecttask"`, and v1's handler
+// is a plain ctx.Bind - echo binds the path first and the body last, so the
+// body wins. Aiming the path at a task that is already at the destination made
+// the gate call the request "not a move", while the handler moved a different
+// task there entirely.
+func TestPersonalPolicyReadsTheTaskTheHandlerWillActOn(t *testing.T) {
+	env := newPersonalEnv(t)
+	unregistered := env.newProject(&testuser1, "Never provisioned", 0)
+
+	// Pre-existing data: a task already sitting outside the topology, which is
+	// what lets the path task be "already at the destination".
+	s := dbSessionForTest(t)
+	_, err := s.Exec("UPDATE tasks SET project_id = ? WHERE id = ?", unregistered, 3)
+	require.NoError(t, err)
+	require.NoError(t, s.Commit())
+
+	before := currentTaskProjectID(t, env.e, 1)
+
+	rec := env.request(http.MethodPost, "/api/v1/tasks/3",
+		fmt.Sprintf(`{"id":1,"project_id":%d}`, unregistered), &testuser1)
+
+	assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	assert.Equal(t, before, currentTaskProjectID(t, env.e, 1),
+		"the task named in the body must not have moved")
 }
 
 // TestPersonalPolicyRejectsATamperedProjection covers the case where the

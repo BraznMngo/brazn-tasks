@@ -89,12 +89,17 @@ func init() {
 // Everything else, including a question this cannot answer, is a move, and
 // moves are decided per edition.
 func decideTaskMove(e *managedEval) error {
-	destination := e.requestBody().destinationProjectID()
+	body, err := e.requestBody()
+	if err != nil {
+		return e.refuseUnreadableBody()
+	}
+
+	destination := body.destinationProjectID()
 	if destination == nil {
 		return nil
 	}
 
-	moves, err := e.movesTaskBetweenProjects(*destination)
+	moves, err := e.movesTaskBetweenProjects(body, *destination)
 	if err != nil {
 		return e.refuse("could not establish whether this request moves a task")
 	}

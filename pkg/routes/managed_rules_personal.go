@@ -78,7 +78,12 @@ func denyPersonal(reason string) managedRuleFunc {
 // "move a task into someone else's Inbox" fails here and not only in the
 // permission layer.
 func decidePersonalTaskMove(e *managedEval) error {
-	stated := e.requestBody().destinationProjectID()
+	body, err := e.requestBody()
+	if err != nil {
+		return e.refuseUnreadableBody()
+	}
+
+	stated := body.destinationProjectID()
 	if stated == nil {
 		// decideTaskMove only reaches here when the request named one, but a
 		// policy check must not be the thing that panics.

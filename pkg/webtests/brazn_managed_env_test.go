@@ -40,6 +40,12 @@ import (
 
 const managedTestKeyID = "brazn-test-key"
 
+// managedBodyOverflow is comfortably past the bounded prefix the gate reads
+// (routes.maxManagedBodyPeek, 64 KiB and unexported). The exact number is not
+// the point of any test that uses it: the property is that a body the gate
+// could not fully read is refused, at whatever size the caller picked.
+const managedBodyOverflow = 96 * 1024
+
 // managedEnv is an instance running in managed mode, with a signing key this
 // test owns, so a projection can be granted or taken away and the policy
 // observed from outside - the same way a customer, Percy or a raw API client

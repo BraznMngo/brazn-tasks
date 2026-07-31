@@ -23,6 +23,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -266,18 +267,32 @@ type managedEval struct {
 	projection *entitlement.Signed
 
 	body     *managedBody
+	bodyErr  error
 	bodyRead bool
 }
 
 // maxManagedBodyPeek bounds what the gate will read to decide a request.
-// Anything larger is not a policy payload - the routes that carry real uploads
-// are refused before their body is touched.
+//
+// The number is not the safety property and raising it would not be a fix: an
+// attacker chooses their own body size, and Task.Description is longtext, so
+// any threshold can be padded past. What keeps the gate correct is that
+// exceeding this one is a refusal. The cap only stops a guarded request from
+// making the gate buffer echo's full ~22 MB limit; the routes that carry real
+// uploads are refused by a preflight rule before their body is touched at all.
 const maxManagedBodyPeek = 64 << 10
+
+// errBodyNotPolicyReadable means the gate could not establish what a request
+// asked for. It is deliberately one error: a rule cannot usefully distinguish
+// "too large" from "not JSON", because its answer to both must be the same.
+var errBodyNotPolicyReadable = errors.New("request body could not be read for a policy decision")
 
 // managedBody is the small slice of a request body that policy needs. Fields
 // are pointers so "absent" - a PATCH that does not touch them - stays distinct
 // from an explicit zero.
 type managedBody struct {
+	// ID is the task id a v1 update carries in its body, which outranks the
+	// path parameter of the same name. See affectedTaskIDs.
+	ID        *int64 `json:"id"`
 	ProjectID *int64 `json:"project_id"`
 	// The bulk update route carries the values it applies one level down, names
 	// the fields it writes, and names the tasks it writes them to.
@@ -318,34 +333,63 @@ func (b *managedBody) destinationProjectID() *int64 {
 // requestBody reads the body once, puts it back for the handler, and decodes
 // the few fields policy looks at.
 //
-// A body that is missing, oversized, or not JSON decodes to no fields at all.
-// That is the honest answer - the request did not state the thing being asked
-// about - and a rule that needs a field to permit something must refuse when
-// it is absent.
-func (e *managedEval) requestBody() *managedBody {
-	if e.bodyRead {
-		return e.body
+// The invariant every caller must preserve: THE GATE NEVER PERMITS ON THE BASIS
+// OF A FIELD IT DID NOT ACTUALLY READ. An absent field may be treated as a
+// statement the caller made - a task update naming no destination is an edit,
+// an omitted permission is read-only, an omitted parent on a PATCH means
+// "leave it where it is" - but only once this has confirmed it read the body
+// and the field genuinely was not there. So a rule that reads any field must
+// refuse when this returns an error, including the rules where absence
+// currently happens to lead to a refusal anyway: that is a property of today's
+// policy, not of the mechanism, and it changes when someone writes a new rule.
+//
+// A body that is genuinely empty is a different thing and is safe to act on:
+// nothing can be hidden in zero bytes.
+func (e *managedEval) requestBody() (*managedBody, error) {
+	if !e.bodyRead {
+		e.bodyRead = true
+		e.body, e.bodyErr = e.readRequestBody()
 	}
-	e.bodyRead = true
-	e.body = &managedBody{}
+	return e.body, e.bodyErr
+}
 
+func (e *managedEval) readRequestBody() (*managedBody, error) {
 	r := e.c.Request()
 	if r.Body == nil {
-		return e.body
+		return &managedBody{}, nil
 	}
 
 	raw, err := io.ReadAll(io.LimitReader(r.Body, maxManagedBodyPeek+1))
 	// Put back everything that was read, plus whatever is still unread, so the
 	// handler sees the stream it would have seen.
 	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(raw), r.Body))
-	if err != nil || len(raw) > maxManagedBodyPeek {
-		return e.body
+	if err != nil {
+		log.Debugf("[managed] %s %s: body could not be read: %s", r.Method, e.c.Path(), err)
+		return nil, errBodyNotPolicyReadable
+	}
+	if len(raw) > maxManagedBodyPeek {
+		log.Debugf("[managed] %s %s: body exceeds the %d byte policy limit",
+			r.Method, e.c.Path(), maxManagedBodyPeek)
+		return nil, errBodyNotPolicyReadable
+	}
+	// A genuinely empty body states nothing, and that is safe to act on:
+	// nothing can be hidden in zero bytes.
+	if len(raw) == 0 {
+		return &managedBody{}, nil
 	}
 
-	if err := json.Unmarshal(raw, e.body); err != nil {
+	body := &managedBody{}
+	if err := json.Unmarshal(raw, body); err != nil {
 		log.Debugf("[managed] %s %s: body is not policy-readable JSON", r.Method, e.c.Path())
+		return nil, errBodyNotPolicyReadable
 	}
-	return e.body
+	return body, nil
+}
+
+// refuseUnreadableBody is what every rule returns when requestBody fails. The
+// caller sees the same flat refusal as any other policy decision.
+func (e *managedEval) refuseUnreadableBody() error {
+	return e.refuse("the request body could not be read for a policy decision")
 }
 
 // ownsProject reports whether the acting user owns a project. Ownership is
@@ -380,13 +424,32 @@ func (e *managedEval) refuse(reason string) error {
 	return errManagedUnavailable()
 }
 
-// affectedTaskIDs returns the tasks a request would change: the one named in
-// the path on the single-task routes, or the list the bulk route carries.
-func (e *managedEval) affectedTaskIDs() []int64 {
+// affectedTaskIDs returns every task a request could change.
+//
+// It must not assume which task the handler will act on, because the two API
+// versions disagree. Task.ID carries both `json:"id"` and `param:"projecttask"`,
+// and v1's handler is a plain ctx.Bind: echo binds the path first and the body
+// last, so the body wins and `POST /api/v1/tasks/1` with `{"id":2}` updates
+// task 2. v2 re-asserts the URL over the body, as several v2 handlers do
+// explicitly, and acts on task 1.
+//
+// Encoding which binder wins where would be a rule that can silently stop
+// being true under an upstream bump. Both are considered instead: if either
+// task is somewhere other than the destination, the request counts as a move.
+// The cost is refusing a request whose path and body name different tasks and
+// only one of them would actually move - a shape no client produces.
+func (e *managedEval) affectedTaskIDs(body *managedBody) []int64 {
+	ids := make([]int64, 0, 2)
 	if id, err := strconv.ParseInt(e.c.Param("projecttask"), 10, 64); err == nil && id > 0 {
-		return []int64{id}
+		ids = append(ids, id)
 	}
-	return e.requestBody().TaskIDs
+	if body.ID != nil && *body.ID > 0 && !slices.Contains(ids, *body.ID) {
+		ids = append(ids, *body.ID)
+	}
+	if len(ids) > 0 {
+		return ids
+	}
+	return body.TaskIDs
 }
 
 // movesTaskBetweenProjects reports whether a request would put a task
@@ -396,11 +459,11 @@ func (e *managedEval) affectedTaskIDs() []int64 {
 // session; decideByEdition opens a second one afterwards if the answer is yes.
 // Two short sequential reads, both closed before the handler runs, which is
 // what SQLite needs.
-func (e *managedEval) movesTaskBetweenProjects(destination int64) (bool, error) {
+func (e *managedEval) movesTaskBetweenProjects(body *managedBody, destination int64) (bool, error) {
 	s := db.NewSession()
 	defer s.Close()
 
-	return models.TasksOutsideProject(s, e.affectedTaskIDs(), destination)
+	return models.TasksOutsideProject(s, e.affectedTaskIDs(body), destination)
 }
 
 // projectID returns the id of the project a guarded route acts on, or 0 when
