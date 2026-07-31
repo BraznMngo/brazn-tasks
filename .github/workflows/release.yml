@@ -468,7 +468,12 @@ jobs:
           s3-endpoint: ${{ secrets.S3_ENDPOINT }}
           s3-bucket: ${{ secrets.S3_BUCKET }}
           s3-region: ${{ secrets.S3_REGION }}
-          files: "desktop/dist/Vikunja*"
+          # electron-builder names artifacts from productName in
+          # desktop/package.json, now "Brazn Tasks Desktop". The pattern stops
+          # before the first space on purpose: this input is a single scalar and
+          # a space in it risks being parsed as a pattern separator. Scoped to
+          # desktop/dist/, so the short prefix cannot match anything else.
+          files: "desktop/dist/Brazn*"
           target-path: /desktop/${{ github.ref_type == 'tag' && steps.ghd.outputs.describe || 'unstable' }}
           strip-path-prefix: desktop/dist/
           exclude: "desktop/dist/*.blockmap"
@@ -477,7 +482,7 @@ jobs:
         with:
           name: vikunja_desktop_packages_${{ matrix.os }}
           path: |
-            ./desktop/dist/Vikunja*
+            ./desktop/dist/Brazn*
             !./desktop/dist/*.blockmap
 
   generate-swagger-docs:
@@ -591,4 +596,4 @@ jobs:
             veans*.deb
             veans*.apk
             veans*.archlinux
-            Vikunja Desktop*
+            Brazn Tasks Desktop*
