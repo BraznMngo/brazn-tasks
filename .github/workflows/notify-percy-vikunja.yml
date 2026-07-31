@@ -1,0 +1,45 @@
+name: Notify Percy Vikunja deploy
+
+# On each main commit, ask Percy to rebuild this SHA and redeploy development.
+# Requires repository secret PERCY_DISPATCH_TOKEN with dispatch access to BraznMngo/Percy.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notify-percy-vikunja-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    name: repository_dispatch to Percy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch vikunja-source-updated
+        env:
+          GH_TOKEN: ${{ secrets.PERCY_DISPATCH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN}" ]]; then
+            echo "Missing fork secret PERCY_DISPATCH_TOKEN (PAT that can dispatch to BraznMngo/Percy)." >&2
+            exit 1
+          fi
+          if [[ ! "${GITHUB_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "GITHUB_SHA is not a full commit SHA." >&2
+            exit 1
+          fi
+          jq -n \
+            --arg sha "${GITHUB_SHA}" \
+            --arg ref "${GITHUB_REF}" \
+            '{
+              event_type: "vikunja-source-updated",
+              client_payload: {sha: $sha, ref: $ref}
+            }' | gh api repos/BraznMngo/Percy/dispatches --input -
+          echo "Dispatched Percy redeploy for ${GITHUB_SHA}"
