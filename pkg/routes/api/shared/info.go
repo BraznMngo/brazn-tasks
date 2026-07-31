@@ -33,7 +33,7 @@ import (
 
 // VikunjaInfos holds public information about this Vikunja instance.
 type VikunjaInfos struct {
-	Version                    string            `json:"version" doc:"The Vikunja version this instance runs."`
+	Version                    string            `json:"version" doc:"The Brazn Tasks version this instance runs."`
 	FrontendURL                string            `json:"frontend_url" doc:"The publicly configured frontend URL of this instance."`
 	Motd                       string            `json:"motd" doc:"The message of the day, shown to all users."`
 	LinkSharingEnabled         bool              `json:"link_sharing_enabled" doc:"Whether sharing projects via public links is enabled."`

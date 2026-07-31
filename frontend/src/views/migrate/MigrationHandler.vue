@@ -1,12 +1,12 @@
 <template>
 	<div class="content">
-		<h1>{{ $t('migrate.titleService', {name: migrator.name}) }}</h1>
+		<h1>{{ $t('migrate.titleService', {name: displayName}) }}</h1>
 		<p>{{ $t('migrate.descriptionDo') }}</p>
 
 		<template v-if="message === '' && lastMigrationStartedAt === null && !migrationJustStarted">
 			<template v-if="isMigrating === false">
 				<template v-if="migrator.isFileMigrator">
-					<p>{{ $t('migrate.importUpload', {name: migrator.name}) }}</p>
+					<p>{{ $t('migrate.importUpload', {name: displayName}) }}</p>
 					<Message
 						v-if="migrationError"
 						variant="danger"
@@ -29,7 +29,7 @@
 					</XButton>
 				</template>
 				<template v-else>
-					<p>{{ $t('migrate.authorize', {name: migrator.name}) }}</p>
+					<p>{{ $t('migrate.authorize', {name: displayName}) }}</p>
 					<XButton
 						:loading="migrationService.loading"
 						:disabled="migrationService.loading || undefined"
@@ -46,7 +46,7 @@
 			>
 				<div class="migration-in-progress">
 					<img
-						:alt="migrator.name"
+						:alt="displayName"
 						:src="migrator.icon"
 						class="logo"
 					>
@@ -72,7 +72,7 @@
 		<div v-else-if="lastMigrationFinishedAt">
 			<p>
 				{{
-					$t('migrate.alreadyMigrated1', {name: migrator.name, date: formatDateLong(lastMigrationFinishedAt)})
+					$t('migrate.alreadyMigrated1', {name: displayName, date: formatDateLong(lastMigrationFinishedAt)})
 				}}<br>
 				{{ $t('migrate.alreadyMigrated2') }}
 			</p>
@@ -100,7 +100,7 @@
 				v-else
 				class="mbe-4"
 			>
-				{{ $t('migrate.migrationStartedWillReciveEmail', {service: migrator.name}) }}
+				{{ $t('migrate.migrationStartedWillReciveEmail', {service: displayName}) }}
 			</Message>
 
 			<XButton :to="{name: 'home'}">
@@ -133,7 +133,7 @@ import AbstractMigrationFileService from '@/services/migrator/abstractMigrationF
 import {formatDateLong} from '@/helpers/time/formatDate'
 import {parseDateOrNull} from '@/helpers/parseDateOrNull'
 
-import {MIGRATORS, type Migrator} from './migrators'
+import {MIGRATORS, migratorName, type Migrator} from './migrators'
 import {useTitle} from '@/composables/useTitle'
 import {useProjectStore} from '@/stores/projects'
 import {getErrorText} from '@/message'
@@ -158,13 +158,14 @@ const migrationJustStarted = ref(false)
 const migrationError = ref('')
 
 const migrator = computed<Migrator>(() => MIGRATORS[props.service])
+const displayName = computed(() => migratorName(migrator.value, t))
 
 // eslint-disable-next-line vue/no-ref-object-reactivity-loss
 const migrationService = shallowReactive(new AbstractMigrationService(migrator.value.id))
 // eslint-disable-next-line vue/no-ref-object-reactivity-loss
 const migrationFileService = shallowReactive(new AbstractMigrationFileService(migrator.value.id))
 
-useTitle(() => t('migrate.titleService', {name: migrator.value.name}))
+useTitle(() => t('migrate.titleService', {name: displayName.value}))
 
 async function initMigration() {
 	if (migrator.value.isFileMigrator) {

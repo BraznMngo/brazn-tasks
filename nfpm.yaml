@@ -14,6 +14,21 @@ priority: "extra"
 license: "AGPLv3"
 depends:
   - systemd
+# There is NO upgrade path from an upstream `vikunja` package to this one, and
+# there is deliberately no `replaces:`/`provides:`. Brazn Tasks is a different
+# product, not a newer Vikunja; declaring `replaces` would let installing this
+# silently take over a working upstream install, which is neither honest nor
+# something an operator asked for. Migrating means backing up, removing the
+# upstream package and installing this one.
+#
+# `conflicts` is here because the two packages ship the same paths
+# (/opt/vikunja/vikunja, /etc/vikunja/config.yml, the systemd unit and the
+# /usr/local/bin symlink — kept at their upstream names on purpose, see above).
+# Without it the package manager would happily install both and let the second
+# one overwrite the first's binary, config and unit file. With it the install
+# fails loudly instead, which is the correct outcome.
+conflicts:
+  - vikunja
 rpm:
   signature:
     key_file: ${NFPM_GPG_KEY_FILE}

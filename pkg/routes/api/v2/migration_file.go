@@ -35,7 +35,7 @@ import (
 // migrate endpoint.
 type fileMigrateInput struct {
 	RawBody huma.MultipartFormFiles[struct {
-		Import huma.FormFile `form:"import" required:"true" doc:"The export file to import. Its expected format depends on the migrator (e.g. a Vikunja export zip, a TickTick CSV, a WeKan JSON export)."`
+		Import huma.FormFile `form:"import" required:"true" doc:"The export file to import. Its expected format depends on the migrator (e.g. a Brazn Tasks or Vikunja export zip, a TickTick CSV, a WeKan JSON export)."`
 	}]
 }
 
@@ -71,7 +71,7 @@ func registerFileMigrator(api huma.API, factory func() migration.FileMigrator) {
 	Register(api, huma.Operation{
 		OperationID: "migration-" + name + "-migrate",
 		Summary:     "Migrate from " + name,
-		Description: "Imports the authenticated user's data from an uploaded export file into Vikunja. Send the file under the multipart \"import\" field. The import runs synchronously and returns once it has finished.",
+		Description: "Imports the authenticated user's data from an uploaded export file into Brazn Tasks. Send the file under the multipart \"import\" field. The import runs synchronously and returns once it has finished.",
 		Method:      http.MethodPost,
 		Path:        "/migration/" + name + "/migrate",
 		// POST runs an import rather than creating a REST resource, so it

@@ -106,7 +106,7 @@ func registerOAuthMigrator(api huma.API, enabled bool, factory func() migration.
 	Register(api, huma.Operation{
 		OperationID: "migration-" + name + "-migrate",
 		Summary:     "Migrate from " + name,
-		Description: "Starts a migration of the authenticated user's data from this service into Vikunja. The migration runs asynchronously; this returns once it has been queued. Refuses with 412 if a migration for this service is already running.",
+		Description: "Starts a migration of the authenticated user's data from this service into Brazn Tasks. The migration runs asynchronously; this returns once it has been queued. Refuses with 412 if a migration for this service is already running.",
 		Method:      http.MethodPost,
 		Path:        "/migration/" + name + "/migrate",
 		// POST kicks off a job rather than creating a REST resource, so it

@@ -14,9 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// @title Vikunja API
-// @description This is the documentation for the [Vikunja](https://vikunja.io) API. Vikunja is a cross-platform To-do-application with a lot of features, such as sharing projects with users or teams. <!-- ReDoc-Inject: <security-definitions> -->
+// swaggo joins @description lines within a single comment block and, because of
+// the blank line between the two blocks below, emits only the second one — so
+// anything that must actually reach the served spec belongs in that block.
+// pkg/swagger/{docs.go,swagger.json,swagger.yaml} are generated from these
+// annotations by `mage generate:swagger-docs`, and there is no CI drift check,
+// so any change here must be mirrored into all three by hand or the served v1
+// spec silently stays stale until the next release run.
 
+// @title Brazn Tasks API
+// @description This is the documentation for the Brazn Tasks API. Brazn Tasks is a cross-platform To-do-application with a lot of features, such as sharing projects with users or teams. <!-- ReDoc-Inject: <security-definitions> -->
+
+// @description Brazn Tasks is a modified fork of [Vikunja](https://vikunja.io) v2.4.0. Source: https://github.com/BraznMngo/brazn-tasks
 // @description # Pagination
 // @description Every endpoint capable of pagination will return two headers:
 // @description * `x-pagination-total-pages`: The total number of available pages for this request
@@ -26,7 +35,7 @@
 // @description This can be used to show or hide ui elements based on the permissions the user has.
 // @description # Errors
 // @description All errors have an error code and a human-readable error message in addition to the http status code. You should always check for the status code in the response, not only the http status code.
-// @description Due to limitations in the swagger library we're using for this document, only one error per http status code is documented here. Make sure to check the [error docs](https://vikunja.io/docs/errors/) in Vikunja's documentation for a full list of available error codes.
+// @description Due to limitations in the swagger library we're using for this document, only one error per http status code is documented here. Make sure to check the [error docs](https://vikunja.io/docs/errors/) in the upstream Vikunja documentation for a full list of available error codes. Brazn Tasks is a modified fork of Vikunja and the error codes are unchanged.
 // @description # Authorization
 // @description **JWT-Auth:** Main authorization method, used for most of the requests. Needs `Authorization: Bearer <jwt-token>`-header to authenticate successfully.
 // @description
@@ -36,12 +45,12 @@
 // @description <!-- ReDoc-Inject: <security-definitions> -->
 // @BasePath /api/v1
 
-// @license.url https://code.vikunja.io/api/src/branch/main/LICENSE
+// @license.url https://github.com/BraznMngo/brazn-tasks/blob/main/LICENSE
 // @license.name AGPL-3.0-or-later
 
-// @contact.url https://vikunja.io/contact/
-// @contact.name General Vikunja contact
-// @contact.email hello@vikunja.io
+// @contact.url https://github.com/BraznMngo/brazn-tasks/issues
+// @contact.name Brazn Tasks contact
+// @contact.email hello@braznmngo.com
 
 // @securityDefinitions.basic BasicAuth
 

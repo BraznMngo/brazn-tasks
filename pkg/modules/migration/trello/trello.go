@@ -102,7 +102,11 @@ func (m *Migration) AuthURL() string {
 		"&scope=read" +
 		"&callback_method=fragment" +
 		"&response_type=token" +
-		"&name=Vikunja%20Migration" +
+		// Trello shows this to the user on its own authorization screen, so it
+		// has to be our name: a third-party site presenting this product as
+		// Vikunja is exactly the confusion the trademark work removes. It is a
+		// display label only — Trello identifies the app by `key`.
+		"&name=Brazn%20Tasks%20Migration" +
 		"&key=" + config.MigrationTrelloKey.GetString() +
 		"&return_url=" + config.MigrationTrelloRedirectURL.GetString()
 }

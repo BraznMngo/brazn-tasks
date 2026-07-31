@@ -34,7 +34,7 @@ func RegisterInfoRoutes(api huma.API) {
 	Register(api, huma.Operation{
 		OperationID: "info",
 		Summary:     "Instance info",
-		Description: "Returns version, frontend URL, motd and the enabled features of this Vikunja instance. Public — no authentication required.",
+		Description: "Returns version, frontend URL, motd and the enabled features of this Brazn Tasks instance. Public — no authentication required.",
 		Method:      http.MethodGet,
 		Path:        "/info",
 		Tags:        []string{"service"},

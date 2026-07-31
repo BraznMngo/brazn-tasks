@@ -73,7 +73,7 @@ func RegisterTestingRoutes(api huma.API) {
 	Register(api, huma.Operation{
 		OperationID: "testing-truncate-all",
 		Summary:     "Truncate all tables",
-		Description: "Removes all data from every Vikunja table. Used by e2e tests to ensure a clean state before each test. Authenticates with the configured testing token via the Authorization header, not a JWT or API token.",
+		Description: "Removes all data from every Brazn Tasks table. Used by e2e tests to ensure a clean state before each test. Authenticates with the configured testing token via the Authorization header, not a JWT or API token.",
 		Method:      http.MethodDelete,
 		Path:        "/test/all",
 		Tags:        tags,

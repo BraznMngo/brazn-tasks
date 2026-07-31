@@ -50,7 +50,13 @@ func requestWantsMarkdown(ctx context.Context) bool {
 
 // richTextFormatAPIDescription documents the cross-cutting markdown behavior at
 // the top of the OpenAPI spec (Scalar renders it on the docs landing page).
-const richTextFormatAPIDescription = "## Rich-text fields\n\n" +
+// It also carries the fork's attribution notice: this string is the whole of
+// the v2 spec's info.description, so it is the only place the v2 docs landing
+// page can state what this software is.
+const richTextFormatAPIDescription = "Brazn Tasks is a modified fork of " +
+	"[Vikunja](https://vikunja.io) v2.4.0. Source: " +
+	"https://github.com/BraznMngo/brazn-tasks\n\n" +
+	"## Rich-text fields\n\n" +
 	"Descriptions (task, project, label, team, saved filter) and task comments are stored as HTML. " +
 	"Add `?format=markdown` to read and write them as GFM Markdown instead; on write it is converted " +
 	"to HTML and `@mentions` resolved to existing users. On `PATCH`, send the `X-Vikunja-Format: markdown` " +
