@@ -298,7 +298,13 @@ func TestTeamsPolicyRefusesABodyItCouldNotRead(t *testing.T) {
 		rec := env.request(http.MethodPost,
 			fmt.Sprintf("/api/v2/projects/%d/shares", topology.underPublic),
 			fmt.Sprintf(`{"permission":2,"name":%q}`, padding), &testuser1)
-		assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, rec.Body.String())
+		assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+
+		// 400 rather than the 413 this deserves, and the response must not
+		// mention a file: the shared error handler rewrites every 413 into a
+		// file-size error, which is what refuseUnreadableBody sidesteps.
+		assert.NotContains(t, rec.Body.String(), "file",
+			"there is no file in this request")
 
 		shares := env.request(http.MethodGet,
 			fmt.Sprintf("/api/v1/projects/%d/shares", topology.underPublic), ``, &testuser1)
@@ -321,7 +327,7 @@ func TestTeamsPolicyRefusesABodyItCouldNotRead(t *testing.T) {
 			fmt.Sprintf("/api/v1/projects/%d", topology.teamRoot),
 			fmt.Sprintf(`{"title":"Delivery","parent_project_id":%d,"description":%q}`,
 				topology.inbox, padding), &testuser1)
-		assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, rec.Body.String())
+		assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 
 		project := env.request(http.MethodGet,
 			fmt.Sprintf("/api/v1/projects/%d", topology.teamRoot), ``, &testuser1)
@@ -334,7 +340,7 @@ func TestTeamsPolicyRefusesABodyItCouldNotRead(t *testing.T) {
 		rec := env.request(http.MethodPatch,
 			fmt.Sprintf("/api/v2/projects/%d", topology.underTeam),
 			fmt.Sprintf(`{"parent_project_id":%d,"description":%q}`, topology.inbox, padding), &testuser1)
-		assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, rec.Body.String())
+		assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 
 		project := env.request(http.MethodGet,
 			fmt.Sprintf("/api/v1/projects/%d", topology.underTeam), ``, &testuser1)
