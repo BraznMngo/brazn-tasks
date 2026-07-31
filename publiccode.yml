@@ -46,12 +46,11 @@ videos:
   - 'none'
 legal:
   license: 'GNU AFFERO GENERAL PUBLIC LICENSE Version 3'
-  # mainCopyrightOwner and authorsFile stay pointed at upstream: the copyright in
+  # mainCopyrightOwner stays pointed at upstream: the copyright in
   # the overwhelming majority of this code is theirs and must not be reassigned.
   # Only repoOwner changes, because this repository is genuinely ours.
   mainCopyrightOwner: 'Konrad Langenberg Software'
   repoOwner: 'Brazn Mngo'
-  authorsFile: 'hello@vikunja.io'
 maintenance:
   # publiccode v0.2 makes `contacts` mandatory when type is `internal`; dropping
   # the upstream `contractors` block without adding this left the file invalid.
