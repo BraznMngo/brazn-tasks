@@ -64,8 +64,12 @@ jobs:
       - name: Route classification check
         # Brazn fork (BRA-925): fails when a mutating route is registered in
         # the source without an entry in pkg/routes/route-classification.json.
-        # The test output says exactly which route and what to do about it.
-        run: go test -run TestMutatingRoutesAreClassified ./pkg/routes
+        # BRA-914 adds the second half: a route classified protected-topology
+        # or access-expanding but left without a managed-mode policy rule also
+        # fails here. Together they are what stops an upstream upgrade from
+        # adding a route that quietly escapes managed mode. The test output
+        # says exactly which route and what to do about it.
+        run: go test -run 'TestMutatingRoutesAreClassified|TestGuardedRoutesCarryAManagedRule' ./pkg/routes
 
   api-lint:
     runs-on: ubuntu-latest

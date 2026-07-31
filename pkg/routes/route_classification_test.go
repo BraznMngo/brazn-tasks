@@ -32,9 +32,33 @@ import (
 const classificationFileName = "route-classification.json"
 
 type classifiedRoute struct {
-	Method string `json:"method"`
-	Path   string `json:"path"`
-	Class  string `json:"class"`
+	Method  string `json:"method"`
+	Path    string `json:"path"`
+	Class   string `json:"class"`
+	Managed string `json:"managed"`
+}
+
+func (r classifiedRoute) key() string {
+	return r.Method + " " + r.Path
+}
+
+func (r classifiedRoute) isGuarded() bool {
+	return r.Class == "protected-topology" || r.Class == "access-expanding"
+}
+
+// readClassificationFile parses the file both tests work from.
+func readClassificationFile(t *testing.T) classificationFile {
+	t.Helper()
+
+	raw, err := os.ReadFile(classificationFileName)
+	if err != nil {
+		t.Fatalf("could not read %s: %v", classificationFileName, err)
+	}
+	var file classificationFile
+	if err := json.Unmarshal(raw, &file); err != nil {
+		t.Fatalf("could not parse %s: %v", classificationFileName, err)
+	}
+	return file
 }
 
 type classificationFile struct {
@@ -112,18 +136,11 @@ func TestMutatingRoutesAreClassified(t *testing.T) {
 		registered[method+" "+route.Path] = true
 	}
 
-	raw, err := os.ReadFile(classificationFileName)
-	if err != nil {
-		t.Fatalf("could not read %s: %v", classificationFileName, err)
-	}
-	var file classificationFile
-	if err := json.Unmarshal(raw, &file); err != nil {
-		t.Fatalf("could not parse %s: %v", classificationFileName, err)
-	}
+	file := readClassificationFile(t)
 
 	classified := make(map[string]bool, len(file.Routes))
 	for i, entry := range file.Routes {
-		key := entry.Method + " " + entry.Path
+		key := entry.key()
 		if !isValidClass(entry.Class) {
 			t.Errorf("%s: entry %q has invalid class %q, must be protected-topology, access-expanding or ordinary",
 				classificationFileName, key, entry.Class)
@@ -167,8 +184,8 @@ func TestMutatingRoutesAreClassified(t *testing.T) {
 			"                       task out of a private Inbox into a shared project\n"+
 			"  ordinary           - normal task work under stock Vikunja permissions\n\n"+
 			"If in doubt, pick the safer class (protected-topology or access-expanding), not ordinary.\n"+
-			"A protected-topology or access-expanding route must ALSO be wired into the managed-mode\n"+
-			"enforcement (BRA-914) before it ships; classifying it here only records the decision.",
+			"A protected-topology or access-expanding route must ALSO carry a \"managed\" rule, which\n"+
+			"TestGuardedRoutesCarryAManagedRule checks; classifying it here only records the decision.",
 			len(missing), classificationFileName, strings.Join(missing, "\n  "))
 	}
 
@@ -177,5 +194,64 @@ func TestMutatingRoutesAreClassified(t *testing.T) {
 			"(renamed or removed upstream?):\n\n  %s\n\n"+
 			"Remove or update them so the file stays an exact inventory of the mutating surface.",
 			len(stale), classificationFileName, strings.Join(stale, "\n  "))
+	}
+}
+
+// TestGuardedRoutesCarryAManagedRule is the second half of the guardrail, and
+// the one that stops an upstream upgrade from quietly opening a hole: a route
+// classified protected-topology or access-expanding but left without a policy
+// decision fails CI here.
+//
+// It checks the decision exists and is spelled correctly. What the decision
+// does is checked by exercising the real route table over HTTP in
+// pkg/webtests/brazn_managed_mode_test.go, which is also what proves the
+// middleware is actually attached to the group each route lives on.
+func TestGuardedRoutesCarryAManagedRule(t *testing.T) {
+	file := readClassificationFile(t)
+
+	known := make(map[string]bool)
+	for _, name := range routes.KnownManagedRules() {
+		known[name] = true
+	}
+
+	var unenforced, unknown, overreaching []string
+	for _, entry := range file.Routes {
+		switch {
+		case entry.isGuarded() && entry.Managed == "":
+			unenforced = append(unenforced, entry.key())
+		case entry.Managed != "" && !known[entry.Managed]:
+			unknown = append(unknown, entry.key()+" -> "+entry.Managed)
+		case !entry.isGuarded() && entry.Managed != "" && entry.Managed != "disabled":
+			overreaching = append(overreaching, entry.key()+" -> "+entry.Managed)
+		}
+	}
+	sort.Strings(unenforced)
+	sort.Strings(unknown)
+	sort.Strings(overreaching)
+
+	if len(unenforced) > 0 {
+		t.Errorf("%d guarded route(s) in pkg/routes/%s have no \"managed\" rule:\n\n  %s\n\n"+
+			"Every protected-topology and access-expanding route needs one. Managed mode refuses a\n"+
+			"guarded route it has no decision for, so shipping without one turns the route off\n"+
+			"rather than opening it - but that is a failure to decide, not a decision.\n"+
+			"Known rules: %s",
+			len(unenforced), classificationFileName, strings.Join(unenforced, "\n  "),
+			strings.Join(routes.KnownManagedRules(), ", "))
+	}
+
+	if len(unknown) > 0 {
+		t.Errorf("%d entr(ies) in pkg/routes/%s name a \"managed\" rule this build does not have:\n\n  %s\n\n"+
+			"A misspelled rule refuses every request to that route, which looks like working policy.\n"+
+			"Known rules: %s",
+			len(unknown), classificationFileName, strings.Join(unknown, "\n  "),
+			strings.Join(routes.KnownManagedRules(), ", "))
+	}
+
+	if len(overreaching) > 0 {
+		t.Errorf("%d ordinary route(s) in pkg/routes/%s carry a policy rule:\n\n  %s\n\n"+
+			"An ordinary route may only ever be \"disabled\" - a feature the managed edition does not\n"+
+			"offer at all. Anything else would make normal task work depend on entitlement state,\n"+
+			"which must keep working while the commercial service is unreachable.",
+			len(overreaching), classificationFileName, strings.Join(overreaching, "\n  "))
 	}
 }

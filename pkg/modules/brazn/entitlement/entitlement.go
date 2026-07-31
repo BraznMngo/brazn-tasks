@@ -1,0 +1,163 @@
+// Vikunja is a to-do list application to facilitate your life.
+// Copyright 2018-present Vikunja and contributors. All rights reserved.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+// Package entitlement decodes the signed entitlement projection Brazn's
+// commercial service writes into this instance.
+//
+// It only verifies and decodes an envelope. Storage is a plain table in
+// pkg/models and the endpoint that writes it is a separate concern: nothing
+// here reaches the network, so no request can ever wait on billing.
+package entitlement
+
+import (
+	"crypto/ed25519"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"strings"
+	"time"
+
+	"code.vikunja.io/api/pkg/config"
+)
+
+// The editions defined by the entitlement contract
+// (cloud/contracts/v2/entitlements). An edition this build does not know is
+// not a third behaviour: callers must refuse it, the same as no projection.
+const (
+	EditionPersonal = "personal-cloud"
+	EditionTeams    = "teams-cloud"
+)
+
+// ContractVersion is the only projection contract version this build accepts.
+// A projection from a newer contract is refused rather than guessed at.
+const ContractVersion = "2"
+
+const (
+	algorithmEd25519 = "ed25519"
+	stateActive      = "active"
+)
+
+var (
+	// ErrInvalidProjection means the envelope could not be trusted: malformed,
+	// wrongly signed, or from a contract version this build does not accept.
+	ErrInvalidProjection = errors.New("entitlement projection is not valid")
+	// ErrUnknownSigningKey means the envelope names a key this instance is not
+	// configured to trust.
+	ErrUnknownSigningKey = errors.New("entitlement projection was signed with an unknown key")
+)
+
+// Subject identifies who a projection is about, in the commercial service's
+// own identifiers rather than this instance's row ids.
+type Subject struct {
+	OrganizationID string `json:"organization_id"`
+	UserID         string `json:"user_id"`
+}
+
+// State is the entitlement itself: what this subject is currently allowed.
+type State struct {
+	Edition           string `json:"edition"`
+	SeatStatus        string `json:"seat_status"`
+	OrganizationAdmin bool   `json:"organization_admin"`
+	EffectiveState    string `json:"effective_state"`
+}
+
+// Signed is the signed half of the envelope, and the only half a policy
+// decision may read.
+type Signed struct {
+	ContractVersion string    `json:"contract_version"`
+	Subject         Subject   `json:"subject"`
+	Revision        int64     `json:"revision"`
+	IssuedAt        time.Time `json:"issued_at"`
+	State           State     `json:"state"`
+}
+
+// Active reports whether this projection currently entitles anything at all.
+// Both the seat and the subscription must be active; any other value - including
+// one this build does not recognise - is inactive.
+func (s *Signed) Active() bool {
+	return s.State.EffectiveState == stateActive && s.State.SeatStatus == stateActive
+}
+
+type signature struct {
+	KeyID     string `json:"key_id"`
+	Algorithm string `json:"algorithm"`
+	Value     string `json:"value"`
+}
+
+// envelope keeps the signed half as raw bytes on purpose: the signature covers
+// exactly those bytes, so verifying them as received removes any need for a
+// canonical re-encoding to agree with the signer's.
+type envelope struct {
+	Signed    json.RawMessage `json:"signed"`
+	Signature signature       `json:"signature"`
+}
+
+// Verify checks an envelope's signature against the configured trusted keys
+// and returns the state it carries. Every failure is one of two errors,
+// because callers must treat all of them identically: refuse.
+func Verify(raw []byte) (*Signed, error) {
+	var env envelope
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return nil, ErrInvalidProjection
+	}
+	if env.Signature.Algorithm != algorithmEd25519 || len(env.Signed) == 0 {
+		return nil, ErrInvalidProjection
+	}
+
+	key, err := signingKey(env.Signature.KeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	sig, err := base64.StdEncoding.DecodeString(env.Signature.Value)
+	if err != nil || !ed25519.Verify(key, env.Signed, sig) {
+		return nil, ErrInvalidProjection
+	}
+
+	signed := &Signed{}
+	if err := json.Unmarshal(env.Signed, signed); err != nil {
+		return nil, ErrInvalidProjection
+	}
+	if signed.ContractVersion != ContractVersion || signed.Revision <= 0 {
+		return nil, ErrInvalidProjection
+	}
+
+	return signed, nil
+}
+
+// signingKey resolves a key id against brazn.entitlementkeys, a comma-separated
+// list of "<key id>:<base64 ed25519 public key>" pairs. Rotation is therefore a
+// config change: list the new key alongside the old one until every projection
+// has been re-signed, then drop the old one.
+func signingKey(keyID string) (ed25519.PublicKey, error) {
+	if keyID == "" {
+		return nil, ErrUnknownSigningKey
+	}
+
+	for _, pair := range strings.Split(config.BraznEntitlementKeys.GetString(), ",") {
+		id, encoded, found := strings.Cut(strings.TrimSpace(pair), ":")
+		if !found || id != keyID {
+			continue
+		}
+		key, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
+		if err != nil || len(key) != ed25519.PublicKeySize {
+			return nil, ErrUnknownSigningKey
+		}
+		return key, nil
+	}
+
+	return nil, ErrUnknownSigningKey
+}

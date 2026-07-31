@@ -72,6 +72,8 @@ func GetTables() []interface{} {
 		&Session{},
 		&OAuthCode{},
 		&TimeEntry{},
+		&ProtectedEntity{},
+		&EntitlementProjection{},
 	}
 }
 
