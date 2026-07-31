@@ -1,0 +1,84 @@
+name: Fork guards
+
+# Asserts that the deliberate removals made when this fork was baselined are still
+# in place. An upstream merge can restore behaviour we removed on purpose, and
+# without these checks nothing reports it: no error, no failing job, just our
+# organization publishing container images again.
+#
+# See UPGRADING-FROM-UPSTREAM.md. These guards are the enforceable half of that
+# document; the prose is the half that depends on someone remembering.
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - brazn/main
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: fork-guards-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guards:
+    name: Fork guards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out the revision under test
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: The release job has not returned to ci.yml
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Upstream's release job pushes images to ghcr.io as
+          # ${{ github.repository_owner }} with no upstream-repository guard, and it
+          # is reached through `uses:` — so it runs inside ci's own run and
+          # disabling `Release` at repository level does not stop it. BRA-774
+          # removed it; an upstream merge reintroduces it.
+          if grep -nE '^\s*uses:.*release\.ya?ml' .github/workflows/ci.yml; then
+            echo >&2
+            echo "ci.yml calls release.yml again. An upstream merge reinstated the" >&2
+            echo "release job. Remove it before merging: on this fork it publishes" >&2
+            echo "container images under the Brazn name. See CLAUDE.md section 2." >&2
+            exit 1
+          fi
+          echo "ci.yml does not call release.yml."
+
+      - name: Inherited publishing workflows are still disabled
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Names as they appear in each workflow's own `name:` field.
+          GUARDED: "Release,Preview"
+        run: |
+          set -euo pipefail
+          workflows="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows" --paginate \
+            --jq '.workflows[] | "\(.name)\t\(.state)"')"
+
+          failed=0
+          IFS=',' read -ra names <<< "${GUARDED}"
+          for name in "${names[@]}"; do
+            state="$(printf '%s\n' "${workflows}" \
+              | awk -F'\t' -v n="${name}" '$1 == n { print $2; exit }')"
+            if [[ -z "${state}" ]]; then
+              echo "note: no workflow named '${name}' — nothing to re-enable."
+              continue
+            fi
+            if [[ "${state}" == active ]]; then
+              echo "::error::Workflow '${name}' is active. It was disabled when this fork" \
+                   "was baselined (BRA-774) because it publishes under the Brazn name." \
+                   "Re-enabling needs an explicit decision recorded in a ticket."
+              failed=1
+            else
+              echo "'${name}' is ${state}."
+            fi
+          done
+          exit "${failed}"
