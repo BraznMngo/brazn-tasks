@@ -4,17 +4,17 @@
 		<p>{{ $t('migrate.description') }}</p>
 		<div class="migration-services">
 			<RouterLink
-				v-for="{name, id, icon, isCSVMigrator} in availableMigrators"
-				:key="id"
+				v-for="migrator in availableMigrators"
+				:key="migrator.id"
 				class="migration-service-link"
-				:to="isCSVMigrator ? {name: 'migrate.csv'} : {name: 'migrate.service', params: {service: id}}"
+				:to="migrator.isCSVMigrator ? {name: 'migrate.csv'} : {name: 'migrate.service', params: {service: migrator.id}}"
 			>
 				<img
 					class="migration-service-image"
-					:alt="name"
-					:src="icon"
+					:alt="migratorName(migrator, t)"
+					:src="migrator.icon"
 				>
-				{{ name }}
+				{{ migratorName(migrator, t) }}
 			</RouterLink>
 		</div>
 	</div>
@@ -24,7 +24,7 @@
 import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 
-import {MIGRATORS} from './migrators'
+import {MIGRATORS, migratorName} from './migrators'
 import {useTitle} from '@/composables/useTitle'
 import {useConfigStore} from '@/stores/config'
 

@@ -118,7 +118,7 @@ func invalidFieldDetails(fields []string) []error {
 // as the global error type via the huma.NewError override in init().
 type vikunjaErrorModel struct {
 	huma.ErrorModel
-	Code       int               `json:"code,omitempty" readOnly:"true" doc:"Vikunja numeric error code; see https://vikunja.io/docs/errors/"`
+	Code       int               `json:"code,omitempty" readOnly:"true" doc:"Brazn Tasks numeric error code; see https://vikunja.io/docs/errors/"`
 	I18nParams map[string]string `json:"i18n_params,omitempty" readOnly:"true" doc:"Dynamic values referenced by the error message, keyed by translation placeholder name, for client-side localisation."`
 }
 

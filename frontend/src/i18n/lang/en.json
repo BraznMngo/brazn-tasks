@@ -675,6 +675,9 @@
     }
   },
   "migrate": {
+    "migrators": {
+      "vikunjaFile": "Brazn Tasks / Vikunja export"
+    },
     "title": "Import from other services",
     "titleService": "Import your data from {name} into Brazn Tasks",
     "description": "Click on the logo of one of the third-party services below to get started.",

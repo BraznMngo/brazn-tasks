@@ -42,7 +42,7 @@ func RegisterOpenIDRoutes(api huma.API) {
 	Register(api, huma.Operation{
 		OperationID:   "auth-openid-callback",
 		Summary:       "Authenticate with OpenID Connect",
-		Description:   "Exchanges the authorization code returned by an OpenID Connect provider for a Vikunja JWT, creating or updating the matching user. A long-lived refresh token is set as an HttpOnly cookie. When the resolved user has 2FA enabled, the call returns 412 and must be retried with totp_passcode set.",
+		Description:   "Exchanges the authorization code returned by an OpenID Connect provider for a Brazn Tasks JWT, creating or updating the matching user. A long-lived refresh token is set as an HttpOnly cookie. When the resolved user has 2FA enabled, the call returns 412 and must be retried with totp_passcode set.",
 		Method:        http.MethodPost,
 		Path:          "/auth/openid/{provider}/callback",
 		DefaultStatus: http.StatusOK,

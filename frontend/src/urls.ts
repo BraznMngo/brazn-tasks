@@ -12,6 +12,9 @@ export const UPSTREAM_PROJECT = 'https://vikunja.io'
 // Keeps a query string on the URL so PoweredByLink can append &utm_medium=.
 export const POWERED_BY = `${SOURCE_CODE}?utm_source=powered_by`
 
-// Upstream documentation, referenced descriptively — we have no CalDAV docs of
-// our own and the protocol behaviour is unchanged from upstream.
+// Upstream documentation, referenced descriptively — we have no docs of our own
+// and the behaviour these pages describe is unchanged from upstream. Kept here
+// rather than inlined at the call sites so that pointing them at our own docs
+// later is one edit, not a hunt through components.
 export const CALDAV_DOCS = 'https://vikunja.io/docs/caldav/'
+export const WEBHOOKS_DOCS = 'https://vikunja.io/docs/webhooks/'

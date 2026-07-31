@@ -38,11 +38,19 @@ is published at:
 
 **<https://github.com/BraznMngo/brazn-tasks>**
 
-The running application links to it: the footer link in the sidebar navigation
-and on public link-share pages points at this repository, so the offer is
-reachable without leaving the app. Released builds also carry it in their
-package metadata — the container image's `org.opencontainers.image.source`
-label and the OS package `homepage` field.
+The running application links to it from three places, so the offer is reachable
+without leaving the app and without holding an account:
+
+- the login and other signed-out pages (the footer under the sign-in card);
+- the sidebar navigation, once signed in;
+- public link-share pages, for people given a share link.
+
+The API documentation the instance serves at `/api/v1/docs` and `/api/v2/docs`
+also states what this software is and links to the same repository.
+
+Released builds carry the offer in their package metadata too: the container
+image's `org.opencontainers.image.source` label and the OS package `homepage`
+field.
 
 ## Trademarks
 

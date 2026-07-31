@@ -11,6 +11,7 @@ import Expandable from '@/components/base/Expandable.vue'
 import User from '@/components/misc/User.vue'
 import {formatDateShort} from '@/helpers/time/formatDate'
 import {isValidHttpUrl} from '@/helpers/isValidHttpUrl'
+import {WEBHOOKS_DOCS} from '@/urls'
 
 const props = defineProps<{
 	webhooks: IWebhook[]
@@ -127,7 +128,7 @@ function doDelete() {
 			</FormField>
 			<p class="help">
 				{{ $t('project.webhooks.secretHint') }}
-				<BaseButton href="https://vikunja.io/docs/webhooks/">
+				<BaseButton :href="WEBHOOKS_DOCS">
 					{{ $t('project.webhooks.secretDocs') }}
 				</BaseButton>
 			</p>

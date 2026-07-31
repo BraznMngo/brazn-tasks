@@ -10,13 +10,13 @@ const docTemplate = `{
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
         "contact": {
-            "name": "General Vikunja contact",
-            "url": "https://vikunja.io/contact/",
-            "email": "hello@vikunja.io"
+            "name": "Brazn Tasks contact",
+            "url": "https://github.com/BraznMngo/brazn-tasks/issues",
+            "email": "hello@braznmngo.com"
         },
         "license": {
             "name": "AGPL-3.0-or-later",
-            "url": "https://code.vikunja.io/api/src/branch/main/LICENSE"
+            "url": "https://github.com/BraznMngo/brazn-tasks/blob/main/LICENSE"
         },
         "version": "{{.Version}}"
     },
@@ -11317,8 +11317,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
-	Title:            "Vikunja API",
-	Description:      "# Pagination\nEvery endpoint capable of pagination will return two headers:\n* `x-pagination-total-pages`: The total number of available pages for this request\n* `x-pagination-result-count`: The number of items returned for this request.\n# Permissions\nAll endpoints which return a single item (project, task, etc.) - no array - will also return a `x-max-permission` header with the max permission the user has on this item as an int where `0` is `Read Only`, `1` is `Read & Write` and `2` is `Admin`.\nThis can be used to show or hide ui elements based on the permissions the user has.\n# Errors\nAll errors have an error code and a human-readable error message in addition to the http status code. You should always check for the status code in the response, not only the http status code.\nDue to limitations in the swagger library we're using for this document, only one error per http status code is documented here. Make sure to check the [error docs](https://vikunja.io/docs/errors/) in Vikunja's documentation for a full list of available error codes.\n# Authorization\n**JWT-Auth:** Main authorization method, used for most of the requests. Needs `Authorization: Bearer <jwt-token>`-header to authenticate successfully.\n\n**API Token:** You can create scoped API tokens for your user and use the token to make authenticated requests in the context of that user. The token must be provided via an `Authorization: Bearer <token>` header, similar to jwt auth. See the documentation for the `api` group to manage token creation and revocation.\n\n**BasicAuth:** Only used when requesting tasks via CalDAV.\n<!-- ReDoc-Inject: <security-definitions> -->",
+	Title:            "Brazn Tasks API",
+	Description:      "Brazn Tasks is a modified fork of [Vikunja](https://vikunja.io) v2.4.0. Source: https://github.com/BraznMngo/brazn-tasks\n# Pagination\nEvery endpoint capable of pagination will return two headers:\n* `x-pagination-total-pages`: The total number of available pages for this request\n* `x-pagination-result-count`: The number of items returned for this request.\n# Permissions\nAll endpoints which return a single item (project, task, etc.) - no array - will also return a `x-max-permission` header with the max permission the user has on this item as an int where `0` is `Read Only`, `1` is `Read & Write` and `2` is `Admin`.\nThis can be used to show or hide ui elements based on the permissions the user has.\n# Errors\nAll errors have an error code and a human-readable error message in addition to the http status code. You should always check for the status code in the response, not only the http status code.\nDue to limitations in the swagger library we're using for this document, only one error per http status code is documented here. Make sure to check the [error docs](https://vikunja.io/docs/errors/) in the upstream Vikunja documentation for a full list of available error codes. Brazn Tasks is a modified fork of Vikunja and the error codes are unchanged.\n# Authorization\n**JWT-Auth:** Main authorization method, used for most of the requests. Needs `Authorization: Bearer <jwt-token>`-header to authenticate successfully.\n\n**API Token:** You can create scoped API tokens for your user and use the token to make authenticated requests in the context of that user. The token must be provided via an `Authorization: Bearer <token>` header, similar to jwt auth. See the documentation for the `api` group to manage token creation and revocation.\n\n**BasicAuth:** Only used when requesting tasks via CalDAV.\n<!-- ReDoc-Inject: <security-definitions> -->",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

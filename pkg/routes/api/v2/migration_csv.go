@@ -96,7 +96,7 @@ func RegisterMigrationCSVRoutes(api huma.API) {
 	Register(api, huma.Operation{
 		OperationID: "migration-csv-migrate",
 		Summary:     "Import a CSV file",
-		Description: "Imports the tasks from the uploaded CSV file into Vikunja using the given config. The import runs synchronously and returns once it has finished.",
+		Description: "Imports the tasks from the uploaded CSV file into Brazn Tasks using the given config. The import runs synchronously and returns once it has finished.",
 		Method:      http.MethodPost,
 		Path:        "/migration/csv/migrate",
 		// POST runs an import rather than creating a REST resource, so it

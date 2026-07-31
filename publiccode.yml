@@ -53,7 +53,12 @@ legal:
   repoOwner: 'Brazn Mngo'
   authorsFile: 'hello@vikunja.io'
 maintenance:
+  # publiccode v0.2 makes `contacts` mandatory when type is `internal`; dropping
+  # the upstream `contractors` block without adding this left the file invalid.
   type: 'internal'
+  contacts:
+    - name: 'Brazn Mngo'
+      email: 'hello@braznmngo.com'
 localisation:
   localisationReady: 'true'
   availableLanguages:

@@ -36,7 +36,7 @@ func RegisterNotificationsFeedRoutes(api huma.API) {
 	Register(api, huma.Operation{
 		OperationID: "notifications-atom-feed",
 		Summary:     "Notifications Atom feed",
-		Description: "Returns the authenticated user's latest notifications as an Atom feed. Authenticated with HTTP Basic auth: the username is the token owner and the password is a feeds-scoped Vikunja API token (tk_ prefix) — password and LDAP credentials are rejected because feed URLs are commonly shared or cached. Fetching the feed does not mark notifications as read.",
+		Description: "Returns the authenticated user's latest notifications as an Atom feed. Authenticated with HTTP Basic auth: the username is the token owner and the password is a feeds-scoped Brazn Tasks API token (tk_ prefix) — password and LDAP credentials are rejected because feed URLs are commonly shared or cached. Fetching the feed does not mark notifications as read.",
 		Method:      http.MethodGet,
 		Path:        "/notifications.atom",
 		Tags:        []string{"service"},

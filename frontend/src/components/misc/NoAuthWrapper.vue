@@ -38,7 +38,18 @@
 					</Message>
 					<slot />
 				</div>
-				<Legal />
+				<div>
+					<Legal />
+					<!--
+						The AGPL section 13 source offer has to be reachable by anyone
+						interacting with the instance over a network, which includes
+						someone sitting at the login page who has no account. The
+						sidebar and link-share placements only cover authenticated and
+						shared views, so this is the third render site rather than a
+						duplicate of them.
+					-->
+					<PoweredByLink utm-medium="no_auth" />
+				</div>
 			</main>
 		</div>
 	</div>
@@ -53,6 +64,7 @@ import Logo from '@/components/home/Logo.vue'
 import Message from '@/components/misc/Message.vue'
 import Legal from '@/components/misc/Legal.vue'
 import ApiConfig from '@/components/misc/ApiConfig.vue'
+import PoweredByLink from '@/components/home/PoweredByLink.vue'
 
 import { useTitle } from '@/composables/useTitle'
 import { useConfigStore } from '@/stores/config'
@@ -177,5 +189,15 @@ useTitle(() => title.value)
 .image-title {
 	color: hsl(0deg, 0%, 100%);
 	font-size: 2.5rem;
+}
+
+// PoweredByLink is styled for the dark sidebar, where --grey-300 reads fine.
+// On this white card it would be close to invisible, and a licence notice
+// nobody can read does not discharge the obligation. Scoped styles reach a
+// child component's root element, which is what .menu-bottom-link is.
+.menu-bottom-link {
+	color: var(--grey-500);
+	padding-block: 0.5rem 0;
+	text-align: end;
 }
 </style>
