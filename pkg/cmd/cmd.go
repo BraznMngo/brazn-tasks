@@ -25,16 +25,14 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "vikunja",
-	Short: "Vikunja is the to-do app to organize your life.",
-	Long: `Vikunja (/vɪˈkuːnjə/)
+	Short: "Brazn Tasks is the to-do app to organize your life.",
+	Long: `Brazn Tasks
 The to-do app to organize your life.
 
-Also one of the two wild South American camelids which live in the high
-alpine areas of the Andes and a relative of the llama.
+Brazn Tasks is a self-hosted To-Do list application with a web app and mobile apps for all platforms. It is licensed under the AGPL-3.0-or-later.
 
-Vikunja is a self-hosted To-Do list application with a web app and mobile apps for all platforms. It is licensed under the AGPL-3.0-or-later.
-
-Find out more at vikunja.io.`,
+Brazn Tasks is a modified fork of Vikunja v2.4.0, and is not affiliated with or
+endorsed by the Vikunja project. Source: https://github.com/BraznMngo/brazn-tasks`,
 	PreRun: webCmd.PreRun,
 	Run:    webCmd.Run,
 }

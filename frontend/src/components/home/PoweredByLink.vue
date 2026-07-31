@@ -4,7 +4,14 @@
 		:href="computedUrl"
 		target="_blank"
 	>
-		{{ $t('misc.poweredBy') }}
+		<!--
+			Deliberately not translated. This is the AGPL modification notice and
+			source offer, not product copy: it has to be present and accurate in
+			every locale, and we cannot supply translations we have not had
+			reviewed. Full notice, including the upstream link and the pinned
+			upstream version, lives in NOTICE.md in the linked repository.
+		-->
+		Brazn Tasks — a modified fork of Vikunja. Source code.
 	</BaseButton>
 </template>
 

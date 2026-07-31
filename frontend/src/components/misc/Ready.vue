@@ -106,9 +106,11 @@ const baseStore = useBaseStore()
 	}
 }
 
+// Deliberately a flat colour, not artwork: the upstream llama photo was the
+// Vikunja mascot and is not ours to ship. Kept dark in both colour schemes so
+// the white .offline-message text below stays readable.
 .offline {
-	background: url('@/assets/llama-nightscape.jpg') no-repeat center;
-	background-size: cover;
+	background: hsl(215deg 27.9% 16.9%);
 	block-size: 100vh;
 }
 

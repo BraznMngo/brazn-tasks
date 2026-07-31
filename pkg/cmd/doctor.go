@@ -33,9 +33,9 @@ func init() {
 
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
-	Short: "Run diagnostic checks on your Vikunja installation",
+	Short: "Run diagnostic checks on your Brazn Tasks installation",
 	Long: `The doctor command runs a series of diagnostic checks to help troubleshoot
-issues with your Vikunja installation. It checks:
+issues with your Brazn Tasks installation. It checks:
 
 - System information (version, user, working directory)
 - Configuration (config file, public URL, JWT secret, CORS)

@@ -41,21 +41,13 @@
 			</div>
 		</template>
 		<template v-else>
-			<XButton
-				:loading="waitingForAuth"
-				class="is-fullwidth mbe-2"
-				@click="loginWithServer('https://app.vikunja.cloud')"
-			>
-				Vikunja Cloud
-			</XButton>
-			<XButton
-				:loading="waitingForAuth"
-				variant="secondary"
-				class="is-fullwidth mbe-2"
-				@click="loginWithServer('https://try.vikunja.io')"
-			>
-				{{ $t('user.auth.desktopTryDemo') }}
-			</XButton>
+			<!--
+				The upstream "Vikunja Cloud" and try.vikunja.io shortcuts were removed:
+				they are hosted services operated by the Vikunja project, and offering
+				them from a Brazn Tasks build both uses a mark we have no licence to
+				and misrepresents whose service the user is signing in to. Connecting
+				to any server, including those, is still possible via "custom server".
+			-->
 			<XButton
 				variant="secondary"
 				class="is-fullwidth"

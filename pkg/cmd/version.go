@@ -30,9 +30,9 @@ func init() {
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version number of Vikunja",
+	Short: "Print the version number of Brazn Tasks",
 	Run: func(_ *cobra.Command, _ []string) {
-		fmt.Printf("Vikunja api version %s\n", version.Version)
+		fmt.Printf("Brazn Tasks api version %s\n", version.Version)
 		fmt.Printf("Built with %s\n", runtime.Version())
 	},
 }

@@ -1,10 +1,14 @@
-name: "vikunja"
+# Package identity is ours; the install paths below deliberately are not. The
+# binary, config directory and service unit keep their upstream names so that
+# existing deployments and the release tooling that references those paths keep
+# working — this ticket changes what a user sees, not where files live.
+name: "brazn-tasks"
 arch: "<arch>"
 platform: "linux"
 version: "<version>"
-description: "Vikunja is an open-source todo application, written in Go. It lets you create lists,tasks and share them via teams or directly between users."
-maintainer: "Vikunja Maintainers <maintainers@vikunja.io>"
-homepage: "https://vikunja.io"
+description: "Brazn Tasks is an open-source todo application, written in Go. It lets you create lists,tasks and share them via teams or directly between users. Brazn Tasks is a modified fork of Vikunja and is not affiliated with or endorsed by the Vikunja project."
+maintainer: "Brazn Mngo <hello@braznmngo.com>"
+homepage: "https://github.com/BraznMngo/brazn-tasks"
 section: "default"
 priority: "extra"
 license: "AGPLv3"

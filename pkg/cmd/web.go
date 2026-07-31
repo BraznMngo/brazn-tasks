@@ -111,7 +111,7 @@ func setupAutoTLS(server *http.Server) {
 	}
 
 	if config.ServiceInterface.GetString() != ":443" {
-		log.Warningf("Vikunja's interface is set to %s, with tls it is recommended to set this to :443", config.ServiceInterface.GetString())
+		log.Warningf("The Brazn Tasks interface is set to %s, with tls it is recommended to set this to :443", config.ServiceInterface.GetString())
 	}
 
 	// Start HTTP server for ACME challenges
@@ -143,7 +143,7 @@ var webCmd = &cobra.Command{
 	Run: func(_ *cobra.Command, _ []string) {
 
 		// Version notification
-		log.Infof("Vikunja version %s", version.Version)
+		log.Infof("Brazn Tasks version %s", version.Version)
 
 		// Start the webserver
 		e := routes.NewEcho()
