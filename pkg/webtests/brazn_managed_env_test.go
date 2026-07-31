@@ -101,7 +101,14 @@ func (env *managedEnv) grant(userID int64, edition string, organizationAdmin boo
 		"signature": map[string]string{
 			"key_id":    managedTestKeyID,
 			"algorithm": "ed25519",
-			"value":     base64.StdEncoding.EncodeToString(ed25519.Sign(env.signingKey, signed)),
+			// Signed over the contract's domain-separated input, the same as
+			// the commercial service does. entitlement.SigningInput is the one
+			// definition of those bytes, so a signer here and the verifier
+			// cannot drift; that the bytes match the contract is pinned
+			// separately, against a literal, in the entitlement package's own
+			// tests.
+			"value": base64.StdEncoding.EncodeToString(
+				ed25519.Sign(env.signingKey, entitlement.SigningInput(signed))),
 		},
 	})
 	require.NoError(env.t, err)

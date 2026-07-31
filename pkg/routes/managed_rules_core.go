@@ -91,7 +91,7 @@ func init() {
 func decideTaskMove(e *managedEval) error {
 	body, err := e.requestBody()
 	if err != nil {
-		return e.refuseUnreadableBody()
+		return e.refuseUnreadableBody(err)
 	}
 
 	destination := body.destinationProjectID()

@@ -215,9 +215,50 @@ func TestPersonalPolicyRefusesABodyItCouldNotRead(t *testing.T) {
 		unregistered, strings.Repeat("a", managedBodyOverflow))
 
 	rec := env.request(http.MethodPost, "/api/v1/tasks/1", padded, &testuser1)
-	assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, rec.Body.String())
 	assert.Equal(t, before, currentTaskProjectID(t, env.e, 1),
 		"the task must not have moved on the strength of a body the gate could not read")
+
+	// The refusal has to be actionable. A flat "your account cannot do this"
+	// would be a lie: the account can, the field is just too long.
+	assert.Contains(t, rec.Body.String(), "too large",
+		"the caller must be told what to change, not that their account is at fault")
+}
+
+// TestPersonalPolicyReadsEveryTaskSourceTheHandlerMight covers the bulk routes,
+// where the request names its tasks in the body rather than the path.
+//
+// The three sources - path parameter, body id, bulk task_ids - are a union and
+// not alternatives. Treating any as a fallback reopens the hole: BulkTask has
+// no ID field, so a body id is ignored by the handler while shadowing the
+// task_ids the gate should have looked at, and the two end up reading
+// different tasks again.
+func TestPersonalPolicyReadsEveryTaskSourceTheHandlerMight(t *testing.T) {
+	env := newPersonalEnv(t)
+	unregistered := env.newProject(&testuser1, "Never provisioned", 0)
+
+	// Pre-existing data, so the decoy task is genuinely already at the
+	// destination and the gate would call the request "not a move".
+	s := dbSessionForTest(t)
+	_, err := s.Exec("UPDATE tasks SET project_id = ? WHERE id = ?", unregistered, 3)
+	require.NoError(t, err)
+	require.NoError(t, s.Commit())
+
+	before := currentTaskProjectID(t, env.e, 1)
+	hijack := fmt.Sprintf(
+		`{"id":3,"task_ids":[1],"fields":["project_id"],"values":{"project_id":%d}}`, unregistered)
+
+	for _, c := range []managedCase{
+		{"v1", http.MethodPost, "/api/v1/tasks/bulk", hijack, http.StatusForbidden},
+		{"v2", http.MethodPut, "/api/v2/tasks/bulk", hijack, http.StatusForbidden},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			rec := env.request(c.method, c.path, c.body, &testuser1)
+			assert.Equal(t, c.want, rec.Code, rec.Body.String())
+			assert.Equal(t, before, currentTaskProjectID(t, env.e, 1),
+				"the task named in task_ids must not have moved")
+		})
+	}
 }
 
 // TestPersonalPolicyReadsTheTaskTheHandlerWillActOn covers the gap between what

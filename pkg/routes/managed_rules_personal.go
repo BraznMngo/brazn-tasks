@@ -80,7 +80,7 @@ func denyPersonal(reason string) managedRuleFunc {
 func decidePersonalTaskMove(e *managedEval) error {
 	body, err := e.requestBody()
 	if err != nil {
-		return e.refuseUnreadableBody()
+		return e.refuseUnreadableBody(err)
 	}
 
 	stated := body.destinationProjectID()
