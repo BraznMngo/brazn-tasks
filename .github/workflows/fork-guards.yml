@@ -34,23 +34,62 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: The release job has not returned to ci.yml
+      - name: No active workflow reaches the publishing path
         shell: bash
         run: |
           set -euo pipefail
-          # Upstream's release job pushes images to ghcr.io as
-          # ${{ github.repository_owner }} with no upstream-repository guard, and it
-          # is reached through `uses:` — so it runs inside ci's own run and
-          # disabling `Release` at repository level does not stop it. BRA-774
-          # removed it; an upstream merge reintroduces it.
-          if grep -nE '^\s*uses:.*release\.ya?ml' .github/workflows/ci.yml; then
-            echo >&2
-            echo "ci.yml calls release.yml again. An upstream merge reinstated the" >&2
-            echo "release job. Remove it before merging: on this fork it publishes" >&2
-            echo "container images under the Brazn name. See CLAUDE.md section 2." >&2
+
+          # ci.yml is the file BRA-774 removed the release job from. If an upstream
+          # merge renames or moves it, every check below that assumed its contents
+          # would pass while guarding nothing, so its absence is itself a finding.
+          if [[ ! -f .github/workflows/ci.yml ]]; then
+            echo "::error::.github/workflows/ci.yml is gone. An upstream change moved or" \
+                 "renamed it, so the removals BRA-774 made cannot be verified. Re-point" \
+                 "this guard before merging."
             exit 1
           fi
-          echo "ci.yml does not call release.yml."
+
+          failed=0
+
+          # Route 1 — the reusable-workflow call. Upstream's release job authenticates
+          # to ghcr.io as ${{ github.repository_owner }} with no upstream-repository
+          # guard. Reached through `uses:` it runs inside the *caller's* run, so
+          # disabling it at repository level does not stop it. Scanning every workflow,
+          # not just ci.yml, because test.yml is already a reusable workflow ci.yml
+          # calls and a call added there would be just as effective.
+          calls="$(grep -rnE '^[[:space:]]*uses:.*(release|preview)\.ya?ml' \
+            --include='*.yml' .github/workflows/ || true)"
+          if [[ -n "${calls}" ]]; then
+            echo "${calls}"
+            echo "::error::A workflow calls release.yml or preview.yml again. An upstream" \
+                 "merge reinstated the publishing path; on this fork it publishes container" \
+                 "images under the Brazn name. Remove it before merging (CLAUDE.md section 2)."
+            failed=1
+          fi
+
+          # Route 2 — the same hazard inlined or renamed. A release job whose steps are
+          # pasted into ci.yml, or a release.yml renamed to publish.yml, defeats route 1
+          # entirely. So look for the hazard itself: this repository authenticating to a
+          # container registry. release.yml and preview.yml are excluded because they are
+          # upstream's originals and are disabled at repository level (asserted in the
+          # next step); fork-guards.yml is excluded because these patterns appear in it
+          # only as the search terms on this line.
+          offenders="$(grep -rlE 'docker/login-action|registry:[[:space:]]*ghcr\.io|packages:[[:space:]]*write' \
+            --include='*.yml' \
+            --exclude='release.yml' --exclude='preview.yml' --exclude='fork-guards.yml' \
+            .github/workflows/ || true)"
+          if [[ -n "${offenders}" ]]; then
+            echo "${offenders}"
+            echo "::error::The workflow file(s) above authenticate to a container registry." \
+                 "Brazn Tasks images are built and promoted by the Percy container pipeline," \
+                 "never by this repository. Remove the publishing steps before merging."
+            failed=1
+          fi
+
+          if [[ "${failed}" == 0 ]]; then
+            echo "No workflow calls or inlines the publishing path."
+          fi
+          exit "${failed}"
 
       - name: Inherited publishing workflows are still disabled
         shell: bash
@@ -69,7 +108,14 @@ jobs:
             state="$(printf '%s\n' "${workflows}" \
               | awk -F'\t' -v n="${name}" '$1 == n { print $2; exit }')"
             if [[ -z "${state}" ]]; then
-              echo "note: no workflow named '${name}' — nothing to re-enable."
+              # Absence is not safety. GitHub keys workflow records by path, so an
+              # upstream rename retires the old record and registers a new one — and new
+              # records default to `active`. Passing here on a missing name is exactly
+              # the guard-that-stopped-looking this ticket exists to prevent.
+              echo "::error::No workflow named '${name}' exists. It was disabled when this" \
+                   "fork was baselined (BRA-774); an upstream change has renamed or removed" \
+                   "it. Confirm the publishing path is still shut, then update GUARDED."
+              failed=1
               continue
             fi
             if [[ "${state}" == active ]]; then

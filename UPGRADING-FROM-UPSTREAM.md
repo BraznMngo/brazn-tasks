@@ -27,12 +27,18 @@ rule that already failed. The guards below matter more than this prose.
 
 ## Automated guards
 
-These run in CI on every pull request and every push to `brazn/main`. They are what actually
-stop a regression; treat a failure as a blocking finding, never as noise to silence.
+These run in CI on every pull request and every push to `brazn/main`. Treat a failure as a
+blocking finding, never as noise to silence.
+
+A guard only stops a regression if it is a **required status check** on `brazn/main`. The
+`Fork guards` context must be listed in branch protection alongside the `Test / *` contexts;
+without that, a red guard is advisory and the merge button stays green. Check this whenever
+the guards change, for the same reason CLAUDE.md §2 requires branch protection to be updated
+in the same change as a check rename.
 
 | Guard | Where | Fails when |
 |---|---|---|
-| Release job absent | `.github/workflows/fork-guards.yml` | `ci.yml` calls `release.yml` again, or a `release` job reappears |
+| Release job absent | `.github/workflows/fork-guards.yml` | `ci.yml` contains a `uses:` line referencing `release.yml` |
 | Inherited workflows still disabled | `.github/workflows/fork-guards.yml` | `Release` or `Preview` is active at repository level |
 | Every mutating route classified | `pkg/routes/route_classification_test.go` (BRA-925) | an upstream change adds a mutating route absent from `pkg/routes/route-classification.json` |
 
@@ -61,12 +67,15 @@ upgrade is; skipping it does not make the work smaller.
 
 ### 2. Merge deliberately
 
-Never automatically, never on a timer, never through a bot. The `upstream` remote exists with
-its push URL disabled for exactly this reason.
+Never automatically, never on a timer, never through a bot. The `upstream` remote exists in
+the reference clone with its push URL disabled for exactly this reason.
+
+Branch naming follows CLAUDE.md §2 — `brazn/<ticket>-<slug>`, one ticket, one branch, one
+agent — so an upgrade runs under its own ticket rather than a version-named branch:
 
 ```
 git fetch upstream --tags
-git checkout -b brazn/upgrade-<version> brazn/main
+git checkout -b brazn/<ticket>-upstream-<version> brazn/main
 git merge v<version>
 ```
 
@@ -104,9 +113,17 @@ it stopped looking is worse than no guard.
 
 ### 6. Release
 
-Build, deploy the digest to development, promote the **tested digest** — never a floating tag —
-and know the rollback: redeploy the previous digest. Images are built and promoted by the
-Percy container pipeline, not by this repository's CI.
+Images are built and deployed by the Percy repository's `Deploy Vikunja` workflow, not by
+this repository's CI. It builds the **exact `brazn-tasks` commit** named in
+`deploy/vikunja-<target>/SOURCE_REF` and pushes it to ECR as
+`braznmngo-shared:vikunja-<commit-sha>` — an immutable, commit-addressed tag, never a
+floating one like `latest` or `unstable`. Deploy renders that exact tag into the Compose
+file, so what runs is always traceable to one upstream-fork commit.
+
+For an upgrade, that means: land the merge on `brazn/main`, then raise the target's
+`SOURCE_REF` in the Percy repository to the new commit and deploy development first. Roll
+back by redeploying the previous known-good stack definition — the Percy pipeline owns that
+step; do not attempt it from this repository.
 
 ## Host-execution safety
 
