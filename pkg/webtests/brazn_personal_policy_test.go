@@ -144,6 +144,15 @@ func TestPersonalPolicyLeavesOrdinaryTaskWorkAlone(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	})
 
+	// The v1 client sends the whole task back rather than a patch, so this is
+	// what an ordinary rename actually looks like on the wire.
+	t.Run("when the client sends the project back unchanged", func(t *testing.T) {
+		rec := env.request(http.MethodPost, "/api/v1/tasks/1",
+			fmt.Sprintf(`{"id":1,"title":"renamed in place","project_id":%d}`, fixtureInboxProjectID),
+			&testuser1)
+		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	})
+
 	t.Run("with no projection at all", func(t *testing.T) {
 		env.revoke(testuser1.ID)
 
