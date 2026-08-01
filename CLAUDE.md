@@ -36,7 +36,11 @@ On the host, agents must **never** run this project's code or development toolin
 - repository scripts, generated executables, dependency installers, or packaging tools;
 - the application itself, in any form, including "just to check something".
 
-`node --check` (parse-only, executes no program) is the single approved exception.
+`node --check` (parse-only, executes no program) is the single approved exception — but note
+that **Node is not installed on the development host at all**, so in practice there is no local
+check of any kind, for any language. Do not plan on one. Verified 2026-08-01: not on `PATH`,
+not in `C:\Program Files\nodejs`, not under `%LOCALAPPDATA%\Programs`, no nvm. An agent
+reporting that it could not run this is telling the truth, not making an excuse.
 
 Builds and tests run **only** on GitHub-hosted runners via the workflows in
 `.github/workflows/`. Self-hosted runners, Windows Sandbox, Hyper-V, WSL, Docker, local
@@ -118,6 +122,50 @@ Four gates, in order:
 
 Development and test must run **this** image. Stock Vikunja cannot exercise managed mode,
 protected topology or entitlement projection, so a stock instance produces false confidence.
+
+### A test that cannot fail is worse than no test
+
+Because CI is the only verifier here, a test that passes for the wrong reason does not merely
+miss a bug — it spends a full CI round-trip reporting that the code is fine. Four instances
+landed on 2026-08-01 across this repository and Percy's. Every one read as the most valuable
+assertion in its file. Three distinct shapes, in increasing order of how hard they are to see:
+
+- **Self-referential comparison.** The expected value is produced by the code under test, so
+  the test agrees with itself whatever the code does. Assert against a fixed, independently
+  written expectation — the literal contract string, not a value the implementation computed.
+  `pkg/modules/brazn/entitlement/entitlement_test.go` is the pattern: it writes the signing
+  prefix out as a literal rather than calling `SigningInput`, so it asserts conformance to the
+  contract instead of agreement with our own constant.
+- **A difference asserted in the wrong place.** The setup really does construct the bad input,
+  but something between the fixture and the code under test normalises it away, and the
+  assertion sits before that step. `TestVerifyRejectsReformattedJSON` asserted `require.NotEqual`
+  on its own intermediate buffer, which was true — then building the envelope ran `json.Marshal`
+  over a `json.RawMessage`, which **compacts** it, so the indented payload reached the verifier
+  byte-identical. Note the direction: Go *erased* the difference rather than preserving it, and
+  reasoning from "the field is passed through verbatim" gets it exactly backwards and produces
+  the same broken test again. **Assert the difference where it decides the outcome, not where
+  you happen to create it.** The degenerate version is a setup that never constructs the bad
+  input at all: an oversized body that is not oversized, a second organization that is not a
+  second one.
+- **An unrelated guard masking the bug.** Setup correct, assertion correct, still worthless —
+  the refusal the test observed came from somewhere else. A Teams reparent test asserted a
+  refusal, got one, and passed against genuinely buggy code, because Huma's autopatch re-entered
+  the root router and a *different* guard refused the inner request. Nothing about the test
+  looks wrong, which makes this the hardest of the three to catch by reading.
+
+**The cheap check, and it belongs in every brief that asks for a negative test:** deleting the
+production guard must make the test fail. If it still passes, the test is not testing that
+guard. This is the only reliable way to catch the third shape, where reading proves nothing.
+Nobody can run that check on this host, which is exactly why it has to be stated as a required
+reasoning step rather than left as an aspiration.
+
+The same trap catches values shared with the commercial service, and this fork has already paid
+for it twice — both in `Verify`, both found only by building the other side against it. It
+shipped without the domain-separation prefix, and then decoding base64url as padded base64;
+either alone meant **no conforming projection could be accepted at all**. An interop constant
+both sides derive from one definition is checked by neither, and an encoding both sides merely
+*assume* is checked by neither either. Pin such values against the contract text by literal,
+and test the **wire form** rather than a round trip through our own encoder.
 
 ## 5. Mandatory pre-push correctness rule
 
