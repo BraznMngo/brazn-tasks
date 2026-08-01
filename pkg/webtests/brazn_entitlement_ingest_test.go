@@ -54,12 +54,21 @@ const projectionContractPrefix = "percy.entitlement-projection.v2\n"
 // emit these members in declaration order, which is a different byte string
 // that no producer will ever send.
 func canonicalSigned(organization string, userID, revision int64, edition string, issuedAt time.Time) string {
+	return canonicalSignedFor(
+		organization, strconv.FormatInt(userID, 10), revision, edition, issuedAt,
+	)
+}
+
+// canonicalSignedFor is canonicalSigned for a subject.user_id that is not a
+// local row id. The contract calls the field opaque and constrains it only by
+// character class, so a test needs to be able to put a well-formed projection
+// naming an unresolvable subject on the wire.
+func canonicalSignedFor(organization, subject string, revision int64, edition string, issuedAt time.Time) string {
 	return fmt.Sprintf(
 		`{"contract_version":"2","issued_at":%q,"revision":%d,`+
 			`"state":{"edition":%q,"effective_state":"active","organization_admin":true,"seat_status":"active"},`+
 			`"subject":{"organization_id":%q,"user_id":%q}}`,
-		issuedAt.UTC().Format(time.RFC3339), revision, edition, organization,
-		strconv.FormatInt(userID, 10),
+		issuedAt.UTC().Format(time.RFC3339), revision, edition, organization, subject,
 	)
 }
 
@@ -440,28 +449,85 @@ func TestEntitlementIngestRefusesAnUndefinedEdition(t *testing.T) {
 	require.Equal(t, int64(1), row.Revision)
 }
 
-// TestEntitlementIngestRefusesASubjectThisInstanceDoesNotHave keeps a row from
-// being written against a user id nothing resolves to, which every policy check
-// would then read straight past.
-func TestEntitlementIngestRefusesASubjectThisInstanceDoesNotHave(t *testing.T) {
+// localUserExists reports whether the instance holds a user row, which is the
+// precondition the erased-subject case actually turns on. The projections table
+// is the wrong place to ask: ApplyEntitlement decides on the USERS table, and a
+// test that established its precondition anywhere else would be asserting it
+// somewhere other than where it decides the outcome.
+func localUserExists(t *testing.T, userID int64) bool {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	count, err := s.Table("users").Where("id = ?", userID).Count()
+	require.NoError(t, err)
+	return count > 0
+}
+
+// TestEntitlementIngestSucceedsForAnErasedSubject is what keeps account erasure
+// from deadlocking, and the failure it prevents has no recovery short of hand
+// intervention on production data.
+//
+// Erasure (BRA-805) is resumable and its acknowledgement guard is fail-closed,
+// so a retry after this instance's user row is already gone re-delivers the
+// closure projection for a subject nobody holds any more. While that answered
+// 400, the producer read a rejection and stopped: the customer's tasks were
+// already destroyed, the commercial record was never redacted, and every
+// subsequent retry reproduced the same rejection for ever. A refusal here is
+// the one answer with no way back, so the contract requires a success.
+//
+// DELETING THE `if !has` BRANCH IN ApplyEntitlement MAKES THIS FAIL at the
+// first assertion: subjectUserID's lookup becomes a refusal again and the
+// delivery answers 400 instead of 204. Nor can that 204 arrive from anywhere
+// else - every other successful outcome of this endpoint is a write or a no-op
+// against a STORED row, and the assertion below proves this subject has none.
+//
+// The malformed control is the half that would rot quietly. "Succeed whenever
+// the subject does not resolve" is one relaxation too far: a user_id that was
+// never a local reference at all means a broken producer rather than an erased
+// account, and it must still be refused.
+func TestEntitlementIngestSucceedsForAnErasedSubject(t *testing.T) {
 	env := newManagedEnv(t)
 
-	const absent int64 = 987654321
-	_, has := storedProjection(t, absent)
-	require.False(t, has)
+	const erased int64 = 987654321
+	require.False(t, localUserExists(t, erased),
+		"the subject must really be gone from this instance, or this proves nothing")
 
-	unknown := env.projection(absent, 1)
-	require.Equal(t, strconv.FormatInt(absent, 10), sentSigned(t, unknown).Subject.UserID,
-		"the delivery must really name the absent user, or this proves nothing")
+	closure := env.projection(erased, 1)
+	require.Equal(t, strconv.FormatInt(erased, 10), sentSigned(t, closure).Subject.UserID,
+		"the delivery must really name the erased user, or this proves nothing")
 
-	require.Equal(t, http.StatusBadRequest, env.deliver(unknown).Code)
+	require.Equal(t, http.StatusNoContent, env.deliver(closure).Code,
+		"a projection for an erased subject must be answered successfully, or erasure deadlocks")
 
-	_, has = storedProjection(t, absent)
+	_, has := storedProjection(t, erased)
+	assert.False(t, has,
+		"there is nothing left to entitle, so nothing may be stored against a user that does not exist")
+
+	// A retry is what actually reaches this instance, delivery being
+	// at-least-once, so the success has to survive repetition rather than hold
+	// once.
+	require.Equal(t, http.StatusNoContent, env.deliver(closure).Code)
+	_, has = storedProjection(t, erased)
 	assert.False(t, has)
 
-	// Control: the identical delivery for a user this instance does have is
-	// applied, so the subject is what was refused.
+	// Control: a subject that is not a local user reference at all is still
+	// refused, so the success above is about an erased user and not about
+	// leniency toward anything that fails to resolve.
+	malformed := env.envelopeAround(canonicalSignedFor(
+		managedTestOrganization, "usr_5b1e8c04a927", 1, entitlement.EditionPersonal, time.Now(),
+	))
+	require.Equal(t, http.StatusBadRequest, env.deliver(malformed).Code,
+		"a user_id that was never a local id is a broken producer, not an erased account")
+
+	// Control: a subject this instance does have still applies, so the endpoint
+	// is not simply answering 204 to everything.
+	require.True(t, localUserExists(t, testuser1.ID))
 	require.Equal(t, http.StatusNoContent, env.deliver(env.projection(testuser1.ID, 1)).Code)
+	row, has := storedProjection(t, testuser1.ID)
+	require.True(t, has)
+	assert.Equal(t, int64(1), row.Revision)
 }
 
 // TestEntitlementIngestWritesNothingForAnUntrustedSigner is the ordering the
