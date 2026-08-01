@@ -126,9 +126,9 @@ protected topology or entitlement projection, so a stock instance produces false
 ### A test that cannot fail is worse than no test
 
 Because CI is the only verifier here, a test that passes for the wrong reason does not merely
-miss a bug — it spends a full CI round-trip reporting that the code is fine. Four instances
+miss a bug — it spends a full CI round-trip reporting that the code is fine. Five instances
 landed on 2026-08-01 across this repository and Percy's. Every one read as the most valuable
-assertion in its file. Three distinct shapes, in increasing order of how hard they are to see:
+assertion in its file. Four distinct shapes, in increasing order of how hard they are to see:
 
 - **Self-referential comparison.** The expected value is produced by the code under test, so
   the test agrees with itself whatever the code does. Assert against a fixed, independently
@@ -152,12 +152,31 @@ assertion in its file. Three distinct shapes, in increasing order of how hard th
   refusal, got one, and passed against genuinely buggy code, because Huma's autopatch re-entered
   the root router and a *different* guard refused the inner request. Nothing about the test
   looks wrong, which makes this the hardest of the three to catch by reading.
+- **The evidence moves out of the assertion's field of view.** Setup correct, assertion correct,
+  guard deleted, test green — and worse than silent, because the test then *attests the opposite*
+  of the property it was written for. `TestEntitlementIngestAcceptsAnErasedSubject` asserted on
+  `user_id = 987654321`; with the guard removed, `ApplyEntitlement` falls through and inserts the
+  erased subject's full signed envelope at **`user_id = 0`** — legal, since the column is
+  `bigint not null unique` with no foreign key. Every assertion still passed while the code
+  retained exactly the organization, edition, seat status and timestamps that erasure exists to
+  destroy. The assertion never moved; the evidence did. **When a mutation can relocate the
+  evidence, assert over the whole store rather than keying on the identifier under test** — count
+  `brazn_entitlement_projections` around the operation, so a row written under *any* id is
+  caught. And add a control proving the count moves for a normal case, or a frozen counter makes
+  the test vacuous in the other direction: guard the guard.
 
 **The cheap check, and it belongs in every brief that asks for a negative test:** deleting the
 production guard must make the test fail. If it still passes, the test is not testing that
-guard. This is the only reliable way to catch the third shape, where reading proves nothing.
-Nobody can run that check on this host, which is exactly why it has to be stated as a required
-reasoning step rather than left as an aspiration.
+guard. This is the only reliable way to catch the third and fourth shapes, where reading proves
+nothing. Nobody can run that check on this host, which is exactly why it has to be stated as a
+required reasoning step rather than left as an aspiration.
+
+**And state the mutation claim in the test, because writing it down is what exposes it.** Both
+times a test in this repository carried a comment saying "deleting X makes this fail", the claim
+was **wrong** — once about production code the test never imported, once about a mutation that
+relocated the row instead of refusing it. Neither error was visible in the test; both were
+visible the moment someone traced the sentence. A mutation claim nobody checks is decoration, but
+a mutation claim written down is a claim a reviewer can disprove.
 
 The same trap catches values shared with the commercial service, and this fork has already paid
 for it twice — both in `Verify`, both found only by building the other side against it. It
