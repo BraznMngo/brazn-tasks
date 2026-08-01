@@ -33,7 +33,6 @@ import (
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/models"
 	auth2 "code.vikunja.io/api/pkg/modules/auth"
-	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
 	"code.vikunja.io/api/pkg/user"
 
 	"github.com/labstack/echo/v5"
@@ -199,15 +198,32 @@ func decideManagedRule(c *echo.Context, rule managedRule) error {
 	return e.decideByEdition()
 }
 
-// decideByEdition resolves the acting user and their entitlement, then hands
-// the request to the rule bound for that edition. A preflight rule calls it
-// when it has worked out that this particular request needs entitlement after
-// all - a route can carry both an ordinary and a guarded meaning, and only the
-// request itself says which one it is.
+// decideByEdition resolves the acting user and the edition their session token
+// carries, then hands the request to the rule bound for that edition. A
+// preflight rule calls it when it has worked out that this particular request
+// needs entitlement after all - a route can carry both an ordinary and a
+// guarded meaning, and only the request itself says which one it is.
 //
-// The database session is opened after the user is resolved and closed before
-// the handler runs: holding a read session across the handler's write
-// deadlocks SQLite, and GetAuthFromClaims opens its own session.
+// THE EDITION COMES OFF THE TOKEN, NOT OUT OF THE DATABASE. This previously ran
+// models.GetEntitlement on every guarded request: one indexed row read plus one
+// Ed25519 verification, on top of whatever the rule then queried anyway. The
+// entitlement is now read once where the token is issued
+// (auth.NewEntitledUserJWTAuthtoken) and stamped into the token that every
+// authenticated request already verifies, so what is left here is a map lookup.
+//
+// The two conditions that used to be checked here have not been dropped; they
+// moved to issue time and are expressed by the claim's ABSENCE. A suspended
+// subscription, a withdrawn seat, an entitlement whose `valid_to` has passed -
+// each one mints a token with no edition, which lands on the refusal below. The
+// window in which a change made mid-session is not yet enforced is one token
+// lifetime, and that bound is what makes a revocation channel unnecessary
+// rather than missing.
+//
+// The database session is still opened, because the RULES read from it: project
+// ownership, the protected topology, the entitlement of the account a share
+// would be given to. It is opened after the user is resolved and closed before
+// the handler runs, since holding a read session across the handler's write
+// deadlocks SQLite and GetAuthFromClaims opens its own.
 func (e *managedEval) decideByEdition() error {
 	c := e.c
 
@@ -218,23 +234,19 @@ func (e *managedEval) decideByEdition() error {
 	}
 	e.user = acting
 
+	edition, entitled := auth2.EditionFromToken(c)
+	if !entitled {
+		log.Debugf("[managed] %s %s refused for user %d: the session token carries no entitlement",
+			c.Request().Method, c.Path(), acting.ID)
+		return errManagedUnavailable()
+	}
+	e.edition = edition
+
 	s := db.NewSession()
 	defer s.Close()
 	e.s = s
 
-	projection, err := models.GetEntitlement(s, acting.ID)
-	if err != nil {
-		log.Debugf("[managed] %s %s refused for user %d: no valid entitlement projection",
-			c.Request().Method, c.Path(), acting.ID)
-		return errManagedUnavailable()
-	}
-	e.projection = projection
-
-	if !projection.Active() {
-		return e.refuse("the subscription or seat is not active")
-	}
-
-	decide, hasPolicy := editionRules[e.rule][projection.State.Edition]
+	decide, hasPolicy := editionRules[e.rule][edition]
 	if !hasPolicy {
 		return e.refuse("no policy is defined for this edition")
 	}
@@ -263,8 +275,11 @@ type managedEval struct {
 	s    *xorm.Session
 	rule managedRule
 
-	user       *user.User
-	projection *entitlement.Signed
+	user *user.User
+	// edition is the entitlement edition the acting session token carries, set
+	// by decideByEdition and empty until then. A preflight rule refuses before
+	// there is one, which is why logRefusal reads it defensively.
+	edition string
 
 	body     *managedBody
 	bodyErr  error
@@ -444,7 +459,7 @@ func (e *managedEval) ownsProject(projectID int64) (bool, error) {
 // invisible to whoever has to explain it to a customer - and returns the
 // response the caller sees.
 //
-// A preflight rule refuses before there is a user or a projection to name, so
+// A preflight rule refuses before there is a user or an edition to name, so
 // both are read defensively: a policy check must not be the thing that panics.
 func (e *managedEval) refuse(reason string) error {
 	e.logRefusal(reason)
@@ -456,9 +471,9 @@ func (e *managedEval) logRefusal(reason string) {
 	if e.user != nil {
 		userID = e.user.ID
 	}
-	edition := "unknown"
-	if e.projection != nil {
-		edition = e.projection.State.Edition
+	edition := e.edition
+	if edition == "" {
+		edition = "unknown"
 	}
 
 	log.Debugf("[managed] %s %s refused by rule %q for user %d on %q: %s",

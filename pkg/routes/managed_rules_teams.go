@@ -303,17 +303,19 @@ func (e *managedEval) requireManagedRoot(projectID int64) error {
 // organization. Both sides are read from the signed projection's subject, so
 // there is no second source of the answer to keep in step.
 //
-// BOTH ORGANIZATIONS ARE READ HERE, and the caller's is deliberately not taken
-// from whatever entitlement state the gate happened to resolve on the way in.
-// DO NOT COLLAPSE THIS INTO THAT: the organization lives only on the signed
-// subject, so the moment the gate stops carrying a full projection - caching
-// the edition, or stamping it into the session token, both of which have been
-// proposed - the shortcut has no organization to offer and this comparison
-// either stops compiling or, far worse, quietly starts comparing something
-// nobody signed. Reading it from the projection costs one indexed row and one
-// signature verification, on routes that hand out access and are therefore
-// administrative and rare, and it cannot drift from the target's side because
-// the two come from the same call.
+// BOTH ORGANIZATIONS ARE READ HERE, from the projection, and the caller's side
+// has nowhere else to come from. The gate no longer carries a projection at
+// all: decideByEdition reads the EDITION off the session token, and a token
+// carries no organization. So there is no cached value to reuse and no shortcut
+// to take - DO NOT INVENT ONE. Putting an organization into the token would put
+// one side of this comparison somewhere nobody signed it, which is the whole
+// property the signed subject exists to provide.
+//
+// This is a second read on this path, alongside the target's just above, and it
+// is the same trade for the same reason: these routes hand out access, they are
+// administrative and rare, and a stale answer would decide who may reach
+// another customer's work. Two indexed rows and two signature verifications,
+// from the same call on the same session, so the two sides cannot drift.
 //
 // A TEAM SHARE STILL DOES NOT CLOSE HERE, and the invariant that said it did
 // not need to has been removed rather than reworded. It read "a team can only
@@ -352,6 +354,15 @@ func (e *managedEval) requireEntitledTarget() error {
 		return e.refuse("the named account could not be resolved")
 	}
 
+	// THE ONE ENTITLEMENT READ LEFT ON A REQUEST PATH, and it has to stay one.
+	// The acting user's edition comes off their session token, which is why
+	// decideByEdition no longer queries; this is a DIFFERENT user - the person
+	// being given access - and nobody here holds their token. There is nothing
+	// to read it from and nothing to cap, so the projection is the only source.
+	//
+	// It is also the read whose freshness matters most, since it decides whether
+	// somebody may be handed access, so a stale answer would be the wrong
+	// trade even if a cached one existed.
 	projection, err := models.GetEntitlement(e.s, target.ID)
 	if err != nil {
 		return e.refuse("the named account has no valid entitlement projection")
@@ -360,11 +371,19 @@ func (e *managedEval) requireEntitledTarget() error {
 		return e.refuse("the named account is not an active member of a Teams organization")
 	}
 
-	// Failing closed here cannot lock anyone out who is not locked out already:
-	// every route that reaches this point has passed the gate's own entitlement
-	// resolution, so a caller with no readable projection was refused before any
-	// rule ran. There is no instance-administrator bypass to preserve, because
-	// managed mode never had one.
+	// FAILING CLOSED HERE IS REACHABLE, and deliberately so. The caller reached
+	// this rule on the strength of a session token, which outlives the row it
+	// was minted from, so a valid token and an unreadable projection is a real
+	// combination rather than a theoretical one.
+	//
+	// Refusing is right because the question cannot be answered any other way:
+	// with no projection there is no organization, and "is the target in the
+	// caller's organization" has no answer to fail safe towards. The blast
+	// radius is bounded to the routes that hand out access - ordinary work never
+	// reaches here - so this cannot become an outage that stops people working,
+	// only one that stops them widening who has access while the state is
+	// unreadable. There is no instance-administrator bypass to preserve either;
+	// managed mode has never had one.
 	acting, err := models.GetEntitlement(e.s, e.user.ID)
 	if err != nil {
 		return e.refuse("the acting account has no valid entitlement projection")

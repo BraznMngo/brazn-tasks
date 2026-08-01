@@ -29,6 +29,7 @@ import (
 	"code.vikunja.io/api/pkg/events"
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/models"
+	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
 	"code.vikunja.io/api/pkg/modules/humabridge"
 	"code.vikunja.io/api/pkg/user"
 	"code.vikunja.io/api/pkg/web"
@@ -124,7 +125,7 @@ func IssueUserToken(ctx context.Context, u *user.User, deviceInfo, ipAddress str
 		return nil, err
 	}
 
-	t, err := NewUserJWTAuthtoken(u, session.ID)
+	t, err := NewEntitledUserJWTAuthtoken(s, u, session.ID)
 	if err != nil {
 		_ = s.Rollback()
 		return nil, err
@@ -174,25 +175,107 @@ func NewUserAuthTokenResponse(u *user.User, c *echo.Context, long bool, oidc *mo
 	return c.JSON(http.StatusOK, Token{Token: token.AccessToken})
 }
 
+// BraznEditionClaim carries the holder's entitlement edition in the session
+// token. Its ABSENCE is meaningful, and it is the refusing case: a token with
+// no such claim entitles its holder to nothing beyond ordinary task work,
+// whatever the database happens to say. That is what lets a guarded request
+// decide without a query - see routes.RequireManagedPolicy.
+const BraznEditionClaim = "brazn_edition"
+
 // NewUserJWTAuthtoken generates and signs a new short-lived jwt token for a user.
 // The token includes the session UUID as the `sid` claim. This is a global
 // function to be able to call it from web tests.
+//
+// It carries NO entitlement, so in managed mode a guarded route refuses its
+// holder. Any caller holding a database session wants
+// NewEntitledUserJWTAuthtoken instead; this remains for the callers that have
+// none, which are the web tests.
 func NewUserJWTAuthtoken(u *user.User, sessionID string) (token string, err error) {
+	return newUserJWTAuthtoken(u, sessionID, nil)
+}
+
+// NewEntitledUserJWTAuthtoken mints a session token that carries what its
+// holder is entitled to and expires no later than that entitlement does.
+//
+// THIS IS ENFORCEMENT'S EXPENSIVE HALF, and it happens once per token. The
+// entitlement is read here, the token is capped here, and afterwards the
+// token's own expiry does the work a revocation channel, a refresh protocol or
+// a periodic re-check would otherwise have been built to do:
+//
+//   - Revocation does not exist. Ending a subscription sets the date; this
+//     token runs out; the next call here gets nothing back. Bounded by one
+//     token lifetime, which is the bound a revocation list would buy.
+//   - Refresh does not exist. A renewed token comes back through here and
+//     re-runs the same rule, which is not a mechanism - it is issuing a token.
+//
+// The `expires_in` the login and OAuth responses report is deliberately left as
+// the uncapped lifetime. It is advisory, it is only ever an OVERSTATEMENT, and
+// the overstatement is harmless: a client that trusts it sees one 401, refreshes
+// on it, and gets back a token with no entitlement and a full lifetime - which
+// is the correct outcome and the one it would have reached anyway. Threading a
+// real expiry through IssuedUserToken, RefreshResult and TokenResponse to
+// improve a hint that only misleads inside one ten-minute window per
+// subscription is not worth the surface.
+func NewEntitledUserJWTAuthtoken(s *xorm.Session, u *user.User, sessionID string) (string, error) {
+	return newUserJWTAuthtoken(u, sessionID, models.EntitlementForToken(s, u.ID, time.Now()))
+}
+
+func newUserJWTAuthtoken(u *user.User, sessionID string, entitled *entitlement.TokenEntitlement) (token string, err error) {
 	t := jwt.New(jwt.SigningMethodHS256)
 
 	var ttl = time.Duration(config.ServiceJWTTTLShort.GetInt64())
-	var exp = time.Now().Add(time.Second * ttl).Unix()
+	var expires = time.Now().Add(time.Second * ttl)
 
 	claims := t.Claims.(jwt.MapClaims)
 	claims["type"] = AuthTypeUser
 	claims["id"] = u.ID
 	claims["username"] = u.Username
 	claims["is_admin"] = u.IsAdmin
-	claims["exp"] = exp
 	claims["sid"] = sessionID
 	claims["jti"] = uuid.New().String()
+	if entitled != nil {
+		claims[BraznEditionClaim] = entitled.Edition
+		// THE CAP, and it only ever shortens. An entitlement running past the
+		// normal lifetime changes nothing: a token outliving its own TTL would
+		// be a security regression bought for nobody. A zero EndsAt is an
+		// entitlement with no recorded end and shortens nothing either.
+		//
+		// An end already in the past cannot reach here, because ForToken
+		// refuses those rather than returning one - so this can never mint a
+		// token that expired before it was issued and take a customer's own
+		// tasks away along with their subscription.
+		if !entitled.EndsAt.IsZero() && entitled.EndsAt.Before(expires) {
+			expires = entitled.EndsAt
+		}
+	}
+	claims["exp"] = expires.Unix()
 
 	return t.SignedString([]byte(config.ServiceSecret.GetString()))
+}
+
+// EditionFromToken returns the entitlement edition the request's session token
+// carries, and whether it carries one at all.
+//
+// False is the refusing answer, and it covers every way of not having one: no
+// user JWT in the context (an API token or a link share - neither is issued
+// through a login, so neither can have been capped), no claim inside it, or an
+// empty one. Managed mode already refuses to provision API tokens, CalDAV
+// tokens and bots, since their lifecycle belongs to the commercial service, so
+// no managed account can hold a credential that reaches here without a claim.
+func EditionFromToken(c *echo.Context) (string, bool) {
+	jwtinf, isJWT := c.Get("user").(*jwt.Token)
+	if !isJWT {
+		return "", false
+	}
+	claims, isClaims := jwtinf.Claims.(jwt.MapClaims)
+	if !isClaims {
+		return "", false
+	}
+	edition, isString := claims[BraznEditionClaim].(string)
+	if !isString || edition == "" {
+		return "", false
+	}
+	return edition, true
 }
 
 // NewLinkShareJWTAuthtoken creates a new jwt token from a link share
@@ -405,7 +488,11 @@ func RefreshSession(rawRefreshToken string) (*RefreshResult, error) {
 		return nil, err
 	}
 
-	accessToken, err := NewUserJWTAuthtoken(u, session.ID)
+	// A renewed token re-runs the capping rule against the entitlement as it
+	// stands NOW, which is the entirety of "refresh". An entitlement that ended
+	// since the last one was issued returns nothing here, so the session
+	// continues for ordinary work and every guarded route starts refusing.
+	accessToken, err := NewEntitledUserJWTAuthtoken(s, u, session.ID)
 	if err != nil {
 		_ = s.Rollback()
 		return nil, err

@@ -126,8 +126,11 @@ func exchangeAuthorizationCode(ctx context.Context, req *TokenRequest, deviceInf
 		return nil, err
 	}
 
-	// Generate JWT
-	accessToken, err := auth.NewUserJWTAuthtoken(u, session.ID)
+	// Generate JWT. Entitled like every other login path: a code exchange mints
+	// a fresh session, so it is a login, and a token issued here has to be
+	// capped by the same rule as one issued at the password prompt - otherwise
+	// the OAuth route is the way around the cap.
+	accessToken, err := auth.NewEntitledUserJWTAuthtoken(s, u, session.ID)
 	if err != nil {
 		_ = s.Rollback()
 		return nil, err

@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"time"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
 	"code.vikunja.io/api/pkg/user"
@@ -153,6 +154,37 @@ func GetEntitlement(s *xorm.Session, userID int64) (*entitlement.Signed, error) 
 		return nil, ErrNoEntitlement
 	}
 	return signed, nil
+}
+
+// EntitlementForToken decides what a session token being issued for this user
+// may carry. Nil means nothing: no edition claim, and the token keeps its
+// normal lifetime.
+//
+// THIS IS THE ONLY PLACE A CUSTOMER'S ENTITLEMENT IS READ FROM THE DATABASE,
+// and it runs once per token rather than once per request. A guarded request
+// afterwards reads the claim off the token it has already verified in order to
+// authenticate at all, so it costs no query and no signature check. That is the
+// point of the validity window: the expensive half was never the expiry, it was
+// having to ask.
+//
+// Every way of failing to read one answers nil, exactly as GetEntitlement's own
+// contract requires - a missing row, an unreachable database, a bad signature
+// and a rolled-back revision all mean the holder is entitled to nothing, and no
+// caller may tell them apart.
+//
+// Answered without touching the database outside managed mode, so a self-hosted
+// instance of this fork logs in exactly as stock Vikunja does: no extra query,
+// no claim, no behaviour to explain.
+func EntitlementForToken(s *xorm.Session, userID int64, at time.Time) *entitlement.TokenEntitlement {
+	if !config.BraznManagedMode.GetBool() {
+		return nil
+	}
+
+	signed, err := GetEntitlement(s, userID)
+	if err != nil {
+		return nil
+	}
+	return signed.ForToken(at, config.BraznEntitlementGrace.GetDuration())
 }
 
 // ApplyEntitlement stores one already-verified projection under the contract's
