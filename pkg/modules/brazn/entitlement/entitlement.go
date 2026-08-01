@@ -103,17 +103,10 @@ type State struct {
 // Signed is the signed half of the envelope, and the only half a policy
 // decision may read.
 //
-// IssuedAt is AUDIT DATA and nothing here or above it may decide anything from
-// it. The contract says so in as many words - it is recorded with a delivery
-// outcome so a dispute has something to reconstruct, and it must never order
-// two projections, which is revision's job exclusively. It is equally unfit for
-// freshness, which is the mistake worth naming because it looks reasonable: it
-// is the SENDER's wall clock, so a producer whose clock ran forward would
-// silently widen this instance's freshness window with no bug on either side
-// and nothing to report it, and one timestamp minted far enough ahead would
-// pin a subject entitled for the life of the instance. Freshness is measured
-// from when this instance last received an advancing revision, on its own
-// clock - see EntitlementProjection.RevisionReceived in pkg/models.
+// IssuedAt is AUDIT DATA and nothing may decide anything from it. The contract
+// says so in as many words: it is recorded with a delivery outcome so a dispute
+// has something to reconstruct, and it must never order two projections, which
+// is revision's job exclusively.
 type Signed struct {
 	ContractVersion string    `json:"contract_version"`
 	Subject         Subject   `json:"subject"`

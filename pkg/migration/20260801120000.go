@@ -34,11 +34,8 @@ import (
 // a row stops accepting deliveries and says so.
 //
 // revision_received records when this instance last accepted a delivery that
-// advanced the revision, and it is what the freshness window is measured from -
-// the receiver's own clock, never the envelope's issued_at, which belongs to
-// the sender and which the contract designates audit data. Existing rows carry
-// the zero time and therefore read as expired, which is correct rather than
-// convenient: nothing recorded when that projection was last confirmed.
+// advanced the revision, on the receiver's own clock. It is audit data:
+// nothing branches on it. Existing rows carry the zero time.
 //
 // Both defaults cost nothing in practice. Managed mode has never been switched
 // on, because until BRA-913 there was no endpoint that could write one of these
