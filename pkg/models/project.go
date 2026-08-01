@@ -1147,8 +1147,16 @@ func CreateNewProjectForUser(s *xorm.Session, u *user.User) (err error) {
 	// Managed mode identifies the Inbox by its immutable id, because the title
 	// is neither unique nor stable. This is the single point every Inbox is
 	// created at, so it is the only place the binding can be made reliably.
+	//
+	// Percy Feedback is provisioned from the same point for the same reason,
+	// and is deliberately not a second Inbox: one Brazn-owned project exists
+	// for the whole instance and this account is enrolled into it. See
+	// ProvisionFeedbackAccess.
 	if config.BraznManagedMode.GetBool() {
 		if err := RegisterProtectedProject(s, ProtectedKindInbox, p.ID, 0); err != nil {
+			return err
+		}
+		if err := ProvisionFeedbackAccess(s, u); err != nil {
 			return err
 		}
 	}
