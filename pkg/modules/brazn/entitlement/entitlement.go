@@ -36,10 +36,23 @@ import (
 // The editions defined by the entitlement contract
 // (cloud/contracts/v2/entitlements). An edition this build does not know is
 // not a third behaviour: callers must refuse it, the same as no projection.
+//
+// Community is the floor an unentitled subject already sits at, so no policy
+// rule is registered for it and none needs to be. It is named here because the
+// contract's enum has three members and the ingest endpoint must be able to
+// tell "an edition this contract defines" from "a value nobody has agreed on".
 const (
-	EditionPersonal = "personal-cloud"
-	EditionTeams    = "teams-cloud"
+	EditionCommunity = "community"
+	EditionPersonal  = "personal-cloud"
+	EditionTeams     = "teams-cloud"
 )
+
+// KnownEdition reports whether a value is one of the three the v2 contract
+// defines. Anything else is refused rather than interpreted, in exactly the
+// same way an unsupported contract version is.
+func KnownEdition(edition string) bool {
+	return edition == EditionCommunity || edition == EditionPersonal || edition == EditionTeams
+}
 
 // ContractVersion is the only projection contract version this build accepts.
 // A projection from a newer contract is refused rather than guessed at.
@@ -104,6 +117,41 @@ func (s *Signed) Active() bool {
 	return s.State.EffectiveState == stateActive && s.State.SeatStatus == stateActive
 }
 
+// Stale reports whether this projection is older than the configured freshness
+// window, in which case it entitles nothing and guarded operations fail closed
+// exactly as they do when no projection was ever applied. Without this a
+// correctly signed envelope would be trusted for the rest of the instance's
+// life, however long ago the commercial service stopped talking to it.
+//
+// IssuedAt is read here for FRESHNESS ONLY, and never to order anything. The
+// contract is explicit that Revision is the sole ordering and that comparing
+// two issued_at values to decide which projection is newer is forbidden,
+// because clocks skew and deliveries overtake each other
+// (cloud/contracts/README.md, "The apply rule"). Nothing here compares two
+// projections; it compares one against the clock.
+func (s *Signed) Stale() bool {
+	return time.Since(s.IssuedAt) > MaxAge()
+}
+
+// DefaultMaxAge is how long a projection stays fresh when
+// brazn.entitlementmaxage carries no usable value.
+const DefaultMaxAge = 7 * 24 * time.Hour
+
+// MaxAge returns the freshness window projections are measured against.
+//
+// Configuration rather than a constant, so the window can be changed without an
+// application release. A key viper cannot read comes back as zero, which would
+// make every projection instantly stale and lock every guarded operation out of
+// the instance, so an unusable value falls back to the default rather than to
+// either extreme.
+func MaxAge() time.Duration {
+	configured := config.BraznEntitlementMaxAge.GetDuration()
+	if configured <= 0 {
+		return DefaultMaxAge
+	}
+	return configured
+}
+
 // SigningDomain is the domain-separation prefix the v2 entitlement contract
 // puts in front of the signed bytes, terminated by the 0x0A the contract
 // specifies. It is 31 characters and a newline.
@@ -164,7 +212,23 @@ func Verify(raw []byte) (*Signed, error) {
 		return nil, err
 	}
 
-	sig, err := base64.StdEncoding.DecodeString(env.Signature.Value)
+	// base64url WITHOUT padding, which is the contract's exact wording and the
+	// only encoding a conforming producer emits: signature.value is constrained
+	// to ^[A-Za-z0-9_-]{86}$, and Percy's producer returns
+	// Buffer.toString("base64url") having asserted that same pattern before it
+	// will put a message on the wire (cloud/service/src/entitlement-projection.ts).
+	//
+	// This was StdEncoding until BRA-913, which decoded no conforming message at
+	// all: 86 characters is not a multiple of four, so padded decoding failed on
+	// length before the -/_ alphabet ever mattered. The two halves could not
+	// exchange a single projection.
+	//
+	// Padding is rejected rather than tolerated for the reason the contract
+	// gives: one signature must have exactly one encoding, so two encodings of
+	// the same signature cannot both be in flight. This is deliberately NOT the
+	// same encoding as brazn.entitlementkeys, which is our own config format and
+	// stays standard base64; do not unify them.
+	sig, err := base64.RawURLEncoding.DecodeString(env.Signature.Value)
 	if err != nil || !ed25519.Verify(key, SigningInput(env.Signed), sig) {
 		return nil, ErrInvalidProjection
 	}

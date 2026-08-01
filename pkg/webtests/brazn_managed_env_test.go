@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -39,6 +40,12 @@ import (
 )
 
 const managedTestKeyID = "brazn-test-key"
+
+// managedTestOrganization is the organization every projection these tests
+// grant belongs to. Named once because it is half of the contract's subject
+// key: the stored row records it, and a delivery for a different organization
+// is refused against it.
+const managedTestOrganization = "org_test"
 
 // fixtureInboxProjectID is the fixture project user1 owns, used as their
 // protected Inbox in managed-mode tests.
@@ -82,8 +89,8 @@ func (env *managedEnv) grant(userID int64, edition string, organizationAdmin boo
 	signed, err := json.Marshal(entitlement.Signed{
 		ContractVersion: entitlement.ContractVersion,
 		Subject: entitlement.Subject{
-			OrganizationID: "org_test",
-			UserID:         "usr_test",
+			OrganizationID: managedTestOrganization,
+			UserID:         strconv.FormatInt(userID, 10),
 		},
 		Revision: 1,
 		IssuedAt: time.Now().UTC(),
@@ -107,7 +114,10 @@ func (env *managedEnv) grant(userID int64, edition string, organizationAdmin boo
 			// cannot drift; that the bytes match the contract is pinned
 			// separately, against a literal, in the entitlement package's own
 			// tests.
-			"value": base64.StdEncoding.EncodeToString(
+			//
+			// base64url without padding, which is the encoding the contract
+			// fixes for signature.value and the one Percy's producer emits.
+			"value": base64.RawURLEncoding.EncodeToString(
 				ed25519.Sign(env.signingKey, entitlement.SigningInput(signed))),
 		},
 	})
@@ -123,9 +133,10 @@ func (env *managedEnv) storeProjection(userID, revision int64, envelope string) 
 	defer s.Close()
 
 	_, err := s.Insert(&models.EntitlementProjection{
-		UserID:   userID,
-		Revision: revision,
-		Envelope: envelope,
+		UserID:         userID,
+		OrganizationID: managedTestOrganization,
+		Revision:       revision,
+		Envelope:       envelope,
 	})
 	require.NoError(env.t, err)
 	require.NoError(env.t, s.Commit())

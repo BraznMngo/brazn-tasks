@@ -18,10 +18,13 @@ package models
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 	"time"
 
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
+	"code.vikunja.io/api/pkg/user"
 
 	"xorm.io/xorm"
 )
@@ -57,6 +60,11 @@ var (
 	// ErrTopologyTooDeep means the parent chain did not reach a top-level
 	// project within maxTopologyDepth.
 	ErrTopologyTooDeep = errors.New("project nesting exceeds the managed topology depth limit")
+	// ErrEntitlementRefused means a delivered projection was not applied because
+	// of what it said, rather than because the instance is unwell. Every
+	// refusal wraps it with the reason, which is logged and never returned to
+	// the caller: see BraznApplyEntitlementProjection for why the reply is flat.
+	ErrEntitlementRefused = errors.New("the delivered entitlement projection was refused")
 )
 
 // ProtectedEntity binds one immutable entity id to its role in the managed
@@ -76,16 +84,23 @@ func (*ProtectedEntity) TableName() string {
 }
 
 // EntitlementProjection stores the signed entitlement envelope for one local
-// user. Revision is the anti-rollback anchor the sync endpoint maintains: an
+// user. Revision is the anti-rollback anchor ApplyEntitlement maintains: an
 // envelope that disagrees with it has been swapped for an older signed one and
 // is refused, even though its signature is genuine.
+//
+// OrganizationID is the other half of the contract's subject key. It is a
+// column rather than something read back out of the envelope because the apply
+// rule has to decide on it inside the UPDATE statement; deriving it would mean
+// reading, deciding, and then writing across three round trips, which is
+// exactly the race the compare-and-set exists to close.
 type EntitlementProjection struct {
-	ID       int64     `xorm:"bigint autoincr not null unique pk" json:"id"`
-	UserID   int64     `xorm:"bigint not null unique" json:"user_id"`
-	Revision int64     `xorm:"bigint not null" json:"revision"`
-	Envelope string    `xorm:"text not null" json:"-"`
-	Created  time.Time `xorm:"created not null" json:"created"`
-	Updated  time.Time `xorm:"updated not null" json:"updated"`
+	ID             int64     `xorm:"bigint autoincr not null unique pk" json:"id"`
+	UserID         int64     `xorm:"bigint not null unique" json:"user_id"`
+	OrganizationID string    `xorm:"varchar(64) not null default ''" json:"organization_id"`
+	Revision       int64     `xorm:"bigint not null" json:"revision"`
+	Envelope       string    `xorm:"text not null" json:"-"`
+	Created        time.Time `xorm:"created not null" json:"created"`
+	Updated        time.Time `xorm:"updated not null" json:"updated"`
 }
 
 // TableName holds the table name
@@ -124,8 +139,143 @@ func GetEntitlement(s *xorm.Session, userID int64) (*entitlement.Signed, error) 
 			userID, signed.Revision, row.Revision)
 		return nil, ErrNoEntitlement
 	}
+	// A projection this old is treated as one that was never applied: existing
+	// work continues, expansion stops. This is a NORMAL state rather than an
+	// alarm - it is what an instance the commercial service stopped reaching
+	// looks like after a while - so it is not logged at error level.
+	if signed.Stale() {
+		log.Debugf("Ignored the entitlement projection for user %d: issued %s, past the %s freshness window",
+			userID, signed.IssuedAt, entitlement.MaxAge())
+		return nil, ErrNoEntitlement
+	}
 
 	return signed, nil
+}
+
+// ApplyEntitlement stores one already-verified projection under the contract's
+// apply rule: monotonic per subject, idempotent, and safe to retry in any order
+// (cloud/contracts/README.md, "The apply rule").
+//
+// The caller has verified the signature before reaching here, which is the
+// contract's ordering: an unverifiable message must never read the stored
+// revision, let alone write one.
+//
+// MONOTONICITY IS ENFORCED IN THE STATEMENT, not by the caller and not by a
+// read taken beforehand. The UPDATE carries `revision < ?` in its own WHERE
+// clause, so two concurrent deliveries cannot both win: the database serializes
+// them and re-evaluates the condition against the committed value, which means
+// the lower revision writes nothing rather than overwriting the higher one. A
+// read that decided this first and then wrote would be correct only until two
+// deliveries arrived at once, which is precisely when it matters.
+//
+// Nothing written here is decided by the read below it. That read establishes
+// which of the three no-write outcomes happened, and the one write it leads to -
+// the first projection for a subject - is made safe by the unique constraint on
+// user_id rather than by the read: a second inserter loses on the constraint,
+// and its delivery is retried against the row that won.
+func ApplyEntitlement(s *xorm.Session, signed *entitlement.Signed, envelope string) error {
+	organization := signed.Subject.OrganizationID
+	if organization == "" {
+		return fmt.Errorf("%w: the subject names no organization", ErrEntitlementRefused)
+	}
+
+	userID, err := subjectUserID(s, signed.Subject.UserID)
+	if err != nil {
+		return err
+	}
+
+	applied, err := s.
+		Where("user_id = ? AND organization_id = ? AND revision < ?", userID, organization, signed.Revision).
+		Cols("revision", "envelope").
+		Update(&EntitlementProjection{Revision: signed.Revision, Envelope: envelope})
+	if err != nil {
+		return err
+	}
+	if applied > 0 {
+		log.Debugf("Applied entitlement revision %d for user %d in organization %q",
+			signed.Revision, userID, organization)
+		return nil
+	}
+
+	row := &EntitlementProjection{}
+	has, err := s.Where("user_id = ?", userID).Get(row)
+	if err != nil {
+		return err
+	}
+	if !has {
+		// Revision 1 against a stored 0 is the general rule's first iteration
+		// and needs no separate bootstrap path, so the only thing special about
+		// a first projection is that there is no row to update.
+		_, err = s.Insert(&EntitlementProjection{
+			UserID:         userID,
+			OrganizationID: organization,
+			Revision:       signed.Revision,
+			Envelope:       envelope,
+		})
+		if err != nil {
+			return err
+		}
+		log.Debugf("Applied the first entitlement revision %d for user %d in organization %q",
+			signed.Revision, userID, organization)
+		return nil
+	}
+
+	// A live projection under a different organization. Phase 1 has no
+	// legitimate path to this: a Personal user cannot be invited into an
+	// organization and a removed member is not converted back (BRA-786), and a
+	// deleted user is erased rather than reassigned (BRA-805), so a re-signup
+	// arrives as a different local user entirely. Multi-organization membership
+	// is unmodelled rather than decided, so this refuses loudly. Relaxing a
+	// refusal later is one deliberate change; accepting now would leave two
+	// valid-looking rows with nothing to say which is authoritative.
+	if row.OrganizationID != organization {
+		return fmt.Errorf("%w: user %d already holds a projection for organization %q, not %q",
+			ErrEntitlementRefused, userID, row.OrganizationID, organization)
+	}
+
+	// Same subject, and the revision did not advance. Both remaining cases -
+	// the sender replaying a revision already applied, and the sender being
+	// behind - change no state, and neither is an error: delivery is
+	// at-least-once, so a retry has to be safe to repeat.
+	log.Debugf("Entitlement revision %d for user %d changed nothing; the stored anchor is %d",
+		signed.Revision, userID, row.Revision)
+	return nil
+}
+
+// subjectUserID resolves the contract's opaque subject user id to a local user.
+//
+// THIS IS THE COUPLING POINT BETWEEN THE TWO HALVES. The contract calls the
+// field opaque, meaning it carries no structure the contract interprets, but
+// the commercial service documents its own column as "the immutable Brazn Tasks
+// user ID" - it references a user of this instance rather than naming one of
+// its own. The decimal form of the user's primary key is that reference: it
+// fits the contract's character class, and it is the one identifier here that
+// is never reissued, where a username can be freed and taken again.
+//
+// A subject naming a user this instance does not have is refused rather than
+// stored against a placeholder. A projection presupposes its subject; it cannot
+// create one, and a row keyed on a user id nothing resolves to would be
+// invisible to every policy check that reads it.
+//
+// Existence is all that is asked, deliberately. user.GetUserByID also reports
+// disabled and locked accounts as errors, and neither is this endpoint's
+// business: the projection is what says whether a subject is entitled, and a
+// locally disabled account whose delivery failed would have the commercial
+// service retrying a message that can never land.
+func subjectUserID(s *xorm.Session, subject string) (int64, error) {
+	userID, err := strconv.ParseInt(subject, 10, 64)
+	if err != nil || userID <= 0 {
+		return 0, fmt.Errorf("%w: %q is not a local user id", ErrEntitlementRefused, subject)
+	}
+
+	has, err := s.Where("id = ?", userID).Get(&user.User{})
+	if err != nil {
+		return 0, err
+	}
+	if !has {
+		return 0, fmt.Errorf("%w: this instance has no user %d", ErrEntitlementRefused, userID)
+	}
+	return userID, nil
 }
 
 // TasksOutsideProject reports whether any of the given tasks currently lives

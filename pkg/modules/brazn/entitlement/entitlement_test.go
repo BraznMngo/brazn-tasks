@@ -82,7 +82,23 @@ func contractSignature(private ed25519.PrivateKey, signed []byte) []byte {
 	return ed25519.Sign(private, append([]byte(contractPrefix), signed...))
 }
 
+// contractSignatureValue encodes a signature the way the contract says to:
+// base64url, no padding, which for 64 Ed25519 octets is exactly 86 characters.
+// Written out here rather than taken from the verifier, for the same reason
+// contractPrefix is.
+func contractSignatureValue(signature []byte) string {
+	return base64.RawURLEncoding.EncodeToString(signature)
+}
+
 func envelopeWith(t *testing.T, keyID string, signed, signature []byte) []byte {
+	t.Helper()
+
+	return envelopeWithValue(t, keyID, signed, contractSignatureValue(signature))
+}
+
+// envelopeWithValue builds an envelope around a signature value verbatim, so a
+// test can put a non-conforming encoding on the wire on purpose.
+func envelopeWithValue(t *testing.T, keyID string, signed []byte, value string) []byte {
 	t.Helper()
 
 	raw, err := json.Marshal(map[string]interface{}{
@@ -90,7 +106,7 @@ func envelopeWith(t *testing.T, keyID string, signed, signature []byte) []byte {
 		"signature": map[string]string{
 			"key_id":    keyID,
 			"algorithm": "ed25519",
-			"value":     base64.StdEncoding.EncodeToString(signature),
+			"value":     value,
 		},
 	})
 	require.NoError(t, err)
@@ -199,6 +215,39 @@ func TestVerifyRejectsReformattedJSON(t *testing.T) {
 		"the payload must really differ inside the envelope, or this proves nothing")
 
 	_, err = Verify(envelope)
+	require.ErrorIs(t, err, ErrInvalidProjection)
+}
+
+// TestVerifyRequiresTheContractSignatureEncoding pins the encoding of
+// signature.value against the schema's literal pattern, in both directions.
+//
+// This is not a stylistic detail and it is not hypothetical. Verification
+// decoded standard base64 until BRA-913, which accepted no conforming message
+// at all: the contract's 86 unpadded base64url characters are not a multiple of
+// four, so a padded decoder failed on length before the differing alphabet ever
+// came into it. The two halves of the seam could not exchange a single
+// projection, and nothing failed until they were first put in a room together.
+//
+// Deleting the encoding check in Verify makes this test fail: the padded
+// variant below is the same signature over the same octets, differing only in
+// how it is written down, so a decoder that accepted both would verify it.
+func TestVerifyRequiresTheContractSignatureEncoding(t *testing.T) {
+	private := trustedKey(t)
+	signed := signedPayload(t, ContractVersion)
+	signature := contractSignature(private, signed)
+
+	value := contractSignatureValue(signature)
+	assert.Regexp(t, `^[A-Za-z0-9_-]{86}$`, value,
+		"the contract's signature.value pattern, quoted from the schema")
+
+	_, err := Verify(envelopeWithValue(t, testKeyID, signed, value))
+	require.NoError(t, err, "control: the contract's own encoding must verify")
+
+	padded := base64.StdEncoding.EncodeToString(signature)
+	require.NotEqual(t, value, padded, "the two encodings must really differ, or this proves nothing")
+	require.Contains(t, padded, "=", "standard base64 of 64 octets is padded, which the contract forbids")
+
+	_, err = Verify(envelopeWithValue(t, testKeyID, signed, padded))
 	require.ErrorIs(t, err, ErrInvalidProjection)
 }
 

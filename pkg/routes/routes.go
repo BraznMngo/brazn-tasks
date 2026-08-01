@@ -358,6 +358,11 @@ var unauthenticatedAPIPaths = map[string]bool{
 	"/api/v1/metrics":                        true,
 	"/api/v1/oauth/token":                    true,
 
+	// The entitlement projection ingest authenticates the signed message, not
+	// the caller, so it takes no JWT and must not be offered as something an
+	// API token can be scoped to.
+	"/api/v1/brazn/entitlements": true,
+
 	"/api/v2/openapi.json":              true,
 	"/api/v2/openapi.yaml":              true,
 	"/api/v2/openapi-3.0.json":          true,
@@ -550,6 +555,22 @@ func registerAPIRoutes(a *echo.Group) {
 
 	// Info endpoint
 	n.GET("/info", apiv1.Info)
+
+	// Entitlement projection ingest (BRA-913). The commercial service pushes
+	// here; the handler authenticates the message rather than the connection,
+	// and refuses everything while brazn.entitlementkeys is empty - which is
+	// the default, so an instance nobody configured is inert rather than open.
+	//
+	// Registered on n and not on ur, even though it takes no JWT: ur's
+	// ten-requests-per-minute-per-IP cap is sized for humans guessing
+	// passwords, and every projection in the system arrives from one address.
+	//
+	// Registered unconditionally, like every other route here. Gating it on
+	// brazn.managedmode would make the route table depend on an operator's
+	// config, and the classification harness derives the mutating surface from
+	// this function - a route that appears only sometimes is a route that is
+	// sometimes unclassified.
+	n.POST("/brazn/entitlements", apiv1.BraznApplyEntitlementProjection)
 
 	// Link share auth
 	if config.ServiceEnableLinkSharing.GetBool() {

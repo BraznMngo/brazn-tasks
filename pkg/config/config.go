@@ -239,8 +239,9 @@ const (
 	PluginsDir     Key = `plugins.dir`
 	PluginsLoader  Key = `plugins.loader`
 
-	BraznManagedMode     Key = `brazn.managedmode`
-	BraznEntitlementKeys Key = `brazn.entitlementkeys`
+	BraznManagedMode       Key = `brazn.managedmode`
+	BraznEntitlementKeys   Key = `brazn.entitlementkeys`
+	BraznEntitlementMaxAge Key = `brazn.entitlementmaxage`
 
 	// LicenseKey gates optional paid features and funds Vikunja's development.
 	// See the package comment in pkg/license/license.go before removing.
@@ -511,6 +512,12 @@ func InitDefaultConfig() {
 	// behaves exactly like stock Vikunja until an operator turns it on.
 	BraznManagedMode.setDefault(false)
 	BraznEntitlementKeys.setDefault("")
+	// How long a signed projection stays fresh. Past this, guarded operations
+	// fail closed exactly as they do when no projection was ever applied, so an
+	// instance the commercial service has stopped talking to stops expanding
+	// access instead of trusting a stale envelope for ever. Config rather than a
+	// constant so the window can be changed without an application release.
+	BraznEntitlementMaxAge.setDefault("168h")
 
 	// Migrate deprecated webhook config keys to outgoingrequests.*
 	// This allows removing the old keys in a single place later.
