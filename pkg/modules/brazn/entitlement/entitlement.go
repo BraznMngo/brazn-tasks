@@ -36,10 +36,23 @@ import (
 // The editions defined by the entitlement contract
 // (cloud/contracts/v2/entitlements). An edition this build does not know is
 // not a third behaviour: callers must refuse it, the same as no projection.
+//
+// Community is the floor an unentitled subject already sits at, so no policy
+// rule is registered for it and none needs to be. It is named here because the
+// contract's enum has three members and the ingest endpoint must be able to
+// tell "an edition this contract defines" from "a value nobody has agreed on".
 const (
-	EditionPersonal = "personal-cloud"
-	EditionTeams    = "teams-cloud"
+	EditionCommunity = "community"
+	EditionPersonal  = "personal-cloud"
+	EditionTeams     = "teams-cloud"
 )
+
+// KnownEdition reports whether a value is one of the three the v2 contract
+// defines. Anything else is refused rather than interpreted, in exactly the
+// same way an unsupported contract version is.
+func KnownEdition(edition string) bool {
+	return edition == EditionCommunity || edition == EditionPersonal || edition == EditionTeams
+}
 
 // ContractVersion is the only projection contract version this build accepts.
 // A projection from a newer contract is refused rather than guessed at.
@@ -89,6 +102,18 @@ type State struct {
 
 // Signed is the signed half of the envelope, and the only half a policy
 // decision may read.
+//
+// IssuedAt is AUDIT DATA and nothing here or above it may decide anything from
+// it. The contract says so in as many words - it is recorded with a delivery
+// outcome so a dispute has something to reconstruct, and it must never order
+// two projections, which is revision's job exclusively. It is equally unfit for
+// freshness, which is the mistake worth naming because it looks reasonable: it
+// is the SENDER's wall clock, so a producer whose clock ran forward would
+// silently widen this instance's freshness window with no bug on either side
+// and nothing to report it, and one timestamp minted far enough ahead would
+// pin a subject entitled for the life of the instance. Freshness is measured
+// from when this instance last received an advancing revision, on its own
+// clock - see EntitlementProjection.RevisionReceived in pkg/models.
 type Signed struct {
 	ContractVersion string    `json:"contract_version"`
 	Subject         Subject   `json:"subject"`
@@ -164,7 +189,23 @@ func Verify(raw []byte) (*Signed, error) {
 		return nil, err
 	}
 
-	sig, err := base64.StdEncoding.DecodeString(env.Signature.Value)
+	// base64url WITHOUT padding, which is the contract's exact wording and the
+	// only encoding a conforming producer emits: signature.value is constrained
+	// to ^[A-Za-z0-9_-]{86}$, and Percy's producer returns
+	// Buffer.toString("base64url") having asserted that same pattern before it
+	// will put a message on the wire (cloud/service/src/entitlement-projection.ts).
+	//
+	// This was StdEncoding until BRA-913, which decoded no conforming message at
+	// all: 86 characters is not a multiple of four, so padded decoding failed on
+	// length before the -/_ alphabet ever mattered. The two halves could not
+	// exchange a single projection.
+	//
+	// Padding is rejected rather than tolerated for the reason the contract
+	// gives: one signature must have exactly one encoding, so two encodings of
+	// the same signature cannot both be in flight. This is deliberately NOT the
+	// same encoding as brazn.entitlementkeys, which is our own config format and
+	// stays standard base64; do not unify them.
+	sig, err := base64.RawURLEncoding.DecodeString(env.Signature.Value)
 	if err != nil || !ed25519.Verify(key, SigningInput(env.Signed), sig) {
 		return nil, ErrInvalidProjection
 	}
