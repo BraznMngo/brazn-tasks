@@ -239,9 +239,8 @@ const (
 	PluginsDir     Key = `plugins.dir`
 	PluginsLoader  Key = `plugins.loader`
 
-	BraznManagedMode       Key = `brazn.managedmode`
-	BraznEntitlementKeys   Key = `brazn.entitlementkeys`
-	BraznEntitlementMaxAge Key = `brazn.entitlementmaxage`
+	BraznManagedMode     Key = `brazn.managedmode`
+	BraznEntitlementKeys Key = `brazn.entitlementkeys`
 
 	// LicenseKey gates optional paid features and funds Vikunja's development.
 	// See the package comment in pkg/license/license.go before removing.
@@ -512,20 +511,6 @@ func InitDefaultConfig() {
 	// behaves exactly like stock Vikunja until an operator turns it on.
 	BraznManagedMode.setDefault(false)
 	BraznEntitlementKeys.setDefault("")
-	// How long a projection stays usable after the last delivery that advanced
-	// its revision. Past this, guarded operations fail closed exactly as they do
-	// when no projection was ever applied, so an instance the commercial service
-	// has stopped talking to stops expanding access.
-	//
-	// Zero - no expiry - on purpose, and this is not a placeholder. The only
-	// thing that can refresh an unchanged subject's clock is a reconciliation
-	// `periodic_audit`, and nothing answers one yet: the producer is idempotent
-	// on state, so an account that has not changed re-sends the same bytes and
-	// is answered `duplicate` rather than minting a higher revision. Enabling
-	// expiry before that responder exists would expire every legitimate
-	// customer on a timer rather than protect anything. initialize.LightInit
-	// warns while managed mode runs without it.
-	BraznEntitlementMaxAge.setDefault("0")
 
 	// Migrate deprecated webhook config keys to outgoingrequests.*
 	// This allows removing the old keys in a single place later.

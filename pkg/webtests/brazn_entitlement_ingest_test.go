@@ -141,22 +141,6 @@ func entitlementFor(t *testing.T, userID int64) (*entitlement.Signed, error) {
 	return models.GetEntitlement(s, userID)
 }
 
-// backdateRevisionReceived ages a stored projection, which is how a test
-// reaches a state that otherwise takes a week of wall clock.
-func backdateRevisionReceived(t *testing.T, userID int64, at time.Time) {
-	t.Helper()
-
-	s := db.NewSession()
-	defer s.Close()
-
-	affected, err := s.Where("user_id = ?", userID).
-		Cols("revision_received").
-		Update(&models.EntitlementProjection{RevisionReceived: at})
-	require.NoError(t, err)
-	require.Equal(t, int64(1), affected, "there must be a row to backdate, or this proves nothing")
-	require.NoError(t, s.Commit())
-}
-
 // sentSigned decodes what an envelope actually carries, so a test asserts its
 // precondition on the bytes that decide the outcome rather than on the
 // variables it built them from.
@@ -189,7 +173,7 @@ func TestEntitlementIngestAppliesAFirstProjection(t *testing.T) {
 	assert.Equal(t, envelope, row.Envelope, "the envelope must be stored as received")
 
 	assert.WithinDuration(t, time.Now(), row.RevisionReceived, time.Minute,
-		"the receipt clock the freshness window measures must be stamped")
+		"the receipt clock must be stamped for audit")
 
 	// The row existing is not the property; the gate being able to use it is.
 	// GetEntitlement is the one funnel every guarded route reads through, and it
@@ -297,88 +281,6 @@ func TestEntitlementIngestRefusesASecondOrganization(t *testing.T) {
 	control, has := storedProjection(t, testuser1.ID)
 	require.True(t, has)
 	require.Equal(t, int64(2), control.Revision)
-}
-
-// TestStoredProjectionExpiresOnlyOnceAWindowIsConfigured covers both halves of
-// the freshness decision against one row, so the configuration is the only
-// difference between the two outcomes.
-//
-// The shipped default is no expiry, and that is a decision worth pinning rather
-// than a value worth assuming: nothing can refresh an unchanged subject's clock
-// until something answers a reconciliation `periodic_audit`, so a window turned
-// on now would expire legitimate customers rather than protect anyone.
-//
-// Deleting the expiry check in GetEntitlement makes the second half fail: the
-// stored envelope verifies and its revision matches the row anchor, so nothing
-// else would turn it down.
-func TestStoredProjectionExpiresOnlyOnceAWindowIsConfigured(t *testing.T) {
-	env := newManagedEnv(t)
-
-	require.Equal(t, http.StatusNoContent, env.deliver(env.projection(testuser1.ID, 1)).Code)
-	backdateRevisionReceived(t, testuser1.ID, time.Now().Add(-30*24*time.Hour))
-
-	require.Zero(t, models.EntitlementMaxAge(),
-		"expiry must ship switched off, or the first half of this proves nothing")
-	signed, err := entitlementFor(t, testuser1.ID)
-	require.NoError(t, err, "with no window configured a month-old projection must still be honoured")
-	require.Equal(t, entitlement.EditionPersonal, signed.State.Edition)
-
-	// The same row, read again, with a window shorter than its age configured.
-	setConfigForTest(t, config.BraznEntitlementMaxAge, "168h")
-	require.Equal(t, 168*time.Hour, models.EntitlementMaxAge(),
-		"the window must really be configured, or this proves nothing")
-
-	_, err = entitlementFor(t, testuser1.ID)
-	require.ErrorIs(t, err, models.ErrNoEntitlement)
-}
-
-// TestReplayDoesNotRefreshTheFreshnessWindow is the property that decides
-// whether the window is worth anything at all.
-//
-// A replayed envelope is byte-identical to a legitimate retry and cannot be
-// told apart from one, so if a replay refreshed the clock then anyone holding a
-// single captured delivery could keep that subject entitled indefinitely by
-// resending it - which is exactly the severed-sync case the window exists to
-// catch. The refusal has to key on receipt of a REVISION-ADVANCING delivery,
-// not on receipt of any accepted one.
-//
-// Moving the receipt stamp out of the compare-and-set - refreshing it on every
-// accepted delivery instead - makes this fail at the replay assertion, while
-// leaving every other test in this file passing.
-func TestReplayDoesNotRefreshTheFreshnessWindow(t *testing.T) {
-	env := newManagedEnv(t)
-	setConfigForTest(t, config.BraznEntitlementMaxAge, "168h")
-
-	envelope := env.projection(testuser1.ID, 1)
-	require.Equal(t, http.StatusNoContent, env.deliver(envelope).Code)
-
-	expired := time.Now().Add(-30 * 24 * time.Hour)
-	backdateRevisionReceived(t, testuser1.ID, expired)
-	_, err := entitlementFor(t, testuser1.ID)
-	require.ErrorIs(t, err, models.ErrNoEntitlement,
-		"the projection must really have expired first, or this proves nothing")
-
-	// Still a successful no-op: delivery is at-least-once and a retry must stay
-	// safe to repeat. What it must not do is buy the subject another window.
-	require.Equal(t, http.StatusNoContent, env.deliver(envelope).Code)
-
-	replayed, has := storedProjection(t, testuser1.ID)
-	require.True(t, has)
-	assert.WithinDuration(t, expired, replayed.RevisionReceived, time.Second,
-		"a replayed envelope must not refresh the window")
-	_, err = entitlementFor(t, testuser1.ID)
-	require.ErrorIs(t, err, models.ErrNoEntitlement)
-
-	// Control: a delivery that advances the revision does refresh it, so the
-	// clock is not simply frozen.
-	require.Equal(t, http.StatusNoContent, env.deliver(env.projection(testuser1.ID, 2)).Code)
-
-	advanced, has := storedProjection(t, testuser1.ID)
-	require.True(t, has)
-	assert.WithinDuration(t, time.Now(), advanced.RevisionReceived, time.Minute)
-	signed, err := entitlementFor(t, testuser1.ID)
-	require.NoError(t, err)
-	require.Equal(t, int64(2), signed.Revision)
 }
 
 // TestEntitlementIngestAcceptsNothingWithoutAConfiguredKey is the foundation of

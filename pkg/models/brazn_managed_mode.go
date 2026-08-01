@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"time"
 
-	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
 	"code.vikunja.io/api/pkg/user"
@@ -96,42 +95,16 @@ func (*ProtectedEntity) TableName() string {
 // exactly the race the compare-and-set exists to close.
 //
 // RevisionReceived is when this instance last accepted a delivery that ADVANCED
-// the revision, on its own clock. It is what the freshness window measures, and
-// three things about it are load-bearing:
+// the revision, on its own clock. It is recorded for audit and diagnosis only:
+// nothing branches on it. Percy reaches Brazn Tasks over the network on every
+// operation, so a projection cannot go stale behind a working connection -
+// there is no disconnected mode for a freshness window to protect.
 //
-//   - It answers the question the window actually asks. "An instance the
-//     commercial service stopped talking to stops expanding access" is a
-//     question about how long since we last heard, not about how old an
-//     assertion claims to be. The envelope's issued_at answers the second, and
-//     the contract designates it audit data precisely because it is the
-//     sender's wall clock; measuring against it would make this instance's
-//     security window depend on their clock, and one timestamp minted far
-//     enough ahead would disable the window outright.
-//   - It advances ONLY where the revision advances. A replay of the current
-//     revision is byte-identical to a legitimate retry and cannot be told
-//     apart, so if a replay refreshed this, anyone holding one captured
-//     envelope could keep a subject entitled for ever by resending it - which
-//     is exactly the severed-sync case the window exists to catch. An
-//     equal-revision delivery stays a successful no-op and does not touch it.
-//   - Nothing refreshes it while a subject's entitlement is genuinely
-//     unchanged, and that is why expiry ships off (see EntitlementMaxAge). The
-//     producer is idempotent on state: an account that has not changed
-//     re-sends the bytes already minted and is answered `duplicate`, and only
-//     a real entitlement change mints a higher revision. So there is no push
-//     that keeps this clock moving, by design rather than by omission.
+// It advances only where the revision advances. An equal-revision delivery is a
+// replay, byte-identical to a legitimate retry and indistinguishable from one,
+// so it stays a successful no-op and does not touch this column.
 //
-// The contract's refresh mechanism is a PULL, not a push: an
-// entitlement-reconciliation-request with reason `periodic_audit`. That is
-// better than a heartbeat for a reason worth stating, because it is the whole
-// argument for the shape - under a push, a producer with nothing to say and a
-// producer that has been cut off emit exactly the same thing, which is nothing,
-// and liveness inferred from absence is not liveness. A failed pull is
-// unambiguous. Whoever builds that responder is who turns expiry on.
-//
-// A row that predates this column carries the zero time and reads as expired
-// once expiry is enabled, which is correct rather than convenient: nothing
-// recorded when that projection was last confirmed, so nothing can claim it is
-// fresh.
+// A row that predates this column carries the zero time.
 type EntitlementProjection struct {
 	ID               int64     `xorm:"bigint autoincr not null unique pk" json:"id"`
 	UserID           int64     `xorm:"bigint not null unique" json:"user_id"`
@@ -146,22 +119,6 @@ type EntitlementProjection struct {
 // TableName holds the table name
 func (*EntitlementProjection) TableName() string {
 	return "brazn_entitlement_projections"
-}
-
-// EntitlementMaxAge returns how long a projection stays usable after the last
-// revision-advancing delivery, or zero when expiry is switched off.
-//
-// ZERO IS THE SHIPPED DEFAULT, and it is a decision rather than a placeholder.
-// The only thing that can refresh RevisionReceived on an unchanged subject is a
-// reconciliation `periodic_audit`, and no service answers one yet. Turning
-// expiry on before that responder exists would not protect anything; it would
-// expire every legitimate customer on a timer. Whoever builds the responder
-// turns this on, and initialize.LightInit warns for as long as nobody has.
-//
-// Configuration rather than a constant, so the window can be set without an
-// application release once there is something to refresh against.
-func EntitlementMaxAge() time.Duration {
-	return config.BraznEntitlementMaxAge.GetDuration()
 }
 
 // GetEntitlement reads one user's projection inside the caller's session, so a
@@ -195,21 +152,6 @@ func GetEntitlement(s *xorm.Session, userID int64) (*entitlement.Signed, error) 
 			userID, signed.Revision, row.Revision)
 		return nil, ErrNoEntitlement
 	}
-	// Nothing has advanced this subject's revision for longer than the window,
-	// so the projection is treated as one that was never applied: existing work
-	// continues, expansion stops. Measured from when this instance last received
-	// an advancing revision, on its own clock - never from the envelope's
-	// issued_at, which is the sender's clock and audit data.
-	//
-	// This is a NORMAL state rather than an alarm - it is what an instance the
-	// commercial service stopped reaching looks like after a while - so it is
-	// not logged at error level.
-	if maxAge := EntitlementMaxAge(); maxAge > 0 && time.Since(row.RevisionReceived) > maxAge {
-		log.Debugf("Ignored the entitlement projection for user %d: revision %d was received %s, past the %s window",
-			userID, row.Revision, row.RevisionReceived, maxAge)
-		return nil, ErrNoEntitlement
-	}
-
 	return signed, nil
 }
 
@@ -291,7 +233,7 @@ func ApplyEntitlement(s *xorm.Session, signed *entitlement.Signed, envelope stri
 	// other statement anywhere, so "when a revision last advanced" cannot drift
 	// from "which revision is stored". A delivery that does not advance the
 	// revision writes nothing at all, which is what stops a replayed envelope
-	// from refreshing the freshness window.
+	// from advancing the audit clock.
 	received := time.Now()
 	applied, err := s.
 		Where("user_id = ? AND organization_id = ? AND revision < ?", userID, organization, signed.Revision).

@@ -55,18 +55,6 @@ func LightInit() {
 		log.Criticalf("Error parsing default time zone: %s", err)
 	}
 
-	// Managed mode with entitlement expiry switched off is a real gap, and it
-	// is the shipped default because nothing can yet answer the reconciliation
-	// `periodic_audit` that would refresh an unchanged subject's clock. It is
-	// warned about rather than left silent: a control that depends on somebody
-	// remembering to enable it later is the control that does not get enabled.
-	if config.BraznManagedMode.GetBool() && models.EntitlementMaxAge() <= 0 {
-		log.Warningf("Managed mode is on and %q is not set, so entitlement projections never expire. "+
-			"If this instance loses contact with the commercial service it will keep granting paid "+
-			"entitlements indefinitely. Set %q once a reconciliation responder can answer a periodic audit.",
-			config.BraznEntitlementMaxAge, config.BraznEntitlementMaxAge)
-	}
-
 	// Init redis
 	red.InitRedis()
 
