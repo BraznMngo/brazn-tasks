@@ -270,7 +270,7 @@ func ApplyEntitlement(s *xorm.Session, signed *entitlement.Signed, envelope stri
 	// EntitlementProjection, so erasing a user who already had a projection
 	// leaves that row behind - unreachable, because no session ever resolves to
 	// that user id again, but still holding the erased subject's envelope. That
-	// is a defect in the deletion path, it is recorded under BRA-913, and it is
+	// is a defect in the deletion path, it is recorded under BRA-933, and it is
 	// sequenced after this rather than folded into it: this function stops new
 	// rows appearing and is correct on its own, where the cleanup is a separate
 	// write on a separate path needing its own test. It is NOT out of bounds -
