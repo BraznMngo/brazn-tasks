@@ -22,6 +22,7 @@ import (
 
 	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/events"
+	"code.vikunja.io/api/pkg/modules/brazn/locale"
 	"code.vikunja.io/api/pkg/notifications"
 	"golang.org/x/crypto/bcrypt"
 	"xorm.io/xorm"
@@ -75,6 +76,10 @@ func CreateUser(s *xorm.Session, user *User) (newUser *User, err error) {
 	if user.Language == "" {
 		user.Language = config.DefaultSettingsLanguage.GetString()
 	}
+
+	// BRA-860: store the catalogue code, so the frontend and the notification
+	// mailer resolve the same language from the same column.
+	user.Language = locale.Normalize(user.Language)
 
 	// Insert it
 	_, err = s.Insert(user)

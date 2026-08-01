@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"code.vikunja.io/api/pkg/modules/avatar"
+	"code.vikunja.io/api/pkg/modules/brazn/locale"
 	"code.vikunja.io/api/pkg/user"
 
 	"xorm.io/xorm"
@@ -104,7 +105,9 @@ func UpdateUserGeneralSettings(s *xorm.Session, u *user.User, settings *UserGene
 	u.OverdueTasksRemindersEnabled = settings.OverdueTasksRemindersEnabled
 	u.DefaultProjectID = settings.DefaultProjectID
 	u.WeekStart = settings.WeekStart
-	u.Language = settings.Language
+	// BRA-860: a locale change has to propagate as a code the catalogue has, or
+	// the interface switches to German while the mailer silently stays English.
+	u.Language = locale.Normalize(settings.Language)
 	u.Timezone = settings.Timezone
 	u.OverdueTasksRemindersTime = settings.OverdueTasksRemindersTime
 	u.FrontendSettings = settings.FrontendSettings
