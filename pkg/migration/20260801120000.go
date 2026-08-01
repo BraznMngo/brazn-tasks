@@ -23,25 +23,35 @@ import (
 	"xorm.io/xorm"
 )
 
-// The entitlement subject is the (organization_id, user_id) pair, and until now
-// only half of it was stored. The apply rule in models.ApplyEntitlement decides
-// on the organization inside its UPDATE statement, so it has to be a column: a
-// projection for a second organization must lose the compare-and-set rather
-// than be caught by a check made before it.
+// Two columns the entitlement seam needs and BRA-913 added.
 //
-// Existing rows default to the empty string, which matches no organization the
-// contract can express, so any row written before this migration stops
-// accepting deliveries and says so. That is the safe direction and it costs
-// nothing in practice: managed mode has never been switched on, because until
-// BRA-913 there was no endpoint that could write one of these rows at all.
+// organization_id is the other half of the contract's subject key, and until
+// now only one half was stored. The apply rule in models.ApplyEntitlement
+// decides on the organization inside its UPDATE statement, so it has to be a
+// column: a projection for a second organization must lose the compare-and-set
+// rather than be caught by a check made before it. Existing rows default to the
+// empty string, which matches no organization the contract can express, so such
+// a row stops accepting deliveries and says so.
+//
+// revision_received records when this instance last accepted a delivery that
+// advanced the revision, and it is what the freshness window is measured from -
+// the receiver's own clock, never the envelope's issued_at, which belongs to
+// the sender and which the contract designates audit data. Existing rows carry
+// the zero time and therefore read as expired, which is correct rather than
+// convenient: nothing recorded when that projection was last confirmed.
+//
+// Both defaults cost nothing in practice. Managed mode has never been switched
+// on, because until BRA-913 there was no endpoint that could write one of these
+// rows at all.
 type braznEntitlementProjections20260801120000 struct {
-	ID             int64     `xorm:"bigint autoincr not null unique pk"`
-	UserID         int64     `xorm:"bigint not null unique"`
-	OrganizationID string    `xorm:"varchar(64) not null default ''"`
-	Revision       int64     `xorm:"bigint not null"`
-	Envelope       string    `xorm:"text not null"`
-	Created        time.Time `xorm:"created not null"`
-	Updated        time.Time `xorm:"updated not null"`
+	ID               int64     `xorm:"bigint autoincr not null unique pk"`
+	UserID           int64     `xorm:"bigint not null unique"`
+	OrganizationID   string    `xorm:"varchar(64) not null default ''"`
+	Revision         int64     `xorm:"bigint not null"`
+	RevisionReceived time.Time `xorm:"DATETIME not null"`
+	Envelope         string    `xorm:"text not null"`
+	Created          time.Time `xorm:"created not null"`
+	Updated          time.Time `xorm:"updated not null"`
 }
 
 func (braznEntitlementProjections20260801120000) TableName() string {
@@ -51,7 +61,7 @@ func (braznEntitlementProjections20260801120000) TableName() string {
 func init() {
 	migrations = append(migrations, &xormigrate.Migration{
 		ID:          "20260801120000",
-		Description: "record the organization half of the entitlement subject on each projection",
+		Description: "record the organization half of the entitlement subject, and when its revision was last received",
 		Migrate: func(tx *xorm.Engine) error {
 			return tx.Sync(braznEntitlementProjections20260801120000{})
 		},

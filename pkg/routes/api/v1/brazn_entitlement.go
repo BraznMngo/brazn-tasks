@@ -73,26 +73,20 @@ const maxProjectionBytes = 16 << 10
 func BraznApplyEntitlementProjection(c *echo.Context) error {
 	raw, err := io.ReadAll(io.LimitReader(c.Request().Body, maxProjectionBytes+1))
 	if err != nil {
-		return refuseProjection("the request body could not be read")
+		return refuseUnverified("the request body could not be read")
 	}
 	if len(raw) > maxProjectionBytes {
-		return refuseProjection("the request body is larger than any projection")
+		return refuseUnverified("the request body is larger than any projection")
 	}
 
 	// First, and before anything reads or writes stored state: an unverifiable
 	// message must not be able to observe the instance, let alone change it.
 	signed, err := entitlement.Verify(raw)
 	if err != nil {
-		return refuseProjection("the envelope did not verify: " + err.Error())
+		return refuseUnverified("the envelope did not verify: " + err.Error())
 	}
 	if !entitlement.KnownEdition(signed.State.Edition) {
 		return refuseProjection("the projection names an edition this build does not define")
-	}
-	// A projection already past the freshness window would read as stale the
-	// moment it was stored, and storing it would retire a fresher predecessor
-	// at a lower revision. Refusing it keeps the newest usable one in place.
-	if signed.Stale() {
-		return refuseProjection("the projection was issued outside the freshness window")
 	}
 
 	s := db.NewSession()
@@ -117,13 +111,39 @@ func BraznApplyEntitlementProjection(c *echo.Context) error {
 // refuseProjection logs why a delivery was turned down and returns the one
 // reply every refusal gets.
 //
-// Error level on purpose. A delivery this instance verified and refused means a
-// producer is broken or someone is trying it on, which the contract calls an
-// alarm state and distinguishes from a subject that simply has no projection
-// yet - that one is normal, is where every subject begins, and is logged
-// nowhere near here.
+// Error level is right for the case it was written for: a delivery this
+// instance VERIFIED and then refused means a producer is broken or someone is
+// trying it on, which the contract calls an alarm state and distinguishes from
+// a subject that simply has no projection yet - that one is normal, is where
+// every subject begins, and is logged nowhere near here.
+//
+// It is not right for the call sites that fire BEFORE verification - an
+// unreadable body, an oversized one, a bad signature, an unknown key id. Those
+// are what any unauthenticated caller produces at will, and this route carries
+// no rate limit under the shipped config, so they arrive at error level in
+// whatever volume someone cares to send and bury the alarm this level exists
+// for. Debug before Verify returns and error after is the split to make, and
+// refuseUnverified below is the other half of it.
 func refuseProjection(reason string) error {
 	log.Errorf("Refused an entitlement projection delivery: %s", reason)
+	return refusal()
+}
+
+// refuseUnverified is refuseProjection for everything decided before the
+// signature is known good, at debug level and for the reasons above.
+//
+// The volume argument is the lesser one. The real cost of logging these at
+// error level is that the reply is deliberately flat and there is no
+// acknowledgement, so this log is the ONLY channel an operator has for "why was
+// that delivery refused" - and noise from the open internet is exactly what
+// makes a channel like that useless.
+func refuseUnverified(reason string) error {
+	log.Debugf("Refused an unverified entitlement projection delivery: %s", reason)
+	return refusal()
+}
+
+// refusal is the one reply every refusal gets, whatever caused it.
+func refusal() error {
 	return echo.NewHTTPError(http.StatusBadRequest,
 		"This is not an entitlement projection this instance accepts.")
 }

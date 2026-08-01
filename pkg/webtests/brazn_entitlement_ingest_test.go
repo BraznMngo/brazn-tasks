@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
@@ -116,6 +117,37 @@ func storedProjection(t *testing.T, userID int64) (*models.EntitlementProjection
 	return row, has
 }
 
+// entitlementFor reads a user's projection the way a guarded route does, in its
+// own short session.
+//
+// A session per read rather than one held for the test: these tests interleave
+// reads with writes made over HTTP on another connection, and a transaction
+// opened before those writes would keep reading the snapshot it started with.
+func entitlementFor(t *testing.T, userID int64) (*entitlement.Signed, error) {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	return models.GetEntitlement(s, userID)
+}
+
+// backdateRevisionReceived ages a stored projection, which is how a test
+// reaches a state that otherwise takes a week of wall clock.
+func backdateRevisionReceived(t *testing.T, userID int64, at time.Time) {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	affected, err := s.Where("user_id = ?", userID).
+		Cols("revision_received").
+		Update(&models.EntitlementProjection{RevisionReceived: at})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), affected, "there must be a row to backdate, or this proves nothing")
+	require.NoError(t, s.Commit())
+}
+
 // sentSigned decodes what an envelope actually carries, so a test asserts its
 // precondition on the bytes that decide the outcome rather than on the
 // variables it built them from.
@@ -147,12 +179,14 @@ func TestEntitlementIngestAppliesAFirstProjection(t *testing.T) {
 	assert.Equal(t, managedTestOrganization, row.OrganizationID)
 	assert.Equal(t, envelope, row.Envelope, "the envelope must be stored as received")
 
+	assert.WithinDuration(t, time.Now(), row.RevisionReceived, time.Minute,
+		"the receipt clock the freshness window measures must be stamped")
+
 	// The row existing is not the property; the gate being able to use it is.
 	// GetEntitlement is the one funnel every guarded route reads through, and it
 	// re-verifies the stored bytes, so this also proves the endpoint stored
 	// octets that still verify after a round trip through the database.
-	s := dbSessionForTest(t)
-	signed, err := models.GetEntitlement(s, testuser1.ID)
+	signed, err := entitlementFor(t, testuser1.ID)
 	require.NoError(t, err)
 	assert.Equal(t, entitlement.EditionPersonal, signed.State.Edition)
 	assert.True(t, signed.Active())
@@ -256,76 +290,121 @@ func TestEntitlementIngestRefusesASecondOrganization(t *testing.T) {
 	require.Equal(t, int64(2), control.Revision)
 }
 
-// TestEntitlementIngestRefusesAProjectionIssuedOutsideTheWindow stops a
-// projection that is already stale from retiring a fresher predecessor.
+// TestStoredProjectionExpiresOnlyOnceAWindowIsConfigured covers both halves of
+// the freshness decision against one row, so the configuration is the only
+// difference between the two outcomes.
 //
-// Deleting the Stale check in the handler makes this fail: the envelope is
-// correctly signed and carries a higher revision, so nothing else would refuse
-// it and the store would end up holding an envelope that reads as expired.
-func TestEntitlementIngestRefusesAProjectionIssuedOutsideTheWindow(t *testing.T) {
+// The shipped default is no expiry, and that is a decision worth pinning rather
+// than a value worth assuming: nothing can refresh an unchanged subject's clock
+// until something answers a reconciliation `periodic_audit`, so a window turned
+// on now would expire legitimate customers rather than protect anyone.
+//
+// Deleting the expiry check in GetEntitlement makes the second half fail: the
+// stored envelope verifies and its revision matches the row anchor, so nothing
+// else would turn it down.
+func TestStoredProjectionExpiresOnlyOnceAWindowIsConfigured(t *testing.T) {
 	env := newManagedEnv(t)
 
 	require.Equal(t, http.StatusNoContent, env.deliver(env.projection(testuser1.ID, 1)).Code)
-	before, has := storedProjection(t, testuser1.ID)
-	require.True(t, has)
+	backdateRevisionReceived(t, testuser1.ID, time.Now().Add(-30*24*time.Hour))
 
-	issuedAt := time.Now().Add(-entitlement.MaxAge()).Add(-24 * time.Hour)
-	old := env.envelopeAround(canonicalSigned(
-		managedTestOrganization, testuser1.ID, 2, entitlement.EditionPersonal, issuedAt,
-	))
-	carried := sentSigned(t, old)
-	require.True(t, time.Since(carried.IssuedAt) > entitlement.MaxAge(),
-		"the delivered projection must really be past the window, or this proves nothing")
-	require.Greater(t, carried.Revision, before.Revision,
-		"the delivery must be applicable on revision alone, or the refusal proves nothing about its age")
-
-	require.Equal(t, http.StatusBadRequest, env.deliver(old).Code)
-
-	after, has := storedProjection(t, testuser1.ID)
-	require.True(t, has)
-	assert.Equal(t, before.Revision, after.Revision)
-	assert.Equal(t, before.Envelope, after.Envelope)
-}
-
-// TestStoredProjectionExpiresWithTheFreshnessWindow is the other half of
-// staleness, and the half the endpoint cannot cover: a projection that was
-// fresh when it arrived and has since aged out.
-//
-// A valid signature would otherwise be trusted for the rest of the instance's
-// life. Past the window a guarded operation must fail exactly as it does when
-// no projection was ever applied, which is what ErrNoEntitlement means -
-// GetEntitlement is the single funnel every guarded route reads through, so
-// refusing here refuses everywhere.
-//
-// Deleting the Stale check in GetEntitlement makes this fail: the stored
-// envelope verifies and its revision matches the row anchor, so nothing else
-// would turn it down.
-func TestStoredProjectionExpiresWithTheFreshnessWindow(t *testing.T) {
-	env := newManagedEnv(t)
-
-	expired := env.envelopeAround(canonicalSigned(
-		managedTestOrganization, testuser1.ID, 1, entitlement.EditionPersonal,
-		time.Now().Add(-entitlement.MaxAge()).Add(-time.Hour),
-	))
-	require.True(t, time.Since(sentSigned(t, expired).IssuedAt) > entitlement.MaxAge(),
-		"the stored projection must really be past the window, or this proves nothing")
-	env.storeProjection(testuser1.ID, 1, expired)
-
-	fresh := env.envelopeAround(canonicalSigned(
-		managedTestOrganization, testuser2.ID, 1, entitlement.EditionPersonal, time.Now(),
-	))
-	env.storeProjection(testuser2.ID, 1, fresh)
-
-	s := dbSessionForTest(t)
-
-	// Control first: the same shape, signed by the same key, differing only in
-	// when it was issued.
-	signed, err := models.GetEntitlement(s, testuser2.ID)
-	require.NoError(t, err, "control: a fresh projection must still be readable")
+	require.Zero(t, models.EntitlementMaxAge(),
+		"expiry must ship switched off, or the first half of this proves nothing")
+	signed, err := entitlementFor(t, testuser1.ID)
+	require.NoError(t, err, "with no window configured a month-old projection must still be honoured")
 	require.Equal(t, entitlement.EditionPersonal, signed.State.Edition)
 
-	_, err = models.GetEntitlement(s, testuser1.ID)
+	// The same row, read again, with a window shorter than its age configured.
+	setConfigForTest(t, config.BraznEntitlementMaxAge, "168h")
+	require.Equal(t, 168*time.Hour, models.EntitlementMaxAge(),
+		"the window must really be configured, or this proves nothing")
+
+	_, err = entitlementFor(t, testuser1.ID)
 	require.ErrorIs(t, err, models.ErrNoEntitlement)
+}
+
+// TestReplayDoesNotRefreshTheFreshnessWindow is the property that decides
+// whether the window is worth anything at all.
+//
+// A replayed envelope is byte-identical to a legitimate retry and cannot be
+// told apart from one, so if a replay refreshed the clock then anyone holding a
+// single captured delivery could keep that subject entitled indefinitely by
+// resending it - which is exactly the severed-sync case the window exists to
+// catch. The refusal has to key on receipt of a REVISION-ADVANCING delivery,
+// not on receipt of any accepted one.
+//
+// Moving the receipt stamp out of the compare-and-set - refreshing it on every
+// accepted delivery instead - makes this fail at the replay assertion, while
+// leaving every other test in this file passing.
+func TestReplayDoesNotRefreshTheFreshnessWindow(t *testing.T) {
+	env := newManagedEnv(t)
+	setConfigForTest(t, config.BraznEntitlementMaxAge, "168h")
+
+	envelope := env.projection(testuser1.ID, 1)
+	require.Equal(t, http.StatusNoContent, env.deliver(envelope).Code)
+
+	expired := time.Now().Add(-30 * 24 * time.Hour)
+	backdateRevisionReceived(t, testuser1.ID, expired)
+	_, err := entitlementFor(t, testuser1.ID)
+	require.ErrorIs(t, err, models.ErrNoEntitlement,
+		"the projection must really have expired first, or this proves nothing")
+
+	// Still a successful no-op: delivery is at-least-once and a retry must stay
+	// safe to repeat. What it must not do is buy the subject another window.
+	require.Equal(t, http.StatusNoContent, env.deliver(envelope).Code)
+
+	replayed, has := storedProjection(t, testuser1.ID)
+	require.True(t, has)
+	assert.WithinDuration(t, expired, replayed.RevisionReceived, time.Second,
+		"a replayed envelope must not refresh the window")
+	_, err = entitlementFor(t, testuser1.ID)
+	require.ErrorIs(t, err, models.ErrNoEntitlement)
+
+	// Control: a delivery that advances the revision does refresh it, so the
+	// clock is not simply frozen.
+	require.Equal(t, http.StatusNoContent, env.deliver(env.projection(testuser1.ID, 2)).Code)
+
+	advanced, has := storedProjection(t, testuser1.ID)
+	require.True(t, has)
+	assert.WithinDuration(t, time.Now(), advanced.RevisionReceived, time.Minute)
+	signed, err := entitlementFor(t, testuser1.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), signed.Revision)
+}
+
+// TestEntitlementIngestAcceptsNothingWithoutAConfiguredKey is the foundation of
+// the security argument for a route that authenticates the message and not the
+// caller: brazn.entitlementkeys ships empty (pkg/config/config.go), so a
+// self-hosted instance of this fork that nobody has configured accepts no
+// projection at all and the route is inert rather than open.
+//
+// This is not the untrusted-signer test wearing a different hat. That one names
+// a key id the instance holds and signs with the wrong key; this one holds no
+// key at all, which is the state every operator who has never heard of Brazn
+// runs in.
+func TestEntitlementIngestAcceptsNothingWithoutAConfiguredKey(t *testing.T) {
+	env := newManagedEnv(t)
+
+	// Control: with this instance's key trusted, a delivery applies.
+	require.Equal(t, http.StatusNoContent, env.deliver(env.projection(testuser1.ID, 1)).Code)
+	applied, has := storedProjection(t, testuser1.ID)
+	require.True(t, has)
+
+	setConfigForTest(t, config.BraznEntitlementKeys, "")
+	require.Empty(t, config.BraznEntitlementKeys.GetString(),
+		"the trust store must really be empty, or this proves nothing")
+
+	// Nothing new is stored.
+	require.Equal(t, http.StatusBadRequest, env.deliver(env.projection(testuser2.ID, 1)).Code)
+	_, has = storedProjection(t, testuser2.ID)
+	assert.False(t, has, "an instance trusting no key must store nothing")
+
+	// And nothing already stored can be moved, either.
+	require.Equal(t, http.StatusBadRequest,
+		env.deliver(env.projection(testuser1.ID, applied.Revision+1)).Code)
+	after, has := storedProjection(t, testuser1.ID)
+	require.True(t, has)
+	assert.Equal(t, applied.Revision, after.Revision)
 }
 
 // TestEntitlementIngestRefusesAnUndefinedEdition keeps an edition nobody has

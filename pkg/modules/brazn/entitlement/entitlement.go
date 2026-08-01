@@ -102,6 +102,18 @@ type State struct {
 
 // Signed is the signed half of the envelope, and the only half a policy
 // decision may read.
+//
+// IssuedAt is AUDIT DATA and nothing here or above it may decide anything from
+// it. The contract says so in as many words - it is recorded with a delivery
+// outcome so a dispute has something to reconstruct, and it must never order
+// two projections, which is revision's job exclusively. It is equally unfit for
+// freshness, which is the mistake worth naming because it looks reasonable: it
+// is the SENDER's wall clock, so a producer whose clock ran forward would
+// silently widen this instance's freshness window with no bug on either side
+// and nothing to report it, and one timestamp minted far enough ahead would
+// pin a subject entitled for the life of the instance. Freshness is measured
+// from when this instance last received an advancing revision, on its own
+// clock - see EntitlementProjection.RevisionReceived in pkg/models.
 type Signed struct {
 	ContractVersion string    `json:"contract_version"`
 	Subject         Subject   `json:"subject"`
@@ -115,41 +127,6 @@ type Signed struct {
 // one this build does not recognise - is inactive.
 func (s *Signed) Active() bool {
 	return s.State.EffectiveState == stateActive && s.State.SeatStatus == stateActive
-}
-
-// Stale reports whether this projection is older than the configured freshness
-// window, in which case it entitles nothing and guarded operations fail closed
-// exactly as they do when no projection was ever applied. Without this a
-// correctly signed envelope would be trusted for the rest of the instance's
-// life, however long ago the commercial service stopped talking to it.
-//
-// IssuedAt is read here for FRESHNESS ONLY, and never to order anything. The
-// contract is explicit that Revision is the sole ordering and that comparing
-// two issued_at values to decide which projection is newer is forbidden,
-// because clocks skew and deliveries overtake each other
-// (cloud/contracts/README.md, "The apply rule"). Nothing here compares two
-// projections; it compares one against the clock.
-func (s *Signed) Stale() bool {
-	return time.Since(s.IssuedAt) > MaxAge()
-}
-
-// DefaultMaxAge is how long a projection stays fresh when
-// brazn.entitlementmaxage carries no usable value.
-const DefaultMaxAge = 7 * 24 * time.Hour
-
-// MaxAge returns the freshness window projections are measured against.
-//
-// Configuration rather than a constant, so the window can be changed without an
-// application release. A key viper cannot read comes back as zero, which would
-// make every projection instantly stale and lock every guarded operation out of
-// the instance, so an unusable value falls back to the default rather than to
-// either extreme.
-func MaxAge() time.Duration {
-	configured := config.BraznEntitlementMaxAge.GetDuration()
-	if configured <= 0 {
-		return DefaultMaxAge
-	}
-	return configured
 }
 
 // SigningDomain is the domain-separation prefix the v2 entitlement contract

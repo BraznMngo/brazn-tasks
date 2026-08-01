@@ -564,6 +564,10 @@ func registerAPIRoutes(a *echo.Group) {
 	// Registered on n and not on ur, even though it takes no JWT: ur's
 	// ten-requests-per-minute-per-IP cap is sized for humans guessing
 	// passwords, and every projection in the system arrives from one address.
+	// Note what that leaves, because it is easy to read this as "n limits it
+	// some other way": n's own limiter is attached only when ratelimit.enabled
+	// is set, and that defaults to false, so on a stock instance this route has
+	// no rate limit at all while still writing a log line per refusal.
 	//
 	// Registered unconditionally, like every other route here. Gating it on
 	// brazn.managedmode would make the route table depend on an operator's

@@ -132,11 +132,16 @@ func (env *managedEnv) storeProjection(userID, revision int64, envelope string) 
 	s := db.NewSession()
 	defer s.Close()
 
+	// RevisionReceived is the receipt clock the freshness window measures, and
+	// it is stamped here for the same reason the endpoint stamps it: a row with
+	// no recorded receipt reads as expired, which is right for a real one and
+	// useless for a fixture whose whole job is to make a projection present.
 	_, err := s.Insert(&models.EntitlementProjection{
-		UserID:         userID,
-		OrganizationID: managedTestOrganization,
-		Revision:       revision,
-		Envelope:       envelope,
+		UserID:           userID,
+		OrganizationID:   managedTestOrganization,
+		Revision:         revision,
+		RevisionReceived: time.Now(),
+		Envelope:         envelope,
 	})
 	require.NoError(env.t, err)
 	require.NoError(env.t, s.Commit())
