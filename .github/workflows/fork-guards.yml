@@ -170,3 +170,41 @@ jobs:
             exit 1
           fi
           echo "Every Vikunja mention in ${spec} is an upstream reference or a contract identifier."
+
+      - name: No translation catalogue calls the product Vikunja
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # BRA-926 de-branded the email and UI catalogues in all 38 languages.
+          # Translations sync from Crowdin, whose source strings are upstream's, so
+          # a sync is a live route for "Welcome to Vikunja!" to come back — in a
+          # language nobody here reads, in the first email a new customer receives.
+          #
+          # Only values are checked, never keys. open_vikunja, vikunja and
+          # vikunjaFile are internal identifiers wired to call sites across both
+          # catalogues; renaming them is churn in 76 files that no customer can see.
+          # The one legitimate value is the import picker naming the export format
+          # it reads, which really is Vikunja's.
+          failed=0
+          for dir in pkg/i18n/lang frontend/src/i18n/lang; do
+            if [[ ! -d "${dir}" ]]; then
+              echo "::error::${dir} is gone. Re-point this guard before merging."
+              failed=1
+              continue
+            fi
+            hits="$(grep -rnE '":.*[Vv]ikunja' "${dir}" | grep -vF 'Vikunja export' || true)"
+            if [[ -n "${hits}" ]]; then
+              echo "${hits}"
+              failed=1
+            fi
+          done
+          if [[ "${failed}" != 0 ]]; then
+            echo "::error::The translated string(s) above name the product Vikunja." \
+                 "Customer-facing copy says Brazn Tasks in every language (BRA-926);" \
+                 "only upstream attribution and the Vikunja export format keep the" \
+                 "upstream name. If this arrived from Crowdin, fix it there too or the" \
+                 "next sync reverts it."
+            exit 1
+          fi
+          echo "No catalogue value in either directory names the product Vikunja."
