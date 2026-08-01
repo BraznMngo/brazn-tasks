@@ -23,10 +23,12 @@
 package entitlement
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 
@@ -84,6 +86,88 @@ var (
 	// configured to trust.
 	ErrUnknownSigningKey = errors.New("entitlement projection was signed with an unknown key")
 )
+
+// Reason names which of the contract's rules a refused projection broke.
+//
+// IT IS DIAGNOSTIC AND NEVER A BRANCH. The two sentinels above remain what
+// callers match on, every refusal wraps one of them, and errors.Is keeps
+// working exactly as it did - nothing in the product reads a Reason to decide
+// anything, and the endpoint's reply stays the same flat 400 for all of them.
+//
+// It exists because "the message was refused" is a claim a test can satisfy by
+// accident. Every one of these rules sits behind the signature check, so a
+// conformance case aimed at the revision or the contract version will be
+// refused for an unknown key or a bad signature if anything about its setup is
+// wrong - and an assertion that only asked whether an error came back would
+// report success. Naming the reason is what makes the difference visible, and
+// it is the whole point of BRA-929.
+//
+// This is also the vocabulary the acknowledgement contract needs
+// (entitlement-projection-ack.schema.json distinguishes invalid_signature,
+// unknown_key, unsupported_contract_version and malformed_projection). These
+// are finer-grained than those four and map onto them; building the ack itself
+// is a separate piece of work and nothing here presumes its shape.
+type Reason string
+
+// The rules Verify enforces, named after the contract's own conformance cases
+// in cloud/contracts/v2/entitlements/examples/ wherever one exists.
+const (
+	ReasonMalformedEnvelope          Reason = "malformed_envelope"
+	ReasonUnsigned                   Reason = "unsigned"
+	ReasonUnknownSignatureAlgorithm  Reason = "unknown_signature_algorithm"
+	ReasonUnknownKey                 Reason = "unknown_key"
+	ReasonMalformedSignatureEncoding Reason = "malformed_signature_encoding"
+	ReasonInvalidSignature           Reason = "invalid_signature"
+	ReasonMalformedProjection        Reason = "malformed_projection"
+	ReasonUndeclaredField            Reason = "undeclared_field"
+	ReasonUnsupportedContractVersion Reason = "unsupported_contract_version"
+	ReasonNonPositiveRevision        Reason = "non_positive_revision"
+	ReasonMalformedSubjectID         Reason = "malformed_subject_id"
+)
+
+// RefusedError carries the named reason alongside the sentinel every caller
+// already matches on.
+type RefusedError struct {
+	Reason   Reason
+	sentinel error
+}
+
+// Error names the rule after the sentinel. The endpoint logs this and never
+// returns it, so it is the operator's only channel for why a delivery was
+// turned down - see BraznApplyEntitlementProjection on why the reply is flat.
+func (e *RefusedError) Error() string {
+	return e.sentinel.Error() + ": " + string(e.Reason)
+}
+
+// Unwrap is what keeps errors.Is(err, ErrInvalidProjection) and
+// errors.Is(err, ErrUnknownSigningKey) true for exactly the errors they were
+// true for before this type existed.
+func (e *RefusedError) Unwrap() error {
+	return e.sentinel
+}
+
+func refuse(reason Reason, sentinel error) error {
+	return &RefusedError{Reason: reason, sentinel: sentinel}
+}
+
+// RefusalReason returns the rule an error says was broken, or the empty Reason
+// for anything that did not come from Verify.
+func RefusalReason(err error) Reason {
+	var refused *RefusedError
+	if errors.As(err, &refused) {
+		return refused.Reason
+	}
+	return ""
+}
+
+// opaqueID is the contract's $defs/opaqueId, quoted from the schema rather than
+// derived from anything here. Both halves of the subject key are constrained by
+// it, and an id that fails it is not a subject any producer may send.
+//
+// The upper bound is not decoration: EntitlementProjection.OrganizationID is
+// varchar(64), so an id past this length is one a store could silently truncate
+// into a different subject.
+var opaqueID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 // Subject identifies who a projection is about, in the commercial service's
 // own identifiers rather than this instance's row ids.
@@ -160,21 +244,56 @@ type signature struct {
 // the domain prefix followed by exactly those bytes, so verifying them as
 // received removes any need for a canonical re-encoding to agree with the
 // signer's. See SigningInput.
+//
+// Signature is a pointer so that "there is no signature" and "there is one, and
+// it says something wrong" are different facts. The contract has a conformance
+// case for each - invalid.unsigned and invalid.unknown-signature-algorithm -
+// and a value type would have collapsed them into one empty algorithm string.
 type envelope struct {
 	Signed    json.RawMessage `json:"signed"`
-	Signature signature       `json:"signature"`
+	Signature *signature      `json:"signature"`
+}
+
+// hasUndeclaredField reports whether raw carries a member the contract does not
+// declare. Every level of the projection schema is additionalProperties: false,
+// and this is how that is enforced.
+//
+// IT IS ONLY EVER ASKED AFTER A LENIENT DECODE HAS ALREADY SUCCEEDED. That
+// ordering is what makes the answer exact: with malformed JSON and type errors
+// already ruled out, an unknown field is the only thing left for the strict
+// decode to fail on, so no error string has to be inspected to tell the two
+// apart. Trailing content is likewise already excluded, because json.Unmarshal
+// rejects it and json.Decoder would not.
+//
+// This matters beyond conformance. The whole envelope is stored verbatim in
+// brazn_entitlement_projections.envelope, so a tolerated extra member is not
+// ignored - it is retained. The contract's invalid.billing-detail-in-state case
+// is exactly that: an invoice id and a price, which this instance has no
+// business holding, arriving inside a message it would otherwise accept.
+func hasUndeclaredField(raw []byte, into interface{}) bool {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(into) != nil
 }
 
 // Verify checks an envelope's signature against the configured trusted keys
-// and returns the state it carries. Every failure is one of two errors,
-// because callers must treat all of them identically: refuse.
+// and returns the state it carries. Every failure still reaches callers as one
+// of two sentinels, because callers must treat all of them identically:
+// refuse. Which rule refused it is carried alongside, for logs and for
+// conformance tests, and for nothing that branches - see Reason.
 func Verify(raw []byte) (*Signed, error) {
 	var env envelope
 	if err := json.Unmarshal(raw, &env); err != nil {
-		return nil, ErrInvalidProjection
+		return nil, refuse(ReasonMalformedEnvelope, ErrInvalidProjection)
 	}
-	if env.Signature.Algorithm != algorithmEd25519 || len(env.Signed) == 0 {
-		return nil, ErrInvalidProjection
+	if env.Signature == nil {
+		return nil, refuse(ReasonUnsigned, ErrInvalidProjection)
+	}
+	if len(env.Signed) == 0 || hasUndeclaredField(raw, &envelope{}) {
+		return nil, refuse(ReasonMalformedEnvelope, ErrInvalidProjection)
+	}
+	if env.Signature.Algorithm != algorithmEd25519 {
+		return nil, refuse(ReasonUnknownSignatureAlgorithm, ErrInvalidProjection)
 	}
 
 	key, err := signingKey(env.Signature.KeyID)
@@ -198,17 +317,39 @@ func Verify(raw []byte) (*Signed, error) {
 	// the same signature cannot both be in flight. This is deliberately NOT the
 	// same encoding as brazn.entitlementkeys, which is our own config format and
 	// stays standard base64; do not unify them.
+	//
+	// The encoding and the cryptography are separated because the contract has
+	// a conformance case for each, and because they failed separately: the
+	// padded-signature break was an encoding fault that never reached
+	// ed25519.Verify at all, and reporting it as a bad signature would have
+	// pointed the next reader at the key instead of at the alphabet.
 	sig, err := base64.RawURLEncoding.DecodeString(env.Signature.Value)
-	if err != nil || !ed25519.Verify(key, SigningInput(env.Signed), sig) {
-		return nil, ErrInvalidProjection
+	if err != nil {
+		return nil, refuse(ReasonMalformedSignatureEncoding, ErrInvalidProjection)
+	}
+	if !ed25519.Verify(key, SigningInput(env.Signed), sig) {
+		return nil, refuse(ReasonInvalidSignature, ErrInvalidProjection)
 	}
 
+	// EVERYTHING BELOW READS THE MESSAGE, so everything below is after the
+	// signature. That ordering is the contract's and is not an accident of
+	// where the checks were easiest to write.
 	signed := &Signed{}
 	if err := json.Unmarshal(env.Signed, signed); err != nil {
-		return nil, ErrInvalidProjection
+		return nil, refuse(ReasonMalformedProjection, ErrInvalidProjection)
 	}
-	if signed.ContractVersion != ContractVersion || signed.Revision <= 0 {
-		return nil, ErrInvalidProjection
+	if hasUndeclaredField(env.Signed, &Signed{}) {
+		return nil, refuse(ReasonUndeclaredField, ErrInvalidProjection)
+	}
+	if signed.ContractVersion != ContractVersion {
+		return nil, refuse(ReasonUnsupportedContractVersion, ErrInvalidProjection)
+	}
+	if signed.Revision <= 0 {
+		return nil, refuse(ReasonNonPositiveRevision, ErrInvalidProjection)
+	}
+	if !opaqueID.MatchString(signed.Subject.OrganizationID) ||
+		!opaqueID.MatchString(signed.Subject.UserID) {
+		return nil, refuse(ReasonMalformedSubjectID, ErrInvalidProjection)
 	}
 
 	return signed, nil
@@ -220,7 +361,7 @@ func Verify(raw []byte) (*Signed, error) {
 // has been re-signed, then drop the old one.
 func signingKey(keyID string) (ed25519.PublicKey, error) {
 	if keyID == "" {
-		return nil, ErrUnknownSigningKey
+		return nil, refuse(ReasonUnknownKey, ErrUnknownSigningKey)
 	}
 
 	for _, pair := range strings.Split(config.BraznEntitlementKeys.GetString(), ",") {
@@ -230,10 +371,10 @@ func signingKey(keyID string) (ed25519.PublicKey, error) {
 		}
 		key, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
 		if err != nil || len(key) != ed25519.PublicKeySize {
-			return nil, ErrUnknownSigningKey
+			return nil, refuse(ReasonUnknownKey, ErrUnknownSigningKey)
 		}
 		return key, nil
 	}
 
-	return nil, ErrUnknownSigningKey
+	return nil, refuse(ReasonUnknownKey, ErrUnknownSigningKey)
 }
