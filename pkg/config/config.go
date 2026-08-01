@@ -241,6 +241,7 @@ const (
 
 	BraznManagedMode     Key = `brazn.managedmode`
 	BraznEntitlementKeys Key = `brazn.entitlementkeys`
+	BraznFeedbackOwner   Key = `brazn.feedbackowner`
 
 	// LicenseKey gates optional paid features and funds Vikunja's development.
 	// See the package comment in pkg/license/license.go before removing.
@@ -511,6 +512,11 @@ func InitDefaultConfig() {
 	// behaves exactly like stock Vikunja until an operator turns it on.
 	BraznManagedMode.setDefault(false)
 	BraznEntitlementKeys.setDefault("")
+	// The Brazn staff account that owns Percy Feedback. Empty by default, and
+	// an empty value provisions nothing: an instance nobody configured has no
+	// Percy Feedback project, which is the same shape a self-hosted instance
+	// has. See models.ProvisionFeedbackAccess.
+	BraznFeedbackOwner.setDefault("")
 
 	// Migrate deprecated webhook config keys to outgoingrequests.*
 	// This allows removing the old keys in a single place later.
