@@ -600,6 +600,13 @@ func TestConversationalMail(t *testing.T) {
 		assert.Contains(t, mailopts.HTMLMessage, "width: 600px")
 		assert.Contains(t, mailopts.HTMLMessage, "height: 75px")
 
+		// The embedded logo is opaque -- the source artwork has no alpha channel
+		// and cannot be given one (docs/brand/README.md) -- so the heading that
+		// holds it has to supply a matching background. Without it the image
+		// renders as a white box on the #f3f4f6 body asserted above. This is the
+		// only #ffffff in the formal template: the card uses the short #fff form.
+		assert.Contains(t, mailopts.HTMLMessage, "background: #ffffff")
+
 		// Should HAVE logo in formal emails
 		assert.Contains(t, mailopts.HTMLMessage, "logo.png")
 		assert.Contains(t, mailopts.HTMLMessage, "Brazn Tasks")

@@ -1,0 +1,165 @@
+name: Brand assets
+
+# Derives pkg/notifications/logo.png -- the image attached inline to every
+# non-conversational notification mail -- from the committed source artwork.
+#
+# Why it runs here and not on a developer machine: no agent on this project may
+# run image tooling on the Windows host. The recorded blue screen of 2026-07-22
+# was in the graphics driver (dxgmms2.sys), and image processing is the one
+# class of work that touches that path (CLAUDE.md section 1). Ubuntu runners
+# ship ImageMagick, so the conversion happens on one and the result is committed
+# back to the branch that triggered it.
+#
+# The path filter includes the derived asset itself. Hand-edit
+# pkg/notifications/logo.png and this job runs, regenerates it from the source,
+# and commits over the edit -- the shipped asset self-heals rather than drifting
+# away from the artwork it is supposed to come from. On brazn/main it cannot
+# push to a protected branch, so it fails and names what is out of date instead.
+#
+# Note that a push made with GITHUB_TOKEN deliberately does not trigger further
+# workflow runs, so `ci` does not re-run on the commit this job creates. Re-run
+# `ci` on the new head before merging a pull request that this job has written
+# to (BRA-990).
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - docs/brand/percy-wordmark-source.png
+      - pkg/notifications/logo.png
+      - .github/workflows/brand-assets.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: brand-assets-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SOURCE: docs/brand/percy-wordmark-source.png
+  DERIVED: pkg/notifications/logo.png
+  # Final width, border included. mailTemplateHTML renders the image at
+  # height: 75px, so this is roughly 2x for high-density displays.
+  TARGET_WIDTH: 400
+  BORDER: 10
+  # BRA-830's acceptance criterion is that notification mail reaches a
+  # mainstream inbox rather than a spam folder, and this file is attached to
+  # every one of them. Upstream's logo was 7 KB; the source artwork is 1.1 MB.
+  MAX_BYTES: 30720
+
+jobs:
+  derive:
+    name: Derive notification-email logo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install ImageMagick if the runner image does not ship it
+        run: |
+          set -euo pipefail
+          if command -v magick >/dev/null 2>&1 || command -v convert >/dev/null 2>&1; then
+            echo "ImageMagick is already present."
+            exit 0
+          fi
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends imagemagick
+
+      - name: Derive the logo from the source artwork
+        run: |
+          set -euo pipefail
+
+          if command -v magick >/dev/null 2>&1; then
+            im()       { magick "$@"; }
+            im_ident() { magick identify "$@"; }
+          else
+            im()       { convert "$@"; }
+            im_ident() { identify "$@"; }
+          fi
+
+          echo "::group::Source artwork"
+          im_ident -format 'geometry=%wx%h depth=%z colorspace=%[colorspace] alpha=%A channels=%[channels]\n' "$SOURCE"
+          echo "background (pixel 0,0): $(im_ident -format '%[pixel:p{0,0}]' "$SOURCE")"
+          echo "bytes: $(stat -c%s "$SOURCE")"
+          echo "::endgroup::"
+
+          # The source is opaque -- PNG color type 2, no alpha channel and no
+          # tRNS chunk -- and the P ribbon's glow fades continuously into its
+          # background, so there is no edge to key out and no alpha to recover.
+          # Trimming and bordering therefore both use the artwork's own corner
+          # color, and mailTemplateHTML puts a matching band behind the result.
+          BG=$(im_ident -format '%[pixel:p{0,0}]' "$SOURCE")
+          INNER=$(( TARGET_WIDTH - 2 * BORDER ))
+
+          # The artwork carries wide empty margins. Rendered at height: 75px
+          # untrimmed, the lockup itself would be about half that -- the trim is
+          # what makes the logo legible in a mail client, not a cosmetic tidy-up.
+          #
+          # Quantizing is what keeps the file under the ceiling: a truecolor PNG
+          # of a resampled gradient does not fit in 30 KB, and at the size this
+          # renders the difference is not visible. Step down until it fits, and
+          # report each attempt so the trade-off is in the log rather than
+          # implied.
+          for COLORS in 256 128 64; do
+            im "$SOURCE" \
+              -fuzz 2% -trim +repage \
+              -resize "${INNER}x" \
+              -bordercolor "$BG" -border "$BORDER" \
+              -strip \
+              -dither None -colors "$COLORS" \
+              -define png:compression-level=9 \
+              -define png:compression-filter=5 \
+              -define png:compression-strategy=1 \
+              "$DERIVED"
+            echo "colors=${COLORS} -> $(im_ident -format '%wx%h' "$DERIVED"), $(stat -c%s "$DERIVED") bytes"
+            if [ "$(stat -c%s "$DERIVED")" -le "$MAX_BYTES" ]; then
+              break
+            fi
+          done
+
+          WIDTH=$(im_ident -format '%w' "$DERIVED")
+          HEIGHT=$(im_ident -format '%h' "$DERIVED")
+          SIZE=$(stat -c%s "$DERIVED")
+
+          if [ "$WIDTH" -ne "$TARGET_WIDTH" ]; then
+            echo "::error::derived logo is ${WIDTH}px wide, expected ${TARGET_WIDTH}px"
+            exit 1
+          fi
+          if [ "$SIZE" -gt "$MAX_BYTES" ]; then
+            echo "::error::derived logo is ${SIZE} bytes, ceiling is ${MAX_BYTES}"
+            exit 1
+          fi
+
+          {
+            echo "### Derived \`${DERIVED}\`"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| geometry | ${WIDTH} x ${HEIGHT} |"
+            echo "| size | ${SIZE} bytes (ceiling ${MAX_BYTES}) |"
+            echo "| source | \`${SOURCE}\`, $(stat -c%s "$SOURCE") bytes, background ${BG} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit the derived asset
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- "$DERIVED"; then
+            echo "${DERIVED} already matches what ${SOURCE} derives to. Nothing to commit."
+            exit 0
+          fi
+
+          git --no-pager diff --stat -- "$DERIVED"
+
+          if [ "$GITHUB_REF_NAME" = "brazn/main" ]; then
+            echo "::error::${DERIVED} does not match what ${SOURCE} derives to, and this job cannot push to a protected branch. Re-derive it on a branch and open a pull request."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$DERIVED"
+          git commit \
+            -m "chore(brand): derive the notification-email logo from the Percy wordmark (BRA-990)" \
+            -m "Generated by .github/workflows/brand-assets.yml from ${SOURCE}. Not edited by hand: editing it re-triggers that workflow, which regenerates the file over the edit."
+          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
