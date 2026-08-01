@@ -141,6 +141,22 @@ func entitlementFor(t *testing.T, userID int64) (*entitlement.Signed, error) {
 	return models.GetEntitlement(s, userID)
 }
 
+// sentSigned decodes what an envelope actually carries, so a test asserts its
+// precondition on the bytes that decide the outcome rather than on the
+// variables it built them from.
+func sentSigned(t *testing.T, envelope string) *entitlement.Signed {
+	t.Helper()
+
+	var carried struct {
+		Signed json.RawMessage `json:"signed"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(envelope), &carried))
+
+	signed := &entitlement.Signed{}
+	require.NoError(t, json.Unmarshal(carried.Signed, signed))
+	return signed
+}
+
 func TestEntitlementIngestAppliesAFirstProjection(t *testing.T) {
 	env := newManagedEnv(t)
 
