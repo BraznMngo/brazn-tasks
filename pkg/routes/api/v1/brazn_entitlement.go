@@ -55,11 +55,27 @@ const maxProjectionBytes = 16 << 10
 // THE REPLY IS DELIBERATELY FLAT. Every refusal answers the same 400 with the
 // same sentence, and the actual reason is logged instead. Anyone can reach this
 // endpoint - authentication happens inside the message, so a caller who fails
-// it was never authenticated at all - and a reply that distinguished "no such
-// user" from "wrong organization" from "revision already applied" would answer
-// questions about the instance's entitlement state for whoever asked. The
-// contract makes the same point about the acknowledgement: a rejection carries
-// its reason and nothing else, precisely so this seam is not an oracle.
+// it was never authenticated at all - and a reply that distinguished "wrong
+// organization" from "revision already applied" would answer questions about
+// the instance's entitlement state for whoever asked. The contract makes the
+// same point about the acknowledgement: a rejection carries its reason and
+// nothing else, precisely so this seam is not an oracle.
+//
+// ONE DISTINCTION IS VISIBLE THROUGH THE REPLY, and it is worth stating rather
+// than leaving to be rediscovered. A projection for a subject this instance no
+// longer has answers 204 rather than 400 (models.ApplyEntitlement, where a
+// refusal would deadlock account erasure), so the two codes do separate "there
+// is no user N here" from "there is, and something else was wrong".
+//
+// That is not an oracle anyone can consult. Reaching the distinction at all
+// requires entitlement.Verify to have already succeeded, which requires an
+// Ed25519 signature from a key brazn.entitlementkeys names; every caller
+// without one gets the same 400 they got before, for every subject. So the
+// party who can ask is the party holding the producer's signing key, about
+// subjects that party assigned. Someone replaying a captured envelope can ask
+// only about the single subject it names, because the id is inside the signed
+// octets and changing it invalidates the signature. Widening this would mean
+// answering 204 before verification, which nothing here does.
 //
 // NO ACKNOWLEDGEMENT IS RETURNED, and that is a decision rather than an
 // oversight. entitlement-projection-ack.schema.json distinguishes applied,

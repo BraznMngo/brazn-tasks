@@ -240,9 +240,51 @@ func ApplyEntitlement(s *xorm.Session, signed *entitlement.Signed, envelope stri
 		return fmt.Errorf("%w: the subject names no organization", ErrEntitlementRefused)
 	}
 
-	userID, err := subjectUserID(s, signed.Subject.UserID)
+	// subjectExists rather than has: the `has` further down means "a projection
+	// row exists", which is a different fact about a different table. One name
+	// for both in one function is how the next reader conflates them.
+	userID, subjectExists, err := subjectUserID(s, signed.Subject.UserID)
 	if err != nil {
 		return err
+	}
+	// The subject has been erased, so there is nothing left to entitle and
+	// nothing is stored. This is a SUCCESS and it has to be: account erasure
+	// (BRA-805) is resumable and its acknowledgement guard is fail-closed, so a
+	// retry after this instance's user row is already gone re-delivers the
+	// closure projection for a subject nobody holds. A refusal there is read as
+	// "the fork did not accept this", which blocks the erasure permanently - the
+	// customer's tasks are already destroyed, the commercial record is never
+	// redacted, and every retry reproduces it exactly. Refusing is the one
+	// answer with no way back.
+	//
+	// Storing a placeholder row instead would be worse than useless. Nothing
+	// could read it - GetEntitlement keys on user_id and no user has this one -
+	// and the envelope column would preserve the erased subject's organization,
+	// state and timestamps as the retention of exactly the record the erasure
+	// was performed to destroy. There is no foreign key to stop it, so this is
+	// the only thing that does. The log line below omits the subject id for the
+	// same reason, and it is the one line in this file that does.
+	//
+	// This stops a NEW row being written; it does not clean up an old one.
+	// DeleteUser's relatedEntities list in user_delete.go does not include
+	// EntitlementProjection, so erasing a user who already had a projection
+	// leaves that row behind - unreachable, because no session ever resolves to
+	// that user id again, but still holding the erased subject's envelope. That
+	// is a defect in the deletion path, it is recorded under BRA-933, and it is
+	// sequenced after this rather than folded into it: this function stops new
+	// rows appearing and is correct on its own, where the cleanup is a separate
+	// write on a separate path needing its own test. It is NOT out of bounds -
+	// an entry in relatedEntities sits inside patch-surface area 4, entitlement
+	// synchronization - so nothing but sequencing is holding it.
+	//
+	// It is deliberately narrower than "the subject did not resolve": a user id
+	// that is not a well-formed reference at all never reaches here, because
+	// subjectUserID returns that as a refusal above. An erased subject is a
+	// well-formed id with no user behind it, and nothing else.
+	if !subjectExists {
+		log.Debugf("Entitlement revision %d names a subject this instance no longer has; nothing to apply",
+			signed.Revision)
+		return nil
 	}
 
 	// The receipt is stamped in the same statement as the revision, and in no
@@ -329,30 +371,39 @@ func ApplyEntitlement(s *xorm.Session, signed *entitlement.Signed, envelope stri
 // fits the contract's character class, and it is the one identifier here that
 // is never reissued, where a username can be freed and taken again.
 //
-// A subject naming a user this instance does not have is refused rather than
-// stored against a placeholder. A projection presupposes its subject; it cannot
-// create one, and a row keyed on a user id nothing resolves to would be
-// invisible to every policy check that reads it.
+// THE TWO WAYS A SUBJECT CAN FAIL TO RESOLVE ARE NOT THE SAME FAILURE, and the
+// three return values exist to keep them apart:
+//
+//   - A subject that is not a well-formed reference to any user - non-numeric,
+//     negative, empty - is a REFUSAL. No such user has ever existed, so nothing
+//     can have erased one, and a producer sending this is broken.
+//   - A well-formed id with no user behind it resolves to (0, false, nil): the
+//     subject is gone. Callers answer that successfully; see ApplyEntitlement
+//     for why a refusal there deadlocks account erasure.
+//
+// Check the error before the boolean. A refusal reports has=false too, and a
+// caller that read the boolean first would treat a malformed subject as an
+// erased one - which is the conflation this split exists to prevent.
 //
 // Existence is all that is asked, deliberately. user.GetUserByID also reports
 // disabled and locked accounts as errors, and neither is this endpoint's
 // business: the projection is what says whether a subject is entitled, and a
 // locally disabled account whose delivery failed would have the commercial
 // service retrying a message that can never land.
-func subjectUserID(s *xorm.Session, subject string) (int64, error) {
+func subjectUserID(s *xorm.Session, subject string) (int64, bool, error) {
 	userID, err := strconv.ParseInt(subject, 10, 64)
 	if err != nil || userID <= 0 {
-		return 0, fmt.Errorf("%w: %q is not a local user id", ErrEntitlementRefused, subject)
+		return 0, false, fmt.Errorf("%w: %q is not a local user id", ErrEntitlementRefused, subject)
 	}
 
 	has, err := s.Where("id = ?", userID).Get(&user.User{})
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	if !has {
-		return 0, fmt.Errorf("%w: this instance has no user %d", ErrEntitlementRefused, userID)
+		return 0, false, nil
 	}
-	return userID, nil
+	return userID, true, nil
 }
 
 // TasksOutsideProject reports whether any of the given tasks currently lives

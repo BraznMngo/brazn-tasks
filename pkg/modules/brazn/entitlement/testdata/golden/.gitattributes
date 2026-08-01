@@ -1,0 +1,12 @@
+# The artifacts in this directory are exact wire bytes, not source files.
+#
+# Any end-of-line or whitespace normalisation corrupts them: the signatures
+# cover the bytes as committed, and the JSON envelopes deliberately carry no
+# trailing newline. -text switches conversion off in both directions, so a
+# checkout on a host with core.autocrlf=true gets the committed bytes rather
+# than a CRLF rendering of them.
+#
+# README.md is deliberately not listed; it is an ordinary source file.
+key-id.txt          -text
+signing-key.pub.pem -text
+*.json              -text
