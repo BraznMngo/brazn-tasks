@@ -38,8 +38,10 @@ import (
 // username, password and email (from APIUserPassword) plus the new user's
 // preferred language.
 type UserRegister struct {
-	// The language of the new user. Must be a valid IETF BCP 47 language code and exist in Vikunja.
-	Language string `json:"language" valid:"language" doc:"The language of the new user as an IETF BCP 47 code (e.g. en, de-DE)."`
+	// The language of the new user. Either a canonical account locale ("de") or an
+	// exact catalogue code ("de-DE") — see pkg/modules/brazn/locale, which backs
+	// the `language` validation tag and resolves the former onto the latter.
+	Language string `json:"language" valid:"language" doc:"The language of the new user as an IETF BCP 47 code: either a bare subtag (de) or an exact code this instance ships (de-DE). Anything else is rejected."`
 	user.APIUserPassword
 }
 

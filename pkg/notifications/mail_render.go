@@ -191,6 +191,14 @@ const mailTemplateConversationalHTML = `
 </html>
 `
 
+// PLACEHOLDER (BRA-918): logo.png is still upstream Vikunja's logo. It is
+// attached inline to every non-conversational notification mail and rendered by
+// mailTemplateHTML above, which already says alt="Brazn Tasks" -- so the mark in
+// the image and the name beside it currently disagree. The AGPL does not grant
+// the Vikunja trademark (see CLAUDE.md section 7), so this file must be replaced
+// with the Brazn Tasks mark before branded mail reaches a customer. No agent can
+// generate it; it needs a real asset dropped in at this path, same filename.
+//
 //go:embed logo.png
 var logo embed.FS
 

@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	"code.vikunja.io/api/pkg/i18n"
+	"code.vikunja.io/api/pkg/modules/brazn/locale"
 
 	"github.com/asaskevich/govalidator"
 )
@@ -57,5 +57,10 @@ func init() {
 		return len([]byte(str)) <= 72
 	}
 
-	govalidator.TagMap["language"] = i18n.HasLanguage
+	// BRA-860: accept a canonical account locale ("de") as well as an exact
+	// catalogue code ("de-DE"). Percy owns the account locale and sends the bare
+	// subtag; i18n.HasLanguage alone refuses it, so the language of a German
+	// account could never be set through the API at all. What gets stored is
+	// normalized by CreateUser and UpdateUserGeneralSettings.
+	govalidator.TagMap["language"] = locale.Accepts
 }
