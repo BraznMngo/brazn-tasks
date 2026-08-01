@@ -82,8 +82,23 @@ func newManagedEnv(t *testing.T) *managedEnv {
 	return &managedEnv{t: t, e: e, signingKey: private}
 }
 
-// grant writes a correctly signed projection for a user.
+// grant writes a correctly signed projection for a user, with no end date -
+// the ordinary case of a subscription in good standing.
 func (env *managedEnv) grant(userID int64, edition string, organizationAdmin bool) {
+	env.t.Helper()
+
+	env.grantUntil(userID, edition, organizationAdmin, nil)
+}
+
+// grantUntil is the same with a validity window that ends. `validTo` is a
+// pointer because the contract distinguishes "no end recorded" from an end, and
+// so does everything downstream of it.
+func (env *managedEnv) grantUntil(
+	userID int64,
+	edition string,
+	organizationAdmin bool,
+	validTo *time.Time,
+) {
 	env.t.Helper()
 
 	signed, err := json.Marshal(entitlement.Signed{
@@ -99,6 +114,10 @@ func (env *managedEnv) grant(userID int64, edition string, organizationAdmin boo
 			SeatStatus:        "active",
 			OrganizationAdmin: organizationAdmin,
 			EffectiveState:    "active",
+			// Comfortably in the past, so no test below is accidentally about
+			// a window that has not opened yet.
+			ValidFrom: time.Now().UTC().Add(-24 * time.Hour),
+			ValidTo:   validTo,
 		},
 	})
 	require.NoError(env.t, err)
@@ -186,11 +205,40 @@ func (env *managedEnv) newProject(owner *user.User, title string, parent int64) 
 	return project.ID
 }
 
+// request signs in as `as` the way the product does, which means the token is
+// minted from whatever projection this instance holds at that moment.
+//
+// The ORDERING is load-bearing for every test below and was not before: grant
+// then request carries an entitlement, revoke then request does not, and a test
+// that wants to ask what a token outlives has to mint it first and change the
+// projection after - see requestWith.
 func (env *managedEnv) request(method, path, body string, as *user.User) *httptest.ResponseRecorder {
 	env.t.Helper()
 
-	token, err := auth.NewUserJWTAuthtoken(as, "test-session-id")
+	return env.requestWith(method, path, body, env.tokenFor(as))
+}
+
+// tokenFor mints the session token a login would hand this user right now,
+// through the production path, so a test cannot accidentally assert against a
+// token shape the product does not issue.
+func (env *managedEnv) tokenFor(as *user.User) string {
+	env.t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	token, err := auth.NewEntitledUserJWTAuthtoken(s, as, "test-session-id")
 	require.NoError(env.t, err)
+	return token
+}
+
+// requestWith makes the request with a token the caller already holds, which is
+// how a test separates "what this instance would grant now" from "what this
+// token was granted when it was issued".
+func (env *managedEnv) requestWith(
+	method, path, body, token string,
+) *httptest.ResponseRecorder {
+	env.t.Helper()
 
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

@@ -239,9 +239,10 @@ const (
 	PluginsDir     Key = `plugins.dir`
 	PluginsLoader  Key = `plugins.loader`
 
-	BraznManagedMode     Key = `brazn.managedmode`
-	BraznEntitlementKeys Key = `brazn.entitlementkeys`
-	BraznFeedbackOwner   Key = `brazn.feedbackowner`
+	BraznManagedMode      Key = `brazn.managedmode`
+	BraznEntitlementKeys  Key = `brazn.entitlementkeys`
+	BraznEntitlementGrace Key = `brazn.entitlementgrace`
+	BraznFeedbackOwner    Key = `brazn.feedbackowner`
 
 	// LicenseKey gates optional paid features and funds Vikunja's development.
 	// See the package comment in pkg/license/license.go before removing.
@@ -512,6 +513,13 @@ func InitDefaultConfig() {
 	// behaves exactly like stock Vikunja until an operator turns it on.
 	BraznManagedMode.setDefault(false)
 	BraznEntitlementKeys.setDefault("")
+	// How long past an entitlement's `valid_to` a session token may still be
+	// issued, and how much longer than that date one may live. Configuration
+	// rather than a constant because it is a commercial decision - how long
+	// someone keeps working after a paid period ends - and not a property of
+	// the protocol. Zero is a legitimate value and means the entitlement stops
+	// exactly when it says it does.
+	BraznEntitlementGrace.setDefault("24h")
 	// The Brazn staff account that owns Percy Feedback. Empty by default, and
 	// an empty value provisions nothing: an instance nobody configured has no
 	// Percy Feedback project, which is the same shape a self-hosted instance
