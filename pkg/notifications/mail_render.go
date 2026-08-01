@@ -94,7 +94,7 @@ const mailTemplateHTML = `
 <body style="width: 100%; padding: 0; margin: 0; background: #f3f4f6">
 <div style="width: 100%; font-family: 'Open Sans', sans-serif; Text-rendering: optimizeLegibility">
     <div style="width: 600px; margin: 0 auto; Text-align: justify;">
-        <h1 style="font-size: 30px; Text-align: center;">
+        <h1 style="font-size: 30px; Text-align: center; margin: 20px 0; padding: 12px 0; background: #ffffff; border-radius: 3px;">
             <img src="cid:logo.png" style="height: 75px;" alt="Brazn Tasks"/>
         </h1>
         <div class="email-card" style="border: 1px solid #dbdbdb; -webkit-box-shadow: 0.3em 0.3em 0.8em #e6e6e6; box-shadow: 0.3em 0.3em 0.8em #e6e6e6; color: #4a4a4a; padding: 5px 25px; border-radius: 3px; background: #fff;">
@@ -191,13 +191,20 @@ const mailTemplateConversationalHTML = `
 </html>
 `
 
-// PLACEHOLDER (BRA-918): logo.png is still upstream Vikunja's logo. It is
-// attached inline to every non-conversational notification mail and rendered by
-// mailTemplateHTML above, which already says alt="Brazn Tasks" -- so the mark in
-// the image and the name beside it currently disagree. The AGPL does not grant
-// the Vikunja trademark (see CLAUDE.md section 7), so this file must be replaced
-// with the Brazn Tasks mark before branded mail reaches a customer. No agent can
-// generate it; it needs a real asset dropped in at this path, same filename.
+// logo.png is the Percy wordmark, derived from docs/brand/percy-wordmark-source.png
+// by .github/workflows/brand-assets.yml. It is attached inline to every
+// non-conversational notification mail and rendered by mailTemplateHTML above.
+// Do not edit it by hand: that workflow's path filter covers it, so an edit only
+// triggers a regeneration over the top. It is no longer upstream Vikunja's mark,
+// which the AGPL does not license to us (see CLAUDE.md section 7).
+//
+// Two things about it are deliberate and interim. It is the Percy wordmark beside
+// alt="Brazn Tasks" until a Brazn Tasks mark exists (Sebastian, 2026-08-01), and it
+// is opaque, because the source artwork is PNG color type 2 with no alpha channel
+// and no tRNS chunk -- the P ribbon's glow fades continuously into the background
+// rather than ending at an edge, so there is nothing to key out. That is why the
+// <h1> holding it sets a white background: on the #f3f4f6 mail body an opaque image
+// would otherwise render as a visible box. See docs/brand/README.md (BRA-990).
 //
 //go:embed logo.png
 var logo embed.FS
