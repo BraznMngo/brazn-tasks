@@ -82,14 +82,32 @@ func newManagedEnv(t *testing.T) *managedEnv {
 	return &managedEnv{t: t, e: e, signingKey: private}
 }
 
-// grant writes a correctly signed projection for a user.
+// managedOtherOrganization is a SECOND Teams customer on the same instance.
+//
+// It is what makes a cross-organization test a real one: an account granted
+// here is active, is Teams, and differs from managedTestOrganization in exactly
+// one field, so nothing but the organization comparison can refuse it.
+const managedOtherOrganization = "org_other"
+
+// grant writes a correctly signed projection for a user, in the organization
+// these tests treat as the caller's own.
 func (env *managedEnv) grant(userID int64, edition string, organizationAdmin bool) {
+	env.t.Helper()
+
+	env.grantInOrganization(userID, edition, organizationAdmin, managedTestOrganization)
+}
+
+// grantInOrganization is grant with the subject's organization named, for the
+// tests that need two customers on one instance.
+func (env *managedEnv) grantInOrganization(
+	userID int64, edition string, organizationAdmin bool, organization string,
+) {
 	env.t.Helper()
 
 	signed, err := json.Marshal(entitlement.Signed{
 		ContractVersion: entitlement.ContractVersion,
 		Subject: entitlement.Subject{
-			OrganizationID: managedTestOrganization,
+			OrganizationID: organization,
 			UserID:         strconv.FormatInt(userID, 10),
 		},
 		Revision: 1,
@@ -123,10 +141,16 @@ func (env *managedEnv) grant(userID int64, edition string, organizationAdmin boo
 	})
 	require.NoError(env.t, err)
 
-	env.storeProjection(userID, 1, string(envelope))
+	env.storeProjection(userID, 1, organization, string(envelope))
 }
 
-func (env *managedEnv) storeProjection(userID, revision int64, envelope string) {
+// storeProjection writes the row as a delivery would have left it. The
+// organization is the envelope's own, never a constant: ApplyEntitlement
+// refuses a delivery whose subject disagrees with the stored column, so a row
+// carrying one organization around another's envelope is a state the product
+// cannot reach, and a fixture in that state would be quietly lying to whoever
+// reads it next.
+func (env *managedEnv) storeProjection(userID, revision int64, organization, envelope string) {
 	env.t.Helper()
 
 	s := db.NewSession()
@@ -136,7 +160,7 @@ func (env *managedEnv) storeProjection(userID, revision int64, envelope string) 
 	// it so a fixture row looks like a delivered one.
 	_, err := s.Insert(&models.EntitlementProjection{
 		UserID:           userID,
-		OrganizationID:   managedTestOrganization,
+		OrganizationID:   organization,
 		Revision:         revision,
 		RevisionReceived: time.Now(),
 		Envelope:         envelope,

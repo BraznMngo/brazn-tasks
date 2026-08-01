@@ -401,3 +401,104 @@ func TestTeamsPolicyRefusesInvitingAPersonalAccount(t *testing.T) {
 		})
 	}
 }
+
+// TestTeamsPolicyRefusesSharingAcrossOrganizations is the whole of the
+// cross-tenant claim, stated as one pair of requests.
+//
+// "An active member of a Teams organization" is true of every customer on a
+// shared instance, so the edition test alone let an administrator at one of
+// them name a user at another and hand over a project. The target passed
+// everything; it was a different organization.
+//
+// THE TWO CASES DIFFER IN EXACTLY ONE FIELD. It is the same account, named the
+// same way, over the same route, with the same body, still active and still
+// Teams - only the organization on its signed subject moves. That is what makes
+// the refusal attributable: an assertion that a request was refused is worth
+// nothing if some other guard was doing the refusing, and here the positive
+// control is the same request that was just turned down. Nothing in front of
+// the organization comparison can be responsible, because all of it passes on
+// the second run.
+//
+// Deleting the comparison in requireEntitledTarget makes the first case fall
+// through to nil and be allowed, which fails this test. That is the check that
+// matters, and it is the reason the refusal is asserted here rather than by
+// message: every managed refusal answers the same flat 403, so the wording
+// never reaches the caller and asserting on it would prove nothing.
+func TestTeamsPolicyRefusesSharingAcrossOrganizations(t *testing.T) {
+	env, topology := newTeamsEnv(t)
+
+	share := fmt.Sprintf("/api/v1/projects/%d/users", topology.underTeam)
+
+	// user6 is granted into the caller's organization by the fixture. Move that
+	// one account to a second customer on the same instance, and change nothing
+	// else about it.
+	env.revoke(testuser6.ID)
+	env.grantInOrganization(testuser6.ID, entitlement.EditionTeams, false,
+		managedOtherOrganization)
+
+	// Refused first, so this request never reaches the handler and cannot leave
+	// a share behind for the positive control to trip over.
+	t.Run("an active Teams account at another organization is refused", func(t *testing.T) {
+		rec := env.request(http.MethodPut, share, `{"username":"user6"}`, &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	})
+
+	t.Run("and the identical request succeeds inside one organization", func(t *testing.T) {
+		env.revoke(testuser6.ID)
+		env.grant(testuser6.ID, entitlement.EditionTeams, false)
+
+		rec := env.request(http.MethodPut, share, `{"username":"user6"}`, &testuser1)
+		assertAllowed(t, rec)
+	})
+}
+
+// TestTeamsPolicyClosesEveryCrossOrganizationRoute walks the alternate routes
+// to the same outcome.
+//
+// requireEntitledTarget guards project sharing, team membership and admin
+// promotion across both API versions, so a fix that closed only the route a
+// browser happens to use would leave Percy and a raw API client with the hole.
+// The promotion route is the one that names its account in the PATH rather than
+// the body, which is a second source of the username and therefore a second way
+// to get this wrong.
+//
+// user15 is the control, and it is why these refusals are not simply "policy
+// refuses this route". It is granted alongside user6 and differs from it only
+// by organization, so the membership route allowing user15 and refusing user6
+// is the comparison stated once more on a different door.
+func TestTeamsPolicyClosesEveryCrossOrganizationRoute(t *testing.T) {
+	env, topology := newTeamsEnv(t)
+
+	env.revoke(testuser6.ID)
+	env.grantInOrganization(testuser6.ID, entitlement.EditionTeams, false,
+		managedOtherOrganization)
+	env.grant(testuser15.ID, entitlement.EditionTeams, false)
+
+	for _, c := range []managedCase{
+		{"a project cannot be shared across organizations (v1)", http.MethodPut,
+			fmt.Sprintf("/api/v1/projects/%d/users", topology.underTeam), `{"username":"user6"}`, http.StatusForbidden},
+		{"a project cannot be shared across organizations (v2)", http.MethodPost,
+			fmt.Sprintf("/api/v2/projects/%d/users", topology.underTeam), `{"username":"user6"}`, http.StatusForbidden},
+		{"nor added to a team (v1)", http.MethodPut,
+			fmt.Sprintf("/api/v1/teams/%d/members", teamsFixtureTeamID), `{"username":"user6"}`, http.StatusForbidden},
+		{"nor added to a team (v2)", http.MethodPost,
+			fmt.Sprintf("/api/v2/teams/%d/members", teamsFixtureTeamID), `{"username":"user6"}`, http.StatusForbidden},
+		{"nor promoted inside one, where the path names the account", http.MethodPost,
+			fmt.Sprintf("/api/v1/teams/%d/members/user6/admin", teamsFixtureTeamID), `{}`, http.StatusForbidden},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			rec := env.request(c.method, c.path, c.body, &testuser1)
+			assert.Equal(t, c.want, rec.Code, rec.Body.String())
+		})
+	}
+
+	// The same membership route, the same caller, an account that differs from
+	// user6 only by organization. If team membership were refused for a reason
+	// of its own, this would be refused too.
+	t.Run("but a colleague can still be added to the same team", func(t *testing.T) {
+		rec := env.request(http.MethodPut,
+			fmt.Sprintf("/api/v1/teams/%d/members", teamsFixtureTeamID),
+			`{"username":"user15"}`, &testuser1)
+		assertAllowed(t, rec)
+	})
+}

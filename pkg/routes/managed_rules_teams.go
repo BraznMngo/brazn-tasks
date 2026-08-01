@@ -287,7 +287,7 @@ func (e *managedEval) requireManagedRoot(projectID int64) error {
 }
 
 // requireEntitledTarget refuses when the account being given access is not an
-// active Teams account.
+// active Teams account IN THE CALLER'S OWN ORGANIZATION.
 //
 // This is the receiving half of "a personal account can neither send nor
 // receive project or team shares": a personal account cannot be invited, and
@@ -295,8 +295,39 @@ func (e *managedEval) requireManagedRoot(projectID int64) error {
 // - project share, team membership, admin promotion, either API version -
 // closes at the same point.
 //
-// A team share needs no equivalent check: a team can only contain accounts
-// that passed this one when they were added to it.
+// THE ORGANIZATION COMPARISON IS THE OTHER HALF, and on a shared instance it is
+// not optional. The edition test asks whether the target is "an active member
+// of a Teams organization", which is true of every paying customer on the box -
+// so an administrator at one customer could name a user at another and hand
+// them a project. The target passed every check; it was simply a different
+// organization. Both sides are read from the signed projection's subject, so
+// there is no second source of the answer to keep in step.
+//
+// BOTH ORGANIZATIONS ARE READ HERE, and the caller's is deliberately not taken
+// from whatever entitlement state the gate happened to resolve on the way in.
+// DO NOT COLLAPSE THIS INTO THAT: the organization lives only on the signed
+// subject, so the moment the gate stops carrying a full projection - caching
+// the edition, or stamping it into the session token, both of which have been
+// proposed - the shortcut has no organization to offer and this comparison
+// either stops compiling or, far worse, quietly starts comparing something
+// nobody signed. Reading it from the projection costs one indexed row and one
+// signature verification, on routes that hand out access and are therefore
+// administrative and rare, and it cannot drift from the target's side because
+// the two come from the same call.
+//
+// A TEAM SHARE STILL DOES NOT CLOSE HERE, and the invariant that said it did
+// not need to has been removed rather than reworded. It read "a team can only
+// contain accounts that passed this one when they were added to it", which was
+// sound while the only question was the edition: every member being an active
+// Teams account meant sharing with a team granted nothing this guard would have
+// refused. Against the organization rule it fails in two separate ways. Every
+// member of another organization's team passed this guard in THEIR organization,
+// and TeamProject.canDoTeamProject asks only for admin rights on the project,
+// never for any relationship to the team - so a project can still be shared
+// with a team belonging to someone else. Teams populated before this change can
+// hold accounts that never faced an organization comparison at all. Closing it
+// requires an organization for a TEAM, and nothing in this instance stores one:
+// the only organization identity anywhere is per-user, on the projection.
 func (e *managedEval) requireEntitledTarget() error {
 	if !e.targetsAnAccount() {
 		return nil
@@ -327,6 +358,19 @@ func (e *managedEval) requireEntitledTarget() error {
 	}
 	if !projection.Active() || projection.State.Edition != entitlement.EditionTeams {
 		return e.refuse("the named account is not an active member of a Teams organization")
+	}
+
+	// Failing closed here cannot lock anyone out who is not locked out already:
+	// every route that reaches this point has passed the gate's own entitlement
+	// resolution, so a caller with no readable projection was refused before any
+	// rule ran. There is no instance-administrator bypass to preserve, because
+	// managed mode never had one.
+	acting, err := models.GetEntitlement(e.s, e.user.ID)
+	if err != nil {
+		return e.refuse("the acting account has no valid entitlement projection")
+	}
+	if acting.Subject.OrganizationID != projection.Subject.OrganizationID {
+		return e.refuse("the named account belongs to a different organization")
 	}
 	return nil
 }
