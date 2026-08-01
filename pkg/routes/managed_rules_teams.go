@@ -321,6 +321,15 @@ func (e *managedEval) requireEntitledTarget() error {
 		return e.refuse("the named account could not be resolved")
 	}
 
+	// THE ONE ENTITLEMENT READ LEFT ON A REQUEST PATH, and it has to stay one.
+	// The acting user's edition comes off their session token, which is why
+	// decideByEdition no longer queries; this is a DIFFERENT user - the person
+	// being given access - and nobody here holds their token. There is nothing
+	// to read it from and nothing to cap, so the projection is the only source.
+	//
+	// It is also the read whose freshness matters most, since it decides whether
+	// somebody may be handed access, so a stale answer would be the wrong
+	// trade even if a cached one existed.
 	projection, err := models.GetEntitlement(e.s, target.ID)
 	if err != nil {
 		return e.refuse("the named account has no valid entitlement projection")
