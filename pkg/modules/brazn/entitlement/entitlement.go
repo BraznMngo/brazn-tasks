@@ -177,11 +177,39 @@ type Subject struct {
 }
 
 // State is the entitlement itself: what this subject is currently allowed.
+//
+// ValidFrom and ValidTo are the validity window, and they are what let this
+// record answer "until when" without anybody being asked. That is why there is
+// no revocation channel, no refresh protocol and no staleness sweep anywhere in
+// this package: ending a subscription sets the date, the outstanding token runs
+// out, and the next login gets nothing.
+//
+// ValidTo is a POINTER because the contract carries it as an explicit null when
+// no end has been recorded, and "no end" is a different fact from "an end,
+// which is now". A projection minted before these members existed carries
+// neither and decodes to a zero ValidFrom and a nil ValidTo - which reads as an
+// entitlement with no recorded end, exactly the behaviour those subjects
+// already had. Their presence is deliberately NOT enforced in Verify, which
+// enforces the rules the contract names a conformance case for: requiring them
+// would refuse every envelope already stored, and the frozen golden set with
+// them.
 type State struct {
-	Edition           string `json:"edition"`
-	SeatStatus        string `json:"seat_status"`
-	OrganizationAdmin bool   `json:"organization_admin"`
-	EffectiveState    string `json:"effective_state"`
+	Edition           string     `json:"edition"`
+	SeatStatus        string     `json:"seat_status"`
+	OrganizationAdmin bool       `json:"organization_admin"`
+	EffectiveState    string     `json:"effective_state"`
+	ValidFrom         time.Time  `json:"valid_from"`
+	ValidTo           *time.Time `json:"valid_to"`
+}
+
+// TokenEntitlement is what a session token carries about its holder, and the
+// only thing a guarded request reads afterwards.
+type TokenEntitlement struct {
+	// Edition is the contract's edition, stamped into the token as a claim.
+	Edition string
+	// EndsAt is the instant the token must not outlive. ZERO means the
+	// entitlement records no end, so the token keeps its normal lifetime.
+	EndsAt time.Time
 }
 
 // Signed is the signed half of the envelope, and the only half a policy
@@ -204,6 +232,42 @@ type Signed struct {
 // one this build does not recognise - is inactive.
 func (s *Signed) Active() bool {
 	return s.State.EffectiveState == stateActive && s.State.SeatStatus == stateActive
+}
+
+// ForToken decides what a session token issued at `at` may carry for this
+// subject. Nil means it may carry no entitlement at all, which leaves the token
+// its normal lifetime and no edition claim - the holder can still do ordinary
+// task work, and every guarded route refuses them.
+//
+// THE LAST SENTENCE IS THE WHOLE DESIGN, and the easy half to get backwards: an
+// entitlement whose end has ALREADY PASSED is refused here, never capped to.
+// Capping to it would mint a token that expired before it was issued, and the
+// same token authenticates ordinary task work - which the contract's failure
+// policy says continues - so a customer whose subscription lapsed would lose
+// access to their own tasks rather than to the features they stopped paying
+// for. The refusal is what makes the ending affect only what it should.
+//
+// `grace` is configuration rather than a constant because how long a session
+// may run on past a paid period is a commercial decision, not a property of the
+// protocol.
+func (s *Signed) ForToken(at time.Time, grace time.Duration) *TokenEntitlement {
+	if !s.Active() {
+		return nil
+	}
+	// Not in force yet. Nothing in Phase 1 emits a future start - every state
+	// change is delivered when it takes effect - so this guards against a
+	// producer that changes rather than a case that arises today.
+	if s.State.ValidFrom.After(at) {
+		return nil
+	}
+	if s.State.ValidTo == nil {
+		return &TokenEntitlement{Edition: s.State.Edition}
+	}
+	endsAt := s.State.ValidTo.Add(grace)
+	if !endsAt.After(at) {
+		return nil
+	}
+	return &TokenEntitlement{Edition: s.State.Edition, EndsAt: endsAt}
 }
 
 // SigningDomain is the domain-separation prefix the v2 entitlement contract

@@ -64,6 +64,16 @@ import (
 // signed members, which is what leaves each case's own rule as the only thing
 // deciding its outcome.
 //
+// ONE EXAMPLE IS DELIBERATELY NOT TRANSCRIBED, and the omission is the point
+// rather than an oversight. `entitlement-projection.invalid.state-without-
+// validity.json` is invalid because the SCHEMA requires `valid_from` and
+// `valid_to`, and Verify does not enforce field presence - it enforces the
+// rules the contract names a conformance case for. Requiring them here would
+// refuse every envelope stored before those members existed, and the frozen
+// golden set with them, for a defect only a producer can commit. So the case
+// belongs to the schema gate in Percy's CI and not to this table; adding it
+// here would assert a refusal this verifier must not make.
+//
 // STILL OPEN. Acceptance criteria 3 and 4 of BRA-929 - a new example failing CI,
 // and the corpus arriving without a private-repo credential - need the corpus to
 // be readable from public CI. BRA-827's contract host is the named exit; until
@@ -142,7 +152,33 @@ func entitlementCorpus() []corpusCase {
 					"edition": "personal-cloud",
 					"seat_status": "active",
 					"organization_admin": true,
-					"effective_state": "active"
+					"effective_state": "active",
+					"valid_from": "2026-07-31T09:14:22Z",
+					"valid_to": null
+				}
+			}`,
+			edition: EditionPersonal,
+			active:  true,
+		},
+		{
+			// The end date on the wire. It is `active` here and stays `active`:
+			// an entitlement with an end is not an ended one, and reading a
+			// future `valid_to` as a closure would end a paid period early.
+			// What the date does is cap a session token at issue - see
+			// Signed.ForToken - and nothing about verification changes.
+			file: "entitlement-projection.valid.cancelled-with-end-date.json",
+			signed: `{
+				"contract_version": "2",
+				"subject": {"organization_id": "org_9f2c41ab7d30", "user_id": "1"},
+				"revision": 2,
+				"issued_at": "2026-08-01T14:03:11Z",
+				"state": {
+					"edition": "personal-cloud",
+					"seat_status": "active",
+					"organization_admin": true,
+					"effective_state": "active",
+					"valid_from": "2026-07-31T09:14:22Z",
+					"valid_to": "2027-07-31T09:14:22Z"
 				}
 			}`,
 			edition: EditionPersonal,
@@ -159,7 +195,9 @@ func entitlementCorpus() []corpusCase {
 					"edition": "teams-cloud",
 					"seat_status": "active",
 					"organization_admin": false,
-					"effective_state": "active"
+					"effective_state": "active",
+					"valid_from": "2026-03-01T00:00:00Z",
+					"valid_to": null
 				}
 			}`,
 			edition: EditionTeams,
@@ -178,7 +216,9 @@ func entitlementCorpus() []corpusCase {
 					"edition": "teams-cloud",
 					"seat_status": "active",
 					"organization_admin": true,
-					"effective_state": "suspended"
+					"effective_state": "suspended",
+					"valid_from": "2026-03-01T00:00:00Z",
+					"valid_to": null
 				}
 			}`,
 			edition: EditionTeams,
@@ -197,7 +237,9 @@ func entitlementCorpus() []corpusCase {
 					"edition": "teams-cloud",
 					"seat_status": "inactive",
 					"organization_admin": false,
-					"effective_state": "active"
+					"effective_state": "active",
+					"valid_from": "2026-03-01T00:00:00Z",
+					"valid_to": null
 				}
 			}`,
 			edition: EditionTeams,
@@ -214,7 +256,9 @@ func entitlementCorpus() []corpusCase {
 					"edition": "teams-cloud",
 					"seat_status": "active",
 					"organization_admin": true,
-					"effective_state": "active"
+					"effective_state": "active",
+					"valid_from": "2026-03-01T00:00:00Z",
+					"valid_to": null
 				}
 			}`,
 			signature: func(_ ed25519.PrivateKey, _ []byte) string { return "" },
@@ -235,7 +279,9 @@ func entitlementCorpus() []corpusCase {
 					"edition": "teams-cloud",
 					"seat_status": "active",
 					"organization_admin": true,
-					"effective_state": "active"
+					"effective_state": "active",
+					"valid_from": "2026-03-01T00:00:00Z",
+					"valid_to": null
 				}
 			}`,
 			signature: func(private ed25519.PrivateKey, signed []byte) string {
@@ -257,7 +303,9 @@ func entitlementCorpus() []corpusCase {
 					"edition": "teams-cloud",
 					"seat_status": "active",
 					"organization_admin": true,
-					"effective_state": "active"
+					"effective_state": "active",
+					"valid_from": "2026-03-01T00:00:00Z",
+					"valid_to": null
 				}
 			}`,
 			signature: func(private ed25519.PrivateKey, signed []byte) string {
@@ -277,7 +325,9 @@ func entitlementCorpus() []corpusCase {
 					"edition": "teams-cloud",
 					"seat_status": "active",
 					"organization_admin": false,
-					"effective_state": "active"
+					"effective_state": "active",
+					"valid_from": "2026-03-01T00:00:00Z",
+					"valid_to": null
 				}
 			}`,
 			reason: ReasonUnsupportedContractVersion,
@@ -293,7 +343,9 @@ func entitlementCorpus() []corpusCase {
 					"edition": "personal-cloud",
 					"seat_status": "active",
 					"organization_admin": true,
-					"effective_state": "active"
+					"effective_state": "active",
+					"valid_from": "2026-03-01T00:00:00Z",
+					"valid_to": null
 				}
 			}`,
 			reason: ReasonNonPositiveRevision,
@@ -315,7 +367,9 @@ func entitlementCorpus() []corpusCase {
 					"edition": "teams-cloud",
 					"seat_status": "active",
 					"organization_admin": false,
-					"effective_state": "active"
+					"effective_state": "active",
+					"valid_from": "2026-03-01T00:00:00Z",
+					"valid_to": null
 				}
 			}`,
 			reason: ReasonMalformedSubjectID,
@@ -337,6 +391,8 @@ func entitlementCorpus() []corpusCase {
 					"seat_status": "active",
 					"organization_admin": true,
 					"effective_state": "active",
+					"valid_from": "2026-03-01T00:00:00Z",
+					"valid_to": null,
 					"invoice_id": "in_2026_07_00931",
 					"monthly_price_eur": 90
 				}

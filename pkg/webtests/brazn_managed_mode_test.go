@@ -131,6 +131,15 @@ func clearManagedTables(t *testing.T) {
 	require.NoError(t, s.Commit())
 }
 
+// managedRequest makes a request with a token carrying NO entitlement, which is
+// deliberate and is what every caller below wants: these tests are about a
+// managed instance holding no projection for the caller.
+//
+// Since BRA-987 that is expressed by the token rather than by the table - the
+// edition claim is stamped in at login, and an instance with no projection for
+// a user mints a token without one. Both ends stay empty here (the tables are
+// cleared by managedModeEcho), so what these assert has not changed: a guarded
+// route refuses, and ordinary task work does not.
 func managedRequest(t *testing.T, e *echo.Echo, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
