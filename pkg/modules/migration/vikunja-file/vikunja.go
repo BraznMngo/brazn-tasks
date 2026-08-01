@@ -102,9 +102,9 @@ func (v *FileMigrator) Name() string {
 	return "vikunja-file"
 }
 
-// Migrate takes a vikunja file export, parses it and imports everything in it into Vikunja.
+// Migrate takes a Vikunja file export, parses it and imports everything in it into Brazn Tasks.
 // @Summary Import all projects, tasks etc. from a Vikunja data export
-// @Description Imports all projects, tasks, notes, reminders, subtasks and files from a Vikunjda data export into Vikunja.
+// @Description Imports all projects, tasks, notes, reminders, subtasks and files from a Vikunja data export into Brazn Tasks.
 // @tags migration
 // @Accept x-www-form-urlencoded
 // @Produce json

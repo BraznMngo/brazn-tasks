@@ -241,7 +241,7 @@ func GetFromAuth(a web.Auth) (*User, error) {
 type APIUserPassword struct {
 	// The user's username. Cannot contain anything that looks like an url or whitespaces.
 	Username string `json:"username" valid:"length(3|250),username" minLength:"3" maxLength:"250"`
-	// The user's password in clear text. Only used when registering the user. The maximum limi is 72 bytes, which may be less than 72 characters. This is due to the limit in the bcrypt hashing algorithm used to store passwords in Vikunja.
+	// The user's password in clear text. Only used when registering the user. The maximum limi is 72 bytes, which may be less than 72 characters. This is due to the limit in the bcrypt hashing algorithm used to store passwords in Brazn Tasks.
 	Password string `json:"password" valid:"bcrypt_password" minLength:"8" maxLength:"72"`
 	// The user's email address
 	Email string `json:"email" valid:"email,length(0|250)" maxLength:"250"`

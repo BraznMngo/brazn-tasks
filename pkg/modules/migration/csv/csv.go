@@ -540,9 +540,9 @@ func parseDate(value, format string) time.Time {
 	return time.Time{}
 }
 
-// Migrate imports CSV data into Vikunja
+// Migrate imports CSV data into Brazn Tasks
 // @Summary Import all tasks from a CSV file
-// @Description Imports tasks from a CSV file into Vikunja. Requires a mapping configuration.
+// @Description Imports tasks from a CSV file into Brazn Tasks. Requires a mapping configuration.
 // @tags migration
 // @Accept multipart/form-data
 // @Produce json

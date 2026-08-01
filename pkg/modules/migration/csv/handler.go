@@ -148,7 +148,7 @@ func (c *MigratorWeb) Preview(ctx *echo.Context) error {
 
 // Migrate imports the CSV file
 // @Summary Import CSV file
-// @Description Imports tasks from a CSV file into Vikunja with the provided configuration.
+// @Description Imports tasks from a CSV file into Brazn Tasks with the provided configuration.
 // @tags migration
 // @Accept multipart/form-data
 // @Produce json

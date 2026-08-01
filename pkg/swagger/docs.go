@@ -824,7 +824,7 @@ const docTemplate = `{
         },
         "/info": {
             "get": {
-                "description": "Returns the version, frontendurl, motd and various settings of Vikunja",
+                "description": "Returns the version, frontendurl, motd and various settings of Brazn Tasks",
                 "produces": [
                     "application/json"
                 ],
@@ -1232,7 +1232,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Imports tasks from a CSV file into Vikunja with the provided configuration.",
+                "description": "Imports tasks from a CSV file into Brazn Tasks with the provided configuration.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1375,7 +1375,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from Microsoft Todo to Vikunja.",
+                "description": "Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from Microsoft Todo to Brazn Tasks.",
                 "produces": [
                     "application/json"
                 ],
@@ -1406,7 +1406,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Migrates all tasklinsts, tasks, notes and reminders from Microsoft Todo to Vikunja.",
+                "description": "Migrates all tasklinsts, tasks, notes and reminders from Microsoft Todo to Brazn Tasks.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1482,7 +1482,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Imports all projects, tasks, notes, reminders, subtasks and files from a TickTick backup export into Vikunja.",
+                "description": "Imports all projects, tasks, notes, reminders, subtasks and files from a TickTick backup export into Brazn Tasks.",
                 "consumes": [
                     "application/x-www-form-urlencoded"
                 ],
@@ -1556,7 +1556,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from todoist to Vikunja.",
+                "description": "Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from todoist to Brazn Tasks.",
                 "produces": [
                     "application/json"
                 ],
@@ -1587,7 +1587,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Migrates all projects, tasks, notes, reminders, subtasks and files from todoist to vikunja.",
+                "description": "Migrates all projects, tasks, notes, reminders, subtasks and files from todoist to Brazn Tasks.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1663,7 +1663,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from trello to Vikunja.",
+                "description": "Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from trello to Brazn Tasks.",
                 "produces": [
                     "application/json"
                 ],
@@ -1694,7 +1694,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Migrates all projects, tasks, notes, reminders, subtasks and files from trello to vikunja.",
+                "description": "Migrates all projects, tasks, notes, reminders, subtasks and files from trello to Brazn Tasks.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1770,7 +1770,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Imports all projects, tasks, notes, reminders, subtasks and files from a Vikunjda data export into Vikunja.",
+                "description": "Imports all projects, tasks, notes, reminders, subtasks and files from a Vikunja data export into Brazn Tasks.",
                 "consumes": [
                     "application/x-www-form-urlencoded"
                 ],
@@ -1844,7 +1844,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Imports all projects, tasks, labels, checklists, comments, and attachments from a WeKan board JSON export into Vikunja.",
+                "description": "Imports all projects, tasks, labels, checklists, comments, and attachments from a WeKan board JSON export into Brazn Tasks.",
                 "consumes": [
                     "application/x-www-form-urlencoded"
                 ],
@@ -2094,7 +2094,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "If set to ` + "`" + `permissions` + "`" + `, Vikunja will return the max permission the current user has on this project. You can currently only set this to ` + "`" + `permissions` + "`" + `.",
+                        "description": "If set to ` + "`" + `permissions` + "`" + `, Brazn Tasks will return the max permission the current user has on this project. You can currently only set this to ` + "`" + `permissions` + "`" + `.",
                         "name": "expand",
                         "in": "query"
                     }
@@ -3183,7 +3183,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "If set to ` + "`" + `subtasks` + "`" + `, Vikunja will fetch only tasks which do not have subtasks and then in a second step, will fetch all of these subtasks. This may result in more tasks than the pagination limit being returned, but all subtasks will be present in the response. If set to ` + "`" + `buckets` + "`" + `, the buckets of each task will be present in the response. If set to ` + "`" + `reactions` + "`" + `, the reactions of each task will be present in the response. If set to ` + "`" + `comments` + "`" + `, the first 50 comments of each task will be present in the response. You can set this multiple times with different values.",
+                        "description": "If set to ` + "`" + `subtasks` + "`" + `, Brazn Tasks will fetch only tasks which do not have subtasks and then in a second step, will fetch all of these subtasks. This may result in more tasks than the pagination limit being returned, but all subtasks will be present in the response. If set to ` + "`" + `buckets` + "`" + `, the buckets of each task will be present in the response. If set to ` + "`" + `reactions` + "`" + `, the reactions of each task will be present in the response. If set to ` + "`" + `comments` + "`" + `, the first 50 comments of each task will be present in the response. You can set this multiple times with different values.",
                         "name": "expand",
                         "in": "query"
                     }
@@ -4179,7 +4179,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "If set to ` + "`" + `subtasks` + "`" + `, Vikunja will fetch only tasks which do not have subtasks and then in a second step, will fetch all of these subtasks. This may result in more tasks than the pagination limit being returned, but all subtasks will be present in the response. You can only set this to ` + "`" + `subtasks` + "`" + `.",
+                        "description": "If set to ` + "`" + `subtasks` + "`" + `, Brazn Tasks will fetch only tasks which do not have subtasks and then in a second step, will fetch all of these subtasks. This may result in more tasks than the pagination limit being returned, but all subtasks will be present in the response. You can only set this to ` + "`" + `subtasks` + "`" + `.",
                         "name": "expand",
                         "in": "query"
                     }
@@ -4883,7 +4883,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "If set to ` + "`" + `subtasks` + "`" + `, Vikunja will fetch only tasks which do not have subtasks and then in a second step, will fetch all of these subtasks. This may result in more tasks than the pagination limit being returned, but all subtasks will be present in the response. If set to ` + "`" + `buckets` + "`" + `, the buckets of each task will be present in the response. If set to ` + "`" + `reactions` + "`" + `, the reactions of each task will be present in the response. If set to ` + "`" + `comments` + "`" + `, the first 50 comments of each task will be present in the response. You can set this multiple times with different values.",
+                        "description": "If set to ` + "`" + `subtasks` + "`" + `, Brazn Tasks will fetch only tasks which do not have subtasks and then in a second step, will fetch all of these subtasks. This may result in more tasks than the pagination limit being returned, but all subtasks will be present in the response. If set to ` + "`" + `buckets` + "`" + `, the buckets of each task will be present in the response. If set to ` + "`" + `reactions` + "`" + `, the reactions of each task will be present in the response. If set to ` + "`" + `comments` + "`" + `, the first 50 comments of each task will be present in the response. You can set this multiple times with different values.",
                         "name": "expand",
                         "in": "query"
                     }
@@ -4995,7 +4995,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "If set to ` + "`" + `subtasks` + "`" + `, Vikunja will fetch only tasks which do not have subtasks and then in a second step, will fetch all of these subtasks. This may result in more tasks than the pagination limit being returned, but all subtasks will be present in the response. If set to ` + "`" + `buckets` + "`" + `, the buckets of each task will be present in the response. If set to ` + "`" + `reactions` + "`" + `, the reactions of each task will be present in the response. If set to ` + "`" + `comments` + "`" + `, the first 50 comments of each task will be present in the response. You can set this multiple times with different values.",
+                        "description": "If set to ` + "`" + `subtasks` + "`" + `, Brazn Tasks will fetch only tasks which do not have subtasks and then in a second step, will fetch all of these subtasks. This may result in more tasks than the pagination limit being returned, but all subtasks will be present in the response. If set to ` + "`" + `buckets` + "`" + `, the buckets of each task will be present in the response. If set to ` + "`" + `reactions` + "`" + `, the reactions of each task will be present in the response. If set to ` + "`" + `comments` + "`" + `, the first 50 comments of each task will be present in the response. You can set this multiple times with different values.",
                         "name": "expand",
                         "in": "query"
                     }
@@ -6871,7 +6871,7 @@ const docTemplate = `{
         },
         "/test/all": {
             "delete": {
-                "description": "Removes all data from every Vikunja table. Used by e2e tests to ensure clean state before each test. Requires the testing token.",
+                "description": "Removes all data from every Brazn Tasks table. Used by e2e tests to ensure clean state before each test. Requires the testing token.",
                 "produces": [
                     "application/json"
                 ],
@@ -8475,7 +8475,7 @@ const docTemplate = `{
                         "JWTKeyAuth": []
                     }
                 ],
-                "description": "Because available time zones depend on the system Vikunja is running on, this endpoint returns a project of all valid time zones this particular Vikunja instance can handle. The project of time zones is not sorted, you should sort it on the client.",
+                "description": "Because available time zones depend on the system Brazn Tasks is running on, this endpoint returns a project of all valid time zones this particular Brazn Tasks instance can handle. The project of time zones is not sorted, you should sort it on the client.",
                 "consumes": [
                     "application/json"
                 ],
@@ -8485,7 +8485,7 @@ const docTemplate = `{
                 "tags": [
                     "user"
                 ],
-                "summary": "Get all available time zones on this vikunja instance",
+                "summary": "Get all available time zones on this Brazn Tasks instance",
                 "responses": {
                     "200": {
                         "description": "All available time zones.",
@@ -9357,7 +9357,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "language": {
-                    "description": "The language of the new user. Must be a valid IETF BCP 47 language code and exist in Vikunja.",
+                    "description": "The language of the new user. Must be a valid IETF BCP 47 language code and exist in Brazn Tasks.",
                     "type": "string"
                 },
                 "name": {
@@ -9365,7 +9365,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
-                    "description": "The user's password in clear text. Only used when registering the user. The maximum limi is 72 bytes, which may be less than 72 characters. This is due to the limit in the bcrypt hashing algorithm used to store passwords in Vikunja.",
+                    "description": "The user's password in clear text. Only used when registering the user. The maximum limi is 72 bytes, which may be less than 72 characters. This is due to the limit in the bcrypt hashing algorithm used to store passwords in Brazn Tasks.",
                     "type": "string",
                     "maxLength": 72,
                     "minLength": 8
@@ -11212,11 +11212,11 @@ const docTemplate = `{
                     "maxLength": 250
                 },
                 "language": {
-                    "description": "The language of the new user. Must be a valid IETF BCP 47 language code and exist in Vikunja.",
+                    "description": "The language of the new user. Must be a valid IETF BCP 47 language code and exist in Brazn Tasks.",
                     "type": "string"
                 },
                 "password": {
-                    "description": "The user's password in clear text. Only used when registering the user. The maximum limi is 72 bytes, which may be less than 72 characters. This is due to the limit in the bcrypt hashing algorithm used to store passwords in Vikunja.",
+                    "description": "The user's password in clear text. Only used when registering the user. The maximum limi is 72 bytes, which may be less than 72 characters. This is due to the limit in the bcrypt hashing algorithm used to store passwords in Brazn Tasks.",
                     "type": "string",
                     "maxLength": 72,
                     "minLength": 8

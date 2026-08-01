@@ -24,9 +24,9 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// Info is the handler to get infos about this vikunja instance
+// Info is the handler to get infos about this Brazn Tasks instance
 // @Summary Info
-// @Description Returns the version, frontendurl, motd and various settings of Vikunja
+// @Description Returns the version, frontendurl, motd and various settings of Brazn Tasks
 // @tags service
 // @Produce json
 // @Success 200 {object} shared.VikunjaInfos

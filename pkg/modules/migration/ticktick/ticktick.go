@@ -363,9 +363,9 @@ func linesToSkipBeforeHeader(file io.ReaderAt, size int64) (int, error) {
 	return lines, nil
 }
 
-// Migrate takes a ticktick export, parses it and imports everything in it into Vikunja.
+// Migrate takes a ticktick export, parses it and imports everything in it into Brazn Tasks.
 // @Summary Import all projects, tasks etc. from a TickTick backup export
-// @Description Imports all projects, tasks, notes, reminders, subtasks and files from a TickTick backup export into Vikunja.
+// @Description Imports all projects, tasks, notes, reminders, subtasks and files from a TickTick backup export into Brazn Tasks.
 // @tags migration
 // @Accept x-www-form-urlencoded
 // @Produce json
