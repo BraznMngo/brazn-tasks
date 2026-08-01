@@ -198,6 +198,7 @@ const mailTemplateConversationalHTML = `
 // the Vikunja trademark (see CLAUDE.md section 7), so this file must be replaced
 // with the Brazn Tasks mark before branded mail reaches a customer. No agent can
 // generate it; it needs a real asset dropped in at this path, same filename.
+//
 //go:embed logo.png
 var logo embed.FS
 
