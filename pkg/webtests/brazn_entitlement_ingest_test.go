@@ -465,6 +465,20 @@ func localUserExists(t *testing.T, userID int64) bool {
 	return count > 0
 }
 
+// countProjections counts the WHOLE projections table rather than one subject's
+// row, and that distinction is the only thing making the erased-subject test
+// mean anything. See the mutation analysis on it.
+func countProjections(t *testing.T) int64 {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	count, err := s.Table("brazn_entitlement_projections").Count()
+	require.NoError(t, err)
+	return count
+}
+
 // TestEntitlementIngestSucceedsForAnErasedSubject is what keeps account erasure
 // from deadlocking, and the failure it prevents has no recovery short of hand
 // intervention on production data.
@@ -477,11 +491,21 @@ func localUserExists(t *testing.T, userID int64) bool {
 // subsequent retry reproduced the same rejection for ever. A refusal here is
 // the one answer with no way back, so the contract requires a success.
 //
-// DELETING THE `if !has` BRANCH IN ApplyEntitlement MAKES THIS FAIL at the
-// first assertion: subjectUserID's lookup becomes a refusal again and the
-// delivery answers 400 instead of 204. Nor can that 204 arrive from anywhere
-// else - every other successful outcome of this endpoint is a write or a no-op
-// against a STORED row, and the assertion below proves this subject has none.
+// DELETING THE `if !subjectExists` BRANCH IN ApplyEntitlement MAKES THIS FAIL
+// AT THE COUNT, and deliberately not at the status assertion - which is the
+// entire reason the count is here. With the guard gone, subjectUserID still
+// returns no error for an erased subject, so userID falls through as 0: the
+// compare-and-set matches nothing, the read finds nothing, and the INSERT then
+// SUCCEEDS, because user_id is `bigint not null unique` with no foreign key
+// and 0 satisfies all of that. The endpoint answers 204 exactly as it does
+// now, while retaining the erased subject's organization, edition, seat status
+// and timestamps in a row at user_id = 0.
+//
+// So every assertion keyed on 987654321 passes against the mutated code, and
+// an earlier version of this test made exactly that mistake. The difference
+// has to be asserted on the TABLE, because the broken code writes to a key the
+// test never thinks to ask about. Counting the table also catches a row
+// written under any other unexpected id, which is the general form of the bug.
 //
 // The malformed control is the half that would rot quietly. "Succeed whenever
 // the subject does not resolve" is one relaxation too far: a user_id that was
@@ -494,6 +518,8 @@ func TestEntitlementIngestSucceedsForAnErasedSubject(t *testing.T) {
 	require.False(t, localUserExists(t, erased),
 		"the subject must really be gone from this instance, or this proves nothing")
 
+	before := countProjections(t)
+
 	closure := env.projection(erased, 1)
 	require.Equal(t, strconv.FormatInt(erased, 10), sentSigned(t, closure).Subject.UserID,
 		"the delivery must really name the erased user, or this proves nothing")
@@ -501,16 +527,13 @@ func TestEntitlementIngestSucceedsForAnErasedSubject(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, env.deliver(closure).Code,
 		"a projection for an erased subject must be answered successfully, or erasure deadlocks")
 
-	_, has := storedProjection(t, erased)
-	assert.False(t, has,
-		"there is nothing left to entitle, so nothing may be stored against a user that does not exist")
-
 	// A retry is what actually reaches this instance, delivery being
 	// at-least-once, so the success has to survive repetition rather than hold
 	// once.
 	require.Equal(t, http.StatusNoContent, env.deliver(closure).Code)
-	_, has = storedProjection(t, erased)
-	assert.False(t, has)
+
+	assert.Equal(t, before, countProjections(t),
+		"an erased subject must leave NO row behind - not under its own id, and not under any other")
 
 	// Control: a subject that is not a local user reference at all is still
 	// refused, so the success above is about an erased user and not about
@@ -520,14 +543,18 @@ func TestEntitlementIngestSucceedsForAnErasedSubject(t *testing.T) {
 	))
 	require.Equal(t, http.StatusBadRequest, env.deliver(malformed).Code,
 		"a user_id that was never a local id is a broken producer, not an erased account")
+	assert.Equal(t, before, countProjections(t),
+		"a refused delivery must be a refusal in the store too, not only in the status")
 
 	// Control: a subject this instance does have still applies, so the endpoint
-	// is not simply answering 204 to everything.
+	// is not simply answering 204 to everything and the count is not simply
+	// frozen.
 	require.True(t, localUserExists(t, testuser1.ID))
 	require.Equal(t, http.StatusNoContent, env.deliver(env.projection(testuser1.ID, 1)).Code)
 	row, has := storedProjection(t, testuser1.ID)
 	require.True(t, has)
 	assert.Equal(t, int64(1), row.Revision)
+	assert.Equal(t, before+1, countProjections(t))
 }
 
 // TestEntitlementIngestWritesNothingForAnUntrustedSigner is the ordering the

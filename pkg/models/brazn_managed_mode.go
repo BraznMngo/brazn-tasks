@@ -240,7 +240,10 @@ func ApplyEntitlement(s *xorm.Session, signed *entitlement.Signed, envelope stri
 		return fmt.Errorf("%w: the subject names no organization", ErrEntitlementRefused)
 	}
 
-	userID, has, err := subjectUserID(s, signed.Subject.UserID)
+	// subjectExists rather than has: the `has` further down means "a projection
+	// row exists", which is a different fact about a different table. One name
+	// for both in one function is how the next reader conflates them.
+	userID, subjectExists, err := subjectUserID(s, signed.Subject.UserID)
 	if err != nil {
 		return err
 	}
@@ -267,14 +270,18 @@ func ApplyEntitlement(s *xorm.Session, signed *entitlement.Signed, envelope stri
 	// EntitlementProjection, so erasing a user who already had a projection
 	// leaves that row behind - unreachable, because no session ever resolves to
 	// that user id again, but still holding the erased subject's envelope. That
-	// is a separate defect in the deletion path rather than something this
-	// function can fix, and it is filed rather than fixed here.
+	// is a defect in the deletion path, it is recorded under BRA-913, and it is
+	// sequenced after this rather than folded into it: this function stops new
+	// rows appearing and is correct on its own, where the cleanup is a separate
+	// write on a separate path needing its own test. It is NOT out of bounds -
+	// an entry in relatedEntities sits inside patch-surface area 4, entitlement
+	// synchronization - so nothing but sequencing is holding it.
 	//
 	// It is deliberately narrower than "the subject did not resolve": a user id
 	// that is not a well-formed reference at all never reaches here, because
 	// subjectUserID returns that as a refusal above. An erased subject is a
 	// well-formed id with no user behind it, and nothing else.
-	if !has {
+	if !subjectExists {
 		log.Debugf("Entitlement revision %d names a subject this instance no longer has; nothing to apply",
 			signed.Revision)
 		return nil

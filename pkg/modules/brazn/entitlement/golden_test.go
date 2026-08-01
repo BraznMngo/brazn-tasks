@@ -167,9 +167,25 @@ func TestGoldenUnprefixedSignatureIsRejected(t *testing.T) {
 // The artifact carries the SAME signature octets as the positive, written down
 // in the padded encoding the contract forbids - so nothing about the
 // cryptography differs between the two files and only the encoding decides the
-// outcome. Restoring base64.StdEncoding in Verify makes this fail while leaving
-// the positive passing, which is exactly the shape the original bug had in
-// reverse.
+// outcome.
+//
+// TWO DIFFERENT MUTATIONS BREAK THIS TEST, at two different assertions, and
+// which one is which is worth stating because the value here is 86 base64url
+// characters containing "_" and no "-":
+//
+//   - Tolerating padding - base64.URLEncoding, or a decoder that falls back to
+//     the padded form - makes the padded artifact decode to those same 64
+//     octets, so it verifies and the assertion below fails. That is the
+//     relaxation this test exists to stop.
+//   - Restoring base64.StdEncoding, which is the bug as it actually shipped,
+//     fails at the CONTROL instead: "_" is not in the standard alphabet and 86
+//     is not a multiple of four, so the positive stops decoding. The padded
+//     artifact would still be refused, but for the alphabet rather than for the
+//     padding - the assertion below would pass for the wrong reason, and only
+//     the control catches it.
+//
+// So the control is not decoration. Without it the second mutation restores a
+// build that can accept no real projection at all, and this test stays green.
 func TestGoldenPaddedSignatureIsRejected(t *testing.T) {
 	golden := loadGolden(t)
 
