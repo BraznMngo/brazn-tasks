@@ -128,6 +128,8 @@ func clearManagedTables(t *testing.T) {
 	require.NoError(t, err)
 	_, err = s.Exec("DELETE FROM brazn_entitlement_projections")
 	require.NoError(t, err)
+	_, err = s.Exec("DELETE FROM brazn_provisioned_users")
+	require.NoError(t, err)
 	require.NoError(t, s.Commit())
 }
 

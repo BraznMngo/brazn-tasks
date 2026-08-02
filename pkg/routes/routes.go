@@ -360,8 +360,10 @@ var unauthenticatedAPIPaths = map[string]bool{
 
 	// The entitlement projection ingest authenticates the signed message, not
 	// the caller, so it takes no JWT and must not be offered as something an
-	// API token can be scoped to.
+	// API token can be scoped to. The provisioning channel is the same shape
+	// for the same reason.
 	"/api/v1/brazn/entitlements": true,
+	"/api/v1/brazn/provisioning": true,
 
 	"/api/v2/openapi.json":              true,
 	"/api/v2/openapi.yaml":              true,
@@ -575,6 +577,17 @@ func registerAPIRoutes(a *echo.Group) {
 	// this function - a route that appears only sometimes is a route that is
 	// sometimes unclassified.
 	n.POST("/brazn/entitlements", apiv1.BraznApplyEntitlementProjection)
+
+	// The provisioning channel (BRA-1018). Registered on n, unconditionally,
+	// and unauthenticated at the transport for every reason the entitlement
+	// ingest above is: it is the same seam, authenticated the same way, and
+	// refuses everything while brazn.entitlementkeys is empty.
+	//
+	// ONE ROUTE, NOT ONE PER OPERATION. The operation is a value inside the
+	// signed payload, so the second one (BRA-1026's organization roots) needs
+	// no second route, no second classification entry and no second argument
+	// about how a service-plane route is classified.
+	n.POST("/brazn/provisioning", apiv1.BraznProvision)
 
 	// Link share auth
 	if config.ServiceEnableLinkSharing.GetBool() {

@@ -184,6 +184,21 @@ func DeleteUser(s *xorm.Session, u *user.User) (err error) {
 		// Upstream file: re-apply on merge (patch-surface area 4, entitlement
 		// synchronization).
 		{"user_id", &EntitlementProjection{}},
+		// Brazn fork (BRA-1018). brazn_provisioned_users has no foreign key on
+		// user_id and no cascade either, and the argument above applies to it
+		// with more force: the row holds the erased subject's EMAIL ADDRESS,
+		// which is more of them than an edition and a seat status.
+		//
+		// It also has to go for the mailbox to work again. The claim is the
+		// unique key provisioning inserts against, so a surviving row makes
+		// CreateOrResolveUserForMailbox take its conflict branch forever:
+		// resolveProvisionedMailbox reads a user_id that is neither zero nor a
+		// user, and every attempt to provision that mailbox fails from then on.
+		// A person who cancels and comes back would be unable to return.
+		//
+		// Upstream file: re-apply on merge (patch-surface area 4, entitlement
+		// synchronization).
+		{"user_id", &ProvisionedUser{}},
 	}
 
 	for _, entity := range relatedEntities {
