@@ -59,9 +59,9 @@ type braznOrganizationTeamRequest struct {
 	Name string `json:"name"`
 }
 
-// braznOrganizationTeamCapacityResponse is the refusal AC2 asks for: not "no",
+// BraznOrganizationTeamCapacityResponse is the refusal AC2 asks for: not "no",
 // but the numbers that say what would change the answer.
-type braznOrganizationTeamCapacityResponse struct {
+type BraznOrganizationTeamCapacityResponse struct {
 	Message string `json:"message"`
 	// SeatsPurchased is null when this instance cannot read one, which is a
 	// different problem with a different remedy from having bought too few, and
@@ -142,7 +142,7 @@ func BraznGetOrganization(c *echo.Context) error {
 // @Security JWTKeyAuth
 // @Success 201 {object} models.Team "The created team."
 // @Failure 403 {object} web.HTTPError "The caller does not administer an organization."
-// @Failure 409 {object} v1.braznOrganizationTeamCapacityResponse "The purchased seats do not allow another team."
+// @Failure 409 {object} v1.BraznOrganizationTeamCapacityResponse "The purchased seats do not allow another team."
 // @Router /brazn/organization/teams [put]
 func BraznCreateOrganizationTeam(c *echo.Context) error {
 	acting, organization, err := actingOrganization(c)
@@ -179,8 +179,8 @@ func BraznCreateOrganizationTeam(c *echo.Context) error {
 // act on. `seats_needed` is computed from the SAME constant the rule enforces,
 // so guidance that says "buy up to N" cannot recommend a number that would then
 // be refused.
-func capacityRefusal(capacity models.ErrOrganizationTeamCapacity) braznOrganizationTeamCapacityResponse {
-	refusal := braznOrganizationTeamCapacityResponse{
+func capacityRefusal(capacity models.ErrOrganizationTeamCapacity) BraznOrganizationTeamCapacityResponse {
+	refusal := BraznOrganizationTeamCapacityResponse{
 		Message:        capacity.Error(),
 		SeatsPurchased: capacity.SeatsPurchased,
 		TeamsUsed:      capacity.TeamsUsed,
