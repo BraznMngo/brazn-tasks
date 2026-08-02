@@ -114,7 +114,7 @@
 		"administration": {
 			"title": "Verwaltung",
 			"current": "Organisationsadministrator",
-			"exactlyOne": "Es gibt jederzeit genau einen Administrator. Die Rolle wird übergeben und nie aufgegeben, und es gibt nirgends einen Knopf, der diese Organisation ohne Administrator zurücklaesst.",
+			"exactlyOne": "Es gibt jederzeit genau einen Administrator. Die Rolle wird übergeben und nie aufgegeben, und es gibt nirgends einen Knopf, der diese Organisation ohne Administrator zurücklässt.",
 			"transfer": {
 				"title": "Die Rolle übergeben",
 				"text": "Wer die Organisation verwaltet, wird von dem Dienst geführt, den ihr bezahlt. Die Übergabe passiert dort und wirkt hier. Du verlierst jede Verwaltungsmöglichkeit in dem Moment, in dem sie abgeschlossen ist, und kannst die Rolle nicht selbst zurückholen.",

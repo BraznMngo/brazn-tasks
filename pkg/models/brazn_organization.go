@@ -274,6 +274,10 @@ type ErrOrganizationTeamCapacity struct {
 	SeatsPerTeam   int
 }
 
+// Error distinguishes the two refusals, because they have different remedies.
+// "Buy more seats" is wrong advice for an organization whose seat count this
+// instance could not read at all, and the numbers are carried on the struct
+// rather than formatted into this string so a caller renders them itself.
 func (e ErrOrganizationTeamCapacity) Error() string {
 	if e.SeatsPurchased == nil {
 		return "this instance cannot read how many seats the organization has bought, so no team can be created"
