@@ -99,6 +99,8 @@
 			"title": "Teams",
 			"create": "Team erstellen",
 			"namePlaceholder": "Teamname",
+			"primary": "primäres Team",
+			"remove": "Entfernen",
 			"capped": {
 				"title": "Ihr habt so viele Teams, wie eure Sitzplätze erlauben.",
 				"text": "Ein weiteres Team braucht {seats} gekaufte Sitzplätze. Ein Zukauf erhöht die Kapazität sofort, sonst ändert sich nichts.",

@@ -77,6 +77,21 @@ type OrganizationMember struct {
 	Administrator bool `json:"administrator"`
 }
 
+// OrganizationTeam is one of the organization's teams as the Teams page sees
+// it.
+//
+// Primary is carried by the SERVER rather than left for a client to work out,
+// and it is the same answer RemoveOrganizationTeam refuses on. A client that
+// decided "the first one in the list" would be right until a list arrived in a
+// different order, and would then draw a removal control on the one team that
+// can never be removed.
+type OrganizationTeam struct {
+	TeamID    int64  `json:"team_id"`
+	Name      string `json:"name"`
+	ProjectID int64  `json:"project_id"`
+	Primary   bool   `json:"primary"`
+}
+
 // Organization is the read model behind the seven Organization pages. One
 // query set, one answer, so Overview and Teams cannot disagree about how many
 // teams are in use.
@@ -95,8 +110,13 @@ type Organization struct {
 	// not zero and not unlimited: it is "this instance cannot answer", and
 	// every capacity decision taken against it refuses.
 	SeatsPurchased *int `json:"seats_purchased"`
-	// TeamsUsed counts the organization's provisioned Team roots.
+	// TeamsUsed counts the organization's provisioned Team roots. It is
+	// len(Teams) and is carried separately so a client showing only the number
+	// - Overview, Seats - does not have to know that.
 	TeamsUsed int `json:"teams_used"`
+	// Teams is the organization's teams, oldest first, so the Teams page can
+	// offer removal on exactly the ones that may be removed.
+	Teams []*OrganizationTeam `json:"teams"`
 	// TeamsAllowed is null exactly when SeatsPurchased is, for the same reason.
 	TeamsAllowed *int `json:"teams_allowed"`
 	// CanCreateTeam is the capacity decision itself, so a client renders the
@@ -154,10 +174,11 @@ func OrganizationFor(s *xorm.Session, userID int64) (*Organization, error) {
 		return nil, ErrOrganizationAdministratorAmbiguous
 	}
 
-	teamsUsed, err := CountOrganizationTeams(s, organizationID)
+	teams, err := organizationTeams(s, organizationID)
 	if err != nil {
 		return nil, err
 	}
+	teamsUsed := len(teams)
 
 	organization := &Organization{
 		ID:             organizationID,
@@ -167,10 +188,52 @@ func OrganizationFor(s *xorm.Session, userID int64) (*Organization, error) {
 		SeatsOccupied:  len(members),
 		SeatsPurchased: acting.State.SeatsPurchased,
 		TeamsUsed:      teamsUsed,
+		Teams:          teams,
 		TeamsAllowed:   teamsAllowed(acting.State.SeatsPurchased),
 		CanCreateTeam:  CanCreateTeam(acting.State.SeatsPurchased, teamsUsed),
 	}
 	return organization, nil
+}
+
+// organizationTeams lists an organization's teams, oldest first.
+//
+// The ORDER IS THE DEFINITION OF `Primary`, and it is by protected-entity id
+// rather than by the created timestamp: the primary team and its root are
+// provisioned with the organization and every additional one is created later,
+// but two rows written in the same second carry the same timestamp while an
+// autoincrement id still separates them. "Which of these is the primary team"
+// must have exactly one answer, and RemoveOrganizationTeam refuses on the same
+// one - see primaryTeamRoot.
+//
+// A root whose team row has gone is skipped rather than listed with an empty
+// name. It should not happen, and if it does, the honest thing is not to offer
+// a removal control for something that is already half gone.
+func organizationTeams(s *xorm.Session, organizationID string) ([]*OrganizationTeam, error) {
+	if organizationID == "" {
+		return nil, nil
+	}
+
+	roots := []*ProtectedEntity{}
+	err := s.Where("kind = ? AND organization_id = ?",
+		string(ProtectedKindTeamRoot), organizationID).Asc("id").Find(&roots)
+	if err != nil {
+		return nil, err
+	}
+
+	teams := make([]*OrganizationTeam, 0, len(roots))
+	for i, root := range roots {
+		team, err := GetTeamByID(s, root.TeamID)
+		if err != nil {
+			continue
+		}
+		teams = append(teams, &OrganizationTeam{
+			TeamID:    team.ID,
+			Name:      team.Name,
+			ProjectID: root.ProjectID,
+			Primary:   i == 0,
+		})
+	}
+	return teams, nil
 }
 
 // teamsAllowed converts a purchased seat count into a team allowance, or nil
@@ -197,25 +260,6 @@ func CanCreateTeam(seatsPurchased *int, teamsUsed int) bool {
 		return false
 	}
 	return *seatsPurchased >= SeatsPerTeam*(teamsUsed+1)
-}
-
-// CountOrganizationTeams counts one organization's provisioned Team roots.
-//
-// It counts ROOTS rather than rows in `teams`, because a Vikunja team is
-// global and says nothing about which customer it belongs to. A Team root is
-// the thing the topology guarantees one of per team, and it is the thing an
-// organization's capacity is spent on.
-func CountOrganizationTeams(s *xorm.Session, organizationID string) (int, error) {
-	if organizationID == "" {
-		return 0, nil
-	}
-
-	count, err := s.Where("kind = ? AND organization_id = ?", string(ProtectedKindTeamRoot), organizationID).
-		Count(&ProtectedEntity{})
-	if err != nil {
-		return 0, err
-	}
-	return int(count), nil
 }
 
 // ErrOrganizationTeamCapacity is the seat rule refusing, and it carries the

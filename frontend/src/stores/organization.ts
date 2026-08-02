@@ -12,11 +12,24 @@ export interface IOrganizationMember {
 	administrator: boolean
 }
 
+export interface IOrganizationTeam {
+	teamId: number
+	name: string
+	projectId: number
+	/**
+	 * Carried by the server, not worked out here. A client deciding "the first
+	 * one" would draw a removal control on the one team that can never be
+	 * removed the moment the list arrived in a different order.
+	 */
+	primary: boolean
+}
+
 export interface IOrganization {
 	id: string
 	edition: string
 	administrator: IOrganizationMember | null
 	members: IOrganizationMember[]
+	teams: IOrganizationTeam[]
 	seatsOccupied: number
 	/**
 	 * null means this instance could not read how many seats were bought — which

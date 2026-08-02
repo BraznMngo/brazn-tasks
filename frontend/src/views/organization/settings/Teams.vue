@@ -72,6 +72,36 @@
 			{{ refusal }}
 		</Message>
 
+		<table class="table has-actions is-fullwidth is-striped is-hoverable">
+			<tbody>
+				<tr
+					v-for="team in organization?.teams ?? []"
+					:key="team.teamId"
+				>
+					<td>
+						<strong>{{ team.name }}</strong>
+						<span v-if="team.primary"> · {{ $t('organization.teams.primary') }}</span>
+					</td>
+					<td class="has-text-right">
+						<!--
+							No control at all on the primary team, for either
+							actor. Not disabled and not refused on click: a
+							control that exists and always says no is a control
+							the product should not have drawn.
+						-->
+						<XButton
+							v-if="!team.primary"
+							variant="secondary"
+							:loading="working"
+							@click="remove(team.teamId)"
+						>
+							{{ $t('organization.teams.remove') }}
+						</XButton>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
 		<!--
 			The primary team carries no removal control at all, for either
 			actor. It is a protected root and every member navigates by it, so
@@ -135,6 +165,26 @@ async function create() {
 	} catch (e) {
 		// The server's refusal is what is shown, not a locally reconstructed
 		// one: it is the only one that reflects what the rule actually decided.
+		const data = (e as {response?: {data?: {message?: string}}})?.response?.data
+		refusal.value = data?.message || t('organization.error.text')
+	} finally {
+		working.value = false
+	}
+}
+
+async function remove(teamId: number) {
+	if (working.value) {
+		return
+	}
+
+	working.value = true
+	refusal.value = ''
+
+	const HTTP = AuthenticatedHTTPFactory()
+	try {
+		await HTTP.delete(`brazn/organization/teams/${teamId}`)
+		await organizationStore.load()
+	} catch (e) {
 		const data = (e as {response?: {data?: {message?: string}}})?.response?.data
 		refusal.value = data?.message || t('organization.error.text')
 	} finally {

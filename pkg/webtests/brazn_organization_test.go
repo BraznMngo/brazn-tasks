@@ -162,6 +162,17 @@ func TestTheOrganizationReadModelCountsSeatsAndTeams(t *testing.T) {
 	assert.Equal(t, 3, *organization.TeamsAllowed)
 	assert.True(t, organization.CanCreateTeam)
 
+	// The primary flag is what decides whether a removal control is drawn at
+	// all, so the server has to be the one that says it - and it has to agree
+	// with what RemoveOrganizationTeam refuses, which TestThePrimaryTeamCannot
+	// BeRemoved checks from the other side.
+	//
+	// WHAT MAKES THIS FAIL: change organizationTeams' ordering away from the
+	// oldest root, and the primary team stops being the one marked primary.
+	require.Len(t, organization.Teams, 1)
+	assert.Equal(t, int64(primaryTeamID), organization.Teams[0].TeamID)
+	assert.True(t, organization.Teams[0].Primary)
+
 	require.NotNil(t, organization.Administrator)
 	assert.Equal(t, testuser1.ID, organization.Administrator.UserID)
 }
@@ -181,6 +192,17 @@ func TestTeamCreationIsRefusedBeyondPurchasedSeats(t *testing.T) {
 	t.Run("the second team fits in six seats", func(t *testing.T) {
 		rec := env.request(http.MethodPut, organizationTeamsPath, `{"name":"Vertrieb"}`, &testuser1)
 		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	})
+
+	t.Run("and the new team is not the primary one", func(t *testing.T) {
+		rec := env.request(http.MethodGet, organizationPath, "", &testuser1)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		organization := &models.Organization{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), organization))
+		require.Len(t, organization.Teams, 2)
+		assert.True(t, organization.Teams[0].Primary, "the provisioned team stays primary")
+		assert.False(t, organization.Teams[1].Primary, "a team created later never becomes it")
 	})
 
 	t.Run("and the third does not", func(t *testing.T) {

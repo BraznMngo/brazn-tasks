@@ -99,6 +99,8 @@
       "title": "Teams",
       "create": "Create a team",
       "namePlaceholder": "Team name",
+      "primary": "primary team",
+      "remove": "Remove",
       "capped": {
         "title": "You have used the teams your seats allow.",
         "text": "Another team needs {seats} purchased seats. Buying more adds capacity straight away and nothing else changes.",
