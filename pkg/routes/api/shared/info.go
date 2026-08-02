@@ -56,6 +56,11 @@ type VikunjaInfos struct {
 	EnabledProFeatures         []license.Feature `json:"enabled_pro_features" doc:"The licensed pro features enabled on this instance."`
 	// ConcurrentWrites reports whether the configured database can handle concurrent writes. It is false on SQLite, where overlapping write transactions deadlock, so clients should serialize batched writes instead of firing them in parallel.
 	ConcurrentWrites bool `json:"concurrent_writes" doc:"Whether the configured database supports concurrent writes. False on SQLite; clients should serialize batched writes when this is false."`
+	// BraznAccountURL is where the Organization area links out for payment,
+	// invoices, seats, invitations and the administrator role - everything the
+	// commercial service is authoritative for and this product deliberately
+	// does not duplicate (BRA-917 AC5). Empty renders no link.
+	BraznAccountURL string `json:"brazn_account_url" doc:"Where the Organization area links out to for billing and membership. Empty when this instance has no commercial service behind it."`
 }
 
 // AuthInfo describes the authentication methods enabled on this instance.
@@ -120,6 +125,7 @@ func BuildInfo() VikunjaInfos {
 			ImprintURL:       config.LegalImprintURL.GetString(),
 			PrivacyPolicyURL: config.LegalPrivacyURL.GetString(),
 		},
+		BraznAccountURL: config.BraznAccountURL.GetString(),
 		AuthInfo: AuthInfo{
 			Local: LocalAuthInfo{
 				Enabled:             config.AuthLocalEnabled.GetBool(),

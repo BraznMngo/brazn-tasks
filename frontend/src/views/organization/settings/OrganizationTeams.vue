@@ -1,0 +1,198 @@
+<template>
+	<OrganizationPage :title="$t('organization.teams.title')">
+		<p class="is-size-4">
+			{{ capacity }}
+		</p>
+		<p class="mb-4">
+			{{ organization?.seatsPurchased === null
+				? $t('organization.seats.capacity.unknown')
+				: $t('organization.seats.capacity.text', {
+					teams: organization?.teamsAllowed,
+					seats: organization?.seatsPurchased,
+				}) }}
+		</p>
+
+		<!--
+			Rendered only when the seat rule would let it succeed, which is the
+			hide-versus-refuse rule applied literally: a control exists if and
+			only if this actor could succeed at it in some state they can reach
+			by themselves. An administrator CAN reach a state where another team
+			fits — by buying seats — so what is drawn when they cannot is the
+			refusal with the number, not a greyed-out button.
+		-->
+		<form
+			v-if="organization?.canCreateTeam"
+			@submit.prevent="create"
+		>
+			<div class="field has-addons">
+				<div class="control is-expanded">
+					<input
+						v-model="name"
+						class="input"
+						:placeholder="$t('organization.teams.namePlaceholder')"
+						required
+					>
+				</div>
+				<div class="control">
+					<XButton
+						:loading="working"
+						@click="create"
+					>
+						{{ $t('organization.teams.create') }}
+					</XButton>
+				</div>
+			</div>
+		</form>
+
+		<Message
+			v-else
+			variant="warning"
+		>
+			<p class="has-text-weight-bold">
+				{{ $t('organization.teams.capped.title') }}
+			</p>
+			<p>
+				{{ organization?.seatsPurchased === null
+					? $t('organization.teams.capped.unknown')
+					: $t('organization.teams.capped.text', {seats: seatsNeeded}) }}
+			</p>
+			<XButton
+				v-if="commercialUrl"
+				variant="secondary"
+				:href="commercialUrl"
+			>
+				{{ $t('organization.seats.add') }}
+			</XButton>
+		</Message>
+
+		<Message
+			v-if="refusal"
+			variant="danger"
+		>
+			{{ refusal }}
+		</Message>
+
+		<table class="table has-actions is-fullwidth is-striped is-hoverable">
+			<tbody>
+				<tr
+					v-for="team in organization?.teams ?? []"
+					:key="team.teamId"
+				>
+					<td>
+						<strong>{{ team.name }}</strong>
+						<span v-if="team.primary"> · {{ $t('organization.teams.primary') }}</span>
+					</td>
+					<td class="has-text-right">
+						<!--
+							No control at all on the primary team, for either
+							actor. Not disabled and not refused on click: a
+							control that exists and always says no is a control
+							the product should not have drawn.
+						-->
+						<XButton
+							v-if="!team.primary"
+							variant="secondary"
+							:loading="working"
+							@click="remove(team.teamId)"
+						>
+							{{ $t('organization.teams.remove') }}
+						</XButton>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<!--
+			The primary team carries no removal control at all, for either
+			actor. It is a protected root and every member navigates by it, so
+			"cannot be removed" is not a refusal to render — it is a control
+			that does not exist.
+		-->
+		<Message variant="info">
+			<p class="has-text-weight-bold">
+				{{ $t('organization.teams.removal.title') }}
+			</p>
+			<p>{{ $t('organization.teams.removal.text') }}</p>
+		</Message>
+	</OrganizationPage>
+</template>
+
+<script setup lang="ts">
+import {computed, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
+
+import Message from '@/components/misc/Message.vue'
+import XButton from '@/components/input/Button.vue'
+import OrganizationPage from '@/components/organization/OrganizationPage.vue'
+import {useOrganizationStore} from '@/stores/organization'
+import {useCommercialUrl} from '@/composables/useCommercialUrl'
+import {formatCapacity} from '@/helpers/organizationCapacity'
+import {AuthenticatedHTTPFactory} from '@/helpers/fetcher'
+
+const {t} = useI18n({useScope: 'global'})
+
+const organizationStore = useOrganizationStore()
+const organization = computed(() => organizationStore.organization)
+const commercialUrl = useCommercialUrl()
+
+const name = ref('')
+const working = ref(false)
+const refusal = ref('')
+
+const capacity = computed(() => formatCapacity(
+	organization.value?.teamsUsed ?? 0,
+	organization.value?.teamsAllowed ?? null,
+))
+
+// The number a customer would have to reach. Both inputs come from the server -
+// the teams it counted and the ratio its own rule is expressed in - so this
+// cannot recommend an amount that would then be refused. Holding a local copy
+// of the 3 is the shape that drifts.
+const seatsNeeded = computed(() => {
+	const perTeam = organization.value?.seatsPerTeam ?? 0
+	return ((organization.value?.teamsUsed ?? 0) + 1) * perTeam
+})
+
+async function create() {
+	if (!name.value || working.value) {
+		return
+	}
+
+	working.value = true
+	refusal.value = ''
+
+	const HTTP = AuthenticatedHTTPFactory()
+	try {
+		await HTTP.put('brazn/organization/teams', {name: name.value})
+		name.value = ''
+		await organizationStore.load()
+	} catch (e) {
+		// The server's refusal is what is shown, not a locally reconstructed
+		// one: it is the only one that reflects what the rule actually decided.
+		const data = (e as {response?: {data?: {message?: string}}})?.response?.data
+		refusal.value = data?.message || t('organization.error.text')
+	} finally {
+		working.value = false
+	}
+}
+
+async function remove(teamId: number) {
+	if (working.value) {
+		return
+	}
+
+	working.value = true
+	refusal.value = ''
+
+	const HTTP = AuthenticatedHTTPFactory()
+	try {
+		await HTTP.delete(`brazn/organization/teams/${teamId}`)
+		await organizationStore.load()
+	} catch (e) {
+		const data = (e as {response?: {data?: {message?: string}}})?.response?.data
+		refusal.value = data?.message || t('organization.error.text')
+	} finally {
+		working.value = false
+	}
+}
+</script>

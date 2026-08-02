@@ -13,6 +13,7 @@ import {PRO_FEATURE} from '@/constants/proFeatures'
 import {useAuthStore} from '@/stores/auth'
 import {useBaseStore} from '@/stores/base'
 import {useConfigStore} from '@/stores/config'
+import {useOrganizationStore} from '@/stores/organization'
 
 import Login from '@/views/user/Login.vue'
 import Register from '@/views/user/Register.vue'
@@ -91,6 +92,59 @@ const router = createRouter({
 			meta: {
 				title: 'user.auth.createAccount',
 			},
+		},
+		// The Organization area (BRA-917). `requiresOrganizationAdmin` is checked
+		// in the navigation guard below, and what it checks is the SERVER's
+		// answer: the guard loads the organization and refuses when the server
+		// will not return one. Nothing here reads a local role.
+		//
+		// This is the discovery half of AC1 and it is not the enforcement.
+		// Every one of these views calls an API route that refuses a
+		// non-administrator on its own, so a member who defeats the guard by
+		// any means reaches seven pages that show them nothing.
+		{
+			path: '/organization',
+			name: 'organization',
+			component: () => import('@/views/organization/OrganizationSettings.vue'),
+			redirect: {name: 'organization.overview'},
+			meta: {requiresOrganizationAdmin: true},
+			children: [
+				{
+					path: '/organization/overview',
+					name: 'organization.overview',
+					component: () => import('@/views/organization/settings/OrganizationOverview.vue'),
+				},
+				{
+					path: '/organization/members',
+					name: 'organization.members',
+					component: () => import('@/views/organization/settings/OrganizationMembers.vue'),
+				},
+				{
+					path: '/organization/seats',
+					name: 'organization.seats',
+					component: () => import('@/views/organization/settings/OrganizationSeats.vue'),
+				},
+				{
+					path: '/organization/teams',
+					name: 'organization.teams',
+					component: () => import('@/views/organization/settings/OrganizationTeams.vue'),
+				},
+				{
+					path: '/organization/administration',
+					name: 'organization.administration',
+					component: () => import('@/views/organization/settings/OrganizationAdministration.vue'),
+				},
+				{
+					path: '/organization/general',
+					name: 'organization.general',
+					component: () => import('@/views/organization/settings/OrganizationGeneral.vue'),
+				},
+				{
+					path: '/organization/billing',
+					name: 'organization.billing',
+					component: () => import('@/views/organization/settings/OrganizationBilling.vue'),
+				},
+			],
 		},
 		{
 			path: '/user/settings',
@@ -569,6 +623,41 @@ router.beforeEach(async (to, from) => {
 		}
 		const isAdmin = authStore.info?.isAdmin === true
 		if (!featureOn || !isAdmin) {
+			return {name: 'not-found'}
+		}
+	}
+
+	if (to.meta?.requiresOrganizationAdmin) {
+		// The server decides. The store holds an organization only after
+		// GET /brazn/organization returned one, and that route refuses anybody
+		// who is not the single administrator - so this is not a local role
+		// check dressed up as one.
+		//
+		// A member reaching here by URL or by a stale tab lands on 'not-found',
+		// which is what AC1 means by "cannot discover": the same answer a route
+		// that was never registered gives, rather than a refusal that confirms
+		// the area exists.
+		const organizationStore = useOrganizationStore()
+
+		// Asked on EVERY navigation inside the area, not only the first. A role
+		// that is taken away between two page changes is the case this exists
+		// for, and a guard that only ever asked once would leave somebody
+		// looking at controls the server has already stopped honouring.
+		const wasAdministrator = organizationStore.isAdministrator
+		await organizationStore.load()
+
+		if (!organizationStore.isAdministrator) {
+			// Two different people arrive here and they must not get the same
+			// answer. Somebody who never had the area gets what a route that
+			// was never registered gives - AC1's bar is discovery, and a
+			// refusal that named the area would confirm it exists. Somebody
+			// whose role changed under them gets told their view is out of
+			// date, because the alternative is a 404 for a page they were
+			// legitimately reading a moment ago.
+			if (wasAdministrator) {
+				organizationStore.markStale()
+				return
+			}
 			return {name: 'not-found'}
 		}
 	}

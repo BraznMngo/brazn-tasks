@@ -58,6 +58,100 @@
 		"title": "Du bist offline.",
 		"text": "Bitte überprüfe die Netzwerkverbindung und versuche es erneut."
 	},
+	"organization": {
+		"title": "Organisation",
+		"retry": "Erneut versuchen",
+		"overview": {
+			"title": "Übersicht",
+			"edition": "Edition",
+			"members": "Mitglieder",
+			"inboxBoundary": {
+				"title": "Du kannst den Posteingang keines Mitglieds öffnen, durchsuchen, exportieren oder wiederherstellen.",
+				"text": "Nicht über eine Einstellung, nicht über den Support und auch nicht, nachdem jemand gegangen ist. Es gibt keine Ausnahme und keinen Wiederherstellungsweg. Genau diese Grenze macht einen Posteingang vertrauenswürdig, und deshalb ist das Entfernen einer Person für sie endgültig."
+			}
+		},
+		"members": {
+			"title": "Mitglieder",
+			"inUse": "{used} / {limit} Sitzplätze belegt",
+			"roleAdministrator": "Organisationsadministrator",
+			"roleMember": "Mitglied",
+			"managedElsewhere": {
+				"title": "Einladungen und Entfernungen laufen dort, wo euer Abonnement liegt.",
+				"text": "Wer einen bezahlten Sitzplatz hält, entscheidet der Dienst, den ihr bezahlt, und nicht dieses Produkt. Einladen und Entfernen passieren dort, die Änderung erscheint hier. Diese Seite zeigt, wer aktuell einen hält.",
+				"action": "Mitglieder verwalten"
+			}
+		},
+		"seats": {
+			"title": "Sitzplätze",
+			"add": "Sitzplätze hinzufügen",
+			"explanation": "Ein Sitzplatz wird frei, sobald jemand entfernt wird, und eine Einladung braucht einen freien Platz, bevor sie verschickt werden kann.",
+			"capacity": {
+				"title": "Was Sitzplätze außerdem entscheiden",
+				"text": "Bis zu {teams} Teams bei {seats} gekauften Sitzplätzen. Teams sind auf eines pro drei gekaufter Sitzplätze begrenzt, nicht auf eines pro drei beigetretener Personen. Neun gekaufte Plätze erlauben also alle drei Teams, bevor jemand zusagt.",
+				"unknown": "Wir können nicht lesen, wie viele Sitzplätze ihr gekauft habt, und können deshalb nicht sagen, wie viele Teams das erlaubt. Ein neues Team wird abgelehnt, bis wir es können."
+			},
+			"priced": {
+				"title": "Preis, Rechnungen und der Kauf von Sitzplätzen liegen nicht hier",
+				"text": "Preis, Abrechnungsrhythmus, die Untergrenze von drei Sitzplätzen, Umsatzsteuer und Rechnungen bearbeitet der Dienst, den ihr bezahlt. Diese Seite zählt Sitzplätze und verweist dorthin."
+			}
+		},
+		"teams": {
+			"title": "Teams",
+			"create": "Team erstellen",
+			"namePlaceholder": "Teamname",
+			"primary": "primäres Team",
+			"remove": "Entfernen",
+			"capped": {
+				"title": "Ihr habt so viele Teams, wie eure Sitzplätze erlauben.",
+				"text": "Ein weiteres Team braucht {seats} gekaufte Sitzplätze. Ein Zukauf erhöht die Kapazität sofort, sonst ändert sich nichts.",
+				"unknown": "Wir können nicht lesen, wie viele Sitzplätze ihr gekauft habt, und können deshalb kein weiteres Team anlegen lassen. An eurer Organisation hat sich nichts geändert, und es kommt von selbst zurück."
+			},
+			"removal": {
+				"title": "Das primäre Team kann nicht entfernt werden.",
+				"text": "Es ist ein geschützter Wurzelbereich, und alle Mitglieder navigieren darüber. Das Entfernen jedes anderen Teams entfernt dieses Team und seine eigenen Projekte und rührt nichts außerhalb an: weder den Posteingang einer Person, die darin war, noch Öffentlich, noch ein Projekt, das vorher herausgeschoben wurde."
+			}
+		},
+		"administration": {
+			"title": "Verwaltung",
+			"current": "Organisationsadministrator",
+			"exactlyOne": "Es gibt jederzeit genau einen Administrator. Die Rolle wird übergeben und nie aufgegeben, und es gibt nirgends einen Knopf, der diese Organisation ohne Administrator zurücklässt.",
+			"transfer": {
+				"title": "Die Rolle übergeben",
+				"text": "Wer die Organisation verwaltet, wird von dem Dienst geführt, den ihr bezahlt. Die Übergabe passiert dort und wirkt hier. Du verlierst jede Verwaltungsmöglichkeit in dem Moment, in dem sie abgeschlossen ist, und kannst die Rolle nicht selbst zurückholen.",
+				"action": "Rolle übergeben"
+			}
+		},
+		"general": {
+			"title": "Organisationseinstellungen",
+			"name": "Organisation",
+			"pending": {
+				"title": "Die Schalter für Fußzeile und Empfehlungen gibt es hier noch nicht.",
+				"text": "Was die Percy-Fußzeile sagt, wer sie abschalten darf und ob sie pro Organisation oder pro Mitglied unterdrückt wird, ist noch nicht entschieden. Die Schalter kommen auf diese Seite und werden nicht gezeichnet, bevor sie etwas bewirken: ein Schalter, der nichts tut, ist schlimmer als einer, der fehlt."
+			}
+		},
+		"billing": {
+			"title": "Zahlungen und Rechnungen",
+			"members": "Belegte Sitzplätze",
+			"open": "Zahlungen und Rechnungen öffnen",
+			"elsewhere": {
+				"title": "Bearbeitet vom Dienst, den ihr bezahlt.",
+				"text": "Zahlungsmittel, Rechnungen, Tarif, Abrechnungsrhythmus, Verlängerung, Testphase und Kündigung gehören zusammen auf eine Oberfläche, und das ist nicht diese. Die drei Angaben oben stammen aus eurem Abonnement und sind die einzigen, die hier wiederholt werden."
+			}
+		},
+		"unavailable": {
+			"title": "Wir können euer Abonnement gerade nicht lesen.",
+			"text": "Das liegt an uns und nicht an euch, und an eurer Organisation hat sich nichts geändert. Mitglieder, Teams und Aufgaben funktionieren weiter. Nur die Seiten, die davon abhängen, was ihr bezahlt habt, sind nicht verfügbar, und sie kommen von selbst zurück."
+		},
+		"error": {
+			"title": "Diese Seite wurde nicht geladen.",
+			"text": "Die Anfrage hat uns erreicht und kam falsch zurück. Es ist kein Berechtigungsproblem, und es wurde nichts geändert."
+		},
+		"stale": {
+			"title": "Diese Seite war beim Laden richtig und ist es jetzt nicht mehr.",
+			"text": "Deine Rolle oder deine Organisation hat sich in einem anderen Fenster oder auf einem anderen Gerät geändert. Die sichtbaren Bedienelemente wurden für den früheren Stand gezeichnet; sie jetzt zu benutzen würde aus Gründen fehlschlagen, die nicht deine wären. Ein Neuladen bringt dich in eine passende Ansicht zurück.",
+			"action": "Seite neu laden"
+		}
+	},
 	"user": {
 		"auth": {
 			"username": "Anmeldename",

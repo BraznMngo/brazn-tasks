@@ -68,6 +68,10 @@ const (
 	ruleLinkShare        managedRule = "link-share"
 	ruleTeamsOnly        managedRule = "teams-only"
 	ruleTaskMove         managedRule = "task-move"
+
+	// ruleOrganizationAdmin guards the routes only the organization's single
+	// administrator may reach. See managed_rules_organization.go.
+	ruleOrganizationAdmin managedRule = "organization-admin"
 )
 
 var allManagedRules = []managedRule{
@@ -83,6 +87,7 @@ var allManagedRules = []managedRule{
 	ruleLinkShare,
 	ruleTeamsOnly,
 	ruleTaskMove,
+	ruleOrganizationAdmin,
 }
 
 // KnownManagedRules returns every rule name route-classification.json may use,

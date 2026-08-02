@@ -193,11 +193,27 @@ type Subject struct {
 // enforces the rules the contract names a conformance case for: requiring them
 // would refuse every envelope already stored, and the frozen golden set with
 // them.
+// SeatsPurchased is a POINTER for the reason ValidTo is, and with the opposite
+// consequence. The contract makes it optional, and absence is the SAFE
+// direction here: an absent count refuses a team creation, which is already
+// what an access-expanding or protected-topology operation does when the
+// projection cannot answer. Reading a missing count as zero would say the same
+// thing by accident; reading it as unlimited would say the opposite. A value
+// type cannot tell "the producer sent 0" from "the producer sent nothing", and
+// only one of those is a fact about what the customer bought.
+//
+// It is an ORGANIZATION-scoped number in a SUBJECT-scoped record, carried only
+// on a subject whose OrganizationAdmin is true. That is the contract's rule and
+// not this package's convenience: revision orders per subject and issued_at
+// orders nothing, so the same count on N members' projections is N copies with
+// no defined tie-break. Nothing here reads it from anyone but the acting
+// administrator - see models.OrganizationFor.
 type State struct {
 	Edition           string     `json:"edition"`
 	SeatStatus        string     `json:"seat_status"`
 	OrganizationAdmin bool       `json:"organization_admin"`
 	EffectiveState    string     `json:"effective_state"`
+	SeatsPurchased    *int       `json:"seats_purchased"`
 	ValidFrom         time.Time  `json:"valid_from"`
 	ValidTo           *time.Time `json:"valid_to"`
 }

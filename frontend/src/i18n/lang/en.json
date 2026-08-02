@@ -58,6 +58,100 @@
     "title": "You are offline.",
     "text": "Please check your network connection and try again."
   },
+  "organization": {
+    "title": "Organization",
+    "retry": "Try again",
+    "overview": {
+      "title": "Overview",
+      "edition": "Edition",
+      "members": "Members",
+      "inboxBoundary": {
+        "title": "You cannot open, search, export or recover any member's Inbox.",
+        "text": "Not through a setting, not through support, and not after they leave. There is no override and no recovery path. It is the same boundary that makes an Inbox worth trusting, and it is why removing someone is permanent for them."
+      }
+    },
+    "members": {
+      "title": "Members",
+      "inUse": "{used} / {limit} seats in use",
+      "roleAdministrator": "Organization administrator",
+      "roleMember": "Member",
+      "managedElsewhere": {
+        "title": "Invitations and removals are handled where your subscription lives.",
+        "text": "Who holds a paid seat is decided by the service you pay, not by this product, so inviting and removing people happen there and the change appears here. This page shows who currently holds one.",
+        "action": "Manage members"
+      }
+    },
+    "seats": {
+      "title": "Seats",
+      "add": "Add seats",
+      "explanation": "A seat frees the moment someone is removed, and an invitation needs a free one before it can be sent.",
+      "capacity": {
+        "title": "What else seats decide",
+        "text": "Up to {teams} teams on {seats} purchased seats. Teams are capped at one per three seats you have bought, not one per three people who have joined, so buying nine seats lets you build all three teams before anyone accepts.",
+        "unknown": "We cannot read how many seats you have bought, so we cannot say how many teams that allows. Creating a team is refused until we can."
+      },
+      "priced": {
+        "title": "Price, invoices and buying seats are not here",
+        "text": "Price, cadence, the three-seat floor, VAT and invoices are all handled by the service you pay. This page counts seats and links out."
+      }
+    },
+    "teams": {
+      "title": "Teams",
+      "create": "Create a team",
+      "namePlaceholder": "Team name",
+      "primary": "primary team",
+      "remove": "Remove",
+      "capped": {
+        "title": "You have used the teams your seats allow.",
+        "text": "Another team needs {seats} purchased seats. Buying more adds capacity straight away and nothing else changes.",
+        "unknown": "We cannot read how many seats you have bought, so we cannot let another team be created. Nothing about your organization has changed and it comes back on its own."
+      },
+      "removal": {
+        "title": "The primary team cannot be removed.",
+        "text": "It is a protected root and every member navigates by it. Removing any other team removes that team and its own projects, and touches nothing outside it: not the Inbox of anyone who was in it, not Public, and not a project that was moved out of it earlier."
+      }
+    },
+    "administration": {
+      "title": "Administration",
+      "current": "Organization administrator",
+      "exactlyOne": "Exactly one administrator exists at all times. The role is transferred, never given up, and there is no control anywhere that leaves this organization without one.",
+      "transfer": {
+        "title": "Transferring the role",
+        "text": "Who administers the organization is recorded by the service you pay, so the transfer is made there and takes effect here. You lose every administrative control the moment it completes and cannot take the role back yourself.",
+        "action": "Transfer the role"
+      }
+    },
+    "general": {
+      "title": "Organization settings",
+      "name": "Organization",
+      "pending": {
+        "title": "The footer and referral switches are not here yet.",
+        "text": "What the Percy footer says, who may switch it off, and whether it is suppressed per organization or per member are still being decided. The switches will live on this page, and they are not drawn before they do anything, because a switch that changes nothing is worse than one that is missing."
+      }
+    },
+    "billing": {
+      "title": "Payment and invoices",
+      "members": "Seats in use",
+      "open": "Open payment and invoices",
+      "elsewhere": {
+        "title": "Handled by the service you pay.",
+        "text": "Payment method, invoices, plan, cadence, renewal, trial and cancellation are one surface and it is not this one. The three facts above are read from your subscription and are the only ones repeated here."
+      }
+    },
+    "unavailable": {
+      "title": "We cannot read your subscription right now.",
+      "text": "This is our side, not yours, and nothing about your organization has changed. Members, teams and tasks all keep working. Only the pages that depend on what you have paid for are unavailable, and they come back on their own."
+    },
+    "error": {
+      "title": "This page did not load.",
+      "text": "The request reached us and came back wrong. It is not a permission problem and nothing has been changed."
+    },
+    "stale": {
+      "title": "This page was correct when it loaded and is not any more.",
+      "text": "Your role or your organization changed in another window or on another device. The controls you can see were drawn for the earlier state, so acting on them now would fail for reasons that would not be your fault. Reloading puts you back into a view that matches.",
+      "action": "Reload the page"
+    }
+  },
   "user": {
     "auth": {
       "username": "Username",
