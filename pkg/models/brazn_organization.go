@@ -387,14 +387,17 @@ func RemoveOrganizationTeam(
 		return ErrOrganizationTeamProtected
 	}
 
-	// The protected row goes FIRST. While it exists, decideTeamsProjectDelete
-	// refuses to delete the project it names - correctly, because that rule
-	// exists to stop a root being removed by an ordinary DELETE that happened
-	// to arrive with admin rights. This is not that request: it is the
-	// organization path deliberately dismantling a root it owns, and it has to
-	// clear the marker before the project can go. Doing it in this order also
-	// means a failure part-way leaves an unprotected root rather than a
-	// protected orphan pointing at a project that no longer exists.
+	// The protected row goes FIRST, so that a failure part-way leaves an
+	// unprotected project rather than a protected entity naming a project that
+	// no longer exists. The second is the worse of the two: every placement
+	// rule resolves a project's root through this table, so a dangling row is a
+	// topology answer about something that is gone.
+	//
+	// Note what this is NOT. decideTeamsProjectDelete refuses to delete a
+	// protected root, but that rule is middleware on an HTTP route and this is
+	// a model call, so nothing here was ever going to be refused by it. The
+	// ordering is about what a half-completed transaction leaves behind, not
+	// about getting past a guard.
 	if _, err := s.ID(root.ID).Delete(&ProtectedEntity{}); err != nil {
 		return err
 	}
