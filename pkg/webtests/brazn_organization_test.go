@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"testing"
 
+	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
 	"code.vikunja.io/api/pkg/user"
@@ -62,7 +63,15 @@ func newOrganizationEnv(t *testing.T, seatsPurchased *int) (*managedEnv, int64) 
 	env := newManagedEnv(t)
 	env.grantSeats(testuser1.ID, true, seatsPurchased)
 	env.grantSeats(testuser6.ID, false, nil)
-	env.grant(testuser2.ID, entitlement.EditionPersonal, false)
+
+	// The personal account is granted into a DIFFERENT organization, and that
+	// is load-bearing rather than tidy. env.grant defaults to
+	// managedTestOrganization, so a personal account granted the ordinary way
+	// would be a member of the very organization whose roster the read-model
+	// test counts - it would count three, the assertion would say two, and the
+	// comment explaining why would be false. A subject in nobody else's
+	// organization is what "a personal account on this instance" actually is.
+	env.grantProjection(testuser2.ID, entitlement.EditionPersonal, false, nil, nil, otherOrganization)
 
 	// The primary team and its root are provisioned with the organization. It
 	// is the team the removal test must refuse, and the one team every
@@ -151,8 +160,10 @@ func TestTheOrganizationReadModelCountsSeatsAndTeams(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), organization))
 
 	assert.Equal(t, managedTestOrganization, organization.ID)
-	// testuser1 and testuser6. The personal account is a different
-	// organization's subject and must not be counted into this one.
+	// testuser1 and testuser6, and NOT the personal account - which holds an
+	// active projection on this same instance, for a different organization.
+	// That is what makes this an assertion about the organization filter rather
+	// than about how many projections exist.
 	assert.Equal(t, 2, organization.SeatsOccupied)
 	assert.Len(t, organization.Members, 2)
 	require.NotNil(t, organization.SeatsPurchased)
@@ -381,10 +392,19 @@ func TestATeamOfAnotherOrganizationCannotBeRemoved(t *testing.T) {
 // teamRootProject finds the project a team's root was provisioned as. It reads
 // the protected entity rather than guessing by title, because two teams may be
 // named the same thing and only the id is the binding.
+//
+// It opens and CLOSES its own session rather than using dbSessionForTest,
+// whose session stays open until the test ends. Every caller here writes
+// afterwards - another project, the removal request - and SQLite deadlocks a
+// write against a read transaction that is still open. That is the same hazard
+// decideByEdition documents for the request path, and it is why the session is
+// scoped to this lookup.
 func teamRootProject(t *testing.T, teamID int64) int64 {
 	t.Helper()
 
-	s := dbSessionForTest(t)
+	s := db.NewSession()
+	defer s.Close()
+
 	root := &models.ProtectedEntity{}
 	has, err := s.Where("kind = ? AND team_id = ?", string(models.ProtectedKindTeamRoot), teamID).Get(root)
 	require.NoError(t, err)
