@@ -181,12 +181,10 @@ func (env *managedEnv) grantProjection(
 	env.storeProjectionIn(userID, 1, string(envelope), organization)
 }
 
-func (env *managedEnv) storeProjection(userID, revision int64, envelope string) {
-	env.t.Helper()
-
-	env.storeProjectionIn(userID, revision, envelope, managedTestOrganization)
-}
-
+// storeProjectionIn writes a projection row for a named organization. There is
+// deliberately no convenience wrapper defaulting to managedTestOrganization:
+// every caller that writes one of these rows is a test about which organization
+// a subject belongs to, so naming it at the call site is the point.
 func (env *managedEnv) storeProjectionIn(userID, revision int64, envelope, organization string) {
 	env.t.Helper()
 

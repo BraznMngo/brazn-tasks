@@ -105,44 +105,44 @@ const router = createRouter({
 		{
 			path: '/organization',
 			name: 'organization',
-			component: () => import('@/views/organization/Settings.vue'),
+			component: () => import('@/views/organization/OrganizationSettings.vue'),
 			redirect: {name: 'organization.overview'},
 			meta: {requiresOrganizationAdmin: true},
 			children: [
 				{
 					path: '/organization/overview',
 					name: 'organization.overview',
-					component: () => import('@/views/organization/settings/Overview.vue'),
+					component: () => import('@/views/organization/settings/OrganizationOverview.vue'),
 				},
 				{
 					path: '/organization/members',
 					name: 'organization.members',
-					component: () => import('@/views/organization/settings/Members.vue'),
+					component: () => import('@/views/organization/settings/OrganizationMembers.vue'),
 				},
 				{
 					path: '/organization/seats',
 					name: 'organization.seats',
-					component: () => import('@/views/organization/settings/Seats.vue'),
+					component: () => import('@/views/organization/settings/OrganizationSeats.vue'),
 				},
 				{
 					path: '/organization/teams',
 					name: 'organization.teams',
-					component: () => import('@/views/organization/settings/Teams.vue'),
+					component: () => import('@/views/organization/settings/OrganizationTeams.vue'),
 				},
 				{
 					path: '/organization/administration',
 					name: 'organization.administration',
-					component: () => import('@/views/organization/settings/Administration.vue'),
+					component: () => import('@/views/organization/settings/OrganizationAdministration.vue'),
 				},
 				{
 					path: '/organization/general',
 					name: 'organization.general',
-					component: () => import('@/views/organization/settings/General.vue'),
+					component: () => import('@/views/organization/settings/OrganizationGeneral.vue'),
 				},
 				{
 					path: '/organization/billing',
 					name: 'organization.billing',
-					component: () => import('@/views/organization/settings/Billing.vue'),
+					component: () => import('@/views/organization/settings/OrganizationBilling.vue'),
 				},
 			],
 		},
