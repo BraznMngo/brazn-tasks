@@ -26,8 +26,10 @@ import (
 	"strings"
 	"testing"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/models"
+	"code.vikunja.io/api/pkg/notifications"
 	"code.vikunja.io/api/pkg/user"
 
 	"github.com/labstack/echo/v5"
@@ -190,6 +192,74 @@ func TestBraznProvisioningAdoptsAnAccountThisInstanceAlreadyHas(t *testing.T) {
 	assert.True(t, result.EmailVerified)
 
 	db.AssertCount(t, "users", builder.Eq{"email": "user1@example.com"}, 1)
+}
+
+// TestBraznProvisioningRefusesToGiveOneAccountToTwoMailboxes closes an
+// account-takeover path that adoption opens on its own.
+//
+// openid.getOrCreateUser rewrites users.email IN PLACE when the provider
+// reports a new address for a subject it already knows, and that write goes
+// through user.UpdateUser rather than user.UpdateEmail - so it skips the
+// uniqueness check UpdateEmail makes. An account whose address has moved that
+// way onto a mailbox the commercial service later sells to somebody else would
+// be adopted a second time, and with the provider's email fallback on (which
+// BRA-1021 must enable for provisioned accounts to sign in at all) the second
+// customer signs in to the first customer's account.
+//
+// WHY THIS CANNOT PASS FOR THE WRONG REASON. The first call in this test is the
+// same endpoint, the same key and the same environment answering 200, so the
+// 400 that follows is not a router, a signature or a harness refusing - only
+// the state in between differs. Deleting refuseASecondMailboxForOneUser makes
+// the second call answer 200 with id "1", which is the assertion below.
+func TestBraznProvisioningRefusesToGiveOneAccountToTwoMailboxes(t *testing.T) {
+	env := newManagedEnv(t)
+
+	first := provisioned(t, env.provision(createUserPayload("user1@example.com")))
+	require.False(t, first.Created, "user 1 was already here; this call adopted them")
+	require.Equal(t, "1", first.ID)
+
+	// The rewrite described above, performed the way the OpenID callback
+	// performs it: straight onto the column.
+	func() {
+		s := db.NewSession()
+		defer s.Close()
+
+		_, err := s.Exec("UPDATE users SET email = ? WHERE id = ?", "alice-moved@example.com", 1)
+		require.NoError(t, err)
+		require.NoError(t, s.Commit())
+	}()
+
+	// A DIFFERENT customer buys the address user 1 now happens to carry.
+	rec := env.provision(createUserPayload("alice-moved@example.com"))
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+
+	// Nothing bound, and nothing left behind: the refusal rolls the claim back
+	// with the rest of its transaction, so a later settlement starts from a
+	// clean table rather than from a half-written one.
+	db.AssertMissing(t, "brazn_provisioned_users",
+		map[string]interface{}{"email": "alice-moved@example.com"})
+	db.AssertCount(t, "brazn_provisioned_users", builder.Eq{"user_id": 1}, 1)
+}
+
+// TestBraznProvisioningReportsANewAccountAsUnconfirmed is the created-and-
+// unverified combination, which nothing else here reaches.
+//
+// It needs the mailer on, because that is the only condition under which
+// user.CreateUser moves a new local account to StatusEmailConfirmationRequired
+// - and it does so AFTER reading the row back, so the struct it returns still
+// says Active while the stored row does not. Reporting email_verified from that
+// struct would be wrong in exactly this case and right in every other, which is
+// why the model re-reads. Deleting the re-read fails here and nowhere else.
+func TestBraznProvisioningReportsANewAccountAsUnconfirmed(t *testing.T) {
+	env := newManagedEnv(t)
+	setConfigForTest(t, config.MailerEnabled, true)
+	notifications.Fake()
+	t.Cleanup(notifications.Unfake)
+
+	result := provisioned(t, env.provision(createUserPayload("unconfirmed@example.com")))
+	assert.True(t, result.Created)
+	assert.False(t, result.EmailVerified,
+		"the account is waiting on its confirmation mail, and the reply must say so")
 }
 
 // TestBraznProvisioningReportsAnUnconfirmedMailbox is the other half of the

@@ -505,7 +505,8 @@ func getOrCreateUser(s *xorm.Session, cl *claims, provider *Provider, idToken *o
 		// survives on a managed instance. Everything above this line resolved
 		// an existing account and is untouched; everything below it creates
 		// one, which on a managed instance is the commercial service's job and
-		// nobody else's (Identity-and-Access-Rules.md §2.1). A user with no
+		// nobody else's (docs/Identity-and-Access-Rules.md §2.1, in the Percy
+		// repository). A user with no
 		// entitlement is impossible by construction only if there is no path
 		// that makes one, and today this is that path: on the development
 		// instance anyone with a Google account gets an account here.
@@ -521,14 +522,20 @@ func getOrCreateUser(s *xorm.Session, cl *claims, provider *Provider, idToken *o
 		//
 		// WHAT MUST BE TRUE FOR THIS TO BE SURVIVABLE, and is not yet: a user
 		// Percy Cloud provisioned is recorded with the local issuer and no
-		// Google subject, so their FIRST sign-in reaches here unless the
-		// provider links them by verified email. fallbackSearchUsers does
-		// exactly that, but only when the provider carries emailfallback and
-		// not usernamefallback - and the deployed configuration
-		// (deploy/vikunja-development/docker-compose.yml in the Percy
-		// repository) sets neither, so both default to false. Switching
-		// brazn.managedmode on before that config lands refuses every
-		// customer's first sign-in. BRA-1021 owns switching it on.
+		// Google subject, so EVERY one of their sign-ins reaches here unless
+		// the provider links them by verified email. Not just the first: a
+		// fallback match is never written back as the user's issuer and
+		// subject (see the alreadyCreatedFromIssuer branch below, which is the
+		// only one that updates them), so the link is re-derived on every
+		// callback and a configuration that stops working locks the account
+		// out on the spot rather than at signup.
+		//
+		// fallbackSearchUsers does exactly that linking, but only when the
+		// provider carries emailfallback and NOT usernamefallback - and the
+		// deployed configuration (deploy/vikunja-development/docker-compose.yml
+		// in the Percy repository) sets neither, so both default to false.
+		// Switching brazn.managedmode on before that config lands refuses every
+		// customer. BRA-1021 owns switching it on.
 		//
 		// AuthenticateCallback logs this refusal through its existing "Error
 		// creating new user" line, which is where an operator will read it.

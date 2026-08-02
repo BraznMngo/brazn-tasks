@@ -83,12 +83,19 @@ var ErrInvalidRequest = errors.New("provisioning request is not valid")
 type CreateUser struct {
 	ContractVersion string `json:"contract_version"`
 	Operation       string `json:"operation"`
-	// Email is the mailbox to provision, treated as an OPAQUE KEY: it is
-	// matched byte for byte and never normalised. Case folding, plus-address
-	// stripping and the rest belong to the commercial layer, which owns the
-	// mailbox and knows which two spellings it considers one customer. A fork
-	// that folded them would merge two accounts the sender believes are
-	// separate, and nothing downstream could tell that it had.
+	// Email is the mailbox to provision, treated as an OPAQUE KEY: nothing
+	// here transforms it. Case folding, plus-address stripping and the rest
+	// belong to the commercial layer, which owns the mailbox and knows which
+	// two spellings it considers one customer; a fork that folded them would
+	// merge two accounts the sender believes are separate, and nothing
+	// downstream could tell that it had.
+	//
+	// How two mailboxes are COMPARED is the database's collation and not this
+	// package's, so the property is "never transformed" rather than "matched
+	// byte for byte": MySQL and MariaDB compare case-insensitively by default,
+	// PostgreSQL and SQLite do not, and CI runs all of them. That difference
+	// only ever makes the fork resolve where it would otherwise create, which
+	// is the safe direction - it can never split one customer across two users.
 	Email string `json:"email"`
 }
 

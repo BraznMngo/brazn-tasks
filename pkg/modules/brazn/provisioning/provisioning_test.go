@@ -179,6 +179,9 @@ func TestVerifyReportsAnOperationThisBuildDoesNotDefine(t *testing.T) {
 
 	operation, _, err := Verify(envelopeOver(key, provisioningPrefix, payload))
 	require.NoError(t, err, "an unknown operation is a routing decision, not a bad envelope")
-	assert.NotEqual(t, OperationCreateUser, operation,
-		"the endpoint switches on this, and an unknown value must not fall into the create_user case")
+	// The value itself, not merely "not create_user": the endpoint switches on
+	// this, and an assertion that only ruled out one case would also pass on an
+	// empty string, which is what a decode that silently dropped the member
+	// would produce.
+	assert.Equal(t, "delete_everything", operation)
 }

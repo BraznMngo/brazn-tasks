@@ -18,6 +18,7 @@ package v1
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -122,6 +123,14 @@ func provisionUser(c *echo.Context, payload json.RawMessage) error {
 
 	u, created, err := models.CreateOrResolveUserForMailbox(c.Request().Context(), request.Email)
 	if err != nil {
+		// A refusal rather than a fault, so it answers like every other one and
+		// says why in the log instead of the reply. It is not retryable and the
+		// sender cannot fix it: two mailboxes resolve to one account here, and
+		// only a human looking at both records can say which is whose.
+		if errors.Is(err, models.ErrUserAlreadyProvisionedForAnotherMailbox) {
+			return refuseProvisioning(
+				"the mailbox resolves to a user another mailbox is already provisioned for")
+		}
 		return err
 	}
 

@@ -37,6 +37,24 @@ import (
 // correct response is to try again.
 var ErrMailboxProvisioningLost = errors.New("the mailbox was claimed by another provisioning call that did not finish")
 
+// ErrUserAlreadyProvisionedForAnotherMailbox means adopting the user this
+// mailbox resolves to would give one Brazn Tasks account to two mailboxes.
+//
+// IT IS AN AUTHORIZATION INVARIANT, not tidiness, and the path to it is
+// short. users.email is rewritten in place by openid.getOrCreateUser when a
+// provider reports a different address for a subject it already knows - that
+// write goes through user.UpdateUser and never reaches UpdateEmail, so it
+// skips the uniqueness check UpdateEmail makes. An account whose address has
+// moved that way onto a mailbox the commercial service later sells to somebody
+// else would be adopted a second time, and the two customers would hold one
+// user id. With the provider's email fallback enabled - which it must be for a
+// provisioned account to sign in at all - the second customer signs in to the
+// first customer's account.
+//
+// Refusing is the only safe answer: this call cannot tell which of the two the
+// account belongs to, and the one thing it must not do is guess.
+var ErrUserAlreadyProvisionedForAnotherMailbox = errors.New("the user this mailbox resolves to is already provisioned for another mailbox")
+
 // provisionedMailboxConstraint is the fragment every supported database puts in
 // its unique-violation message for brazn_provisioned_users.email: MySQL and
 // PostgreSQL name the index UQE_brazn_provisioned_users_email, SQLite names the
@@ -64,8 +82,10 @@ const provisionedMailboxConstraint = "brazn_provisioned_users"
 // second one.
 type ProvisionedUser struct {
 	ID int64 `xorm:"bigint autoincr not null unique pk" json:"id"`
-	// Email is the mailbox, stored exactly as the commercial service sent it.
-	// See provisioning.CreateUser on why it is never normalised here.
+	// Email is the mailbox, stored exactly as the commercial service sent it -
+	// see provisioning.CreateUser on why nothing here transforms it, and on
+	// why how it is COMPARED is the database's collation rather than a
+	// property this fork guarantees.
 	Email string `xorm:"varchar(250) not null unique" json:"-"`
 	// UserID is deliberately NOT unique. A row is inserted with 0 to take the
 	// mailbox and updated to the real id in the same transaction, so two
@@ -135,10 +155,11 @@ func CreateOrResolveUserForMailbox(ctx context.Context, email string) (*user.Use
 func provisionUserForClaim(s *xorm.Session, claim *ProvisionedUser) (*user.User, bool, error) {
 	// A user this instance already has for the mailbox is ADOPTED rather than
 	// duplicated. It is what "resolve" means - the mailbox is the identity
-	// (Identity-and-Access-Rules.md §1) - and it is the only safe default for
-	// the accounts already on the development instance, which Google sign-in
-	// created before any of this existed. Creating a second user for them
-	// instead would strand every task they have, silently and unrecoverably.
+	// (docs/Identity-and-Access-Rules.md §1, in the Percy repository) - and it
+	// is the only safe default for the accounts already on the development
+	// instance, which Google sign-in created before any of this existed.
+	// Creating a second user for them instead would strand every task they
+	// have, silently and unrecoverably.
 	//
 	// BRA-1021 owns the deliberate settlement of those accounts and may narrow
 	// this; what it must not leave in place is a default that duplicates.
@@ -147,6 +168,9 @@ func provisionUserForClaim(s *xorm.Session, claim *ProvisionedUser) (*user.User,
 		return nil, false, err
 	}
 	if existing != nil {
+		if err := refuseASecondMailboxForOneUser(s, claim, existing.ID); err != nil {
+			return nil, false, err
+		}
 		if err := bindClaim(s, claim, existing.ID); err != nil {
 			return nil, false, err
 		}
@@ -171,6 +195,30 @@ func provisionUserForClaim(s *xorm.Session, claim *ProvisionedUser) (*user.User,
 		return nil, false, err
 	}
 	return stored, true, nil
+}
+
+// refuseASecondMailboxForOneUser enforces the one invariant the schema cannot:
+// user_id is deliberately not unique - see ProvisionedUser on why a unique
+// index there would make concurrent claims for DIFFERENT mailboxes collide -
+// so nothing but this stops two mailboxes binding to one account.
+//
+// It is asked only on the adoption path, because that is the only path where a
+// user this call did not create can be bound. A freshly created user has no
+// other claim by construction.
+//
+// The row this call has already inserted is excluded by id rather than by
+// user_id: it holds 0 until bindClaim runs, and relying on that ordering would
+// make this check quietly depend on the order of two statements somewhere else.
+func refuseASecondMailboxForOneUser(s *xorm.Session, claim *ProvisionedUser, userID int64) error {
+	bound := &ProvisionedUser{}
+	has, err := s.Where("user_id = ? AND id != ?", userID, claim.ID).Get(bound)
+	if err != nil {
+		return err
+	}
+	if has {
+		return ErrUserAlreadyProvisionedForAnotherMailbox
+	}
+	return nil
 }
 
 // bindClaim points a won claim at the user it provisioned.

@@ -145,3 +145,101 @@ func TestDeleteUserErasesTheEntitlementProjection(t *testing.T) {
 		db.AssertMissing(t, "users", map[string]interface{}{"id": 4})
 	})
 }
+
+// clearClaims empties brazn_provisioned_users, for the reason clearProjections
+// gives: there is no fixture file, so nothing truncates it between cases.
+func clearClaims(t *testing.T) {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	_, err := s.Where("id > 0").Delete(&ProvisionedUser{})
+	require.NoError(t, err)
+	require.NoError(t, s.Commit())
+}
+
+// storeClaim writes a mailbox claim as a provisioning call would have left it.
+func storeClaim(t *testing.T, userID int64, email string) {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	_, err := s.Insert(&ProvisionedUser{UserID: userID, Email: email})
+	require.NoError(t, err)
+	require.NoError(t, s.Commit())
+}
+
+// countClaims counts the WHOLE table rather than one subject's row, for the
+// reason countProjections gives: a change that relocated the row instead of
+// deleting it would satisfy a query on the erased id and leave the address
+// sitting in the table.
+func countClaims(t *testing.T) int64 {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	count, err := s.Table("brazn_provisioned_users").Count()
+	require.NoError(t, err)
+	return count
+}
+
+// TestDeleteUserErasesTheMailboxClaim covers BRA-1018, and it has two reasons
+// rather than one.
+//
+// The row holds the erased person's EMAIL ADDRESS, which is more of them than
+// the entitlement projection above holds, and there is no foreign key and no
+// cascade to remove it structurally.
+//
+// It also has to go for the mailbox to be usable again. The claim is the unique
+// key CreateOrResolveUserForMailbox inserts against, so a surviving row sends
+// every later call for that mailbox down the conflict branch, where
+// resolveProvisionedMailbox reads a user_id that is neither zero nor a user
+// this instance has. Somebody who cancels and later resubscribes would never
+// get an account back.
+func TestDeleteUserErasesTheMailboxClaim(t *testing.T) {
+	t.Cleanup(notifications.Unfake)
+
+	t.Run("the erased user's claim goes, and only theirs", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		clearClaims(t)
+		notifications.Fake()
+
+		// Two claims, so the count afterwards separates a scoped delete from a
+		// blanket one: a DELETE carrying no user_id predicate would leave 0 and
+		// fail here as loudly as a surviving row would leave 2.
+		storeClaim(t, 6, "erased@example.com")
+		storeClaim(t, 7, "retained@example.com")
+		require.EqualValues(t, 2, countClaims(t), "both claims must be in place before the erasure")
+
+		s := db.NewSession()
+		defer s.Close()
+
+		require.NoError(t, DeleteUser(s, &user.User{ID: 6}))
+		require.NoError(t, s.Commit())
+
+		require.EqualValues(t, 1, countClaims(t),
+			"exactly one claim must remain: user 6's is erased, user 7's is untouched")
+		db.AssertExists(t, "brazn_provisioned_users",
+			map[string]interface{}{"user_id": 7}, false)
+		db.AssertMissing(t, "brazn_provisioned_users",
+			map[string]interface{}{"email": "erased@example.com"})
+	})
+
+	t.Run("erasing a user who was never provisioned succeeds", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		clearClaims(t)
+		notifications.Fake()
+
+		s := db.NewSession()
+		defer s.Close()
+
+		require.NoError(t, DeleteUser(s, &user.User{ID: 4}))
+		require.NoError(t, s.Commit())
+
+		require.EqualValues(t, 0, countClaims(t))
+		db.AssertMissing(t, "users", map[string]interface{}{"id": 4})
+	})
+}
