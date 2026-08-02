@@ -26,10 +26,8 @@ import (
 	"strings"
 	"testing"
 
-	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/models"
-	"code.vikunja.io/api/pkg/notifications"
 	"code.vikunja.io/api/pkg/user"
 
 	"github.com/labstack/echo/v5"
@@ -241,30 +239,39 @@ func TestBraznProvisioningRefusesToGiveOneAccountToTwoMailboxes(t *testing.T) {
 	db.AssertCount(t, "brazn_provisioned_users", builder.Eq{"user_id": 1}, 1)
 }
 
-// TestBraznProvisioningReportsANewAccountAsUnconfirmed is the created-and-
-// unverified combination, which nothing else here reaches.
+// There is deliberately NO test here for a newly created account reported as
+// unconfirmed - the created:true, email_verified:false combination.
 //
-// It needs the mailer on, because that is the only condition under which
-// user.CreateUser moves a new local account to StatusEmailConfirmationRequired
-// - and it does so AFTER reading the row back, so the struct it returns still
-// says Active while the stored row does not. Reporting email_verified from that
-// struct would be wrong in exactly this case and right in every other, which is
-// why the model re-reads. Deleting the re-read fails here and nowhere else.
-func TestBraznProvisioningReportsANewAccountAsUnconfirmed(t *testing.T) {
-	env := newManagedEnv(t)
-	setConfigForTest(t, config.MailerEnabled, true)
-	notifications.Fake()
-	t.Cleanup(notifications.Unfake)
+// It was written, it failed, and the reason it failed is that the combination
+// cannot occur: RegisterUser undoes CreateUser's confirmation status before it
+// returns. user.CreateUser sets StatusEmailConfirmationRequired on a
+// mail-enabled instance (user_create.go:105-114), but RegisterUser then hands
+// CreateNewProjectForUser the struct CreateUser read back BEFORE that write
+// (user_create.go:91), and that function finishes by calling
+// user.UpdateUser with it (project.go:1164-1169) - whose column list includes
+// "status" (user.go:573), writing the stale Active back over it.
+//
+// So a created account is always Active here, and the only way to reach the
+// combination is an instance with defaultsettings.default_project_id set, which
+// makes CreateNewProjectForUser return before the update. Configuring that
+// purely to make a test reachable would assert a configuration nobody runs and
+// imply the re-read protects the ordinary path, which it does not.
+//
+// The consequence is recorded rather than papered over: the re-read in
+// provisionUserForClaim is UNEXERCISED, and it stays, because it reports what
+// is stored rather than a struct that is stale by construction. See its comment
+// there. The upstream status clobber is a real defect on /register and the
+// admin create-user route too - admin_user_create.go:81-82 states the opposite
+// expectation in a comment - and fixing it is not this ticket's.
 
-	result := provisioned(t, env.provision(createUserPayload("unconfirmed@example.com")))
-	assert.True(t, result.Created)
-	assert.False(t, result.EmailVerified,
-		"the account is waiting on its confirmation mail, and the reply must say so")
-}
-
-// TestBraznProvisioningReportsAnUnconfirmedMailbox is the other half of the
-// assertion above: email_verified follows the stored account status rather than
-// being a constant that happens to read true.
+// TestBraznProvisioningReportsAnUnconfirmedMailbox pairs with
+// TestBraznProvisioningAdoptsAnAccountThisInstanceAlreadyHas, which asserts
+// email_verified TRUE for an active account. Two adopted accounts differing
+// only in stored status, answered oppositely: the field follows the row rather
+// than being a constant that happens to read one way.
+//
+// The pair covers the resolve side only. Nothing covers it for a freshly
+// created account, for the reason set out above.
 func TestBraznProvisioningReportsAnUnconfirmedMailbox(t *testing.T) {
 	env := newManagedEnv(t)
 

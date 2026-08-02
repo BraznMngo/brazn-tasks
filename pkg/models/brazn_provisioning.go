@@ -185,11 +185,31 @@ func provisionUserForClaim(s *xorm.Session, claim *ProvisionedUser) (*user.User,
 		return nil, false, err
 	}
 
-	// Re-read rather than return what RegisterUser handed back: CreateUser
-	// reads the new row BEFORE it may move the account to
-	// StatusEmailConfirmationRequired and send the confirmation mail, so the
-	// struct it returns can say Active when the stored row does not. The status
-	// is what the reply's email_verified is derived from.
+	// Re-read rather than return what RegisterUser handed back. That struct is
+	// stale by construction: CreateUser reads the new row at user_create.go:91
+	// and then writes to it twice more - the confirmation status, and
+	// default_project_id via CreateNewProjectForUser - so what it returns is the
+	// row as it was mid-flight. The reply's email_verified comes off the status,
+	// and it must be what is STORED.
+	//
+	// THIS LINE IS UNEXERCISED, and saying so is better than implying otherwise.
+	// The divergence it was written for cannot currently be observed, because
+	// RegisterUser erases it: CreateUser sets StatusEmailConfirmationRequired on
+	// a mail-enabled instance (user_create.go:105-114), and
+	// CreateNewProjectForUser then passes the pre-write struct to
+	// user.UpdateUser (project.go:1164-1169), whose column list includes
+	// "status" (user.go:573) and writes the stale Active back over it. Every
+	// account created here is therefore Active whatever the mailer is doing, so
+	// no test in this repository can produce created:true with
+	// email_verified:false - the one exception being an instance with
+	// defaultsettings.default_project_id set, which nobody runs and which a test
+	// has no business configuring just to reach this.
+	//
+	// It stays anyway. Reporting a struct known to be stale would be wrong on
+	// purpose, and the day the clobber is fixed - it is a real defect on
+	// /register and the admin create-user route, where admin_user_create.go:81-82
+	// documents the expectation it breaks - this is what stops the reply
+	// silently lying about it.
 	stored, err := userByID(s, created.ID)
 	if err != nil {
 		return nil, false, err
