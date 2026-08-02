@@ -638,10 +638,26 @@ router.beforeEach(async (to, from) => {
 		// that was never registered gives, rather than a refusal that confirms
 		// the area exists.
 		const organizationStore = useOrganizationStore()
+
+		// Asked on EVERY navigation inside the area, not only the first. A role
+		// that is taken away between two page changes is the case this exists
+		// for, and a guard that only ever asked once would leave somebody
+		// looking at controls the server has already stopped honouring.
+		const wasAdministrator = organizationStore.isAdministrator
+		await organizationStore.load()
+
 		if (!organizationStore.isAdministrator) {
-			await organizationStore.load()
-		}
-		if (!organizationStore.isAdministrator) {
+			// Two different people arrive here and they must not get the same
+			// answer. Somebody who never had the area gets what a route that
+			// was never registered gives - AC1's bar is discovery, and a
+			// refusal that named the area would confirm it exists. Somebody
+			// whose role changed under them gets told their view is out of
+			// date, because the alternative is a 404 for a page they were
+			// legitimately reading a moment ago.
+			if (wasAdministrator) {
+				organizationStore.markStale()
+				return
+			}
 			return {name: 'not-found'}
 		}
 	}
