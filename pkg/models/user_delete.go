@@ -169,6 +169,21 @@ func DeleteUser(s *xorm.Session, u *user.User) (err error) {
 		{"user_id", &Reaction{}},
 		{"user_id", &Favorite{}},
 		{"owner_id", &APIToken{}},
+		// Brazn fork (BRA-933). brazn_entitlement_projections has no foreign key
+		// on user_id and no cascade, so without this entry the erased subject's
+		// row outlives them, still holding their organization, edition, seat
+		// status and issued-at. BraznApplyEntitlementProjection already refuses
+		// to write a NEW row for a subject this instance no longer has; this is
+		// the other half, removing one that was already there.
+		//
+		// It is an access statement, not a commercial record: no amount, no
+		// invoice, no tax figure. The records retention law keeps live in the
+		// commercial service, are authoritative there, and are untouched by this
+		// path - so erasing the local projection destroys no original.
+		//
+		// Upstream file: re-apply on merge (patch-surface area 4, entitlement
+		// synchronization).
+		{"user_id", &EntitlementProjection{}},
 	}
 
 	for _, entity := range relatedEntities {
