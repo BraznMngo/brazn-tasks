@@ -97,6 +97,23 @@
 				<DropdownItem :to="{ name: 'user.settings' }">
 					{{ $t('user.settings.title') }}
 				</DropdownItem>
+				<!--
+					The Organization entry is rendered if and only if the server
+					returned an organization for this account (BRA-917 AC1). An
+					ordinary member gets no entry, no route and no mention -
+					not greyed out and not refused on click, absent.
+
+					`isAdministrator` is true only after
+					GET /brazn/organization succeeded, and that route refuses
+					anybody who is not the single administrator, so this
+					condition cannot be satisfied locally.
+				-->
+				<DropdownItem
+					v-if="organizationStore.isAdministrator"
+					:to="{ name: 'organization' }"
+				>
+					{{ $t('organization.title') }}
+				</DropdownItem>
 				<DropdownItem
 					v-if="adminPanelEnabled && authStore.info?.isAdmin"
 					:to="{ name: 'admin.overview' }"
@@ -153,6 +170,7 @@ import { isEditorContentEmpty } from '@/helpers/editorContentEmpty'
 import { useBaseStore } from '@/stores/base'
 import { useConfigStore } from '@/stores/config'
 import { useAuthStore } from '@/stores/auth'
+import { useOrganizationStore } from '@/stores/organization'
 import type { IProject } from '@/modelTypes/IProject'
 
 const baseStore = useBaseStore()
@@ -179,6 +197,15 @@ const configStore = useConfigStore()
 const imprintUrl = computed(() => configStore.legal.imprintUrl)
 const privacyPolicyUrl = computed(() => configStore.legal.privacyPolicyUrl)
 const adminPanelEnabled = computed(() => configStore.isProFeatureEnabled(PRO_FEATURE.ADMIN_PANEL))
+
+// Asked once, when a signed-in header first renders. A member's request is
+// refused and the store stays empty, which is exactly the state that renders no
+// entry - so the cost of asking is one refused request per session for everyone
+// who is not an administrator, and nothing is guessed for anyone.
+const organizationStore = useOrganizationStore()
+if (organizationStore.state === 'idle') {
+	organizationStore.load()
+}
 </script>
 
 <style lang="scss" scoped>

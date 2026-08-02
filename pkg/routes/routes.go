@@ -601,6 +601,21 @@ func registerAPIRoutes(a *echo.Group) {
 	// OAuth 2.0 authorize endpoint — requires authentication.
 	a.POST("/oauth/authorize", oauth2server.HandleAuthorize)
 
+	// The Organization area (BRA-917). Registered on `a`, so the two mutating
+	// routes are decided by RequireManagedPolicy before their handler runs -
+	// they are classified organization-admin in route-classification.json.
+	//
+	// The GET is NOT classified and cannot be: the classification harness
+	// derives its inventory from the mutating surface and treats a read-only
+	// method as out of scope, so an entry for it would be reported as stale.
+	// Its refusal therefore lives in the handler, which calls the same
+	// models.OrganizationFor the rule does. That is the one place on this
+	// surface where the check is not middleware, and it is why it is a shared
+	// function rather than a rule body.
+	a.GET("/brazn/organization", apiv1.BraznGetOrganization)
+	a.PUT("/brazn/organization/teams", apiv1.BraznCreateOrganizationTeam)
+	a.DELETE("/brazn/organization/teams/:team", apiv1.BraznDeleteOrganizationTeam)
+
 	// Avatar endpoint
 	a.GET("/avatar/:username", apiv1.GetAvatar)
 

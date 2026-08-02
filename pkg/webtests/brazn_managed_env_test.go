@@ -101,10 +101,45 @@ func (env *managedEnv) grantUntil(
 ) {
 	env.t.Helper()
 
+	env.grantProjection(userID, edition, organizationAdmin, validTo, nil, managedTestOrganization)
+}
+
+// grantSeats writes an administrator's projection carrying an organization's
+// purchased seat count. `seatsPurchased` is a pointer so a test can hand over
+// the case the contract cares about most - a projection minted before the
+// member existed, which carries no count at all and must refuse rather than
+// wave a team creation through.
+func (env *managedEnv) grantSeats(userID int64, organizationAdmin bool, seatsPurchased *int) {
+	env.t.Helper()
+
+	env.grantProjection(userID, entitlement.EditionTeams, organizationAdmin, nil, seatsPurchased,
+		managedTestOrganization)
+}
+
+// grantIn is grantSeats for a NAMED organization, which is what makes a
+// cross-organization attempt expressible: without a second organization on the
+// instance, a test that claims one customer cannot reach another's team is
+// asserting against a situation it never built.
+func (env *managedEnv) grantIn(userID int64, organization string, seatsPurchased *int) {
+	env.t.Helper()
+
+	env.grantProjection(userID, entitlement.EditionTeams, true, nil, seatsPurchased, organization)
+}
+
+func (env *managedEnv) grantProjection(
+	userID int64,
+	edition string,
+	organizationAdmin bool,
+	validTo *time.Time,
+	seatsPurchased *int,
+	organization string,
+) {
+	env.t.Helper()
+
 	signed, err := json.Marshal(entitlement.Signed{
 		ContractVersion: entitlement.ContractVersion,
 		Subject: entitlement.Subject{
-			OrganizationID: managedTestOrganization,
+			OrganizationID: organization,
 			UserID:         strconv.FormatInt(userID, 10),
 		},
 		Revision: 1,
@@ -114,6 +149,7 @@ func (env *managedEnv) grantUntil(
 			SeatStatus:        "active",
 			OrganizationAdmin: organizationAdmin,
 			EffectiveState:    "active",
+			SeatsPurchased:    seatsPurchased,
 			// Comfortably in the past, so no test below is accidentally about
 			// a window that has not opened yet.
 			ValidFrom: time.Now().UTC().Add(-24 * time.Hour),
@@ -142,10 +178,16 @@ func (env *managedEnv) grantUntil(
 	})
 	require.NoError(env.t, err)
 
-	env.storeProjection(userID, 1, string(envelope))
+	env.storeProjectionIn(userID, 1, string(envelope), organization)
 }
 
 func (env *managedEnv) storeProjection(userID, revision int64, envelope string) {
+	env.t.Helper()
+
+	env.storeProjectionIn(userID, revision, envelope, managedTestOrganization)
+}
+
+func (env *managedEnv) storeProjectionIn(userID, revision int64, envelope, organization string) {
 	env.t.Helper()
 
 	s := db.NewSession()
@@ -155,7 +197,7 @@ func (env *managedEnv) storeProjection(userID, revision int64, envelope string) 
 	// it so a fixture row looks like a delivered one.
 	_, err := s.Insert(&models.EntitlementProjection{
 		UserID:           userID,
-		OrganizationID:   managedTestOrganization,
+		OrganizationID:   organization,
 		Revision:         revision,
 		RevisionReceived: time.Now(),
 		Envelope:         envelope,
@@ -186,6 +228,50 @@ func (env *managedEnv) protect(kind models.ProtectedKind, projectID, teamID int6
 
 	require.NoError(env.t, models.RegisterProtectedProject(s, kind, projectID, teamID))
 	require.NoError(env.t, s.Commit())
+}
+
+// protectFor is protect with the organization the entity belongs to, which is
+// what an organization's Team roots have to carry to be countable against its
+// seat allowance.
+func (env *managedEnv) protectFor(
+	kind models.ProtectedKind,
+	projectID, teamID int64,
+	organization string,
+) {
+	env.t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	require.NoError(env.t, models.RegisterProtectedProjectForOrganization(
+		s, kind, projectID, teamID, organization))
+	require.NoError(env.t, s.Commit())
+}
+
+// reparent moves a project under a new parent through the model, which is how a
+// project legitimately leaves a Team root before that team is removed.
+func (env *managedEnv) reparent(projectID, parent int64, owner *user.User) {
+	env.t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	project, err := models.GetProjectSimpleByID(s, projectID)
+	require.NoError(env.t, err)
+	project.ParentProjectID = models.Ptr(parent)
+	require.NoError(env.t, project.Update(s, owner))
+	require.NoError(env.t, s.Commit())
+}
+
+// projectExists answers the only question the removal test is really about.
+func (env *managedEnv) projectExists(projectID int64) bool {
+	env.t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	_, err := models.GetProjectSimpleByID(s, projectID)
+	return err == nil
 }
 
 // newProject creates a project the way the product does, so tests measure

@@ -243,6 +243,7 @@ const (
 	BraznEntitlementKeys  Key = `brazn.entitlementkeys`
 	BraznEntitlementGrace Key = `brazn.entitlementgrace`
 	BraznFeedbackOwner    Key = `brazn.feedbackowner`
+	BraznAccountURL       Key = `brazn.accounturl`
 
 	// LicenseKey gates optional paid features and funds Vikunja's development.
 	// See the package comment in pkg/license/license.go before removing.
@@ -525,6 +526,16 @@ func InitDefaultConfig() {
 	// Percy Feedback project, which is the same shape a self-hosted instance
 	// has. See models.ProvisionFeedbackAccess.
 	BraznFeedbackOwner.setDefault("")
+	// Where the Organization area sends an administrator for everything this
+	// product is deliberately not authoritative for: payment, invoices, plan,
+	// seats, invitations, and the administrator role itself.
+	//
+	// Configuration rather than a constant, and empty by default. Empty renders
+	// no link at all, which is correct for a self-hosted instance that has no
+	// commercial service behind it - and it means changing where a customer is
+	// sent never needs a release, which is the standing rule for anything
+	// customer-facing that is not code.
+	BraznAccountURL.setDefault("")
 
 	// Migrate deprecated webhook config keys to outgoingrequests.*
 	// This allows removing the old keys in a single place later.

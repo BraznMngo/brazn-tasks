@@ -71,12 +71,18 @@ var (
 // ProtectedEntity binds one immutable entity id to its role in the managed
 // topology. A project row sets ProjectID; a team root additionally records the
 // team it belongs to, which is what makes "one root per team" checkable.
+//
+// OrganizationID is what makes "how many teams does THIS organization have"
+// answerable (BRA-917). Teams are global in Vikunja, so without it the seat
+// rule's right-hand side has no query. An empty value belongs to no
+// organization the contract can express and is therefore counted for none.
 type ProtectedEntity struct {
-	ID        int64         `xorm:"bigint autoincr not null unique pk" json:"id"`
-	Kind      ProtectedKind `xorm:"varchar(20) not null INDEX" json:"kind"`
-	ProjectID int64         `xorm:"bigint not null default 0 INDEX" json:"project_id"`
-	TeamID    int64         `xorm:"bigint not null default 0 INDEX" json:"team_id"`
-	Created   time.Time     `xorm:"created not null" json:"created"`
+	ID             int64         `xorm:"bigint autoincr not null unique pk" json:"id"`
+	Kind           ProtectedKind `xorm:"varchar(20) not null INDEX" json:"kind"`
+	ProjectID      int64         `xorm:"bigint not null default 0 INDEX" json:"project_id"`
+	TeamID         int64         `xorm:"bigint not null default 0 INDEX" json:"team_id"`
+	OrganizationID string        `xorm:"varchar(64) not null default '' INDEX" json:"organization_id"`
+	Created        time.Time     `xorm:"created not null" json:"created"`
 }
 
 // TableName holds the table name
@@ -448,12 +454,32 @@ func ProtectedRootOf(s *xorm.Session, projectID int64) (*ProtectedEntity, error)
 // RegisterProtectedProject records a project's role in the managed topology.
 // It is idempotent: a project that already has a role keeps it, so re-running
 // provisioning cannot silently reclassify an existing structure.
+//
+// An Inbox and Percy Feedback belong to a person and to the instance
+// respectively, not to an organization, so both register without one.
 func RegisterProtectedProject(s *xorm.Session, kind ProtectedKind, projectID, teamID int64) error {
+	return RegisterProtectedProjectForOrganization(s, kind, projectID, teamID, "")
+}
+
+// RegisterProtectedProjectForOrganization is the same, attributing the entity
+// to an organization so its Team roots can be counted against the seat rule
+// (BRA-917). Idempotent in the same way and for the same reason.
+func RegisterProtectedProjectForOrganization(
+	s *xorm.Session,
+	kind ProtectedKind,
+	projectID, teamID int64,
+	organizationID string,
+) error {
 	existing, err := GetProtectedEntityForProject(s, projectID)
 	if err != nil || existing != nil {
 		return err
 	}
 
-	_, err = s.Insert(&ProtectedEntity{Kind: kind, ProjectID: projectID, TeamID: teamID})
+	_, err = s.Insert(&ProtectedEntity{
+		Kind:           kind,
+		ProjectID:      projectID,
+		TeamID:         teamID,
+		OrganizationID: organizationID,
+	})
 	return err
 }

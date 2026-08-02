@@ -26,6 +26,12 @@ export interface ConfigState {
 		privacyPolicyUrl: string,
 	},
 	caldavEnabled: boolean,
+	/**
+	 * Where the Organization area links out for billing and membership.
+	 * Empty on an instance with no commercial service behind it, and an empty
+	 * value renders no link rather than a dead one.
+	 */
+	braznAccountUrl: string,
 	userDeletionEnabled: boolean,
 	taskCommentsEnabled: boolean,
 	demoModeEnabled: boolean,
@@ -68,6 +74,7 @@ export const useConfigStore = defineStore('config', () => {
 			privacyPolicyUrl: '',
 		},
 		caldavEnabled: false,
+		braznAccountUrl: '',
 		userDeletionEnabled: true,
 		taskCommentsEnabled: true,
 		demoModeEnabled: false,
