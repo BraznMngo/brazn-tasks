@@ -287,7 +287,7 @@ func (e *managedEval) requireManagedRoot(projectID int64) error {
 }
 
 // requireEntitledTarget refuses when the account being given access is not an
-// active Teams account IN THE CALLER'S OWN ORGANIZATION.
+// active Teams account.
 //
 // This is the receiving half of "a personal account can neither send nor
 // receive project or team shares": a personal account cannot be invited, and
@@ -295,41 +295,15 @@ func (e *managedEval) requireManagedRoot(projectID int64) error {
 // - project share, team membership, admin promotion, either API version -
 // closes at the same point.
 //
-// THE ORGANIZATION COMPARISON IS THE OTHER HALF, and on a shared instance it is
-// not optional. The edition test asks whether the target is "an active member
-// of a Teams organization", which is true of every paying customer on the box -
-// so an administrator at one customer could name a user at another and hand
-// them a project. The target passed every check; it was simply a different
-// organization. Both sides are read from the signed projection's subject, so
-// there is no second source of the answer to keep in step.
+// THE ORGANIZATION IS DELIBERATELY NOT CHECKED. "An active member of a Teams
+// organization" means any Teams organization, not the caller's own: two Teams
+// accounts at different customers may share with each other, and that is the
+// product rather than an oversight. A comparison of the two subjects'
+// OrganizationID was added here once and reverted, because it reads like a
+// tenancy fix while removing the collaboration the Teams edition exists for.
 //
-// BOTH ORGANIZATIONS ARE READ HERE, from the projection, and the caller's side
-// has nowhere else to come from. The gate no longer carries a projection at
-// all: decideByEdition reads the EDITION off the session token, and a token
-// carries no organization. So there is no cached value to reuse and no shortcut
-// to take - DO NOT INVENT ONE. Putting an organization into the token would put
-// one side of this comparison somewhere nobody signed it, which is the whole
-// property the signed subject exists to provide.
-//
-// This is a second read on this path, alongside the target's just above, and it
-// is the same trade for the same reason: these routes hand out access, they are
-// administrative and rare, and a stale answer would decide who may reach
-// another customer's work. Two indexed rows and two signature verifications,
-// from the same call on the same session, so the two sides cannot drift.
-//
-// A TEAM SHARE STILL DOES NOT CLOSE HERE, and the invariant that said it did
-// not need to has been removed rather than reworded. It read "a team can only
-// contain accounts that passed this one when they were added to it", which was
-// sound while the only question was the edition: every member being an active
-// Teams account meant sharing with a team granted nothing this guard would have
-// refused. Against the organization rule it fails in two separate ways. Every
-// member of another organization's team passed this guard in THEIR organization,
-// and TeamProject.canDoTeamProject asks only for admin rights on the project,
-// never for any relationship to the team - so a project can still be shared
-// with a team belonging to someone else. Teams populated before this change can
-// hold accounts that never faced an organization comparison at all. Closing it
-// requires an organization for a TEAM, and nothing in this instance stores one:
-// the only organization identity anywhere is per-user, on the projection.
+// A team share needs no equivalent check: a team can only contain accounts
+// that passed this one when they were added to it.
 func (e *managedEval) requireEntitledTarget() error {
 	if !e.targetsAnAccount() {
 		return nil
@@ -369,27 +343,6 @@ func (e *managedEval) requireEntitledTarget() error {
 	}
 	if !projection.Active() || projection.State.Edition != entitlement.EditionTeams {
 		return e.refuse("the named account is not an active member of a Teams organization")
-	}
-
-	// FAILING CLOSED HERE IS REACHABLE, and deliberately so. The caller reached
-	// this rule on the strength of a session token, which outlives the row it
-	// was minted from, so a valid token and an unreadable projection is a real
-	// combination rather than a theoretical one.
-	//
-	// Refusing is right because the question cannot be answered any other way:
-	// with no projection there is no organization, and "is the target in the
-	// caller's organization" has no answer to fail safe towards. The blast
-	// radius is bounded to the routes that hand out access - ordinary work never
-	// reaches here - so this cannot become an outage that stops people working,
-	// only one that stops them widening who has access while the state is
-	// unreadable. There is no instance-administrator bypass to preserve either;
-	// managed mode has never had one.
-	acting, err := models.GetEntitlement(e.s, e.user.ID)
-	if err != nil {
-		return e.refuse("the acting account has no valid entitlement projection")
-	}
-	if acting.Subject.OrganizationID != projection.Subject.OrganizationID {
-		return e.refuse("the named account belongs to a different organization")
 	}
 	return nil
 }
