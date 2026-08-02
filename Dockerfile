@@ -12,6 +12,19 @@ RUN npm install -g corepack && corepack enable && \
     pnpm install --frozen-lockfile
 COPY frontend/ ./
 ARG RELEASE_VERSION=dev
+# The public path the app is served under. frontend/vite.config.ts already
+# reads this — `base: env.VIKUNJA_FRONTEND_BASE` — and loadEnv() with an empty
+# prefix takes it from the environment, so declaring it here is all that was
+# missing for a build to be able to set it. It has to be a BUILD input: `base`
+# is baked into every emitted asset URL and, through import.meta.env.BASE_URL,
+# into the Vue router's base, so a reverse proxy that strips a path prefix
+# inbound cannot fix the links the client generates outbound.
+#
+# Default `/` is exactly Vite's own default, so a build that passes nothing is
+# byte-for-byte what it was before this line existed. Percy's deploy workflow
+# passes `/brazntasks/` (BraznMngo/Percy, BRA-1009).
+ARG VIKUNJA_FRONTEND_BASE=/
+ENV VIKUNJA_FRONTEND_BASE=$VIKUNJA_FRONTEND_BASE
 RUN echo "{\"VERSION\": \"${RELEASE_VERSION/-g/-}\"}" > src/version.json && pnpm run build
 
 FROM --platform=$BUILDPLATFORM ghcr.io/techknowlogick/xgo:go-1.26.x@sha256:b00957d8fec512c4748a5fafe17197be1d8c0bf704b271fc4aa128f5ddf40414 AS apibuilder
