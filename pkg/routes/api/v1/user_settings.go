@@ -173,8 +173,8 @@ func UpdateGeneralUserSettings(c *echo.Context) error {
 }
 
 // GetAvailableTimezones
-// @Summary Get all available time zones on this vikunja instance
-// @Description Because available time zones depend on the system Vikunja is running on, this endpoint returns a project of all valid time zones this particular Vikunja instance can handle. The project of time zones is not sorted, you should sort it on the client.
+// @Summary Get all available time zones on this Brazn Tasks instance
+// @Description Because available time zones depend on the system Brazn Tasks is running on, this endpoint returns a project of all valid time zones this particular Brazn Tasks instance can handle. The project of time zones is not sorted, you should sort it on the client.
 // @tags user
 // @Accept json
 // @Produce json

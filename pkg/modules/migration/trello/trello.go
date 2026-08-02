@@ -89,7 +89,7 @@ func (m *Migration) Name() string {
 
 // AuthURL returns the url users need to authenticate against
 // @Summary Get the auth url from trello
-// @Description Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from trello to Vikunja.
+// @Description Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from trello to Brazn Tasks.
 // @tags migration
 // @Produce json
 // @Security JWTKeyAuth
@@ -460,9 +460,9 @@ func convertTrelloDataToVikunja(organizationName string, trelloData []*trello.Bo
 	return
 }
 
-// Migrate gets all tasks from trello for a user and puts them into vikunja
+// Migrate gets all tasks from trello for a user and puts them into Brazn Tasks
 // @Summary Migrate all projects, tasks etc. from trello
-// @Description Migrates all projects, tasks, notes, reminders, subtasks and files from trello to vikunja.
+// @Description Migrates all projects, tasks, notes, reminders, subtasks and files from trello to Brazn Tasks.
 // @tags migration
 // @Accept json
 // @Produce json

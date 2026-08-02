@@ -76,7 +76,7 @@ func HandleTesting(c *echo.Context) error {
 
 // HandleTestingTruncateAll truncates all tables in the database
 // @Summary Truncate all tables
-// @Description Removes all data from every Vikunja table. Used by e2e tests to ensure clean state before each test. Requires the testing token.
+// @Description Removes all data from every Brazn Tasks table. Used by e2e tests to ensure clean state before each test. Requires the testing token.
 // @tags testing
 // @Produce json
 // @Success 200 {object} map[string]string "All tables truncated."

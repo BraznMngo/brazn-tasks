@@ -364,9 +364,9 @@ func (m *Migrator) Name() string {
 	return "wekan"
 }
 
-// Migrate takes a WeKan board JSON export and imports it into Vikunja.
+// Migrate takes a WeKan board JSON export and imports it into Brazn Tasks.
 // @Summary Import all projects, tasks etc. from a WeKan board export
-// @Description Imports all projects, tasks, labels, checklists, comments, and attachments from a WeKan board JSON export into Vikunja.
+// @Description Imports all projects, tasks, labels, checklists, comments, and attachments from a WeKan board JSON export into Brazn Tasks.
 // @tags migration
 // @Accept x-www-form-urlencoded
 // @Produce json

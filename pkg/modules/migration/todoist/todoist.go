@@ -216,7 +216,7 @@ func (m *Migration) Name() string {
 
 // AuthURL returns the url users need to authenticate against
 // @Summary Get the auth url from todoist
-// @Description Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from todoist to Vikunja.
+// @Description Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from todoist to Brazn Tasks.
 // @tags migration
 // @Produce json
 // @Security JWTKeyAuth
@@ -581,9 +581,9 @@ func getAccessTokenFromAuthToken(authToken string) (accessToken string, err erro
 	return token.AccessToken, err
 }
 
-// Migrate gets all tasks from todoist for a user and puts them into vikunja
+// Migrate gets all tasks from todoist for a user and puts them into Brazn Tasks
 // @Summary Migrate all lists, tasks etc. from todoist
-// @Description Migrates all projects, tasks, notes, reminders, subtasks and files from todoist to vikunja.
+// @Description Migrates all projects, tasks, notes, reminders, subtasks and files from todoist to Brazn Tasks.
 // @tags migration
 // @Accept json
 // @Produce json

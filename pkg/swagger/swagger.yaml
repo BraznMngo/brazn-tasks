@@ -335,7 +335,7 @@ definitions:
         type: boolean
       language:
         description: The language of the new user. Must be a valid IETF BCP 47 language
-          code and exist in Vikunja.
+          code and exist in Brazn Tasks.
         type: string
       name:
         description: The full name of the new user. Optional.
@@ -344,7 +344,7 @@ definitions:
         description: The user's password in clear text. Only used when registering
           the user. The maximum limi is 72 bytes, which may be less than 72 characters.
           This is due to the limit in the bcrypt hashing algorithm used to store passwords
-          in Vikunja.
+          in Brazn Tasks.
         maxLength: 72
         minLength: 8
         type: string
@@ -1764,13 +1764,13 @@ definitions:
         type: string
       language:
         description: The language of the new user. Must be a valid IETF BCP 47 language
-          code and exist in Vikunja.
+          code and exist in Brazn Tasks.
         type: string
       password:
         description: The user's password in clear text. Only used when registering
           the user. The maximum limi is 72 bytes, which may be less than 72 characters.
           This is due to the limit in the bcrypt hashing algorithm used to store passwords
-          in Vikunja.
+          in Brazn Tasks.
         maxLength: 72
         minLength: 8
         type: string
@@ -2544,7 +2544,7 @@ paths:
   /info:
     get:
       description: Returns the version, frontendurl, motd and various settings of
-        Vikunja
+        Brazn Tasks
       produces:
       - application/json
       responses:
@@ -2810,7 +2810,7 @@ paths:
     put:
       consumes:
       - multipart/form-data
-      description: Imports tasks from a CSV file into Vikunja with the provided configuration.
+      description: Imports tasks from a CSV file into Brazn Tasks with the provided configuration.
       parameters:
       - description: The CSV file to import
         in: formData
@@ -2901,7 +2901,7 @@ paths:
   /migration/microsoft-todo/auth:
     get:
       description: Returns the auth url where the user needs to get its auth code.
-        This code can then be used to migrate everything from Microsoft Todo to Vikunja.
+        This code can then be used to migrate everything from Microsoft Todo to Brazn Tasks.
       produces:
       - application/json
       responses:
@@ -2923,7 +2923,7 @@ paths:
       consumes:
       - application/json
       description: Migrates all tasklinsts, tasks, notes and reminders from Microsoft
-        Todo to Vikunja.
+        Todo to Brazn Tasks.
       parameters:
       - description: The auth token previously obtained from the auth url. See the
           docs for /migration/microsoft-todo/auth.
@@ -2974,7 +2974,7 @@ paths:
       consumes:
       - application/x-www-form-urlencoded
       description: Imports all projects, tasks, notes, reminders, subtasks and files
-        from a TickTick backup export into Vikunja.
+        from a TickTick backup export into Brazn Tasks.
       parameters:
       - description: The TickTick backup csv file.
         in: formData
@@ -3021,7 +3021,7 @@ paths:
   /migration/todoist/auth:
     get:
       description: Returns the auth url where the user needs to get its auth code.
-        This code can then be used to migrate everything from todoist to Vikunja.
+        This code can then be used to migrate everything from todoist to Brazn Tasks.
       produces:
       - application/json
       responses:
@@ -3043,7 +3043,7 @@ paths:
       consumes:
       - application/json
       description: Migrates all projects, tasks, notes, reminders, subtasks and files
-        from todoist to vikunja.
+        from todoist to Brazn Tasks.
       parameters:
       - description: The auth code previously obtained from the auth url. See the
           docs for /migration/todoist/auth.
@@ -3092,7 +3092,7 @@ paths:
   /migration/trello/auth:
     get:
       description: Returns the auth url where the user needs to get its auth code.
-        This code can then be used to migrate everything from trello to Vikunja.
+        This code can then be used to migrate everything from trello to Brazn Tasks.
       produces:
       - application/json
       responses:
@@ -3114,7 +3114,7 @@ paths:
       consumes:
       - application/json
       description: Migrates all projects, tasks, notes, reminders, subtasks and files
-        from trello to vikunja.
+        from trello to Brazn Tasks.
       parameters:
       - description: The auth token previously obtained from the auth url. See the
           docs for /migration/trello/auth.
@@ -3165,7 +3165,7 @@ paths:
       consumes:
       - application/x-www-form-urlencoded
       description: Imports all projects, tasks, notes, reminders, subtasks and files
-        from a Vikunjda data export into Vikunja.
+        from a Vikunja data export into Brazn Tasks.
       parameters:
       - description: The Vikunja export zip file.
         in: formData
@@ -3214,7 +3214,7 @@ paths:
       consumes:
       - application/x-www-form-urlencoded
       description: Imports all projects, tasks, labels, checklists, comments, and
-        attachments from a WeKan board JSON export into Vikunja.
+        attachments from a WeKan board JSON export into Brazn Tasks.
       parameters:
       - description: The WeKan board JSON export file.
         in: formData
@@ -3373,7 +3373,7 @@ paths:
         in: query
         name: is_archived
         type: boolean
-      - description: If set to `permissions`, Vikunja will return the max permission
+      - description: If set to `permissions`, Brazn Tasks will return the max permission
           the current user has on this project. You can currently only set this to
           `permissions`.
         in: query
@@ -4102,7 +4102,7 @@ paths:
         in: query
         name: filter_include_nulls
         type: string
-      - description: If set to `subtasks`, Vikunja will fetch only tasks which do
+      - description: If set to `subtasks`, Brazn Tasks will fetch only tasks which do
           not have subtasks and then in a second step, will fetch all of these subtasks.
           This may result in more tasks than the pagination limit being returned,
           but all subtasks will be present in the response. If set to `buckets`, the
@@ -4469,7 +4469,7 @@ paths:
         name: index
         required: true
         type: integer
-      - description: If set to `subtasks`, Vikunja will fetch only tasks which do
+      - description: If set to `subtasks`, Brazn Tasks will fetch only tasks which do
           not have subtasks and then in a second step, will fetch all of these subtasks.
           This may result in more tasks than the pagination limit being returned,
           but all subtasks will be present in the response. You can only set this
@@ -5252,7 +5252,7 @@ paths:
         in: query
         name: filter_include_nulls
         type: string
-      - description: If set to `subtasks`, Vikunja will fetch only tasks which do
+      - description: If set to `subtasks`, Brazn Tasks will fetch only tasks which do
           not have subtasks and then in a second step, will fetch all of these subtasks.
           This may result in more tasks than the pagination limit being returned,
           but all subtasks will be present in the response. If set to `buckets`, the
@@ -5324,7 +5324,7 @@ paths:
         name: id
         required: true
         type: integer
-      - description: If set to `subtasks`, Vikunja will fetch only tasks which do
+      - description: If set to `subtasks`, Brazn Tasks will fetch only tasks which do
           not have subtasks and then in a second step, will fetch all of these subtasks.
           This may result in more tasks than the pagination limit being returned,
           but all subtasks will be present in the response. If set to `buckets`, the
@@ -6617,7 +6617,7 @@ paths:
       - testing
   /test/all:
     delete:
-      description: Removes all data from every Vikunja table. Used by e2e tests to
+      description: Removes all data from every Brazn Tasks table. Used by e2e tests to
         ensure clean state before each test. Requires the testing token.
       produces:
       - application/json
@@ -7624,9 +7624,9 @@ paths:
     get:
       consumes:
       - application/json
-      description: Because available time zones depend on the system Vikunja is running
+      description: Because available time zones depend on the system Brazn Tasks is running
         on, this endpoint returns a project of all valid time zones this particular
-        Vikunja instance can handle. The project of time zones is not sorted, you
+        Brazn Tasks instance can handle. The project of time zones is not sorted, you
         should sort it on the client.
       produces:
       - application/json
@@ -7643,7 +7643,7 @@ paths:
             $ref: '#/definitions/models.Message'
       security:
       - JWTKeyAuth: []
-      summary: Get all available time zones on this vikunja instance
+      summary: Get all available time zones on this Brazn Tasks instance
       tags:
       - user
   /user/token:

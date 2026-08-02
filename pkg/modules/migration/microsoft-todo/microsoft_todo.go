@@ -125,7 +125,7 @@ func (dtt *dateTimeTimeZone) toTime() (t time.Time, err error) {
 
 // AuthURL returns the url users need to authenticate against
 // @Summary Get the auth url from Microsoft Todo
-// @Description Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from Microsoft Todo to Vikunja.
+// @Description Returns the auth url where the user needs to get its auth code. This code can then be used to migrate everything from Microsoft Todo to Brazn Tasks.
 // @tags migration
 // @Produce json
 // @Security JWTKeyAuth
@@ -378,7 +378,7 @@ func convertMicrosoftTodoData(todoData []*project) (vikunjsStructure []*models.P
 
 // Migrate gets all tasks from Microsoft Todo for a user and puts them into vikunja
 // @Summary Migrate all projects, tasks etc. from Microsoft Todo
-// @Description Migrates all tasklinsts, tasks, notes and reminders from Microsoft Todo to Vikunja.
+// @Description Migrates all tasklinsts, tasks, notes and reminders from Microsoft Todo to Brazn Tasks.
 // @tags migration
 // @Accept json
 // @Produce json
