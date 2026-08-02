@@ -98,6 +98,12 @@ func countProjections(t *testing.T) int64 {
 // subject this instance no longer has. This is the other half: removing one that
 // was already there when the erasure ran.
 func TestDeleteUserErasesTheEntitlementProjection(t *testing.T) {
+	// notifications.Fake() sets process-global state, and this file sorts near
+	// the front of the package, so leaving it set makes every later test that
+	// asserts on the notifications table find it empty. user_delete_test.go gets
+	// away with the same call only because "u" runs last. Undo it here.
+	t.Cleanup(notifications.Unfake)
+
 	t.Run("the erased user's projection goes, and only theirs", func(t *testing.T) {
 		db.LoadAndAssertFixtures(t)
 		clearProjections(t)
