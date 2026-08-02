@@ -123,6 +123,12 @@ type Organization struct {
 	// same answer the route enforces rather than recomputing it. See
 	// SeatsPerTeam.
 	CanCreateTeam bool `json:"can_create_team"`
+	// SeatsPerTeam is the ratio the rule is expressed in, sent so a client can
+	// say what buying more would buy WITHOUT holding its own copy of the
+	// number. A constant duplicated either side of a boundary is checked by
+	// neither: the guidance and the refusal would drift apart silently, and the
+	// customer would be told to buy an amount that is then refused.
+	SeatsPerTeam int `json:"seats_per_team"`
 }
 
 // OrganizationFor returns the organization the given user administers.
@@ -191,6 +197,7 @@ func OrganizationFor(s *xorm.Session, userID int64) (*Organization, error) {
 		Teams:          teams,
 		TeamsAllowed:   teamsAllowed(acting.State.SeatsPurchased),
 		CanCreateTeam:  CanCreateTeam(acting.State.SeatsPurchased, teamsUsed),
+		SeatsPerTeam:   SeatsPerTeam,
 	}
 	return organization, nil
 }

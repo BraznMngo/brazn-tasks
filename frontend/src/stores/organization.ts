@@ -40,6 +40,12 @@ export interface IOrganization {
 	teamsUsed: number
 	teamsAllowed: number | null
 	canCreateTeam: boolean
+	/**
+	 * The ratio the seat rule is expressed in, sent by the server so nothing
+	 * here holds its own copy. A constant duplicated across a boundary is
+	 * checked by neither side.
+	 */
+	seatsPerTeam: number
 }
 
 /**

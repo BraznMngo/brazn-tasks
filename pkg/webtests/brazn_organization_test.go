@@ -161,6 +161,11 @@ func TestTheOrganizationReadModelCountsSeatsAndTeams(t *testing.T) {
 	require.NotNil(t, organization.TeamsAllowed)
 	assert.Equal(t, 3, *organization.TeamsAllowed)
 	assert.True(t, organization.CanCreateTeam)
+	// The ratio, sent so the surface does not hold its own copy. Pinned here as
+	// a literal against product rule 2.3 rather than against models.SeatsPerTeam,
+	// which is the value under test - a test importing the constant would agree
+	// with whatever it was changed to.
+	assert.Equal(t, 3, organization.SeatsPerTeam)
 
 	// The primary flag is what decides whether a removal control is drawn at
 	// all, so the server has to be the one that says it - and it has to agree

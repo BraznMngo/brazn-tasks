@@ -144,10 +144,14 @@ const capacity = computed(() => formatCapacity(
 	organization.value?.teamsAllowed ?? null,
 ))
 
-// The number a customer would have to reach, computed from what the server
-// already told us rather than from a copy of the rule. The server refuses with
-// the same figure, so the two cannot disagree about what buying more would buy.
-const seatsNeeded = computed(() => (organization.value?.teamsUsed ?? 0) * 3 + 3)
+// The number a customer would have to reach. Both inputs come from the server -
+// the teams it counted and the ratio its own rule is expressed in - so this
+// cannot recommend an amount that would then be refused. Holding a local copy
+// of the 3 is the shape that drifts.
+const seatsNeeded = computed(() => {
+	const perTeam = organization.value?.seatsPerTeam ?? 0
+	return ((organization.value?.teamsUsed ?? 0) + 1) * perTeam
+})
 
 async function create() {
 	if (!name.value || working.value) {
