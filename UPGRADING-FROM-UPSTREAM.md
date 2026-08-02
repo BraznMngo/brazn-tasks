@@ -96,6 +96,12 @@ Specifically confirm:
 - Managed-mode enforcement still covers every route classified `protected-topology` or
   `access-expanding`.
 - De-branding still holds in served API docs, backend output and the login page.
+- Account erasure still takes the entitlement projection with it: `EntitlementProjection` is
+  still in `DeleteUser`'s `relatedEntities` list in `pkg/models/user_delete.go`. That is an
+  upstream file, the list is the kind of block a merge resolves by taking upstream's side, and
+  the table has no foreign key or cascade to notice the entry is gone — so losing it leaves a
+  deleted customer's organization, edition and seat status behind with nothing complaining.
+  `TestDeleteUserErasesTheEntitlementProjection` is the check.
 
 ### 4. Assert the removals held
 
