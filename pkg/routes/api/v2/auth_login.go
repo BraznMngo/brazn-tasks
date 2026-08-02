@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/modules/auth"
 	"code.vikunja.io/api/pkg/modules/humabridge"
 	"code.vikunja.io/api/pkg/routes/api/shared"
@@ -53,21 +54,36 @@ type logoutBody struct {
 func init() { AddRouteRegistrar(RegisterLoginRoutes) }
 
 // RegisterLoginRoutes wires the local/LDAP login and logout endpoints. Login is
-// always registered (LDAP-only deployments still log in here); logout inherits
-// the global JWT auth.
+// registered only when a credential backend exists to log in against; logout
+// inherits the global JWT auth.
+//
+// THE GATE IS v1's, AND IT WAS MISSING HERE (BRA-1018). v1 registers
+// POST /login only when auth.local.enabled or auth.ldap.enabled is set
+// (routes.registerAPIRoutes); this one was registered unconditionally, so an
+// instance that had turned local authentication off still answered on
+// /api/v2/login with the whole credential path behind it. It was harmless only
+// because no local account could exist to be logged into - a property of the
+// accounts, not of the switch. Provisioning now creates accounts that DO carry
+// the local issuer and a password (models.registerUserForMailbox), so the
+// property no longer holds and the switch has to.
+//
+// LDAP is in the condition for the reason v1 has it there: an LDAP-only
+// deployment authenticates through this same handler with local auth off.
 func RegisterLoginRoutes(api huma.API) {
 	tags := []string{"auth"}
 
-	Register(api, huma.Operation{
-		OperationID:   "auth-login",
-		Summary:       "Login",
-		Description:   "Logs a user in with username and password (and a TOTP passcode when 2FA is enabled), returning a short-lived JWT. A long-lived refresh token is set as an HttpOnly cookie scoped to the refresh endpoint.",
-		Method:        http.MethodPost,
-		Path:          "/login",
-		DefaultStatus: http.StatusOK,
-		Tags:          tags,
-		Security:      publicSecurity,
-	}, authLogin)
+	if config.AuthLocalEnabled.GetBool() || config.AuthLdapEnabled.GetBool() {
+		Register(api, huma.Operation{
+			OperationID:   "auth-login",
+			Summary:       "Login",
+			Description:   "Logs a user in with username and password (and a TOTP passcode when 2FA is enabled), returning a short-lived JWT. A long-lived refresh token is set as an HttpOnly cookie scoped to the refresh endpoint.",
+			Method:        http.MethodPost,
+			Path:          "/login",
+			DefaultStatus: http.StatusOK,
+			Tags:          tags,
+			Security:      publicSecurity,
+		}, authLogin)
+	}
 
 	Register(api, huma.Operation{
 		OperationID:   "auth-logout",

@@ -309,8 +309,16 @@ const SigningDomain = "percy.entitlement-projection.v2\n"
 // proxy that pretty-prints, a store that round-trips the envelope through a
 // generic JSON type - breaks verification rather than being silently tolerated.
 func SigningInput(signed []byte) []byte {
-	input := make([]byte, 0, len(SigningDomain)+len(signed))
-	input = append(input, SigningDomain...)
+	return signingInput(SigningDomain, signed)
+}
+
+// signingInput is SigningInput for any domain, which is what makes a SECOND
+// service-plane channel expressible without a second scheme: the domain is the
+// only thing separating one channel's messages from another's, so a signature
+// minted for one is not a candidate message on the other. See VerifyEnvelope.
+func signingInput(domain string, signed []byte) []byte {
+	input := make([]byte, 0, len(domain)+len(signed))
+	input = append(input, domain...)
 	return append(input, signed...)
 }
 
@@ -356,12 +364,30 @@ func hasUndeclaredField(raw []byte, into interface{}) bool {
 	return decoder.Decode(into) != nil
 }
 
-// Verify checks an envelope's signature against the configured trusted keys
-// and returns the state it carries. Every failure still reaches callers as one
-// of two sentinels, because callers must treat all of them identically:
-// refuse. Which rule refused it is carried alongside, for logs and for
-// conformance tests, and for nothing that branches - see Reason.
-func Verify(raw []byte) (*Signed, error) {
+// VerifyEnvelope checks an envelope's signature against the configured trusted
+// keys and returns the signed member exactly as received. It is the fork's ONE
+// way of authenticating a caller that is not a person, and it is deliberately
+// shared rather than copied.
+//
+// THE DOMAIN IS THE PARAMETER, and that is the whole design. This fork has no
+// service principal - see BraznApplyEntitlementProjection for why - so every
+// service-plane channel authenticates its messages with the same Ed25519
+// signature against the same trust store (brazn.entitlementkeys). What keeps
+// two such channels apart is the domain prefix the signature covers: a
+// projection envelope and a provisioning envelope are signed over different
+// bytes, so neither is a candidate message on the other's endpoint even though
+// one key signs both. Adding a channel is therefore a new domain string and
+// nothing else - no second scheme, no second trust store, no second key
+// rotation story.
+//
+// The refusal vocabulary it returns (Reason, and the two sentinels) is named
+// after the entitlement contract because that is where it was written. Every
+// value it can return from here is an ENVELOPE-level fault - unsigned,
+// malformed, unknown key, unknown algorithm, bad signature encoding, bad
+// signature - and those are the same faults on every channel. A caller on
+// another channel should log the Reason rather than the error text, which
+// still says "entitlement projection".
+func VerifyEnvelope(domain string, raw []byte) (json.RawMessage, error) {
 	var env envelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return nil, refuse(ReasonMalformedEnvelope, ErrInvalidProjection)
@@ -407,18 +433,32 @@ func Verify(raw []byte) (*Signed, error) {
 	if err != nil {
 		return nil, refuse(ReasonMalformedSignatureEncoding, ErrInvalidProjection)
 	}
-	if !ed25519.Verify(key, SigningInput(env.Signed), sig) {
+	if !ed25519.Verify(key, signingInput(domain, env.Signed), sig) {
 		return nil, refuse(ReasonInvalidSignature, ErrInvalidProjection)
+	}
+
+	return env.Signed, nil
+}
+
+// Verify checks an envelope's signature against the configured trusted keys
+// and returns the state it carries. Every failure still reaches callers as one
+// of two sentinels, because callers must treat all of them identically:
+// refuse. Which rule refused it is carried alongside, for logs and for
+// conformance tests, and for nothing that branches - see Reason.
+func Verify(raw []byte) (*Signed, error) {
+	signedBytes, err := VerifyEnvelope(SigningDomain, raw)
+	if err != nil {
+		return nil, err
 	}
 
 	// EVERYTHING BELOW READS THE MESSAGE, so everything below is after the
 	// signature. That ordering is the contract's and is not an accident of
 	// where the checks were easiest to write.
 	signed := &Signed{}
-	if err := json.Unmarshal(env.Signed, signed); err != nil {
+	if err := json.Unmarshal(signedBytes, signed); err != nil {
 		return nil, refuse(ReasonMalformedProjection, ErrInvalidProjection)
 	}
-	if hasUndeclaredField(env.Signed, &Signed{}) {
+	if hasUndeclaredField(signedBytes, &Signed{}) {
 		return nil, refuse(ReasonUndeclaredField, ErrInvalidProjection)
 	}
 	if signed.ContractVersion != ContractVersion {

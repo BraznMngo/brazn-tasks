@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/events"
 	"code.vikunja.io/api/pkg/log"
@@ -440,6 +441,21 @@ func fallbackSearchUsers(cl *claims, provider *Provider, idToken *oidc.IDToken) 
 	return searches
 }
 
+// errManagedNoSignUp is what an unmatched subject gets on a managed instance.
+//
+// It is an *echo.HTTPError so both APIs answer the same way: v1 lets echo's
+// handler render it, and v2 maps it in translateDomainError - without which it
+// would surface as a 500 there. 403 rather than 401, because the credentials
+// were fine and the answer would not change if they were presented again.
+//
+// The wording says what the person can do about it and names no rule: whether
+// this instance is in managed mode is not something an unauthenticated caller
+// needs to be told.
+func errManagedNoSignUp() error {
+	return echo.NewHTTPError(http.StatusForbidden,
+		"There is no Brazn Tasks account for this sign-in. Accounts are created when you subscribe.")
+}
+
 func getOrCreateUser(s *xorm.Session, cl *claims, provider *Provider, idToken *oidc.IDToken) (u *user.User, err error) {
 
 	// set defaults
@@ -484,6 +500,41 @@ func getOrCreateUser(s *xorm.Session, cl *claims, provider *Provider, idToken *o
 	}
 
 	if !alreadyCreatedFromIssuer && !fallbackMatchFound {
+
+		// SIGNING IN AND SIGNING UP PART COMPANY HERE, and only the first
+		// survives on a managed instance. Everything above this line resolved
+		// an existing account and is untouched; everything below it creates
+		// one, which on a managed instance is the commercial service's job and
+		// nobody else's (Identity-and-Access-Rules.md §2.1). A user with no
+		// entitlement is impossible by construction only if there is no path
+		// that makes one, and today this is that path: on the development
+		// instance anyone with a Google account gets an account here.
+		//
+		// It cannot be done by the managed gate, and that is not an oversight
+		// in the gate. POST /api/v1/auth/openid/:provider/callback is
+		// classified "authentication", and that rule returns nil
+		// unconditionally (managed_rules_core.go) - correctly, because a
+		// login's subject is unknown until the credentials have been checked
+		// and a projection that could not be read would otherwise lock every
+		// user out of the instance. The distinction between the two things
+		// this route does only exists at this line.
+		//
+		// WHAT MUST BE TRUE FOR THIS TO BE SURVIVABLE, and is not yet: a user
+		// Percy Cloud provisioned is recorded with the local issuer and no
+		// Google subject, so their FIRST sign-in reaches here unless the
+		// provider links them by verified email. fallbackSearchUsers does
+		// exactly that, but only when the provider carries emailfallback and
+		// not usernamefallback - and the deployed configuration
+		// (deploy/vikunja-development/docker-compose.yml in the Percy
+		// repository) sets neither, so both default to false. Switching
+		// brazn.managedmode on before that config lands refuses every
+		// customer's first sign-in. BRA-1021 owns switching it on.
+		//
+		// AuthenticateCallback logs this refusal through its existing "Error
+		// creating new user" line, which is where an operator will read it.
+		if config.BraznManagedMode.GetBool() {
+			return nil, errManagedNoSignUp()
+		}
 
 		// If no user exists, create one with the preferred username if it is not already taken
 		uu := &user.User{

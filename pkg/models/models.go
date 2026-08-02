@@ -74,6 +74,7 @@ func GetTables() []interface{} {
 		&TimeEntry{},
 		&ProtectedEntity{},
 		&EntitlementProjection{},
+		&ProvisionedUser{},
 	}
 }
 

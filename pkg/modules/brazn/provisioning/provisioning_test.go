@@ -1,0 +1,184 @@
+// Vikunja is a to-do list application to facilitate your life.
+// Copyright 2018-present Vikunja and contributors. All rights reserved.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+package provisioning
+
+import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
+	"strings"
+	"testing"
+
+	"code.vikunja.io/api/pkg/config"
+	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const testKeyID = "provisioning-test"
+
+// The two signing domains, written out as literals rather than taken from
+// SigningDomain and entitlement.SigningDomain.
+//
+// A test that builds its input from the constant under test can only prove the
+// code agrees with itself: a typo would sign, verify and stay green here while
+// Percy's producer - which has its own copy of the contract's string - was
+// rejected by every message it sent. These literals are the contract, and the
+// constants are what is on trial.
+const (
+	provisioningPrefix = "percy.provisioning.v1\n"
+	entitlementPrefix  = "percy.entitlement-projection.v2\n"
+)
+
+// createUser is a well-formed create_user payload in canonical JSON: members
+// sorted by key, which is what a producer emits and therefore what a signature
+// is made over.
+const createUser = `{"contract_version":"1","email":"someone@example.com","operation":"create_user"}`
+
+// trustedKey generates a key pair and configures the instance to trust it.
+func trustedKey(t *testing.T) ed25519.PrivateKey {
+	t.Helper()
+
+	config.InitDefaultConfig()
+
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	config.BraznEntitlementKeys.Set(testKeyID + ":" + base64.StdEncoding.EncodeToString(public))
+	return private
+}
+
+// envelopeOver signs a payload under an explicitly named domain and splices the
+// payload into an envelope verbatim. The domain is a parameter because the
+// tests below need to send a message signed for the OTHER channel.
+func envelopeOver(key ed25519.PrivateKey, domain, payload string) []byte {
+	signature := ed25519.Sign(key, []byte(domain+payload))
+	return []byte(`{"signature":{"algorithm":"ed25519","key_id":"` + testKeyID +
+		`","value":"` + base64.RawURLEncoding.EncodeToString(signature) +
+		`"},"signed":` + payload + `}`)
+}
+
+// TestSigningDomainMatchesTheContract pins the constant against the literal.
+func TestSigningDomainMatchesTheContract(t *testing.T) {
+	assert.Equal(t, provisioningPrefix, SigningDomain)
+	assert.Equal(t, byte(0x0A), SigningDomain[len(SigningDomain)-1],
+		"the domain is terminated by the 0x0A the entitlement contract specifies, and this one follows it")
+}
+
+func TestVerifyReadsAWellFormedCreateUserRequest(t *testing.T) {
+	key := trustedKey(t)
+
+	operation, payload, err := Verify(envelopeOver(key, provisioningPrefix, createUser))
+	require.NoError(t, err)
+	assert.Equal(t, OperationCreateUser, operation)
+
+	request, err := DecodeCreateUser(payload)
+	require.NoError(t, err)
+	assert.Equal(t, "someone@example.com", request.Email)
+}
+
+// TestTheTwoChannelsDoNotAcceptEachOther is the domain separation, asserted
+// where it decides the outcome rather than by comparing two strings.
+//
+// One key signs for both channels, so the ONLY thing keeping a projection from
+// being a candidate provisioning request is the prefix the signature covers.
+// Both directions are checked because the failure is not symmetric to read:
+// making the two domains equal breaks the first, and dropping the domain from
+// either signing input breaks the other.
+func TestTheTwoChannelsDoNotAcceptEachOther(t *testing.T) {
+	key := trustedKey(t)
+
+	t.Run("a create_user request signed for the entitlement channel is refused", func(t *testing.T) {
+		_, _, err := Verify(envelopeOver(key, entitlementPrefix, createUser))
+		require.Error(t, err)
+		assert.Equal(t, entitlement.ReasonInvalidSignature, entitlement.RefusalReason(err))
+	})
+
+	t.Run("a message signed for the provisioning channel is not a projection", func(t *testing.T) {
+		_, err := entitlement.Verify(envelopeOver(key, provisioningPrefix, createUser))
+		require.Error(t, err)
+		assert.Equal(t, entitlement.ReasonInvalidSignature, entitlement.RefusalReason(err))
+	})
+}
+
+func TestVerifyRefusesAKeyThisInstanceDoesNotTrust(t *testing.T) {
+	trustedKey(t)
+	_, untrusted, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	_, _, err = Verify(envelopeOver(untrusted, provisioningPrefix, createUser))
+	require.Error(t, err)
+	assert.Equal(t, entitlement.ReasonInvalidSignature, entitlement.RefusalReason(err))
+}
+
+func TestVerifyRefusesAnEmptyTrustStore(t *testing.T) {
+	key := trustedKey(t)
+	config.BraznEntitlementKeys.Set("")
+
+	_, _, err := Verify(envelopeOver(key, provisioningPrefix, createUser))
+	require.Error(t, err)
+	assert.Equal(t, entitlement.ReasonUnknownKey, entitlement.RefusalReason(err))
+}
+
+func TestDecodeCreateUserRefusesWhatThisBuildCannotActOn(t *testing.T) {
+	key := trustedKey(t)
+
+	// The envelope is sound in every case below: what is refused is what it
+	// carries, which is a separate decision made after the signature.
+	refused := func(t *testing.T, payload string) {
+		t.Helper()
+
+		operation, verified, err := Verify(envelopeOver(key, provisioningPrefix, payload))
+		require.NoError(t, err)
+		require.Equal(t, OperationCreateUser, operation)
+
+		_, err = DecodeCreateUser(verified)
+		require.ErrorIs(t, err, ErrInvalidRequest)
+	}
+
+	t.Run("an undeclared member, which a later contract carries meaning in", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"someone@example.com",`+
+			`"operation":"create_user","organization_id":"org_1"}`)
+	})
+
+	t.Run("a contract version this build does not define", func(t *testing.T) {
+		refused(t, `{"contract_version":"2","email":"someone@example.com","operation":"create_user"}`)
+	})
+
+	t.Run("an address that is not a mailbox", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"someone","operation":"create_user"}`)
+	})
+
+	t.Run("no address at all", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"","operation":"create_user"}`)
+	})
+
+	t.Run("an address longer than the column that would store it", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"`+
+			strings.Repeat("a", 245)+`@example.com","operation":"create_user"}`)
+	})
+}
+
+func TestVerifyReportsAnOperationThisBuildDoesNotDefine(t *testing.T) {
+	key := trustedKey(t)
+	payload := `{"contract_version":"1","operation":"delete_everything"}`
+
+	operation, _, err := Verify(envelopeOver(key, provisioningPrefix, payload))
+	require.NoError(t, err, "an unknown operation is a routing decision, not a bad envelope")
+	assert.NotEqual(t, OperationCreateUser, operation,
+		"the endpoint switches on this, and an unknown value must not fall into the create_user case")
+}

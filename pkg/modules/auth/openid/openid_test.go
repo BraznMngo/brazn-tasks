@@ -18,14 +18,17 @@ package openid
 
 import (
 	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 
 	"code.vikunja.io/api/pkg/models"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/user"
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/labstack/echo/v5"
 	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -428,6 +431,108 @@ func TestGetOrCreateUser(t *testing.T) {
 		assert.Equal(t, idToken.Subject, u.Username, "subject match username")
 		assert.Equal(t, user.IssuerLocal, u.Issuer, "User should be a local one")
 		assert.Equal(t, 11, int(u.ID), "user id 11 expected")
+	})
+}
+
+// managedModeForTest switches brazn.managedmode for one test and puts it back.
+// Viper overrides outlive InitDefaultConfig, so leaving one set would silently
+// change every later test in this package.
+func managedModeForTest(t *testing.T, managed bool) {
+	t.Helper()
+
+	previous := config.BraznManagedMode.Get()
+	t.Cleanup(func() { config.BraznManagedMode.Set(previous) })
+	config.BraznManagedMode.Set(managed)
+}
+
+// unmatchedGoogleSubject is a sign-in that matches NOTHING in the fixtures:
+// an issuer and subject no user carries, an address no user has, and a
+// provider with both fallbacks off so nothing can link it to an account by
+// another route.
+//
+// It is built once and used by both of the first two subtests below, which is
+// the point of it: those two differ in brazn.managedmode and in nothing else.
+func unmatchedGoogleSubject() (*claims, *Provider, *oidc.IDToken) {
+	cl := &claims{
+		Email:             "nobody-here-yet@example.com",
+		PreferredUsername: "nobody-here-yet",
+	}
+	idToken := &oidc.IDToken{
+		Issuer:  "https://accounts.google.com",
+		Subject: "google-subject-nobody-has",
+	}
+	return cl, &Provider{Name: "Google"}, idToken
+}
+
+// TestGetOrCreateUserUnderManagedMode is the sign-in / sign-up split (BRA-1018,
+// Identity-and-Access-Rules.md §2.1, gap T2).
+//
+// WHY THIS CANNOT PASS FOR THE WRONG REASON, which is the whole reason it is
+// written as a pair. The first two subtests hand getOrCreateUser byte-identical
+// claims, provider and token, load the same fixtures, and differ in exactly one
+// thing: brazn.managedmode. One creates a user and one refuses. No guard other
+// than the one under test reads that value, so no unrelated refusal can produce
+// the difference - and the first subtest is a positive control for the fixture
+// itself, because a subject that was somehow already matched would have been
+// RESOLVED there rather than created, and the assertion that a new row appeared
+// would fail.
+//
+// Deleting the managed-mode branch in getOrCreateUser makes the second subtest
+// fail on require.Error, because the call then does what the first one proves
+// it does.
+func TestGetOrCreateUserUnderManagedMode(t *testing.T) {
+	t.Run("managed mode off signs the subject up, as every self-hosted instance must", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		managedModeForTest(t, false)
+		s := db.NewSession()
+		defer s.Close()
+
+		cl, provider, idToken := unmatchedGoogleSubject()
+
+		u, err := getOrCreateUser(s, cl, provider, idToken)
+		require.NoError(t, err)
+		require.NoError(t, s.Commit())
+
+		db.AssertExists(t, "users", map[string]interface{}{
+			"id":      u.ID,
+			"email":   cl.Email,
+			"subject": idToken.Subject,
+		}, false)
+	})
+
+	t.Run("managed mode refuses the same subject and stores nothing", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		managedModeForTest(t, true)
+		s := db.NewSession()
+		defer s.Close()
+
+		cl, provider, idToken := unmatchedGoogleSubject()
+
+		_, err := getOrCreateUser(s, cl, provider, idToken)
+		require.Error(t, err)
+		var refusal *echo.HTTPError
+		require.ErrorAs(t, err, &refusal)
+		assert.Equal(t, http.StatusForbidden, refusal.Code)
+		require.NoError(t, s.Rollback())
+
+		db.AssertMissing(t, "users", map[string]interface{}{"email": cl.Email})
+	})
+
+	t.Run("managed mode signs in a subject this instance already has", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		managedModeForTest(t, true)
+		s := db.NewSession()
+		defer s.Close()
+
+		// user 14 in the fixtures, matched on issuer and subject - the path
+		// above the split, which must be untouched by any of this.
+		cl := &claims{Email: "user15@some.service.com"}
+		idToken := &oidc.IDToken{Issuer: "https://some.service.com", Subject: "12345"}
+
+		u, err := getOrCreateUser(s, cl, &Provider{}, idToken)
+		require.NoError(t, err)
+		require.NoError(t, s.Commit())
+		assert.Equal(t, int64(14), u.ID)
 	})
 }
 
