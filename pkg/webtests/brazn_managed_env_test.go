@@ -82,16 +82,8 @@ func newManagedEnv(t *testing.T) *managedEnv {
 	return &managedEnv{t: t, e: e, signingKey: private}
 }
 
-// managedOtherOrganization is a SECOND Teams customer on the same instance.
-//
-// It is what makes a cross-organization test a real one: an account granted
-// here is active, is Teams, and differs from managedTestOrganization in exactly
-// one field, so nothing but the organization comparison can refuse it.
-const managedOtherOrganization = "org_other"
-
 // grant writes a correctly signed projection for a user, with no end date -
-// the ordinary case of a subscription in good standing - in the organization
-// these tests treat as the caller's own.
+// the ordinary case of a subscription in good standing.
 func (env *managedEnv) grant(userID int64, edition string, organizationAdmin bool) {
 	env.t.Helper()
 
@@ -109,40 +101,10 @@ func (env *managedEnv) grantUntil(
 ) {
 	env.t.Helper()
 
-	env.grantProjection(userID, edition, organizationAdmin, managedTestOrganization, validTo)
-}
-
-// grantInOrganization is grant with the subject's organization named, for the
-// tests that need two customers on one instance.
-func (env *managedEnv) grantInOrganization(
-	userID int64,
-	edition string,
-	organizationAdmin bool,
-	organization string,
-) {
-	env.t.Helper()
-
-	env.grantProjection(userID, edition, organizationAdmin, organization, nil)
-}
-
-// grantProjection is what the three above all do: sign one projection for one
-// subject and store it. The organization and the validity window are separate
-// parameters because two different tests vary one each - a cross-organization
-// share and an expiring entitlement - and folding either back into a constant
-// would quietly make one of those tests about nothing.
-func (env *managedEnv) grantProjection(
-	userID int64,
-	edition string,
-	organizationAdmin bool,
-	organization string,
-	validTo *time.Time,
-) {
-	env.t.Helper()
-
 	signed, err := json.Marshal(entitlement.Signed{
 		ContractVersion: entitlement.ContractVersion,
 		Subject: entitlement.Subject{
-			OrganizationID: organization,
+			OrganizationID: managedTestOrganization,
 			UserID:         strconv.FormatInt(userID, 10),
 		},
 		Revision: 1,
@@ -180,16 +142,10 @@ func (env *managedEnv) grantProjection(
 	})
 	require.NoError(env.t, err)
 
-	env.storeProjection(userID, 1, organization, string(envelope))
+	env.storeProjection(userID, 1, string(envelope))
 }
 
-// storeProjection writes the row as a delivery would have left it. The
-// organization is the envelope's own, never a constant: ApplyEntitlement
-// refuses a delivery whose subject disagrees with the stored column, so a row
-// carrying one organization around another's envelope is a state the product
-// cannot reach, and a fixture in that state would be quietly lying to whoever
-// reads it next.
-func (env *managedEnv) storeProjection(userID, revision int64, organization, envelope string) {
+func (env *managedEnv) storeProjection(userID, revision int64, envelope string) {
 	env.t.Helper()
 
 	s := db.NewSession()
@@ -199,7 +155,7 @@ func (env *managedEnv) storeProjection(userID, revision int64, organization, env
 	// it so a fixture row looks like a delivered one.
 	_, err := s.Insert(&models.EntitlementProjection{
 		UserID:           userID,
-		OrganizationID:   organization,
+		OrganizationID:   managedTestOrganization,
 		Revision:         revision,
 		RevisionReceived: time.Now(),
 		Envelope:         envelope,
