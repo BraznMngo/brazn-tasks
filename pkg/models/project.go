@@ -1176,8 +1176,11 @@ func CreateNewProjectForUser(s *xorm.Session, u *user.User) (err error) {
 	// Nothing else about the broad update was load-bearing: the struct is a
 	// row this function's caller just read, so every other column it wrote
 	// already held that value. BRA-1047.
+	// QA EXPERIMENT 2 (BRA-1047, do not merge): fix reverted again, this time on
+	// a head that also carries the added webtest, to prove that test runs and is
+	// not vacuous. Both tests must fail.
 	u.DefaultProjectID = p.ID
-	_, err = s.ID(u.ID).Cols("default_project_id").Update(&user.User{DefaultProjectID: p.ID})
+	_, err = user.UpdateUser(s, u, false)
 	return err
 }
 
