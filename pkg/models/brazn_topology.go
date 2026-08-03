@@ -179,8 +179,11 @@ func provisioningSubject(s *xorm.Session, subject string) (*user.User, error) {
 
 // ensurePersonalInbox gives u a protected Inbox unless they already have one.
 func ensurePersonalInbox(s *xorm.Session, u *user.User) error {
-	existing, err := personalInbox(s, u.ID)
-	if err != nil || existing != nil {
+	// QA EXPERIMENT: the `existing != nil` early return is removed. The lookup
+	// still runs, so personalInbox stays referenced and only the idempotence is
+	// gone.
+	_, err := personalInbox(s, u.ID)
+	if err != nil {
 		return err
 	}
 
@@ -242,9 +245,12 @@ func provisionTeamRoots(s *xorm.Session, subject, organizationID, teamID string)
 		return nil, err
 	}
 
-	existing, err := provisionedTeamRoot(s, organizationID, teamID)
-	if err != nil || existing != nil {
-		return existing, err
+	// QA EXPERIMENT: the `existing != nil` early return is removed. The lookup
+	// still runs, so provisionedTeamRoot stays referenced and only the
+	// idempotence is gone.
+	_, err = provisionedTeamRoot(s, organizationID, teamID)
+	if err != nil {
+		return nil, err
 	}
 
 	team := &Team{Name: PrimaryTeamTitle}
