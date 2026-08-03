@@ -712,6 +712,7 @@ func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider 
 	// through DownloadImage is a change to shared upstream code with nothing to
 	// do with this ticket.
 	err = syncUserAvatarFromOpenID(s, u, cl.Picture) //nolint:contextcheck
+	if err != nil {
 		log.Errorf("Error syncing avatar for user %s: %v", u.Username, err)
 	}
 
