@@ -2,10 +2,8 @@ import {describe, it, expect, vi, beforeEach} from 'vitest'
 import {mount} from '@vue/test-utils'
 
 import Register from './Register.vue'
-import {globalMountOptions, settle} from './testSupport'
+import {globalMountOptions, globalMountOptionsDe, settle} from './testSupport'
 import {validatePassword} from '@/helpers/validatePasswort'
-import en from '@/i18n/lang/en.json'
-import de from '@/i18n/lang/de-DE.json'
 
 const {registerMock, pushMock} = vi.hoisted(() => ({
 	registerMock: vi.fn(),
@@ -187,13 +185,22 @@ describe('Register', () => {
 })
 
 describe('the stated password minimum and the enforced one', () => {
-	// The number is written here as a literal on purpose. Reading it out of the
-	// same catalogue the screen reads would make this agree with itself whatever
-	// the value became.
+	// 8 is a literal here on purpose. Reading it out of the same catalogue the
+	// screen reads would make the stated minimum and the enforced one move
+	// together, and this could then never fail.
+	//
+	// Both sides are asserted through what the component RENDERS rather than
+	// through the imported catalogue, because the catalogue cannot be read as
+	// text at all - see the note in testSupport.ts.
 	const MINIMUM = 8
 
-	function statedMinimum(text: string): number[] {
-		return (text.match(/\d+/g) ?? []).map(Number)
+	/** Fills in a password one character short and submits. */
+	async function tooShort(options: typeof globalMountOptions) {
+		const wrapper = mount(Register, {global: options})
+		await wrapper.find('#password').setValue('x'.repeat(MINIMUM - 1))
+		await wrapper.find('#register-submit').trigger('click')
+		await settle()
+		return wrapper
 	}
 
 	it('is 8 in the code', () => {
@@ -201,13 +208,25 @@ describe('the stated password minimum and the enforced one', () => {
 		expect(validatePassword('x'.repeat(MINIMUM))).toBe(true)
 	})
 
-	it('is 8 in the English hint and in the English error, and they cannot drift apart', () => {
-		expect(statedMinimum(en.user.auth.passwordMinHint)).toEqual([MINIMUM])
-		expect(statedMinimum(en.user.auth.passwordNotMin)).toEqual([MINIMUM])
+	it('is 8 in the English hint and in the English error, and they cannot drift apart', async () => {
+		const wrapper = await tooShort(globalMountOptions)
+
+		expect(wrapper.find('#password-hint').text()).toBe('Use at least 8 characters.')
+		expect(wrapper.find('#password-hint').text()).toContain(String(MINIMUM))
+
+		const summary = wrapper.find('.error-summary').text()
+		expect(summary).toContain('Password must have at least 8 characters.')
+		expect(summary).toContain(String(MINIMUM))
 	})
 
-	it('is 8 in the German hint and in the German error, and they cannot drift apart', () => {
-		expect(statedMinimum(de.user.auth.passwordMinHint)).toEqual([MINIMUM])
-		expect(statedMinimum(de.user.auth.passwordNotMin)).toEqual([MINIMUM])
+	it('is 8 in the German hint and in the German error, and they cannot drift apart', async () => {
+		const wrapper = await tooShort(globalMountOptionsDe)
+
+		expect(wrapper.find('#password-hint').text()).toBe('Verwende mindestens 8 Zeichen.')
+		expect(wrapper.find('#password-hint').text()).toContain(String(MINIMUM))
+
+		const summary = wrapper.find('.error-summary').text()
+		expect(summary).toContain('Das Passwort muss aus mindestens 8 Zeichen bestehen.')
+		expect(summary).toContain(String(MINIMUM))
 	})
 })

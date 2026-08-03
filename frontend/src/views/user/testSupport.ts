@@ -2,9 +2,19 @@
 // files argue about behaviour rather than about how to mount a view.
 import {createI18n} from 'vue-i18n'
 import en from '@/i18n/lang/en.json'
+import de from '@/i18n/lang/de-DE.json'
 import XButton from '@/components/input/Button.vue'
 
+// THESE IMPORTS ARE NOT STRINGS. The @intlify build plugin precompiles
+// src/i18n/lang/*.json into message ASTs, so `en.user.auth.password` is an
+// object like {type: 0, start: 0, end: 16, ...} and not "Password". vue-i18n
+// consumes that form happily, which is why it can be handed straight to
+// createI18n - but any test that calls a string method on one throws, and
+// `toContain` against one silently compares a string with an object and fails
+// whatever the screen rendered. Assert expected copy as literals in the test,
+// or through what the component renders.
 export const i18n = createI18n({legacy: false, locale: 'en', messages: {en}})
+export const i18nDe = createI18n({legacy: false, locale: 'de-DE', messages: {'de-DE': de}})
 
 /**
  * A RouterLink that keeps the route name where a test can see it. The default
@@ -32,6 +42,12 @@ export const globalMountOptions = {
 		Icon: true,
 		DesktopLogin: true,
 	},
+}
+
+/** The same, rendering in German. */
+export const globalMountOptionsDe = {
+	...globalMountOptions,
+	plugins: [i18nDe],
 }
 
 /**
