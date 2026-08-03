@@ -79,6 +79,20 @@ describe('ConfirmEmail', () => {
 		expect(post).not.toHaveBeenCalled()
 	})
 
+	// "Send it again" with nothing to send it to would report success and do
+	// nothing, which is the worst of both.
+	it('asks for the address rather than offering to resend to nothing', async () => {
+		const wrapper = mountConfirm()
+		await flush(wrapper)
+
+		expect(wrapper.find('input[type="email"]').exists()).toBe(true)
+
+		await wrapper.find('#confirm-resend').trigger('click')
+		await flush(wrapper)
+
+		expect(post).not.toHaveBeenCalled()
+	})
+
 	it('quotes the address back when this tab knows it', async () => {
 		window.sessionStorage.setItem('pendingConfirmationEmail', 'someone@example.com')
 
@@ -215,11 +229,11 @@ describe('ConfirmEmail', () => {
 
 		const notices: string[] = []
 		for (const address of ['user4@example.com', 'nobody-at-all@example.com']) {
+			// No address remembered, so the screen asks for one rather than
+			// offering to resend to nothing.
 			const wrapper = mountConfirm()
 			await flush(wrapper)
 
-			await wrapper.find('.link-button').trigger('click')
-			await wrapper.vm.$nextTick()
 			await wrapper.find('input[type="email"]').setValue(address)
 			await wrapper.find('#confirm-resend').trigger('click')
 			await flush(wrapper)

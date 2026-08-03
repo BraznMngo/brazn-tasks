@@ -141,8 +141,9 @@ test.describe('Email Confirmation', () => {
 	// for one that has no account at all.
 	test('Asking for a new link says the same thing whatever address is given', async ({page, apiContext}) => {
 		const noticeFor = async (address: string) => {
+			// A fresh navigation each time, so the resend cooldown from the
+			// previous one is not what is being measured.
 			await page.goto('/confirm')
-			await page.locator('.link-button').click()
 			await page.locator('input[type="email"]').fill(address)
 			const resend = page.waitForResponse(response =>
 				response.url().includes('/user/confirm/resend') && response.request().method() === 'POST',

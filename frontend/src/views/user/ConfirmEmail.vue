@@ -168,11 +168,16 @@ const isSending = ref(false)
 const askingForAddress = ref(false)
 let lastResendAt = 0
 
-// The states that cannot go anywhere without an address: nobody reaching them
+// The states that cannot go anywhere without an address. Nobody reaching them
 // necessarily has the tab that registered, because a confirmation link is
-// usually opened on a different device from the form.
+// usually opened on a different device from the form - and the inbox state is
+// one of them whenever this tab does not know the address, because "send it
+// again" with nothing to send it to would report success and do nothing.
 const needsAddress = computed(() =>
-	askingForAddress.value || state.value === 'expired' || state.value === 'unreadable',
+	askingForAddress.value ||
+	state.value === 'expired' ||
+	state.value === 'unreadable' ||
+	(state.value === 'inbox' && address.value === ''),
 )
 
 // The address is quoted back whenever this tab knows it, because a typo in that
