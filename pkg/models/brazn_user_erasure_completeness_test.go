@@ -30,18 +30,24 @@ import (
 	"xorm.io/xorm"
 )
 
-// erasureSubject is one seeded person and the ids of the rows seeded for them,
-// so the assertions can name a row rather than a table.
+// erasureFixtureTaskID is a fixture task in a project the seeded people do not
+// own, so the comment and the unread-status row below are the case upstream
+// never reaches: attached to somebody else's project, and therefore not swept up
+// by the project cascade.
+const erasureFixtureTaskID = 1
+
+// erasureSubject is one seeded person, and the two file ids that have to be
+// named individually.
+//
+// Every other category is asserted by PREDICATE - "no row in this table keyed on
+// this person" - which is a stronger statement than "the row I happen to know
+// the id of is gone" and catches a fixture row this helper did not write. The
+// two files cannot be, because the predicate that finds them is a column on the
+// users row and that row is the thing being deleted.
 type erasureSubject struct {
-	user            *user.User
-	sessionID       string
-	avatarFileID    int64
-	exportFileID    int64
-	userWebhookID   int64
-	madeWebhookID   int64
-	linkShareHash   string
-	commentTaskID   int64
-	unreadStatusFor int64
+	user         *user.User
+	avatarFileID int64
+	exportFileID int64
 }
 
 // seedErasableData writes one row into every table BRA-1104 found surviving a
@@ -102,7 +108,6 @@ func seedErasableData(t *testing.T, s *xorm.Session, username string) *erasureSu
 	}
 	_, err = s.Insert(userWebhook)
 	require.NoError(t, err)
-	subject.userWebhookID = userWebhook.ID
 
 	madeWebhook := &Webhook{
 		ProjectID:   1,
@@ -113,20 +118,19 @@ func seedErasableData(t *testing.T, s *xorm.Session, username string) *erasureSu
 	}
 	_, err = s.Insert(madeWebhook)
 	require.NoError(t, err)
-	subject.madeWebhookID = madeWebhook.ID
 
-	// A session: the refresh-token hash and the raw OIDC id token, which is a
-	// working way back into the account.
-	subject.sessionID = "erasure-session-" + idPart
+	// A session: the refresh-token hash and the raw OIDC id token, which together
+	// are a working way back into the account.
+	//
+	// last_active is "not null" and is NOT one of xorm's auto-filled columns, so
+	// it has to be set here: a zero time.Time reaches MySQL as
+	// '0000-00-00 00:00:00', which strict mode refuses.
 	_, err = s.Insert(&Session{
-		ID:          subject.sessionID,
+		ID:          "erasure-session-" + idPart,
 		UserID:      u.ID,
 		TokenHash:   "token-hash-" + idPart,
-		DeviceInfo: "Test Browser",
-		IPAddress:  "192.0.2.1",
-		// last_active is "not null" and is NOT one of xorm's auto-filled
-		// columns, so it has to be set: a zero time.Time reaches MySQL as
-		// '0000-00-00 00:00:00' and strict mode refuses it.
+		DeviceInfo:  "Test Browser",
+		IPAddress:   "192.0.2.1",
 		LastActive:  testCreatedTime,
 		OIDCIDToken: "raw-oidc-id-token-" + idPart,
 	})
@@ -160,11 +164,10 @@ func seedErasableData(t *testing.T, s *xorm.Session, username string) *erasureSu
 	// A comment on a task in a project somebody else owns, which is the case
 	// upstream never reaches: it removes comments only when the task's project
 	// is hard-deleted.
-	subject.commentTaskID = 1
 	_, err = s.Insert(&TaskComment{
 		Comment:  "seeded by the erasure test",
 		AuthorID: u.ID,
-		TaskID:   subject.commentTaskID,
+		TaskID:   erasureFixtureTaskID,
 	})
 	require.NoError(t, err)
 
@@ -175,9 +178,8 @@ func seedErasableData(t *testing.T, s *xorm.Session, username string) *erasureSu
 
 	// A link share they created on somebody else's project: a live
 	// unauthenticated URL that outlives them.
-	subject.linkShareHash = "erasurehash" + idPart
 	_, err = s.Insert(&LinkSharing{
-		Hash:        subject.linkShareHash,
+		Hash:        "erasurehash" + idPart,
 		ProjectID:   1,
 		Permission:  PermissionRead,
 		SharingType: SharingTypeWithoutPassword,
@@ -196,8 +198,7 @@ func seedErasableData(t *testing.T, s *xorm.Session, username string) *erasureSu
 	})
 	require.NoError(t, err)
 
-	subject.unreadStatusFor = 1
-	_, err = s.Insert(&TaskUnreadStatus{TaskID: subject.unreadStatusFor, UserID: u.ID})
+	_, err = s.Insert(&TaskUnreadStatus{TaskID: erasureFixtureTaskID, UserID: u.ID})
 	require.NoError(t, err)
 
 	return subject
