@@ -150,7 +150,7 @@ test.describe('Email Confirmation', () => {
 			)
 			await page.locator('#confirm-resend').click()
 			expect((await resend).status()).toBe(200)
-			return (await page.locator('[role="status"]').innerText()).trim()
+			return (await page.locator('.resend-status[role="status"]').innerText()).trim()
 		}
 
 		const waiting = await noticeFor(user.email)
