@@ -70,7 +70,12 @@ const (
 	// character: exactly 43 unpadded base64url characters, which is 256 bits
 	// and no other length. Padding, hex, and a longer or shorter value all fail
 	// here rather than at a lookup, so one token has exactly one spelling.
-	tokenShapePattern = `^[A-Za-z0-9_-]{43}$`
+	//
+	// gosec reads any constant whose NAME contains "token" and whose value has
+	// enough entropy as a hardcoded credential (G101). This one is a regular
+	// expression describing the SHAPE of a token and contains no token; the
+	// name is kept because "the pattern a token matches" is what it is.
+	tokenShapePattern = `^[A-Za-z0-9_-]{43}$` //nolint:gosec // G101: a pattern, not a credential.
 
 	// resultRedeemed is the only answer that may be committed on.
 	resultRedeemed = "redeemed"

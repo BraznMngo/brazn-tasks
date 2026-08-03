@@ -66,16 +66,19 @@ func stubSignupRedemption(t *testing.T, status int, answer string) *signupRedemp
 	t.Helper()
 
 	stub := &signupRedemptionStub{}
+	// assert rather than require inside the handler: this runs on the test
+	// server's goroutine, and require calls t.FailNow(), which is only defined
+	// on the goroutine running the test. A read failure here still fails the
+	// test - at the assertions below, which is where it is meaningful anyway.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		stub.calls++
 		stub.bodies = append(stub.bodies, string(body))
 
 		w.Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		w.WriteHeader(status)
-		_, err = w.Write([]byte(answer))
-		require.NoError(t, err)
+		_, _ = w.Write([]byte(answer))
 	}))
 	t.Cleanup(server.Close)
 
