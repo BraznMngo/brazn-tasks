@@ -239,30 +239,26 @@ func TestBraznProvisioningRefusesToGiveOneAccountToTwoMailboxes(t *testing.T) {
 	db.AssertCount(t, "brazn_provisioned_users", builder.Eq{"user_id": 1}, 1)
 }
 
-// There is deliberately NO test here for a newly created account reported as
-// unconfirmed - the created:true, email_verified:false combination.
+// There is still no test HERE for a newly created account reported as
+// unconfirmed - the created:true, email_verified:false combination - but the
+// reason has changed, and the old reason is worth not re-deriving.
 //
-// It was written, it failed, and the reason it failed is that the combination
-// cannot occur: RegisterUser undoes CreateUser's confirmation status before it
-// returns. user.CreateUser sets StatusEmailConfirmationRequired on a
-// mail-enabled instance (user_create.go:105-114), but RegisterUser then hands
-// CreateNewProjectForUser the struct CreateUser read back BEFORE that write
-// (user_create.go:91), and that function finishes by calling
-// user.UpdateUser with it (project.go:1164-1169) - whose column list includes
-// "status" (user.go:573), writing the stale Active back over it.
+// It used to be unreachable. RegisterUser undid CreateUser's confirmation
+// status before returning, because CreateNewProjectForUser passed the pre-write
+// struct to user.UpdateUser, whose column list includes "status". A created
+// account was therefore always Active whatever the mailer was doing.
 //
-// So a created account is always Active here, and the only way to reach the
-// combination is an instance with defaultsettings.default_project_id set, which
-// makes CreateNewProjectForUser return before the update. Configuring that
-// purely to make a test reachable would assert a configuration nobody runs and
-// imply the re-read protects the ordinary path, which it does not.
+// BRA-1047 fixed that at the source: CreateNewProjectForUser writes
+// default_project_id alone, so the confirmation status survives registration
+// and the re-read in provisionUserForClaim is no longer unexercised. The
+// combination is reachable now.
 //
-// The consequence is recorded rather than papered over: the re-read in
-// provisionUserForClaim is UNEXERCISED, and it stays, because it reports what
-// is stored rather than a struct that is stale by construction. See its comment
-// there. The upstream status clobber is a real defect on /register and the
-// admin create-user route too - admin_user_create.go:81-82 states the opposite
-// expectation in a comment - and fixing it is not this ticket's.
+// What covers it is TestRegisterUserKeepsTheConfirmationStatus in pkg/models,
+// which asserts the STORED status after RegisterUser returns with the mailer
+// enabled. That is the defect's own boundary. Reaching it through this endpoint
+// as well would need managed mode running with a mailer configured, and would
+// re-assert through two more layers what is already pinned one call from the
+// bug.
 
 // TestBraznProvisioningReportsAnUnconfirmedMailbox pairs with
 // TestBraznProvisioningAdoptsAnAccountThisInstanceAlreadyHas, which asserts
