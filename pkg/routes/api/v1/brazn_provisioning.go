@@ -84,6 +84,29 @@ type teamRootsReply struct {
 	TaskProjectRef string `json:"task_project_ref"`
 }
 
+// mailboxResolution is the answer to a resolve_mailbox operation, in the shape
+// the contract fixes (cloud/contracts/v1/mailbox/, BRA-1096).
+//
+// Email is omitempty because AN UNRESOLVABLE ANSWER CARRIES NOTHING AND THE
+// EMPTINESS IS THE GUARANTEE: the contract's response schema refuses an
+// `unresolvable` that names an address, and gives no `reason` member for an
+// implementation to write "the user was erased" into.
+type mailboxResolution struct {
+	Result string `json:"result"`
+	Email  string `json:"email,omitempty"`
+}
+
+// noMailbox is the ONE answer to every absence: a subject this instance never
+// had, and one an erasure destroyed - which are the same absence, because
+// DeleteUser takes the claim row holding the address away with the user.
+//
+// It is a single value rather than the same literal constructed on two paths,
+// so the two cases are byte-identical BY CONSTRUCTION rather than by two pieces
+// of code happening to agree. Whoever holds the provisioning signing key can
+// walk a sequential autoincrement; what they must not be able to learn from it
+// is which of those ids were once customers.
+var noMailbox = &mailboxResolution{Result: "unresolvable"}
+
 // BraznProvision performs one provisioning operation for Brazn's commercial
 // service.
 //
@@ -138,6 +161,8 @@ func BraznProvision(c *echo.Context) error {
 		return provisionPersonalInbox(c, payload)
 	case provisioning.OperationCreateTeamRoots:
 		return provisionTeamRoots(c, payload)
+	case provisioning.OperationResolveMailbox:
+		return resolveMailbox(c, payload)
 	default:
 		// An operation this build does not define is refused rather than
 		// guessed at, in exactly the way an unknown edition is on the
@@ -224,6 +249,52 @@ func provisionTeamRoots(c *echo.Context, payload json.RawMessage) error {
 		TaskTeamRef:    strconv.FormatInt(root.TeamID, 10),
 		TaskProjectRef: strconv.FormatInt(root.ProjectID, 10),
 	})
+}
+
+// resolveMailbox is the resolve_mailbox operation: the address a subject
+// reaches, or the one answer every absence gets.
+//
+// IT ANSWERS 200 EITHER WAY, and that is a deliberate departure from the two
+// topology operations above, which refuse an unknown subject with the flat 400.
+// The 400 is right for them - the caller created that user moments earlier, so
+// an unknown subject IS a producer defect. Here an absent subject is an
+// expected, legitimate state: erasure suppresses the mailbox at step 4 and
+// destroys the user at step 5, so a resumed erasure asks about a subject that is
+// already gone.
+//
+// The consumer decides purely on status - cloud/service/src/fork.ts maps 5xx to
+// a retryable `unavailable` and every other non-2xx to a terminal
+// `invalid_state` - so folding "this subject has no mailbox" into the flat 400
+// would make it indistinguishable from a malformed request, and every resumed
+// erasure would refuse at step 4 forever, against a one-month statutory clock.
+// Refusals keep the flat 400; unreachable keeps its 5xx; absence is an ANSWER.
+//
+// A read rather than a write, which is why nothing here is transactional and
+// why no part of it may become one: the caller for step 4 of an erasure is
+// asking what to suppress, not asking this instance to change.
+func resolveMailbox(c *echo.Context, payload json.RawMessage) error {
+	request, err := provisioning.DecodeResolveMailbox(payload)
+	if err != nil {
+		return refuseProvisioning("the resolve_mailbox request is not one this build accepts")
+	}
+
+	mailbox, err := models.MailboxForSubject(request.UserID)
+	if err != nil {
+		return err
+	}
+
+	// The pair the request named and whether an address was found - never the
+	// address itself, as on every other log line on this seam. Reporting
+	// found-or-not discloses nothing the reply does not: it is resolved against
+	// unresolvable, and not erased against never-minted, which this instance
+	// could not tell apart if the line asked it to.
+	log.Debugf("Resolved the mailbox for Brazn Tasks user %s in organization %q (found: %t)",
+		request.UserID, request.OrganizationID, mailbox != "")
+
+	if mailbox == "" {
+		return c.JSON(http.StatusOK, noMailbox)
+	}
+	return c.JSON(http.StatusOK, &mailboxResolution{Result: "resolved", Email: mailbox})
 }
 
 // refuseProvisioning logs why a verified request was turned down and returns
