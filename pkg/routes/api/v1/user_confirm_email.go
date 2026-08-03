@@ -67,9 +67,22 @@ func UserResendEmailConfirmation(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "No email address provided.").Wrap(err)
 	}
 
-	// Deliberately not validated. c.Validate would answer 400 for an address
-	// that does not parse and 200 for one that does, and a caller who can tell
-	// those apart is one step from a caller who can tell accounts apart.
+	// Validated, and this is where the non-enumeration guarantee has to be
+	// stated precisely or it will be misread.
+	//
+	// What must not vary is the answer to "does this address have an account
+	// waiting" - every syntactically valid address gets the same reply whether
+	// it is waiting, was confirmed years ago, or belongs to nobody. Refusing a
+	// string that is not an address at all discloses nothing, because the
+	// caller could work that out without asking us.
+	//
+	// It is validated here because v2 validates it from the struct tag whether
+	// this handler wants it or not. One endpoint answering two different ways
+	// depending on which API version reached it is worse than either answer.
+	if err := c.Validate(resend); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error()).Wrap(err)
+	}
+
 	if err := shared.ResendEmailConfirmation(&resend); err != nil {
 		return err
 	}

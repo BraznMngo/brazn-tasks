@@ -114,18 +114,29 @@ func TestHumaAuthPublic(t *testing.T) {
 		})
 	})
 
-	// The resend endpoint answers the same for every address. Asserted as
-	// "identical to the first answer" rather than "each one is a 200", because
-	// four different bodies would all be 200 too.
+	// The resend endpoint answers the same for every address that could be one.
+	// Asserted as "identical to the first answer" rather than "each one is a
+	// 200", because three different bodies would all be 200 too.
 	t.Run("Resend email confirmation", func(t *testing.T) {
+		// Waiting on confirmation, confirmed long ago, and belonging to
+		// nobody. Three different facts about this instance, one answer.
 		first := post("/api/v2/user/confirm/resend", `{"email":"user4@example.com"}`)
 		require.Equal(t, http.StatusOK, first.Code, first.Body.String())
 
-		for _, address := range []string{"user1@example.com", "nobody@example.com", "not-even-an-address"} {
+		for _, address := range []string{"user1@example.com", "nobody@example.com"} {
 			rec := post("/api/v2/user/confirm/resend", `{"email":"`+address+`"}`)
 			assert.Equal(t, first.Code, rec.Code, address+" answers with a different status")
 			assert.Equal(t, first.Body.String(), rec.Body.String(), address+" answers with a different body")
 		}
+
+		// A string that is not an address is refused, and that discloses
+		// nothing - the caller could tell without asking. What matters is that
+		// it is refused rather than quietly accepted, so the field is really
+		// being checked.
+		t.Run("not an address at all", func(t *testing.T) {
+			rec := post("/api/v2/user/confirm/resend", `{"email":"not-even-an-address"}`)
+			assert.Equal(t, http.StatusUnprocessableEntity, rec.Code, rec.Body.String())
+		})
 	})
 }
 

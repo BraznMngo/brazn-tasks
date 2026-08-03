@@ -230,6 +230,9 @@ func TestResendEmailConfirmation(t *testing.T) {
 		require.NoError(t, ResendEmailConfirmation(s, &EmailConfirmResend{Email: "user4@example.com"}))
 		require.NoError(t, ResendEmailConfirmation(s, &EmailConfirmResend{Email: "user1@example.com"}))
 		require.NoError(t, ResendEmailConfirmation(s, &EmailConfirmResend{Email: "nobody@example.com"}))
+		// Nothing here validates the shape - the handlers do that, and refusing
+		// a string that is not an address discloses nothing. What this asserts
+		// is that reaching the domain with one is not a different outcome.
 		require.NoError(t, ResendEmailConfirmation(s, &EmailConfirmResend{Email: "not-even-an-address"}))
 	})
 

@@ -122,16 +122,17 @@ type EmailConfirmResend struct {
 // ResendEmailConfirmation issues a new confirmation link for an address that is
 // waiting on one.
 //
-// IT TELLS THE CALLER NOTHING, and that is the whole design of it. The answer
-// is the same whether the address has an account waiting to be confirmed, has
-// one that was confirmed long ago, or has no account at all. Anyone can reach
-// this endpoint, so an answer that varied by address would turn it into an
-// account-existence oracle (Percy-Account-Path.md §3; BRA-1072 AC7). The only
-// person who learns anything is the one who can read the mailbox.
+// IT TELLS THE CALLER NOTHING ABOUT ANY ACCOUNT, and that is the whole design
+// of it. The answer is the same whether the address has an account waiting to
+// be confirmed, has one that was confirmed long ago, or has no account at all.
+// Anyone can reach this endpoint, so an answer that varied by address would
+// turn it into an account-existence oracle (Percy-Account-Path.md §3;
+// BRA-1072 AC7). The only person who learns anything is the one who can read
+// the mailbox.
 //
-// It returns nil in every one of those cases, including an address that does
-// not parse - a caller who could tell a rejected address from an accepted one
-// could still probe with the addresses that do parse.
+// It returns nil in every one of those cases. A string that is not an address
+// at all is refused by the handlers before it reaches here, which discloses
+// nothing: the caller could work that out without asking us.
 func ResendEmailConfirmation(s *xorm.Session, r *EmailConfirmResend) (err error) {
 	if r.Email == "" {
 		return nil

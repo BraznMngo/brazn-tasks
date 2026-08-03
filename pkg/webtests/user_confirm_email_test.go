@@ -123,11 +123,13 @@ func TestUserConfirmEmail(t *testing.T) {
 }
 
 func TestUserResendEmailConfirmation(t *testing.T) {
-	// AC7. Four addresses that are four different facts about this instance:
-	// one waiting on confirmation, one confirmed years ago, one belonging to
-	// nobody, and one that is not an address at all. If any of them can be
-	// told apart from the outside, this endpoint is an account-existence
-	// oracle and the reset screen is one too.
+	// AC7. Three addresses that are three different facts about this instance:
+	// one waiting on confirmation, one confirmed years ago, and one belonging
+	// to nobody. If any of them can be told apart from the outside, this
+	// endpoint is an account-existence oracle and the reset screen is one too.
+	//
+	// A string that is not an address is a separate case below: it is refused,
+	// and that discloses nothing, because the caller could tell without asking.
 	addresses := []struct {
 		name    string
 		address string
@@ -135,7 +137,6 @@ func TestUserResendEmailConfirmation(t *testing.T) {
 		{"waiting on confirmation", "user4@example.com"},
 		{"long since confirmed", "user1@example.com"},
 		{"belongs to nobody", "nobody@example.com"},
-		{"not an address at all", "not-even-an-address"},
 	}
 
 	var status int
@@ -157,4 +158,14 @@ func TestUserResendEmailConfirmation(t *testing.T) {
 			assert.Equal(t, body, rec.Body.String(), "this address answers with a different body from the first one")
 		})
 	}
+
+	// v1 and v2 must refuse it the same way. v2 validates from the struct tag
+	// whether the handler asks for it or not, so without the matching check on
+	// v1 one endpoint would answer two different ways depending on which API
+	// version reached it - which is how this was found.
+	t.Run("not an address at all", func(t *testing.T) {
+		_, err := newTestRequest(t, http.MethodPost, apiv1.UserResendEmailConfirmation, `{"email": "not-even-an-address"}`, nil, nil)
+		require.Error(t, err)
+		assert.Equal(t, http.StatusBadRequest, getHTTPErrorCode(err))
+	})
 }
