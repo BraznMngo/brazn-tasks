@@ -346,6 +346,7 @@ var unauthenticatedAPIPaths = map[string]bool{
 	"/api/v1/user/password/token":            true,
 	"/api/v1/user/password/reset":            true,
 	"/api/v1/user/confirm":                   true,
+	"/api/v1/user/confirm/resend":            true,
 	"/api/v1/login":                          true,
 	"/api/v1/user/token/refresh":             true,
 	"/api/v1/auth/openid/:provider/callback": true,
@@ -378,6 +379,7 @@ var unauthenticatedAPIPaths = map[string]bool{
 	"/api/v2/user/password/token":            true,
 	"/api/v2/user/password/reset":            true,
 	"/api/v2/user/confirm":                   true,
+	"/api/v2/user/confirm/resend":            true,
 	"/api/v2/shares/:share/auth":             true,
 	"/api/v2/oauth/token":                    true,
 	"/api/v2/login":                          true,
@@ -531,6 +533,7 @@ func registerAPIRoutes(a *echo.Group) {
 		ur.POST("/user/password/token", apiv1.UserRequestResetPasswordToken)
 		ur.POST("/user/password/reset", apiv1.UserResetPassword)
 		ur.POST("/user/confirm", apiv1.UserConfirmEmail)
+		ur.POST("/user/confirm/resend", apiv1.UserResendEmailConfirmation)
 	}
 
 	if config.AuthLocalEnabled.GetBool() || config.AuthLdapEnabled.GetBool() {

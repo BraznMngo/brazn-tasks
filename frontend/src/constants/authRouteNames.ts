@@ -4,6 +4,7 @@
  * by the router guard to identify routes that don't need authentication.
  */
 export const AUTH_ROUTE_NAMES = new Set([
+	'user.confirm',
 	'user.login',
 	'user.register',
 	'user.password-reset.request',

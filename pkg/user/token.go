@@ -36,6 +36,19 @@ const (
 	TokenAccountDeletion
 	TokenCaldavAuth
 
+	// TokenEmailConfirmed is a confirmation token that has already been spent.
+	//
+	// A used token is not deleted; its kind is changed to this one. Nothing
+	// accepts it - ConfirmEmail only ever looks up TokenEmailConfirm - so it
+	// confirms nothing and is exactly as dead as a deleted row was. What it can
+	// still do is answer a question a deleted row cannot: whether the link now
+	// being clicked is one we issued and it was already used, or one we never
+	// issued at all. Percy-Account-Path.md §3 shows those as two different
+	// screens, and the second click is deliberately the green one.
+	//
+	// It is removed with everything else by CleanupOldTokens after 24 hours.
+	TokenEmailConfirmed
+
 	tokenSize = 64
 )
 
@@ -125,10 +138,36 @@ func removeTokenByID(s *xorm.Session, u *User, kind TokenKind, id int64) (err er
 	return
 }
 
-// CleanupOldTokens removes all password reset and account deletion tokens older than 24 hours.
+// removeTokensExcept deletes every token of a kind for a user apart from one.
+// Used when a confirmation link is spent: the sibling links issued by earlier
+// resends must stop working, and the one that was just used has to survive
+// long enough to say so.
+func removeTokensExcept(s *xorm.Session, u *User, kind TokenKind, keepID int64) (err error) {
+	_, err = s.Where("user_id = ? AND kind = ? AND id != ?", u.ID, kind, keepID).
+		Delete(&Token{})
+	return
+}
+
+// changeTokenKind rewrites a token's kind in place.
+func changeTokenKind(s *xorm.Session, id int64, kind TokenKind) (err error) {
+	_, err = s.Where("id = ?", id).
+		Cols("kind").
+		Update(&Token{Kind: kind})
+	return
+}
+
+// CleanupOldTokens removes password reset, account deletion and email
+// confirmation tokens older than 24 hours.
+//
+// Email confirmation tokens were previously kept forever, which contradicted
+// the 24-hour link lifetime this product states on screen as fact
+// (Percy-Account-Path.md §6, decision 5b). ConfirmEmail enforces the same
+// deadline itself, because this runs hourly and a link must not be usable for
+// the fraction of an hour between expiring and being swept.
 func CleanupOldTokens(s *xorm.Session) (deleted int64, err error) {
 	deleted, err = s.
-		Where("created < ? AND (kind = ? OR kind = ?)", time.Now().Add(time.Hour*24*-1), TokenPasswordReset, TokenAccountDeletion).
+		Where("created < ?", time.Now().Add(time.Hour*24*-1)).
+		In("kind", TokenPasswordReset, TokenAccountDeletion, TokenEmailConfirm, TokenEmailConfirmed).
 		Delete(&Token{})
 	return
 }
