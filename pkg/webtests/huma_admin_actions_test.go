@@ -142,6 +142,50 @@ func TestHumaAdminCreateUser(t *testing.T) {
 		assert.Equal(t, user.StatusActive, u.Status)
 	})
 
+	// The sibling above runs with the mailer OFF, which is the whole reason
+	// BRA-1047 survived: with no mailer CreateUser leaves a new account Active,
+	// so "status is Active" holds whether or not CreateNewProjectForUser writes
+	// a stale status back over it. Mailer ON is the only configuration in which
+	// the two outcomes differ, and it is the combination the admin route had no
+	// test for at all.
+	//
+	// It also pins a promise nothing else asserts: CreateUserAsAdmin's closing
+	// comment (models/admin_user_create.go) says the reload reports
+	// "StatusEmailConfirmationRequired on mail-enabled instances". That was
+	// false until BRA-1047 and is true now, which is exactly the kind of claim
+	// that should be held up by a test rather than by a comment.
+	t.Run("mailer on and no skip leaves the account needing confirmation", func(t *testing.T) {
+		config.MailerEnabled.Set(true)
+		defer config.MailerEnabled.Set(false)
+		notifications.Fake()
+		defer notifications.Unfake()
+
+		body := `{"username":"v2adm-create-5","password":"averyl0ngpassword","email":"v2adm-create-5@example.com"}`
+		res := adminReq(t, e, http.MethodPost, "/api/v2/admin/users", admin, body)
+		require.Equal(t, http.StatusCreated, res.Code, res.Body.String())
+
+		s := db.NewSession()
+		defer s.Close()
+		u, err := user.GetUserByUsername(s, "v2adm-create-5")
+		require.NoError(t, err)
+
+		// Anti-vacuity: no confirmation token means CreateUser never took its
+		// mail branch, never set the status, and the assertion below would be
+		// passing for a reason unrelated to what this test claims to cover.
+		confirmTokens, err := s.Table("user_tokens").
+			Where("user_id = ? AND kind = ?", u.ID, user.TokenEmailConfirm).
+			Count()
+		require.NoError(t, err)
+		require.EqualValues(t, 1, confirmTokens,
+			"CreateUser must have issued a confirmation token; without one this test proves nothing")
+
+		assert.Equal(t, user.StatusEmailConfirmationRequired, u.Status,
+			"a confirmation email was sent and the admin did not skip it, so the stored account must still need confirming")
+		// The admin view reports status, so the defect was visible over HTTP too.
+		assert.Contains(t, res.Body.String(), `"status":1`,
+			"the admin response must report the stored confirmation status")
+	})
+
 	t.Run("persists the name field", func(t *testing.T) {
 		body := `{"username":"v2adm-create-4","password":"averyl0ngpassword","email":"v2adm-create-4@example.com","name":"Adm Create"}`
 		res := adminReq(t, e, http.MethodPost, "/api/v2/admin/users", admin, body)
