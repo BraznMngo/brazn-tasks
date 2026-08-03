@@ -63,10 +63,16 @@ const ContractVersion = "1"
 // for both would have the switch route a per-USER Inbox to the per-TEAM roots
 // and back, and neither call would notice: both payloads carry an organization
 // and a subject, so each would decode cleanly as the other.
+// THE SAME ARGUMENT APPLIES WITH MORE FORCE TO erase_subject, whose payload is
+// field-for-field identical to create_personal_inbox's: one organization, one
+// subject. Under a shared name each would decode cleanly as the other and the
+// switch would route a DESTRUCTION to a creation, or the reverse. It is a
+// separate value for that reason and must stay one.
 const (
 	OperationCreateUser          = "create_user"
 	OperationCreatePersonalInbox = "create_personal_inbox"
 	OperationCreateTeamRoots     = "create_team_roots"
+	OperationEraseSubject        = "erase_subject"
 )
 
 // maxMailboxLength is users.email's column width. An address past it is
@@ -163,6 +169,32 @@ type CreateTeamRoots struct {
 	TeamID string `json:"team_id"`
 }
 
+// EraseSubject is the whole signed payload of an erase_subject operation: one
+// subject, and everything this instance holds for them, destroyed.
+//
+// IT IS THE ONLY IRREVERSIBLE OPERATION ON THIS CHANNEL. Its four members are
+// character for character those of CreatePersonalInbox, which is exactly why
+// they are declared separately here rather than shared: a single type used by
+// both would make the two requests indistinguishable to everything below the
+// switch, and the one place the difference is recorded - the operation member -
+// would then be the only thing between provisioning somebody an Inbox and
+// deleting their account.
+type EraseSubject struct {
+	ContractVersion string `json:"contract_version"`
+	Operation       string `json:"operation"`
+	// OrganizationID decides nothing, exactly as on CreatePersonalInbox. It is
+	// the caller's statement of which subject it BELIEVES it is erasing, and it
+	// is carried for the audit line so that a wrong erasure can be read back
+	// afterwards against the organization it was requested for.
+	OrganizationID string `json:"organization_id"`
+	// UserID is this instance's own users.id in decimal form. Whether a user of
+	// that id exists is models' question and deliberately not this one - for
+	// erasure, "no such subject" is a SUCCESS rather than a refusal, and a
+	// decoder that tried to answer it here would turn the resumable case into a
+	// permanent failure.
+	UserID string `json:"user_id"`
+}
+
 // operation is the lenient first read of a signed payload: enough to route it,
 // and deliberately nothing else. It ignores unknown members because at this
 // point every member of every operation is unknown to it.
@@ -247,6 +279,35 @@ func DecodeCreateTeamRoots(payload json.RawMessage) (*CreateTeamRoots, error) {
 	if !commercialID.MatchString(request.OrganizationID) ||
 		!commercialID.MatchString(request.UserID) ||
 		!commercialID.MatchString(request.TeamID) {
+		return nil, ErrInvalidRequest
+	}
+	return request, nil
+}
+
+// DecodeEraseSubject reads a verified payload as an erase_subject request and
+// checks the two identifiers it carries.
+//
+// IT IS THE ONE DECODER THAT CHECKS THE OPERATION MEMBER, and the asymmetry is
+// deliberate. Routing already guarantees the value - Verify reads it from the
+// same signed bytes the switch dispatches on - so for the three creating
+// operations the check would be dead weight. This one is irreversible and its
+// payload is structurally identical to create_personal_inbox's, so the single
+// mistake that would matter is an editing error in the switch pointing a
+// create_personal_inbox case at this decoder, or the reverse. One comparison
+// makes that a refusal instead of a deletion.
+func DecodeEraseSubject(payload json.RawMessage) (*EraseSubject, error) {
+	request := &EraseSubject{}
+	if err := decodeExactly(payload, request); err != nil {
+		return nil, err
+	}
+	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationEraseSubject {
+		return nil, ErrInvalidRequest
+	}
+	if !commercialID.MatchString(request.OrganizationID) ||
+		!commercialID.MatchString(request.UserID) {
 		return nil, ErrInvalidRequest
 	}
 	return request, nil

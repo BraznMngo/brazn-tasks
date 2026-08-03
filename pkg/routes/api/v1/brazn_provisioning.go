@@ -138,6 +138,8 @@ func BraznProvision(c *echo.Context) error {
 		return provisionPersonalInbox(c, payload)
 	case provisioning.OperationCreateTeamRoots:
 		return provisionTeamRoots(c, payload)
+	case provisioning.OperationEraseSubject:
+		return eraseSubject(c, payload)
 	default:
 		// An operation this build does not define is refused rather than
 		// guessed at, in exactly the way an unknown edition is on the
@@ -224,6 +226,49 @@ func provisionTeamRoots(c *echo.Context, payload json.RawMessage) error {
 		TaskTeamRef:    strconv.FormatInt(root.TeamID, 10),
 		TaskProjectRef: strconv.FormatInt(root.ProjectID, 10),
 	})
+}
+
+// eraseSubject is the erase_subject operation: everything this instance holds
+// for one commercial subject, destroyed.
+//
+// IT IS THE ONLY OPERATION ON THIS CHANNEL THAT DESTROYS ANYTHING, and the only
+// one for which "there is nothing here" is a success rather than a refusal. The
+// three creating operations answer ErrProvisioningSubjectUnknown with a 400
+// because a topology cannot be built for a subject this instance does not have;
+// erasure of a subject this instance does not have is exactly what a retry after
+// a successful erasure looks like, and the consumer treats a 400 as permanent.
+// See models.EraseSubject for why that would strand every resumed erasure.
+//
+// The reply is `{}` like its siblings, and carries no count. The consumer does
+// not read it (cloud/service/src/fork.ts) and must not: a number of destroyed
+// rows would be a fact about this schema for the commercial layer to depend on,
+// and it would raise the one question the contract settles the other way - what
+// a zero means.
+func eraseSubject(c *echo.Context, payload json.RawMessage) error {
+	request, err := provisioning.DecodeEraseSubject(payload)
+	if err != nil {
+		return refuseProvisioning("the erase_subject request is not one this build accepts")
+	}
+
+	if err := models.EraseSubject(c.Request().Context(), request.UserID); err != nil {
+		// Reached only for a subject id that is not a decimal number at all,
+		// which no correct sender can produce - never for one that is merely
+		// absent. models.EraseSubject draws that line and says why.
+		if errors.Is(err, models.ErrProvisioningSubjectUnknown) {
+			return refuseProvisioning(
+				"the erase_subject request names a subject this instance could not have minted")
+		}
+		return err
+	}
+
+	// The subject id and the organization, and nothing else - no mailbox, as on
+	// every log line on this seam. The organization is here because it is the
+	// caller's statement of which subject it believed it was erasing, and this
+	// is the line an erasure is read back from afterwards.
+	log.Debugf("Erased Brazn Tasks subject %s for organization %q",
+		request.UserID, request.OrganizationID)
+
+	return c.JSON(http.StatusOK, &nothingToReport{})
 }
 
 // refuseProvisioning logs why a verified request was turned down and returns
