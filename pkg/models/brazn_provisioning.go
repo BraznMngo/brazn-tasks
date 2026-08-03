@@ -192,24 +192,20 @@ func provisionUserForClaim(s *xorm.Session, claim *ProvisionedUser) (*user.User,
 	// row as it was mid-flight. The reply's email_verified comes off the status,
 	// and it must be what is STORED.
 	//
-	// THIS LINE IS UNEXERCISED, and saying so is better than implying otherwise.
-	// The divergence it was written for cannot currently be observed, because
-	// RegisterUser erases it: CreateUser sets StatusEmailConfirmationRequired on
-	// a mail-enabled instance (user_create.go:105-114), and
-	// CreateNewProjectForUser then passes the pre-write struct to
-	// user.UpdateUser (project.go:1164-1169), whose column list includes
-	// "status" (user.go:573) and writes the stale Active back over it. Every
-	// account created here is therefore Active whatever the mailer is doing, so
-	// no test in this repository can produce created:true with
-	// email_verified:false - the one exception being an instance with
-	// defaultsettings.default_project_id set, which nobody runs and which a test
-	// has no business configuring just to reach this.
+	// This line USED to be unexercised, and the comment here said so at length.
+	// It was unexercised because a defect made the divergence unreachable:
+	// CreateNewProjectForUser passed the pre-write struct to user.UpdateUser,
+	// whose column list includes "status", writing the stale Active back over
+	// StatusEmailConfirmationRequired on every mail-enabled registration. Every
+	// account created here was therefore Active whatever the mailer was doing.
 	//
-	// It stays anyway. Reporting a struct known to be stale would be wrong on
-	// purpose, and the day the clobber is fixed - it is a real defect on
-	// /register and the admin create-user route, where admin_user_create.go:81-82
-	// documents the expectation it breaks - this is what stops the reply
-	// silently lying about it.
+	// BRA-1047 fixed that: CreateNewProjectForUser now writes default_project_id
+	// alone. So a freshly created account on a mail-enabled instance really is
+	// StatusEmailConfirmationRequired, this re-read really does report it, and
+	// created:true with email_verified:false is now a reachable reply.
+	//
+	// Percy Cloud is the consumer that must care, because signUp copies
+	// email_verified into email_verified_at and requireVerifiedAccount reads it.
 	stored, err := userByID(s, created.ID)
 	if err != nil {
 		return nil, false, err
