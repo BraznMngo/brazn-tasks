@@ -63,6 +63,7 @@ const ContractVersion = "1"
 // for both would have the switch route a per-USER Inbox to the per-TEAM roots
 // and back, and neither call would notice: both payloads carry an organization
 // and a subject, so each would decode cleanly as the other.
+//
 // THE SAME ARGUMENT APPLIES WITH MORE FORCE TO erase_subject, whose payload is
 // field-for-field identical to create_personal_inbox's: one organization, one
 // subject. Under a shared name each would decode cleanly as the other and the
