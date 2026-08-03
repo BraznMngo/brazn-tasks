@@ -1165,19 +1165,12 @@ func CreateNewProjectForUser(s *xorm.Session, u *user.User) (err error) {
 		return err
 	}
 
-	// Write default_project_id and nothing else. UpdateUser writes the whole of
-	// baseUserUpdateColumns (user.go), which includes "status" - and all three
-	// callers here hand over the struct user.CreateUser read back at
-	// user_create.go:91, BEFORE it writes StatusEmailConfirmationRequired at
-	// :105-114. Since xorm's Cols() forces zero values, the full update put the
-	// stale StatusActive (0) back over the confirmation status on every
-	// mail-enabled registration, which made email confirmation decorative.
-	//
-	// Nothing else about the broad update was load-bearing: the struct is a
-	// row this function's caller just read, so every other column it wrote
-	// already held that value. BRA-1047.
+	// QA EXPERIMENT (BRA-1047, do not merge): the BRA-1047 fix is deliberately
+	// reverted to the pre-fix statement, so CI can establish that deleting the
+	// fix makes TestRegisterUserKeepsTheConfirmationStatus fail - and that it
+	// fails ONLY on the status assertion, both anti-vacuity requires passing.
 	u.DefaultProjectID = p.ID
-	_, err = s.ID(u.ID).Cols("default_project_id").Update(&user.User{DefaultProjectID: p.ID})
+	_, err = user.UpdateUser(s, u, false)
 	return err
 }
 
