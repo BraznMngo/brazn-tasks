@@ -113,6 +113,17 @@ func projectTitle(t *testing.T, projectID int64) string {
 	return project.Title
 }
 
+func projectOwner(t *testing.T, projectID int64) int64 {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	project, err := models.GetProjectSimpleByID(s, projectID)
+	require.NoError(t, err)
+	return project.OwnerID
+}
+
 func defaultProjectOf(t *testing.T, userID int64) int64 {
 	t.Helper()
 
@@ -320,6 +331,70 @@ func TestBraznProvisioningASecondTeamGetsItsOwnRoots(t *testing.T) {
 	assert.Equal(t, managedTestSecondTeam, roots[1].CommercialTeamID)
 
 	require.Len(t, storedEntities(t, models.ProtectedKindPublicRoot), 1)
+}
+
+// TestBraznProvisioningGivesASecondTeamTheOrganizationsPublicRoot covers the
+// branch ensurePublicRoot takes when the Public root ALREADY EXISTS - the one
+// where it grants the arriving team access to the root a previous call minted.
+//
+// Added by independent QA (BRA-1050). Nothing reached that branch before: every
+// test that provisions a second team asserts the Public root was not
+// DUPLICATED, and none asserts the second team can SEE it. Deleting the
+// grantTeamAccess call on that path therefore left the whole suite green while
+// leaving every team but the first unable to reach the one place the
+// organization's shared work and its only anonymous read-only links may live.
+//
+// The first team's grant is asserted alongside it because the two come from
+// different statements - the created path and the existing path - and a test
+// that checked only the survivor would not say which one ran.
+func TestBraznProvisioningGivesASecondTeamTheOrganizationsPublicRoot(t *testing.T) {
+	env := newManagedEnv(t)
+
+	primary := provisionedTeamRoots(t,
+		env.provision(teamRootsPayload(managedTopologySubject, managedTestPrimaryTeam)))
+	second := provisionedTeamRoots(t,
+		env.provision(teamRootsPayload(managedTopologySubject, managedTestSecondTeam)))
+
+	publics := storedEntities(t, models.ProtectedKindPublicRoot)
+	require.Len(t, publics, 1)
+
+	db.AssertExists(t, "team_projects", map[string]interface{}{
+		"team_id":    mustParseRef(t, primary.TaskTeamRef),
+		"project_id": publics[0].ProjectID,
+	}, false)
+	db.AssertExists(t, "team_projects", map[string]interface{}{
+		"team_id":    mustParseRef(t, second.TaskTeamRef),
+		"project_id": publics[0].ProjectID,
+	}, false)
+}
+
+// TestBraznProvisioningGivesEachSubjectTheirOwnInbox is what tells the Inbox's
+// idempotence key apart from "this instance has an Inbox".
+//
+// Added by independent QA (BRA-1050). Every existing test provisions for user 1
+// alone, so personalInbox's owner scoping - the `owner_id = ?` subquery that
+// makes the lookup about THIS person - was never exercised. Dropping it would
+// have kept all of them green: the second subject's call would find the first
+// subject's Inbox, decide the work was done, and answer 200 having created
+// nothing. A member with no Inbox is not a visible failure either, because the
+// operation reported success.
+func TestBraznProvisioningGivesEachSubjectTheirOwnInbox(t *testing.T) {
+	env := newManagedEnv(t)
+
+	first := env.provision(personalInboxPayload("1"))
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	second := env.provision(personalInboxPayload("2"))
+	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
+
+	inboxes := storedEntities(t, models.ProtectedKindInbox)
+	require.Len(t, inboxes, 2)
+
+	// Asserted as a set rather than by position: which row is which is not the
+	// property under test, and one Inbox per subject is.
+	assert.ElementsMatch(t, []int64{1, 2}, []int64{
+		projectOwner(t, inboxes[0].ProjectID),
+		projectOwner(t, inboxes[1].ProjectID),
+	})
 }
 
 // TestBraznProvisioningRefusesATopologyItCannotPlace checks the door on both
