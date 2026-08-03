@@ -8,6 +8,7 @@ import UserModel, {getDisplayName, fetchAvatarBlobUrl, invalidateAvatarCache} fr
 import AvatarService from '@/services/avatar'
 import UserSettingsService from '@/services/userSettings'
 import {getToken, refreshToken, removeToken, saveToken} from '@/helpers/auth'
+import {clearSignupToken, getSignupToken} from '@/helpers/signupToken'
 import {useWebSocket} from '@/composables/useWebSocket'
 import {setModuleLoading} from '@/stores/helper'
 import {success, error} from '@/message'
@@ -237,6 +238,9 @@ export const useAuthStore = defineStore('auth', () => {
 			await HTTP.post('register', {
 				...credentials,
 				language,
+				// Sent unconditionally. On a self-hosted instance the server
+				// ignores it, so there is one registration call and not two.
+				signup_token: getSignupToken(),
 			})
 			return login(credentials)
 		} catch (e) {
@@ -269,12 +273,24 @@ export const useAuthStore = defineStore('auth', () => {
 			data.totp_passcode = totpPasscode
 		}
 
+		// The signup token, when this tab is holding one. It is read only by
+		// the branch of the callback that would CREATE a user, so carrying it
+		// on an ordinary sign-in changes nothing — which is why it is sent
+		// without asking which of the two this is. The frontend cannot know.
+		const signupToken = getSignupToken()
+		if (signupToken !== '') {
+			data.signup_token = signupToken
+		}
+
 		// Delete an eventually preexisting old token
 		removeToken()
 		try {
 			const response = await HTTP.post(`/auth/openid/${provider}/callback`, data)
 			// Save the token to local storage for later use
 			saveToken(response.data.token, true)
+			// Either it was consumed by a registration or it was irrelevant to a
+			// sign-in. Both mean it must not be offered again.
+			clearSignupToken()
 			setLoggedInVia(provider)
 
 			// Tell others the user is authenticated

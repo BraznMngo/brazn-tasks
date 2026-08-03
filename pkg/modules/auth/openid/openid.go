@@ -34,6 +34,7 @@ import (
 	"code.vikunja.io/api/pkg/modules/auth"
 	"code.vikunja.io/api/pkg/modules/avatar"
 	"code.vikunja.io/api/pkg/modules/avatar/upload"
+	"code.vikunja.io/api/pkg/modules/brazn/signup"
 	"code.vikunja.io/api/pkg/modules/keyvalue"
 	"code.vikunja.io/api/pkg/user"
 	"code.vikunja.io/api/pkg/utils"
@@ -54,6 +55,12 @@ type Callback struct {
 	// Clients must restart the OIDC flow and populate this field after
 	// receiving a 412 with error code 1017. See GHSA-8jvc-mcx6-r4cg.
 	TOTPPasscode string `json:"totp_passcode"`
+	// SignupToken carries a Percy Cloud signup token through the provider
+	// round trip, so that registering with Google and registering with a
+	// password are gated by the same thing (BRA-1071). It is IGNORED unless
+	// this instance is in managed mode, and it is ignored for a sign-in: only
+	// the branch that would CREATE a user ever reads it.
+	SignupToken string `json:"signup_token"`
 }
 
 // Provider is the structure of an OpenID Connect provider
@@ -249,7 +256,7 @@ func AuthenticateCallback(ctx context.Context, cb *Callback, providerKey string)
 	defer events.CleanupPending(s)
 
 	// Check if we have seen this user before
-	u, err := getOrCreateUser(s, cl, provider, idToken) //nolint:contextcheck
+	u, err := getOrCreateUser(ctx, s, cl, provider, idToken, cb.SignupToken) //nolint:contextcheck
 	if err != nil {
 		_ = s.Rollback()
 		log.Errorf("Error creating new user for provider %s: %v", provider.Name, err)
@@ -456,7 +463,60 @@ func errManagedNoSignUp() error {
 		"There is no Brazn Tasks account for this sign-in. Accounts are created when you subscribe.")
 }
 
-func getOrCreateUser(s *xorm.Session, cl *claims, provider *Provider, idToken *oidc.IDToken) (u *user.User, err error) {
+// errManagedUsePassword is what somebody gets when they sign in with Google at
+// an address that already has an account here.
+//
+// GOOGLE AND A PASSWORD ON ONE ADDRESS DO NOT JOIN AUTOMATICALLY (BRA-1071).
+// Adopting the existing account would mean whoever controls the mailbox
+// controls the account, which is exactly the property a password exists to
+// deny. There is no disclosure in saying so: the person has just proved to
+// Google that they hold this mailbox, so they are being told something about
+// their own address.
+func errManagedUsePassword() error {
+	return echo.NewHTTPError(http.StatusForbidden,
+		"This email address already has a Brazn Tasks account. Sign in with your password; you can add Google to your account afterwards.")
+}
+
+// errManagedUnverifiedAddress refuses a sign-up whose provider will not say the
+// address is verified.
+//
+// A Google registration that returns a VERIFIED address needs no confirmation
+// mail, because the provider's claim is what proves the mailbox. That is the
+// whole of the ruling, and it is conditional on the claim actually being there:
+// an unverified claim proves nothing, and accepting it would let a provider
+// account assert somebody else's address and reach an active account without
+// ever holding the mailbox. This path sends no confirmation mail of its own, so
+// there is no weaker outcome available to fall back to - the answer is no.
+func errManagedUnverifiedAddress() error {
+	return echo.NewHTTPError(http.StatusForbidden,
+		"This provider did not confirm your email address, so an account cannot be created from it. Register with an email address and a password instead.")
+}
+
+// existingUserForAddress reports the account already holding an address, or nil.
+//
+// The lookup is by address ALONE - no issuer - because that is the question
+// being asked: does anybody already have this mailbox. A user.ErrUserDoesNotExist
+// is the answer "no" and not a failure; a status error means a row was found,
+// which is still "yes".
+func existingUserForAddress(s *xorm.Session, email string) (*user.User, error) {
+	if email == "" {
+		return nil, nil
+	}
+
+	existing, err := user.GetUserWithEmail(s, &user.User{Email: email})
+	if err != nil && !user.IsErrUserDoesNotExist(err) && !user.IsErrUserStatusError(err) {
+		return nil, err
+	}
+	// getUser answers "nobody" with a zero-valued user rather than a nil one, so
+	// the id is what says whether a row was found. A disabled or locked account
+	// still counts: it is somebody's, and adopting it would be the same join.
+	if existing == nil || existing.ID == 0 {
+		return nil, nil
+	}
+	return existing, nil
+}
+
+func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider *Provider, idToken *oidc.IDToken, signupToken string) (u *user.User, err error) {
 
 	// set defaults
 	fallbackMatchFound := false
@@ -497,19 +557,29 @@ func getOrCreateUser(s *xorm.Session, cl *claims, provider *Provider, idToken *o
 				break
 			}
 		}
+
+		// A fallback match is an account found by ADDRESS or USERNAME rather
+		// than by this provider's subject, which is the silent join BRA-1071
+		// rules out on a managed instance. It is adopted everywhere else, which
+		// is stock behaviour and stays.
+		//
+		// This is not the same guard as the one in the sign-up branch below and
+		// neither covers the other: the deployed configuration enables no
+		// fallback at all, so that one is the one that fires there, and this
+		// one is what stops the join the moment a fallback is switched on.
+		if fallbackMatchFound && config.BraznManagedMode.GetBool() {
+			return nil, errManagedUsePassword()
+		}
 	}
 
 	if !alreadyCreatedFromIssuer && !fallbackMatchFound {
 
-		// SIGNING IN AND SIGNING UP PART COMPANY HERE, and only the first
-		// survives on a managed instance. Everything above this line resolved
-		// an existing account and is untouched; everything below it creates
-		// one, which on a managed instance is the commercial service's job and
-		// nobody else's (docs/Identity-and-Access-Rules.md §2.1, in the Percy
-		// repository). A user with no
-		// entitlement is impossible by construction only if there is no path
-		// that makes one, and today this is that path: on the development
-		// instance anyone with a Google account gets an account here.
+		// SIGNING IN AND SIGNING UP PART COMPANY HERE. Everything above this
+		// line resolved an existing account and is untouched; everything below
+		// it CREATES one, and on a managed instance that is the half the token
+		// gates. BRA-1018 refused this branch outright; BRA-1071 changes its
+		// answer rather than its shape, because Google is one option to
+		// register beside a password and not a second class of account.
 		//
 		// It cannot be done by the managed gate, and that is not an oversight
 		// in the gate. POST /api/v1/auth/openid/:provider/callback is
@@ -520,27 +590,36 @@ func getOrCreateUser(s *xorm.Session, cl *claims, provider *Provider, idToken *o
 		// user out of the instance. The distinction between the two things
 		// this route does only exists at this line.
 		//
-		// WHAT MUST BE TRUE FOR THIS TO BE SURVIVABLE, and is not yet: a user
-		// Percy Cloud provisioned is recorded with the local issuer and no
-		// Google subject, so EVERY one of their sign-ins reaches here unless
-		// the provider links them by verified email. Not just the first: a
-		// fallback match is never written back as the user's issuer and
-		// subject (see the alreadyCreatedFromIssuer branch below, which is the
-		// only one that updates them), so the link is re-derived on every
-		// callback and a configuration that stops working locks the account
-		// out on the spot rather than at signup.
+		// THE ORDER OF THE THREE CHECKS IS DELIBERATE. A provider that will not
+		// vouch for the address is refused first, because everything after it
+		// reasons about an address; then an address that already has an account
+		// here, so a valid token can never be spent joining one; and only then
+		// the token itself.
 		//
-		// fallbackSearchUsers does exactly that linking, but only when the
-		// provider carries emailfallback and NOT usernamefallback - and the
-		// deployed configuration (deploy/vikunja-development/docker-compose.yml
-		// in the Percy repository) sets neither, so both default to false.
-		// Switching brazn.managedmode on before that config lands refuses every
-		// customer. BRA-1021 owns switching it on.
-		//
-		// AuthenticateCallback logs this refusal through its existing "Error
-		// creating new user" line, which is where an operator will read it.
-		if config.BraznManagedMode.GetBool() {
-			return nil, errManagedNoSignUp()
+		// AuthenticateCallback logs every refusal here through its existing
+		// "Error creating new user" line, which is where an operator will read
+		// it.
+		managed := config.BraznManagedMode.GetBool()
+		if managed {
+			if !bool(cl.EmailVerified) {
+				return nil, errManagedUnverifiedAddress()
+			}
+
+			existing, lookupErr := existingUserForAddress(s, cl.Email)
+			if lookupErr != nil {
+				return nil, lookupErr
+			}
+			if existing != nil {
+				return nil, errManagedUsePassword()
+			}
+
+			// The shape check only. Whether the token is real is Percy Cloud's
+			// answer, and asking costs a user id this branch has not created
+			// yet - so the refusal for a token that is merely absent is given
+			// here, and the one that decides is below.
+			if !signup.CanBeRedeemed(signupToken) {
+				return nil, errManagedNoSignUp()
+			}
 		}
 
 		// If no user exists, create one with the preferred username if it is not already taken
@@ -557,6 +636,20 @@ func getOrCreateUser(s *xorm.Session, cl *claims, provider *Provider, idToken *o
 		u, err = auth.CreateUserWithRandomUsername(s, uu)
 		if err != nil {
 			return nil, err
+		}
+
+		// The token is consumed and the created users.id reported before this
+		// session is committed, exactly as the password path does it. A refusal
+		// returns an error, AuthenticateCallback rolls the session back, and no
+		// user exists - which is what makes "no token, no user" hold by either
+		// door rather than only the one somebody remembered.
+		//
+		// cl.Email rather than u.Email: user.CreateUser returns the row read
+		// back by GetUserByID, and that blanks the email on every read.
+		if managed {
+			if redeemErr := signup.Redeem(ctx, signupToken, u.ID, cl.Email); redeemErr != nil {
+				return nil, signup.HTTPRefusal(redeemErr)
+			}
 		}
 	} else if alreadyCreatedFromIssuer {
 

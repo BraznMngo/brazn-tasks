@@ -59,6 +59,24 @@ func init() {
 		return nil
 	})
 
+	// Registration IS gated on a managed instance - by a signup token from
+	// Percy Cloud, and by nothing else (BRA-1071). The gate is not here, and
+	// that is forced rather than chosen: redeeming a token both consumes it and
+	// reports the users.id it binds to, so it cannot be asked before a user
+	// exists, and no user exists until the handler has created one. Splitting
+	// it into a check here and a redemption there would put back exactly the
+	// window the contract removes - a check that does not consume, which two
+	// registrations can both pass.
+	//
+	// So this returns nil and shared.RegisterUser holds the whole of it,
+	// inside the transaction that creates the user, committing only on a
+	// redeemed answer. What this table still does is make the route REACHABLE:
+	// it was "service-managed" until BRA-1071, which refused registration
+	// before any handler ran.
+	registerPreflightRule(ruleSignupToken, func(_ *managedEval) error {
+		return nil
+	})
+
 	// Revocation reduces access, so it stays available in both editions - but
 	// it still requires a valid, active projection, because "every
 	// access-expanding operation fails when entitlement state is missing"

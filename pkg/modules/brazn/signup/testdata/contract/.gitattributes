@@ -1,0 +1,10 @@
+# The fixtures in this directory are exact wire bytes, not source files.
+#
+# They are compared member by member against what this build actually sends,
+# including the JSON TYPE of every value, so any end-of-line or whitespace
+# normalisation changes what is being compared. -text switches conversion off in
+# both directions, so a checkout on a host with core.autocrlf=true gets the
+# committed bytes rather than a CRLF rendering of them.
+#
+# README.md is deliberately not listed; it is an ordinary source file.
+*.json -text
