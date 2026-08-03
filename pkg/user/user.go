@@ -380,15 +380,6 @@ func CheckUserCredentials(ctx context.Context, s *xorm.Session, u *Login) (*User
 		return nil, ErrWrongUsernameOrPassword{}
 	}
 
-	if user.Issuer != IssuerLocal {
-		return user, &ErrAccountIsNotLocal{UserID: user.ID}
-	}
-
-	// The user is invalid if they need to verify their email address
-	if user.Status == StatusEmailConfirmationRequired {
-		return &User{}, ErrEmailNotConfirmed{UserID: user.ID}
-	}
-
 	// Check the users password
 	err = CheckUserPassword(user, u.Password)
 	if err != nil {
@@ -398,7 +389,20 @@ func CheckUserCredentials(ctx context.Context, s *xorm.Session, u *Login) (*User
 		return user, err
 	}
 
-	// After successful password verification, check if the account is disabled or locked
+	// BRA-1101: every reason to refuse an account that exists is checked here,
+	// after the password verified, and never before it. Answering "not confirmed
+	// yet" or "this account is not local" to somebody who has not proved the
+	// password admits the address has an account, which is precisely what the
+	// single rejection above withholds — the dummy hash on an unknown username
+	// is there so even the timing does not say it. See Percy-Account-Path.md §4:
+	// "not confirmed yet" is shown only after the password verified, because
+	// then it tells the reader nothing they had not already proved they knew.
+	if user.Issuer != IssuerLocal {
+		return nil, &ErrAccountIsNotLocal{UserID: user.ID}
+	}
+	if user.Status == StatusEmailConfirmationRequired {
+		return nil, ErrEmailNotConfirmed{UserID: user.ID}
+	}
 	if user.Status == StatusDisabled {
 		return nil, &ErrAccountDisabled{UserID: user.ID}
 	}
@@ -464,10 +468,23 @@ func handleFailedPassword(ctx context.Context, user *User) {
 }
 
 // CheckUserPassword checks and verifies a user's password. The user object needs to contain the hashed password from the database.
+//
+// An account with no stored hash answers the same way as a wrong password.
+// CreateUser hashes a password only when the issuer is local, and the OIDC path
+// sets none at all, so every Google account holds an empty string in that column
+// — bcrypt answers ErrHashTooShort rather than ErrMismatchedHashAndPassword, and
+// returning that raw renders as a 500. Since BRA-1101 moved the not-local refusal
+// below this call, that 500 would be a louder oracle than the one the move closes:
+// a stranger would learn from the status alone which addresses sign in with
+// Google. A stored value that cannot be a bcrypt hash cannot match any password,
+// so the honest answer is the same refusal a wrong one gets. Longer malformed
+// hashes are deliberately still errors: those mean a corrupted column, which is
+// an operational fault worth surfacing, not an account that never had a password.
 func CheckUserPassword(user *User, password string) error {
 	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) ||
+			errors.Is(err, bcrypt.ErrHashTooShort) {
 			return ErrWrongUsernameOrPassword{}
 		}
 		return err
