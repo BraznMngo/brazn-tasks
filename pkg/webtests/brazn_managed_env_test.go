@@ -101,7 +101,24 @@ func (env *managedEnv) grantUntil(
 ) {
 	env.t.Helper()
 
-	env.grantProjection(userID, edition, organizationAdmin, validTo, nil, managedTestOrganization)
+	env.grantProjection(userID, edition, organizationAdmin, validTo, nil, managedTestOrganization, nil)
+}
+
+// grantWriteAccess writes a projection carrying the contract's optional
+// `state.write_access`, which is how a subject restricted to settings is built.
+//
+// `writeAccess` is a pointer and a raw STRING rather than one of the two
+// constants, and both halves are the point. Nil is a projection that carries no
+// member at all - the ordinary case, and the one every other helper here
+// produces. A string means the test can hand over a value the contract does not
+// define, which is the only honest way to ask what an unrecognised one does: a
+// typed enum would make the case inexpressible and the assertion would then be
+// about a branch the test invented rather than about a message a producer could
+// really send.
+func (env *managedEnv) grantWriteAccess(userID int64, edition string, writeAccess *string) {
+	env.t.Helper()
+
+	env.grantProjection(userID, edition, false, nil, nil, managedTestOrganization, writeAccess)
 }
 
 // grantSeats writes an administrator's projection carrying an organization's
@@ -113,7 +130,7 @@ func (env *managedEnv) grantSeats(userID int64, organizationAdmin bool, seatsPur
 	env.t.Helper()
 
 	env.grantProjection(userID, entitlement.EditionTeams, organizationAdmin, nil, seatsPurchased,
-		managedTestOrganization)
+		managedTestOrganization, nil)
 }
 
 // grantIn is grantSeats for a NAMED organization, which is what makes a
@@ -123,7 +140,7 @@ func (env *managedEnv) grantSeats(userID int64, organizationAdmin bool, seatsPur
 func (env *managedEnv) grantIn(userID int64, organization string, seatsPurchased *int) {
 	env.t.Helper()
 
-	env.grantProjection(userID, entitlement.EditionTeams, true, nil, seatsPurchased, organization)
+	env.grantProjection(userID, entitlement.EditionTeams, true, nil, seatsPurchased, organization, nil)
 }
 
 func (env *managedEnv) grantProjection(
@@ -133,6 +150,7 @@ func (env *managedEnv) grantProjection(
 	validTo *time.Time,
 	seatsPurchased *int,
 	organization string,
+	writeAccess *string,
 ) {
 	env.t.Helper()
 
@@ -150,6 +168,7 @@ func (env *managedEnv) grantProjection(
 			OrganizationAdmin: organizationAdmin,
 			EffectiveState:    "active",
 			SeatsPurchased:    seatsPurchased,
+			WriteAccess:       writeAccess,
 			// Comfortably in the past, so no test below is accidentally about
 			// a window that has not opened yet.
 			ValidFrom: time.Now().UTC().Add(-24 * time.Hour),

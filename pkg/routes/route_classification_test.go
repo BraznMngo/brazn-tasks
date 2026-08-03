@@ -36,6 +36,7 @@ type classifiedRoute struct {
 	Path    string `json:"path"`
 	Class   string `json:"class"`
 	Managed string `json:"managed"`
+	Write   string `json:"write"`
 }
 
 func (r classifiedRoute) key() string {
@@ -63,15 +64,6 @@ func readClassificationFile(t *testing.T) classificationFile {
 
 type classificationFile struct {
 	Routes []classifiedRoute `json:"routes"`
-}
-
-// isReadOnlyMethod reports whether a method cannot change state by contract.
-// Everything else - including echo's catch-all pseudo-method used by the
-// CalDAV routes - counts as mutating and must be classified. Unknown or new
-// methods therefore fail closed.
-func isReadOnlyMethod(method string) bool {
-	return method == "GET" || method == "HEAD" || method == "OPTIONS" ||
-		method == "PROPFIND" || method == "REPORT"
 }
 
 func isValidClass(class string) bool {
@@ -130,7 +122,7 @@ func TestMutatingRoutesAreClassified(t *testing.T) {
 		if method == "echo_route_any" {
 			method = "ANY"
 		}
-		if isReadOnlyMethod(method) {
+		if routes.IsReadOnlyMethod(method) {
 			continue
 		}
 		registered[method+" "+route.Path] = true
@@ -253,5 +245,64 @@ func TestGuardedRoutesCarryAManagedRule(t *testing.T) {
 			"offer at all. Anything else would make normal task work depend on entitlement state,\n"+
 			"which must keep working while the commercial service is unreachable.",
 			len(overreaching), classificationFileName, strings.Join(overreaching, "\n  "))
+	}
+}
+
+// TestWriteMarkersAreSpelledCorrectly guards the permit list the write
+// restriction reads (BRA-1087), and it guards it in the direction that fails
+// SILENTLY.
+//
+// A misspelled "managed" rule refuses a route, which someone notices. A
+// misspelled "write" marker also refuses - the gate permits only markers it
+// recognises - but the route it refuses is one of the four that must stay
+// writable, so what breaks is a customer's ability to pay an invoice, change
+// their password or export their data, on the accounts least able to report it.
+// Nothing else in CI would see that.
+//
+// The second assertion is the one a merge needs. These markers are pure
+// additions to a shared registry file, which is the shape git takes both sides
+// of and gets wrong without raising a conflict: a resolution that dropped every
+// "credentials" entry would leave a valid file, a passing build, and an unpaid
+// customer locked out of their own password. Requiring each category to still
+// have members turns that into a test failure.
+func TestWriteMarkersAreSpelledCorrectly(t *testing.T) {
+	file := readClassificationFile(t)
+
+	known := make(map[string]bool)
+	for _, name := range routes.KnownWriteMarkers() {
+		known[name] = true
+	}
+
+	seen := make(map[string]int)
+	var unknown []string
+	for _, entry := range file.Routes {
+		if entry.Write == "" {
+			continue
+		}
+		if !known[entry.Write] {
+			unknown = append(unknown, entry.key()+" -> "+entry.Write)
+			continue
+		}
+		seen[entry.Write]++
+	}
+	sort.Strings(unknown)
+
+	if len(unknown) > 0 {
+		t.Errorf("%d entr(ies) in pkg/routes/%s name a \"write\" marker this build does not have:\n\n  %s\n\n"+
+			"An unrecognised marker is not a permit, so the route is refused for any account whose\n"+
+			"writes are restricted to settings - which is the failure nobody sees until a customer\n"+
+			"cannot pay.\nKnown markers: %s",
+			len(unknown), classificationFileName, strings.Join(unknown, "\n  "),
+			strings.Join(routes.KnownWriteMarkers(), ", "))
+	}
+
+	for _, marker := range routes.KnownWriteMarkers() {
+		if seen[marker] == 0 {
+			t.Errorf("no route in pkg/routes/%s carries the %q write marker.\n\n"+
+				"Every category in the ruling of 2026-08-03 has routes, so an empty one means entries\n"+
+				"were lost - most likely to a merge that took both sides of an addition and dropped\n"+
+				"one. Restore them rather than removing the category.",
+				classificationFileName, marker)
+		}
 	}
 }

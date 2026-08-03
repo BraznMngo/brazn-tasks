@@ -88,6 +88,7 @@ func managedModeEcho(t *testing.T, managed bool) *echo.Echo {
 		config.MigrationTrelloEnable,
 		config.ServiceEnableLinkSharing,
 		config.ServiceEnableRegistration,
+		config.ServiceEnableTotp,
 		config.ServiceEnableUserDeletion,
 		config.WebhooksEnabled,
 	} {
