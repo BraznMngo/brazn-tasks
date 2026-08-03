@@ -76,13 +76,30 @@ var (
 // answerable (BRA-917). Teams are global in Vikunja, so without it the seat
 // rule's right-hand side has no query. An empty value belongs to no
 // organization the contract can express and is therefore counted for none.
+//
+// CommercialTeamID is the team this root was provisioned FOR, in the commercial
+// service's namespace, and it is the only thing that makes create_team_roots
+// idempotent on the team it names. It is a second column rather than something
+// derived from TeamID because the two namespaces are never interchangeable - a
+// commercial id is `team_…`, this fork's is a row id, and the contract states
+// that nothing may derive one from the other. Without it the strongest
+// available key is "this organization has a Team root", which would answer a
+// SECOND team's provisioning call with the FIRST team's references; the
+// commercial record coalesces a team's pair in exactly once, so that answer
+// would be permanent and unrewritable.
+//
+// Empty on every entity this fork provisioned itself - an additional team's
+// root (CreateOrganizationTeam), an Inbox, Percy Feedback, a Public root. Those
+// have no commercial team to be idempotent against, and an empty value is not
+// an id the contract can express, so nothing matches on it.
 type ProtectedEntity struct {
-	ID             int64         `xorm:"bigint autoincr not null unique pk" json:"id"`
-	Kind           ProtectedKind `xorm:"varchar(20) not null INDEX" json:"kind"`
-	ProjectID      int64         `xorm:"bigint not null default 0 INDEX" json:"project_id"`
-	TeamID         int64         `xorm:"bigint not null default 0 INDEX" json:"team_id"`
-	OrganizationID string        `xorm:"varchar(64) not null default '' INDEX" json:"organization_id"`
-	Created        time.Time     `xorm:"created not null" json:"created"`
+	ID               int64         `xorm:"bigint autoincr not null unique pk" json:"id"`
+	Kind             ProtectedKind `xorm:"varchar(20) not null INDEX" json:"kind"`
+	ProjectID        int64         `xorm:"bigint not null default 0 INDEX" json:"project_id"`
+	TeamID           int64         `xorm:"bigint not null default 0 INDEX" json:"team_id"`
+	OrganizationID   string        `xorm:"varchar(64) not null default '' INDEX" json:"organization_id"`
+	CommercialTeamID string        `xorm:"varchar(64) not null default '' INDEX" json:"commercial_team_id"`
+	Created          time.Time     `xorm:"created not null" json:"created"`
 }
 
 // TableName holds the table name

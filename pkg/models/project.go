@@ -1137,7 +1137,7 @@ func CreateProject(s *xorm.Session, project *Project, auth web.Auth, createBackl
 // directly in the user.Create function.
 func CreateNewProjectForUser(s *xorm.Session, u *user.User) (err error) {
 	p := &Project{
-		Title: "Inbox",
+		Title: InboxProjectTitle,
 	}
 	err = p.Create(s, u)
 	if err != nil {
