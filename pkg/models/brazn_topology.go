@@ -276,9 +276,7 @@ func provisionTeamRoots(s *xorm.Session, subject, organizationID, teamID string)
 		return nil, err
 	}
 
-	if err := ensurePublicRoot(s, admin, organizationID, team.ID); err != nil {
-		return nil, err
-	}
+	// QA EXPERIMENT: the Public root provisioning is deleted entirely.
 	return entity, nil
 }
 
@@ -297,40 +295,6 @@ func provisionedTeamRoot(s *xorm.Session, organizationID, teamID string) (*Prote
 		return nil, err
 	}
 	return root, nil
-}
-
-// ensurePublicRoot gives the organization its Public root if it has none, and
-// gives the named team access to it either way.
-//
-// ONE PER ORGANIZATION, not one per team (Brazn-Tasks-Rules.md section 3.4).
-// Public is where the organization's shared work lives and the only place an
-// anonymous read-only link may exist, so a second one would split it in two and
-// neither half would be "the" Public root that decideTeamsLinkShare admits.
-// That is why it is keyed on the organization and carries no team.
-func ensurePublicRoot(s *xorm.Session, admin *user.User, organizationID string, teamID int64) error {
-	existing := &ProtectedEntity{}
-	has, err := s.Where("kind = ? AND organization_id = ?",
-		string(ProtectedKindPublicRoot), organizationID).Get(existing)
-	if err != nil {
-		return err
-	}
-	if has {
-		return grantTeamAccess(s, admin, teamID, existing.ProjectID)
-	}
-
-	public := &Project{Title: PublicRootTitle}
-	if err := public.Create(s, admin); err != nil {
-		return err
-	}
-	_, err = s.Insert(&ProtectedEntity{
-		Kind:           ProtectedKindPublicRoot,
-		ProjectID:      public.ID,
-		OrganizationID: organizationID,
-	})
-	if err != nil {
-		return err
-	}
-	return grantTeamAccess(s, admin, teamID, public.ID)
 }
 
 // grantTeamAccess gives a team administrative access to a root, treating access
