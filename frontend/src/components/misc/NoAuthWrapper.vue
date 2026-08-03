@@ -13,9 +13,15 @@
 				<Message v-if="motd !== ''">
 					{{ motd }}
 				</Message>
-				<h2 class="image-title">
+				<!--
+					Decorative, and a paragraph rather than a heading: the one
+					heading on these screens is the page title below, and a
+					second one here would either duplicate it or sit at a level
+					the page title then skips (Percy-Account-Path.md §5).
+				-->
+				<p class="image-title">
 					{{ $t("misc.welcomeBack") }}
-				</h2>
+				</p>
 			</section>
 			<main
 				id="main-content"
@@ -23,12 +29,12 @@
 				class="content"
 			>
 				<div>
-					<h2
+					<h1
 						v-if="title"
 						class="title"
 					>
 						{{ title }}
-					</h2>
+					</h1>
 					<ApiConfig v-if="shouldShowApiConfig" />
 					<Message
 						v-if="motd !== ''"
@@ -189,6 +195,9 @@ useTitle(() => title.value)
 .image-title {
 	color: hsl(0deg, 0%, 100%);
 	font-size: 2.5rem;
+	// Stated here because this stopped being a heading: headings are the only
+	// elements theme.scss gives the display face to.
+	font-family: $vikunja-font;
 }
 
 // PoweredByLink is styled for the dark sidebar, where --grey-300 reads fine.

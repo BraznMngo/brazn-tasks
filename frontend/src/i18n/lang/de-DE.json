@@ -164,8 +164,8 @@
 			"forgotPassword": "Passwort vergessen?",
 			"resetPassword": "Setze dein Passwort zurück",
 			"resetPasswordAction": "Sende mir einen Link zum Zurücksetzen des Passworts",
-			"resetPasswordSuccess": "Überprüfe deinen Posteingang! Du solltest eine E-Mail mit Anweisungen zum Zurücksetzen deines Passwortes haben.",
-			"confirmEmailSuccess": "Du hast deine E-Mail-Adresse erfolgreich bestätigt! Du kannst dich jetzt einloggen.",
+			"resetPasswordSuccess": "Wenn es zu dieser Adresse ein Konto gibt, ist ein Link zum Zurücksetzen des Passworts unterwegs. Schau in dein Postfach.",
+			"confirmEmailSuccess": "Du hast deine E-Mail-Adresse erfolgreich bestätigt! Du kannst dich jetzt anmelden.",
 			"totpTitle": "Zwei-Faktor-Authentifizierungscode",
 			"totpPlaceholder": "z.B. 123456",
 			"login": "Anmelden",
@@ -197,7 +197,17 @@
 			"remember": "Angemeldet bleiben",
 			"registrationDisabled": "Registrierung ist deaktiviert.",
 			"passwordResetTokenMissing": "Das Passwort-Reset-Token fehlt.",
-			"registrationFailed": "Bei der Registrierung ist ein Fehler aufgetreten. Bitte prüfe deine Eingabe und versuche es erneut."
+			"registrationFailed": "Bei der Registrierung ist ein Fehler aufgetreten. Bitte prüfe deine Eingabe und versuche es erneut.",
+			"emailAlreadyRegistered": "Du kannst nicht zwei Konten auf einer Adresse haben.",
+			"errorSummaryTitle": "Es gibt ein Problem mit diesem Formular",
+			"notConfirmedYet": "Dieses Konto ist noch nicht bestätigt. Schau in dein Postfach nach dem Bestätigungslink.",
+			"or": "oder",
+			"passwordMinHint": "Verwende mindestens 8 Zeichen.",
+			"passwordResetSuccess": "Dein Passwort wurde geändert. Du kannst dich jetzt damit anmelden.",
+			"registeredCheckInbox": "Dein Konto wurde angelegt. Schau in dein Postfach nach dem Bestätigungslink und melde dich dann an.",
+			"signUpWith": "Mit {provider} registrieren",
+			"tooManyAttempts": "Zu viele Anmeldeversuche von diesem Browser. Warte ein paar Minuten und probiere es erneut.",
+			"usernameHint": "Buchstaben, Zahlen und Satzzeichen, aber keine Leerzeichen."
 		},
 		"settings": {
 			"bots": {

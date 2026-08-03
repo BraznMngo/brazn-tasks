@@ -306,11 +306,29 @@ func ResetPassword(reset *user.PasswordReset) error {
 
 // RequestPasswordResetToken issues a password-reset token for the account with
 // the given email and sends it via email. Shared by v1 and v2.
+//
+// AN ADDRESS WITH NO ACCOUNT IS ANSWERED EXACTLY LIKE ONE THAT HAS.
+// user.RequestUserPasswordResetTokenByEmail looks the address up and returns
+// ErrUserDoesNotExist when it finds nothing, and both handlers turn a returned
+// error straight into its HTTP status. Passing that one on therefore made this
+// endpoint an account-existence oracle for anyone with a list of addresses: 404
+// for a stranger, 200 for a customer, from an endpoint that needs no
+// credentials at all. Swallowing it here rather than in either handler is what
+// makes v1 and v2 answer identically.
+//
+// ONLY that error is swallowed. Everything else - an empty address, a disabled
+// account, a database failure - still fails loudly, because none of them is a
+// statement about whether the address is registered.
 func RequestPasswordResetToken(req *user.PasswordTokenRequest) error {
 	s := db.NewSession()
 	defer s.Close()
 
-	if err := user.RequestUserPasswordResetTokenByEmail(s, req); err != nil {
+	err := user.RequestUserPasswordResetTokenByEmail(s, req)
+	if user.IsErrUserDoesNotExist(err) {
+		_ = s.Rollback()
+		return nil
+	}
+	if err != nil {
 		_ = s.Rollback()
 		return err
 	}

@@ -69,8 +69,14 @@ func TestHumaAuthPublic(t *testing.T) {
 			assert.Contains(t, rec.Body.String(), "Token was sent.")
 		})
 		t.Run("no user with that email", func(t *testing.T) {
+			// Answered exactly like a registered address, so this endpoint
+			// cannot be asked which addresses are customers (BRA-1072 AC7).
+			// The property itself - same status AND same body across several
+			// addresses, on both API versions - is asserted in
+			// TestPasswordResetRequestDoesNotEnumerateAddresses.
 			rec := post("/api/v2/user/password/token", `{"email":"user1000@example.com"}`)
-			assert.Equal(t, http.StatusNotFound, rec.Code)
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+			assert.Contains(t, rec.Body.String(), "Token was sent.")
 		})
 	})
 

@@ -43,8 +43,13 @@ func TestUserRequestResetPasswordToken(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, getHTTPErrorCode(err))
 	})
 	t.Run("No user with that email address", func(t *testing.T) {
-		_, err := newTestRequest(t, http.MethodPost, apiv1.UserRequestResetPasswordToken, `{"email": "user1000@example.com"}`, nil, nil)
-		require.Error(t, err)
-		assertHandlerErrorCode(t, err, user.ErrCodeUserDoesNotExist)
+		// Answered exactly like a registered address, so this endpoint cannot
+		// be asked which addresses are customers (BRA-1072 AC7). The property
+		// itself - same status AND same body across several addresses, on both
+		// API versions - is asserted in
+		// TestPasswordResetRequestDoesNotEnumerateAddresses.
+		rec, err := newTestRequest(t, http.MethodPost, apiv1.UserRequestResetPasswordToken, `{"email": "user1000@example.com"}`, nil, nil)
+		require.NoError(t, err)
+		assert.Contains(t, rec.Body.String(), `Token was sent.`)
 	})
 }
