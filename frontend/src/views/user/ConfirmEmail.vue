@@ -25,8 +25,7 @@
 			v-else-if="state === 'inbox'"
 			class="mbe-4"
 		>
-			<span v-if="address !== ''">{{ $t('user.confirm.inbox.bodyWithAddress', {email: address}) }}</span>
-			<span v-else>{{ $t('user.confirm.inbox.body') }}</span>
+			{{ inboxBody }}
 		</p>
 		<p
 			v-else
@@ -111,6 +110,7 @@
 
 		<div
 			v-if="state === 'confirmed' || state === 'alreadyUsed'"
+			id="confirm-sign-in"
 			class="mbs-4"
 		>
 			<XButton :to="{name: 'user.login'}">
@@ -173,6 +173,15 @@ let lastResendAt = 0
 // usually opened on a different device from the form.
 const needsAddress = computed(() =>
 	askingForAddress.value || state.value === 'expired' || state.value === 'unreadable',
+)
+
+// The address is quoted back whenever this tab knows it, because a typo in that
+// field is otherwise invisible forever. It usually does not: a confirmation
+// link is normally opened on a different device from the one the form was
+// filled in on, and the sentence has to work either way.
+const inboxBody = computed(() => address.value !== ''
+	? t('user.confirm.inbox.bodyWithAddress', {email: address.value})
+	: t('user.confirm.inbox.body'),
 )
 
 onBeforeMount(() => {
@@ -296,14 +305,15 @@ async function resend() {
 :deep(.button),
 :deep(.input),
 .link-button {
-	min-height: 2.75rem;
+	min-block-size: 2.75rem;
 }
 
 .link-button {
 	background: none;
 	border: none;
-	padding: 0 .5rem;
-	color: var(--link);
+	padding-block: 0;
+	padding-inline: .5rem;
+	color: var(--link, #485fc7);
 	text-decoration: underline;
 	cursor: pointer;
 	font-size: 1rem;

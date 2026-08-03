@@ -87,15 +87,45 @@ func TestHumaAuthPublic(t *testing.T) {
 	})
 
 	t.Run("Confirm email", func(t *testing.T) {
+		// Seeded rather than taken from the fixtures: a confirmation link is
+		// only good for 24 hours now, and the fixture tokens are dated 2021.
+		link := seedConfirmLink(t, 4)
+
 		t.Run("normal", func(t *testing.T) {
-			rec := post("/api/v2/user/confirm", `{"token":"tiepiQueed8ahc7zeeFe1eveiy4Ein8osooxegiephauph2Ael"}`)
+			rec := post("/api/v2/user/confirm", `{"token":"`+link+`"}`)
 			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-			assert.Contains(t, rec.Body.String(), "The email was confirmed successfully.")
+			assert.Contains(t, rec.Body.String(), `"already_confirmed":false`)
+		})
+		// A second click on a link that worked is a success, not a failure.
+		t.Run("already used", func(t *testing.T) {
+			rec := post("/api/v2/user/confirm", `{"token":"`+link+`"}`)
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+			assert.Contains(t, rec.Body.String(), `"already_confirmed":true`)
+		})
+		// The fixture token is dated 2021-07-12, so it is a genuinely expired
+		// link rather than one flagged as expired.
+		t.Run("expired token", func(t *testing.T) {
+			rec := post("/api/v2/user/confirm", `{"token":"tiepiQueed8ahc7zeeFe1eveiy4Ein8osooxegiephauph2Ael"}`)
+			assert.Equal(t, http.StatusPreconditionFailed, rec.Code)
 		})
 		t.Run("invalid token", func(t *testing.T) {
 			rec := post("/api/v2/user/confirm", `{"token":"invalidToken"}`)
 			assert.Equal(t, http.StatusPreconditionFailed, rec.Code)
 		})
+	})
+
+	// The resend endpoint answers the same for every address. Asserted as
+	// "identical to the first answer" rather than "each one is a 200", because
+	// four different bodies would all be 200 too.
+	t.Run("Resend email confirmation", func(t *testing.T) {
+		first := post("/api/v2/user/confirm/resend", `{"email":"user4@example.com"}`)
+		require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+
+		for _, address := range []string{"user1@example.com", "nobody@example.com", "not-even-an-address"} {
+			rec := post("/api/v2/user/confirm/resend", `{"email":"`+address+`"}`)
+			assert.Equal(t, first.Code, rec.Code, address+" answers with a different status")
+			assert.Equal(t, first.Body.String(), rec.Body.String(), address+" answers with a different body")
+		}
 	})
 }
 

@@ -94,7 +94,7 @@ const router = createRouter({
 		{
 			path: '/confirm',
 			name: 'user.confirm',
-			component: () => import('@/views/user/Confirm.vue'),
+			component: () => import('@/views/user/ConfirmEmail.vue'),
 			meta: {
 				title: 'user.confirm.title',
 			},

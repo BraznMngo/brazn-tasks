@@ -4,7 +4,7 @@ import {createI18n} from 'vue-i18n'
 
 import en from '@/i18n/lang/en.json'
 import de from '@/i18n/lang/de-DE.json'
-import Confirm from './Confirm.vue'
+import ConfirmEmail from './ConfirmEmail.vue'
 
 const {post, routeQuery} = vi.hoisted(() => ({
 	post: vi.fn(),
@@ -19,14 +19,37 @@ vi.mock('vue-router', () => ({
 	useRoute: () => ({query: routeQuery.value}),
 }))
 
-// A token of the shape the server issues: 64 alphanumeric characters. Written
-// out rather than generated, so it is pinned against the contract instead of
-// against whatever the code under test happens to accept.
+// The sentences are written out here rather than read back out of en.json.
+//
+// Two reasons, and the second is the one that matters. The catalogues are
+// precompiled by the i18n build plugin, so importing one yields message ASTs
+// rather than strings, and an assertion against `en.user.confirm...` compares
+// against an object and fails whatever the screen renders. And a test that
+// asserted against the catalogue would agree with itself: edit a string, and
+// the screen and the expectation move together while the test stays green.
+// These are fixed, independently written expectations.
+const COPY = {
+	en: {
+		inboxHeading: 'Check your inbox',
+		confirmed: 'Your address is confirmed. You can sign in now.',
+		alreadyUsed: 'You have already used this link. Your address is confirmed, so there is nothing left to do.',
+		expired: 'A confirmation link works for 24 hours. Enter your address and we will send you a new one.',
+		unreadable: 'Some mail programs break long links across two lines. Enter your address and we will send you a new one.',
+		sendNewLink: 'Send a new link',
+		resent: 'If that address is waiting to be confirmed, a new link is on its way.',
+	},
+	de: {
+		alreadyUsed: 'Diesen Link hast du schon benutzt. Deine Adresse ist bestätigt, es ist also nichts mehr zu tun.',
+	},
+} as const
+
+// A token of the shape the server issues: 64 alphanumeric characters, from
+// utils.CryptoRandomString(64). Pinned as a literal against the contract.
 const WELL_FORMED_TOKEN = 'a'.repeat(63) + 'Z'
 
 function mountConfirm(locale: 'en' | 'de' = 'en') {
 	const i18n = createI18n({legacy: false, locale, messages: {en, de}})
-	return mount(Confirm, {
+	return mount(ConfirmEmail, {
 		global: {
 			plugins: [i18n],
 			stubs: ['RouterLink'],
@@ -40,7 +63,7 @@ function serverRefusal(code: number) {
 	return {response: {data: {code}}}
 }
 
-describe('Confirm', () => {
+describe('ConfirmEmail', () => {
 	beforeEach(() => {
 		post.mockReset()
 		routeQuery.value = {}
@@ -50,9 +73,9 @@ describe('Confirm', () => {
 
 	it('shows the inbox state when there is no link to check', async () => {
 		const wrapper = mountConfirm()
-		await wrapper.vm.$nextTick()
+		await flush(wrapper)
 
-		expect(wrapper.text()).toContain(en.user.confirm.inbox.heading)
+		expect(wrapper.text()).toContain(COPY.en.inboxHeading)
 		expect(post).not.toHaveBeenCalled()
 	})
 
@@ -60,7 +83,7 @@ describe('Confirm', () => {
 		window.sessionStorage.setItem('pendingConfirmationEmail', 'someone@example.com')
 
 		const wrapper = mountConfirm()
-		await wrapper.vm.$nextTick()
+		await flush(wrapper)
 
 		expect(wrapper.text()).toContain('someone@example.com')
 	})
@@ -73,7 +96,7 @@ describe('Confirm', () => {
 		await flush(wrapper)
 
 		expect(post).toHaveBeenCalledWith('user/confirm', {token: WELL_FORMED_TOKEN})
-		expect(wrapper.text()).toContain(en.user.confirm.confirmed.body)
+		expect(wrapper.text()).toContain(COPY.en.confirmed)
 		expect(wrapper.find('.message.success').exists()).toBe(true)
 	})
 
@@ -88,12 +111,14 @@ describe('Confirm', () => {
 		const wrapper = mountConfirm()
 		await flush(wrapper)
 
-		expect(wrapper.text()).toContain(en.user.confirm.alreadyUsed.body)
+		expect(wrapper.text()).toContain(COPY.en.alreadyUsed)
+		expect(wrapper.text()).not.toContain(COPY.en.confirmed)
 		expect(wrapper.find('.message.success').exists()).toBe(true)
 		expect(wrapper.find('.message.danger').exists()).toBe(false)
 		expect(wrapper.find('.message.warning').exists()).toBe(false)
-		// And the way onward is offered, which is what makes it a success.
-		expect(wrapper.text()).toContain(en.user.auth.login)
+		// And the way onward is offered, which is what makes it a success
+		// rather than a dead end.
+		expect(wrapper.find('#confirm-sign-in').exists()).toBe(true)
 	})
 
 	it('offers a new link when the server says this one expired', async () => {
@@ -103,9 +128,9 @@ describe('Confirm', () => {
 		const wrapper = mountConfirm()
 		await flush(wrapper)
 
-		expect(wrapper.text()).toContain(en.user.confirm.expired.body)
+		expect(wrapper.text()).toContain(COPY.en.expired)
 		expect(wrapper.find('input[type="email"]').exists()).toBe(true)
-		expect(wrapper.text()).toContain(en.user.confirm.sendNewLink)
+		expect(wrapper.text()).toContain(COPY.en.sendNewLink)
 	})
 
 	// 1010 is "we never issued this", which is what a link broken across two
@@ -117,8 +142,8 @@ describe('Confirm', () => {
 		const wrapper = mountConfirm()
 		await flush(wrapper)
 
-		expect(wrapper.text()).toContain(en.user.confirm.unreadable.body)
-		expect(wrapper.text()).not.toContain(en.user.confirm.expired.body)
+		expect(wrapper.text()).toContain(COPY.en.unreadable)
+		expect(wrapper.text()).not.toContain(COPY.en.expired)
 	})
 
 	// Deleting the shape check makes this fail: a mangled token would be sent
@@ -130,7 +155,7 @@ describe('Confirm', () => {
 		await flush(wrapper)
 
 		expect(post).not.toHaveBeenCalled()
-		expect(wrapper.text()).toContain(en.user.confirm.unreadable.body)
+		expect(wrapper.text()).toContain(COPY.en.unreadable)
 	})
 
 	it('takes the token out of the address bar', async () => {
@@ -158,9 +183,9 @@ describe('Confirm', () => {
 		expect(post).toHaveBeenCalledWith('user/confirm/resend', {email: 'someone@example.com'})
 		const status = wrapper.find('[role="status"]')
 		expect(status.exists()).toBe(true)
-		expect(status.text()).toContain(en.user.confirm.resent)
+		expect(status.text()).toContain(COPY.en.resent)
 		// Still the same screen: the inbox state, not a page of its own.
-		expect(wrapper.text()).toContain(en.user.confirm.inbox.heading)
+		expect(wrapper.text()).toContain(COPY.en.inboxHeading)
 	})
 
 	// Deleting the cooldown makes this fail: the second press would post again.
@@ -178,7 +203,7 @@ describe('Confirm', () => {
 
 		expect(post).toHaveBeenCalledTimes(1)
 		expect(wrapper.find('[role="status"]').text()).not.toBe('')
-		expect(wrapper.find('[role="status"]').text()).not.toContain(en.user.confirm.resent)
+		expect(wrapper.find('[role="status"]').text()).not.toContain(COPY.en.resent)
 	})
 
 	// AC7. The screen is reachable by anybody, so what it says after a resend
@@ -203,11 +228,11 @@ describe('Confirm', () => {
 		}
 
 		expect(notices[0]).toBe(notices[1])
-		expect(notices[0]).toContain(en.user.confirm.resent)
+		expect(notices[0]).toContain(COPY.en.resent)
 	})
 
 	// AC6, for the strings these screens use. The German tree has to carry the
-	// same keys, or the screen renders English in a German session.
+	// same keys, or a German session renders English.
 	it('renders in German without falling back', async () => {
 		routeQuery.value = {userEmailConfirm: WELL_FORMED_TOKEN}
 		post.mockResolvedValue({data: {already_confirmed: true}})
@@ -215,8 +240,8 @@ describe('Confirm', () => {
 		const wrapper = mountConfirm('de')
 		await flush(wrapper)
 
-		expect(wrapper.text()).toContain(de.user.confirm.alreadyUsed.body)
-		expect(wrapper.text()).not.toContain(en.user.confirm.alreadyUsed.body)
+		expect(wrapper.text()).toContain(COPY.de.alreadyUsed)
+		expect(wrapper.text()).not.toContain(COPY.en.alreadyUsed)
 	})
 })
 

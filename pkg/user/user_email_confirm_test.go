@@ -39,8 +39,8 @@ const userAwaitingConfirmation = 4
 // carry whatever the fixture author typed, and the code under test would never
 // have to agree with it. Here the row is written by the same generateToken the
 // product uses, and only its clock is moved.
-func issueConfirmToken(t *testing.T, s *xorm.Session, userID int64, age time.Duration) string {
-	u, err := GetUserByID(s, userID)
+func issueConfirmToken(t *testing.T, s *xorm.Session, age time.Duration) string {
+	u, err := GetUserByID(s, userAwaitingConfirmation)
 	require.NoError(t, err)
 
 	token, err := generateToken(s, u, TokenEmailConfirm)
@@ -83,7 +83,7 @@ func TestUserEmailConfirm(t *testing.T) {
 		s := db.NewSession()
 		defer s.Close()
 
-		link := issueConfirmToken(t, s, userAwaitingConfirmation, 0)
+		link := issueConfirmToken(t, s, 0)
 
 		result, err := ConfirmEmail(s, &EmailConfirm{Token: link})
 		require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestUserEmailConfirm(t *testing.T) {
 		s := db.NewSession()
 		defer s.Close()
 
-		link := issueConfirmToken(t, s, userAwaitingConfirmation, EmailConfirmMaxAge+time.Hour)
+		link := issueConfirmToken(t, s, EmailConfirmMaxAge+time.Hour)
 
 		_, err := ConfirmEmail(s, &EmailConfirm{Token: link})
 		require.Error(t, err)
@@ -120,7 +120,7 @@ func TestUserEmailConfirm(t *testing.T) {
 		s := db.NewSession()
 		defer s.Close()
 
-		link := issueConfirmToken(t, s, userAwaitingConfirmation, EmailConfirmMaxAge-time.Hour)
+		link := issueConfirmToken(t, s, EmailConfirmMaxAge-time.Hour)
 
 		result, err := ConfirmEmail(s, &EmailConfirm{Token: link})
 		require.NoError(t, err)
@@ -135,7 +135,7 @@ func TestUserEmailConfirm(t *testing.T) {
 		s := db.NewSession()
 		defer s.Close()
 
-		link := issueConfirmToken(t, s, userAwaitingConfirmation, 0)
+		link := issueConfirmToken(t, s, 0)
 
 		first, err := ConfirmEmail(s, &EmailConfirm{Token: link})
 		require.NoError(t, err)
@@ -159,7 +159,7 @@ func TestUserEmailConfirm(t *testing.T) {
 		s := db.NewSession()
 		defer s.Close()
 
-		link := issueConfirmToken(t, s, userAwaitingConfirmation, 0)
+		link := issueConfirmToken(t, s, 0)
 		_, err := ConfirmEmail(s, &EmailConfirm{Token: link})
 		require.NoError(t, err)
 
@@ -184,8 +184,8 @@ func TestUserEmailConfirm(t *testing.T) {
 		s := db.NewSession()
 		defer s.Close()
 
-		first := issueConfirmToken(t, s, userAwaitingConfirmation, 0)
-		second := issueConfirmToken(t, s, userAwaitingConfirmation, 0)
+		first := issueConfirmToken(t, s, 0)
+		second := issueConfirmToken(t, s, 0)
 
 		_, err := ConfirmEmail(s, &EmailConfirm{Token: second})
 		require.NoError(t, err)
@@ -203,7 +203,7 @@ func TestUserEmailConfirm(t *testing.T) {
 		s := db.NewSession()
 		defer s.Close()
 
-		link := issueConfirmToken(t, s, userAwaitingConfirmation, 0)
+		link := issueConfirmToken(t, s, 0)
 		_, err := ConfirmEmail(s, &EmailConfirm{Token: link})
 		require.NoError(t, err)
 
