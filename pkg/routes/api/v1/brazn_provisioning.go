@@ -55,6 +55,35 @@ type provisionedUserReply struct {
 	EmailVerified bool `json:"email_verified"`
 }
 
+// nothingToReport is the answer to a performed operation that has nothing to
+// say, and it marshals to `{}`.
+//
+// AN EMPTY BODY WOULD NOT DO, and that is the channel's contract for every
+// operation rather than a preference: the consumer cannot tell an empty 200
+// from a truncated one, so its transport refuses both alike
+// (cloud/service/src/fork.ts, ProvisioningChannel). A handler that answered
+// c.NoContent here would be refused by the caller it just succeeded for.
+type nothingToReport struct{}
+
+// teamRootsReply carries THIS INSTANCE'S OWN identifiers for the topology it
+// provisioned, for the commercial record to map against the team it minted.
+//
+// Both are decimal strings for the reason provisionedUserReply's id is: the
+// consumer validates them against ^[1-9][0-9]{0,18}$ and declares them as
+// strings, so a JSON number would pass the pattern by coercion and fail the
+// type. It has more teeth here than there - these two go straight into a
+// mapping that coalesces once, so a value that arrives in the wrong shape is
+// stored wrong permanently.
+type teamRootsReply struct {
+	// TaskTeamRef is this instance's teams.id.
+	TaskTeamRef string `json:"task_team_ref"`
+	// TaskProjectRef is this instance's protected Team ROOT project - not the
+	// Public root, which is provisioned by the same call and deliberately not
+	// reported: it belongs to the organization rather than to this team, and
+	// the commercial record has one column per team for a team's own pair.
+	TaskProjectRef string `json:"task_project_ref"`
+}
+
 // BraznProvision performs one provisioning operation for Brazn's commercial
 // service.
 //
@@ -70,10 +99,10 @@ type provisionedUserReply struct {
 // accident of there being one today. A second endpoint would need a second
 // classification entry, and that entry would have to re-make the argument in
 // route-classification.json's _readme about why a service-plane route can be
-// neither service-managed nor gated on an acting user. BRA-1026 provisions an
-// organization's primary team and its roots through this door: it adds an
-// operation constant, a payload type and a case below, and touches nothing
-// about authentication, trust or classification.
+// neither service-managed nor gated on an acting user. The two protected
+// topology operations came through this door and demonstrate the claim: each
+// added an operation constant, a payload type, a decoder and a case below, and
+// touched nothing about authentication, trust or classification.
 //
 // THE REPLY IS FLAT FOR EVERY REFUSAL, and for the same reason it is on the
 // entitlement ingest: anyone can reach this route, so a reply that named the
@@ -105,6 +134,10 @@ func BraznProvision(c *echo.Context) error {
 	switch operation {
 	case provisioning.OperationCreateUser:
 		return provisionUser(c, payload)
+	case provisioning.OperationCreatePersonalInbox:
+		return provisionPersonalInbox(c, payload)
+	case provisioning.OperationCreateTeamRoots:
+		return provisionTeamRoots(c, payload)
 	default:
 		// An operation this build does not define is refused rather than
 		// guessed at, in exactly the way an unknown edition is on the
@@ -142,6 +175,54 @@ func provisionUser(c *echo.Context, payload json.RawMessage) error {
 		ID:            strconv.FormatInt(u.ID, 10),
 		Created:       created,
 		EmailVerified: u.Status != user.StatusEmailConfirmationRequired,
+	})
+}
+
+// provisionPersonalInbox is the create_personal_inbox operation: one subject's
+// protected Inbox, created or already there.
+func provisionPersonalInbox(c *echo.Context, payload json.RawMessage) error {
+	request, err := provisioning.DecodeCreatePersonalInbox(payload)
+	if err != nil {
+		return refuseProvisioning("the create_personal_inbox request is not one this build accepts")
+	}
+
+	err = models.ProvisionPersonalInbox(c.Request().Context(), request.UserID)
+	if err != nil {
+		if errors.Is(err, models.ErrProvisioningSubjectUnknown) {
+			return refuseProvisioning(
+				"the create_personal_inbox request names a user this instance does not have")
+		}
+		return err
+	}
+
+	log.Debugf("Provisioned the Inbox for Brazn Tasks user %s", request.UserID)
+	return c.JSON(http.StatusOK, &nothingToReport{})
+}
+
+// provisionTeamRoots is the create_team_roots operation: a commercial team's
+// topology on this instance, and this instance's own references to it.
+func provisionTeamRoots(c *echo.Context, payload json.RawMessage) error {
+	request, err := provisioning.DecodeCreateTeamRoots(payload)
+	if err != nil {
+		return refuseProvisioning("the create_team_roots request is not one this build accepts")
+	}
+
+	root, err := models.ProvisionTeamRoots(
+		c.Request().Context(), request.UserID, request.OrganizationID, request.TeamID)
+	if err != nil {
+		if errors.Is(err, models.ErrProvisioningSubjectUnknown) {
+			return refuseProvisioning(
+				"the create_team_roots request names a user this instance does not have")
+		}
+		return err
+	}
+
+	log.Debugf("Provisioned the topology for organization %q: team %d, Team root %d",
+		request.OrganizationID, root.TeamID, root.ProjectID)
+
+	return c.JSON(http.StatusOK, &teamRootsReply{
+		TaskTeamRef:    strconv.FormatInt(root.TeamID, 10),
+		TaskProjectRef: strconv.FormatInt(root.ProjectID, 10),
 	})
 }
 
