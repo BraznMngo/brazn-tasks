@@ -125,6 +125,35 @@ func getProjectsToDelete(s *xorm.Session, u *user.User) (projectsToDelete []*Pro
 	return
 }
 
+// migrationStatus is a stand-in for migration.Status, and it exists because
+// pkg/modules/migration IMPORTS pkg/models - so importing the real type back
+// here is an import cycle, not a style preference.
+//
+// The columns mirror migration.Status exactly. That is not decoration: the
+// models test schema is built by Sync2 (see setup_tests.go, which has to sync
+// this table because it is not in GetTables()), and pkg/webtests then syncs
+// the real migration.Status over the same table. A narrower stand-in would
+// leave that second Sync2 to ALTER TABLE in a NOT NULL column with no default,
+// which SQLite refuses. Matching the real struct means the second sync finds
+// nothing missing and does nothing.
+//
+// It is deliberately NOT added to GetTables(): that feeds
+// db.RegisteredTableNames(), which pkg/db/dump.go walks one file per name, and
+// a second bean for a table migration.GetTables() already registers would put
+// migration_status in every dump twice.
+type migrationStatus struct {
+	ID           int64     `xorm:"bigint autoincr not null unique pk"`
+	UserID       int64     `xorm:"bigint not null"`
+	MigratorName string    `xorm:"varchar(255)"`
+	StartedAt    time.Time `xorm:"not null"`
+	FinishedAt   time.Time `xorm:"null"`
+}
+
+// TableName is migration_status, matching migration.Status.
+func (*migrationStatus) TableName() string {
+	return "migration_status"
+}
+
 // DeleteUser completely removes a user and all their associated projects and tasks.
 // This action is irrevocable.
 // Public to allow deletion from the CLI.
@@ -275,6 +304,44 @@ func DeleteUser(s *xorm.Session, u *user.User) (err error) {
 		// keyed on the user and would otherwise be a row about a person who
 		// does not exist.
 		{"user_id", &TaskUnreadStatus{}},
+
+		// ------------------------------------------------------------------
+		// Brazn fork (BRA-1112). Two more categories BRA-1104's list missed,
+		// which its own AC1 forbids leaving unnamed.
+		// ------------------------------------------------------------------
+
+		// The person's own work log, and the free text they wrote on it.
+		// TimeEntry.Delete is keyed on id and nothing else deletes one:
+		// not by user, not by task, and NOT BY PROJECT - Project.Delete
+		// removes buckets, views, link shares, project users and team
+		// projects, and walks straight past time_entries. So the entries
+		// outlive both the person and, often, the project they were logged
+		// against.
+		//
+		// DELETED RATHER THAN ANONYMISED, for the reason the task_comments
+		// entry above gives: comment is free text this person wrote, and
+		// blanking user_id would keep the text and lose only the attribution.
+		{"user_id", &TimeEntry{}},
+		// Which import this person ran, and when. No name and no free text in
+		// it, so it is the least of these - but it is keyed on somebody who no
+		// longer exists, and nothing else would ever remove it.
+		{"user_id", &migrationStatus{}},
+
+		// ------------------------------------------------------------------
+		// OPEN, NOT OMITTED (BRA-1112). Copies of this person embedded in
+		// OTHER PEOPLE'S notification rows are not handled here yet, and this
+		// entry exists so that is a recorded gap rather than a silent one.
+		//
+		// Six notification types return themselves from ToDB(), so notifyDB
+		// json.Marshals the whole struct - including a *user.User, which
+		// serialises id, name, username AND email - onto the RECIPIENT's row.
+		// The notifiable_id delete below is keyed on the recipient, so it
+		// never reaches these. Whether they are scrubbed in place, deleted
+		// outright, or retained with a stated reason is a product decision
+		// about other people's inboxes, not an engineering one; it is with
+		// the PM on BRA-1112. Whichever is chosen joins one of the blocks in
+		// this list.
+		// ------------------------------------------------------------------
 
 		// ------------------------------------------------------------------
 		// RETAINED, WITH THE REASON, so that none of these is a silent
