@@ -1,9 +1,18 @@
 # Provisioning channel conformance fixtures — a vendored copy
 
-These twelve files are **copies**. The canonical set lives in the Percy repository at
-`cloud/contracts/v1/provisioning/examples/`, and that directory — not this one — is
-where they are defined, documented and changed. The schemas they satisfy live beside
-them there, and `cloud/contracts/README.md` describes the channel as a whole.
+These twenty-six files are **copies**. The canonical set lives in the Percy repository,
+and those directories — not this one — are where they are defined, documented and
+changed. The schemas they satisfy live beside them there, and `cloud/contracts/README.md`
+describes the channel as a whole.
+
+| Operation | Canonical directory |
+| --- | --- |
+| `create_user`, `create_personal_inbox`, `create_team_roots` | `cloud/contracts/v1/provisioning/examples/` |
+| `resolve_user` | `cloud/contracts/v1/user/examples/` |
+
+One directory here for payloads defined in two there, because what makes them one set is
+the **channel** they arrive on, not the schema file they were written in: they are
+decoded by one package, dispatched by one switch and refused by one flat 400.
 
 They exist for the same reason `pkg/modules/brazn/entitlement/testdata/golden/` does,
 and the argument is the one `CLAUDE.md` makes: an interop value that both a producer
@@ -22,11 +31,19 @@ internally correct. Both were separately reviewed.
 ## What each file is for
 
 `contract_test.go` runs the **request** fixtures through the production decoders —
-`DecodeCreateUser`, `DecodeCreatePersonalInbox`, `DecodeCreateTeamRoots` — and never
-composes a payload of its own. `pkg/routes/api/v1/brazn_provisioning_contract_test.go`
-marshals the production **reply** structs and compares them against the response
-fixtures. Between the two, a renamed JSON tag or a changed Go type on either side of
-this seam turns a test red instead of a customer's signup.
+`DecodeCreateUser`, `DecodeCreatePersonalInbox`, `DecodeCreateTeamRoots`,
+`DecodeResolveUser` — and never composes a payload of its own.
+`pkg/routes/api/v1/brazn_provisioning_contract_test.go` marshals the production **reply**
+structs and compares them against the response fixtures. Between the two, a renamed JSON
+tag or a changed Go type on either side of this seam turns a test red instead of a
+customer's signup.
+
+`pkg/webtests/brazn_user_resolution_test.go` additionally puts the `resolve_user`
+fixtures through the **whole production path** — the signature, `Verify`, the decoder and
+the switch — as their exact bytes, and compares what goes on the wire. It reaches this
+directory by relative path rather than holding a third copy, for the reason the routes
+package gives beside its own constants: a frozen artifact that exists twice in one
+repository is one that can drift inside it.
 
 | File | Obligation |
 | --- | --- |
@@ -42,8 +59,22 @@ this seam turns a test red instead of a customer's signup.
 | `create-user-response.valid.conformance-resolved.json` | The same on the resolve path. |
 | `create-team-roots-response.valid.conformance.json` | `teamRootsReply` must marshal to exactly this. |
 | `provisioning-acknowledgement.valid.conformance.json` | `nothingToReport` must marshal to `{}` — **not** an empty body, which Percy's transport cannot tell from a truncated one. |
+| `user-resolution-request.valid.conformance-by-email.json` | **Must decode**, with `email` exactly as sent — the recognition form. |
+| `user-resolution-request.valid.conformance-by-user-id.json` | **Must decode** — the verification form, the one `requireVerifiedAccount` asks by. |
+| `user-resolution-request.invalid.both-identifiers.json` | **Must be refused.** The presence rule, and the only refusal on this operation nothing else catches — every other check passes on it. Both is refused rather than resolved by a precedence the receiver invented. |
+| `user-resolution-request.invalid.neither-identifier.json` | **Must be refused** — but note it is refused twice over: with the presence check deleted, an empty `user_id` still fails `commercialID`. |
+| `user-resolution-request.invalid.numeric-user-id.json` | **Must be refused.** `9001` rather than `"9001"` — the Go type is the guard, because a `pattern` check coerces. |
+| `user-resolution-request.invalid.create-user-operation.json` | **Must be refused.** It is a valid `create_user` payload: `resolve_user`'s recognition form is that payload plus an optional id, so the operation member is the whole of the difference between asking about an address and provisioning one. |
+| `user-resolution-request.invalid.provisional-account-key.json` | ⚠ **Must be ACCEPTED here** — see below. |
+| `user-resolution-response.valid.conformance-resolved.json` | `resolvedUser` must marshal to exactly this. |
+| `user-resolution-response.valid.conformance-unresolvable.json` | The bytes this build emits for **every** absence — erased, never minted, alike. |
+| `user-resolution-response.invalid.resolved-without-user-id.json` | **Must not be emitted.** A resolution with no id makes a signup converge on `undefined`. |
+| `user-resolution-response.invalid.resolved-without-verification.json` | **Must not be emitted.** This is what `omitempty` on a bool produces for an unconfirmed customer, which is why the tag does not carry one. |
+| `user-resolution-response.invalid.unresolvable-with-user-id.json` | **Must not be emitted.** The oracle boundary: an absence carries nothing, and `unresolvableUser` has no field it could be written into. |
+| `user-resolution-response.invalid.address-in-the-answer.json` | **Must not be emitted.** Nothing in a user resolution is an address; that is what keeps it off `resolve_mailbox`. |
+| `user-resolution-response.invalid.distinguishes-erasure.json` | **Must not be emitted.** Two outcomes and not three — a vocabulary that could say "erased" is one an implementation would eventually be asked to populate. |
 
-## ⚠ One fixture is named `.invalid.` and this build must accept it
+## ⚠ Two fixtures are named `.invalid.` and this build must accept them
 
 `create-personal-inbox-request.invalid.opaque-user-id.json` carries
 `"user_id": "acct_3d77e0c15a84"`. **Percy refuses to send it and this build accepts
@@ -61,13 +92,23 @@ same malformed id on an identical payload. If somebody later tightens
 `commercialID`, that test goes red and the decision gets made deliberately instead
 of discovered.
 
-## Two operations are absent, and that is deliberate
+`user-resolution-request.invalid.provisional-account-key.json` is the same case with
+one difference worth stating: **nothing is lost by admitting it.** An account still
+under its provisional `acct_…` key has no fork user, so Percy never asks about one —
+and if it did, `models.ResolveUserBySubject` cannot parse the value as an id and
+answers `unresolvable`, which is a legitimate answer to a question about a subject
+this instance does not have. `resolve_user` therefore sits on `resolve_mailbox`'s side
+of the disagreement above rather than `erase_subject`'s.
 
-`erase_subject` and `resolve_mailbox` have canonical fixtures in Percy and none
-here, because this build has no decoder for either yet — they arrive with
-BRA-1103 and BRA-1099. Vendoring a fixture nothing exercises is how a frozen
-artifact rots. Each of those tickets adds its own file here and its own case to
-`contract_test.go`.
+## Two operations are still absent from this directory
+
+`erase_subject` has canonical fixtures in Percy (`v1/provisioning/examples/`) and none
+here. `resolve_mailbox` has its three in `pkg/webtests/testdata/mailbox/` instead of
+this directory, which is a second vendored location rather than the one this file
+argues for. Neither is `resolve_user`'s to move: consolidating them is a change to two
+other tickets' tests, and doing it in passing is how a frozen artifact gets edited by
+somebody who is not looking at what asserts against it. **BRA-827's public contract
+host is the named exit for all of it**, at which point every copy here is deleted.
 
 ## Do not edit, reformat or regenerate these files
 
@@ -92,6 +133,20 @@ b1394695199a9cefb60c2beb3a1be28e0c166227   create-user-response.valid.conformanc
 6b10883b59c027fe1873a972396213f89775c63b   create-user-response.valid.conformance-resolved.json
 baee7d4c10a49351a9579fad92a3af652eddbe81   create-team-roots-response.valid.conformance.json
 0967ef424bce6791893e9a57bb952f80fd536e93   provisioning-acknowledgement.valid.conformance.json
+1b0ba148aed5ea40a922d4f524741696db92d6f1   user-resolution-request.valid.conformance-by-email.json
+1eb985255b8e427d6ca5824d4a627cf773b6bab6   user-resolution-request.valid.conformance-by-user-id.json
+9e18729f298bc56691f4da96cc0f5c5a33042bbe   user-resolution-request.invalid.both-identifiers.json
+ff0a59bbfba58624d944e4625d2cdfd7657904c3   user-resolution-request.invalid.neither-identifier.json
+c3c4d97d723e6331dae6b5ca6e09cd17849c15aa   user-resolution-request.invalid.numeric-user-id.json
+2a80b7dc99481d3d854af44fb6e93da3722eb8b9   user-resolution-request.invalid.create-user-operation.json
+ccc0a4ebab848f4b35493e18afb62e0e361a8fca   user-resolution-request.invalid.provisional-account-key.json
+d42e35d018661f5e896b2e4f0d8d7551c7a7be0d   user-resolution-response.valid.conformance-resolved.json
+ad1be82c4f20bc71e79335d608742143ab8c8b6e   user-resolution-response.valid.conformance-unresolvable.json
+41dafde3ea2466be15a10b5db61c567d81fe92f7   user-resolution-response.invalid.resolved-without-user-id.json
+78add23989804592fc2bf918ef2a185a40b61a43   user-resolution-response.invalid.resolved-without-verification.json
+a96b8a41c71ceb28299694eff3576fa39398eab5   user-resolution-response.invalid.unresolvable-with-user-id.json
+bb5571e103644cd18013582694927c2422eb7de0   user-resolution-response.invalid.address-in-the-answer.json
+79fb6cfcbcf16457b16f3bb3a70778456825bd07   user-resolution-response.invalid.distinguishes-erasure.json
 ```
 
 Unlike the entitlement golden envelopes, **these files do end with a trailing
