@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, useSlots, useId, ref} from 'vue'
+import {computed, useAttrs, useSlots, useId, ref} from 'vue'
 
 interface Props {
 	modelValue?: string | number
@@ -32,10 +32,20 @@ defineOptions({
 })
 
 const slots = useSlots()
+const attrs = useAttrs()
 const generatedId = useId()
 
 const inputId = computed(() => props.id ?? generatedId)
 const errorId = computed(() => props.error ? `${inputId.value}-error` : undefined)
+
+// A caller can point the field at a hint of its own ("no spaces", "at least 8
+// characters"). The error is appended rather than substituted, because the two
+// are both true at once and a reader needs both.
+const describedByIds = computed(() => {
+	const ids = [attrs['aria-describedby'] as string | undefined, errorId.value]
+		.filter(id => typeof id === 'string' && id !== '')
+	return ids.length > 0 ? ids.join(' ') : undefined
+})
 const hasAddon = computed(() => !!slots.addon)
 
 const fieldClasses = computed(() => [
@@ -94,7 +104,7 @@ defineExpose({
 						:class="inputClasses"
 						:disabled="disabled || undefined"
 						:aria-invalid="error ? true : undefined"
-						:aria-describedby="errorId"
+						:aria-describedby="describedByIds"
 						@input="handleInput"
 					>
 				</slot>
@@ -126,7 +136,7 @@ defineExpose({
 						:class="inputClasses"
 						:disabled="disabled || undefined"
 						:aria-invalid="error ? true : undefined"
-						:aria-describedby="errorId"
+						:aria-describedby="describedByIds"
 						@input="handleInput"
 					>
 				</slot>

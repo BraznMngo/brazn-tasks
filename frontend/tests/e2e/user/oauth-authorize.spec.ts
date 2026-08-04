@@ -58,7 +58,7 @@ test.describe('OAuth 2.0 Authorization Flow', () => {
 		// Log in via the browser UI
 		await page.locator('input[id=username]').fill(username)
 		await page.locator('input[id=password]').fill(TEST_PASSWORD)
-		await page.locator('.button').filter({hasText: 'Login'}).click()
+		await page.locator('#login-submit').click()
 
 		// Wait for the authorize API call that fires after login redirect
 		const authorizeResponse = await authorizeResponsePromise

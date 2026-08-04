@@ -2,6 +2,7 @@
 	<div class="password-field">
 		<input
 			id="password"
+			ref="inputRef"
 			class="input"
 			name="password"
 			:placeholder="$t('user.auth.passwordPlaceholder')"
@@ -9,7 +10,7 @@
 			:type="passwordFieldType"
 			:autocomplete="autocomplete"
 			:aria-invalid="isValid !== true ? true : undefined"
-			:aria-describedby="errorId"
+			:aria-describedby="describedByIds"
 			@keyup.enter="e => $emit('submit', e)"
 			@focusout="() => {validate(); validateAfterFirst = true}"
 			@keyup="() => {validateAfterFirst ? validate() : null}"
@@ -47,9 +48,14 @@ const props = withDefaults(defineProps<{
 	validateInitially?: boolean,
 	validateMinLength?: boolean,
 	autocomplete?: string,
+	// The id of a hint element outside this component that describes the field,
+	// e.g. the "at least 8 characters" line. Announced alongside the error
+	// rather than instead of it.
+	describedBy?: string,
 }>(), {
 	validateMinLength: true,
 	autocomplete: 'current-password',
+	describedBy: '',
 })
 
 const emit = defineEmits<{
@@ -62,7 +68,12 @@ const password = ref('')
 // eslint-disable-next-line vue/no-setup-props-reactivity-loss
 const isValid = ref<true | string>(props.validateInitially === true ? true : '')
 const validateAfterFirst = ref(false)
+const inputRef = ref<HTMLInputElement | null>(null)
 const errorId = computed(() => isValid.value !== true ? 'password-error' : undefined)
+const describedByIds = computed(() => {
+	const ids = [props.describedBy, errorId.value].filter(id => id !== '' && id !== undefined)
+	return ids.length > 0 ? ids.join(' ') : undefined
+})
 
 const validate = useDebounceFn(() => {
 	const valid = validatePassword(password.value, props.validateMinLength)
@@ -81,6 +92,19 @@ function handleInput(e: Event) {
 	password.value = (e.target as HTMLInputElement)?.value
 	emit('update:modelValue', password.value)
 }
+
+// The input is deliberately uncontrolled - see the autofill note on the parent
+// components - so a parent cannot empty it by clearing its own model. Sign-in
+// clears the password on a rejection and keeps the username, which needs this.
+defineExpose({
+	clear() {
+		password.value = ''
+		if (inputRef.value !== null) {
+			inputRef.value.value = ''
+		}
+		emit('update:modelValue', '')
+	},
+})
 </script>
 
 <style scoped>

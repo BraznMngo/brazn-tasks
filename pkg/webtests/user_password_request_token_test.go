@@ -55,6 +55,9 @@ func TestUserRequestResetPasswordToken(t *testing.T) {
 	require.Contains(t, known.Body.String(), `Token was sent.`)
 
 	t.Run("No user with that email address", func(t *testing.T) {
+		// The same property BRA-1072 AC7 asks for, across BOTH API versions and
+		// against addresses the test registers itself, is asserted in
+		// TestPasswordResetRequestDoesNotEnumerateAddresses.
 		rec, err := newTestRequest(t, http.MethodPost, apiv1.UserRequestResetPasswordToken, `{"email": "user1000@example.com"}`, nil, nil)
 		require.NoError(t, err)
 		assert.Equal(t, known.Code, rec.Code)

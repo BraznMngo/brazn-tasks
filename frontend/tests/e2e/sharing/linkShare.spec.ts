@@ -176,7 +176,7 @@ test.describe('Link share: password protection', () => {
 		const authRejected = page.waitForResponse(r =>
 			r.url().includes(`/shares/${share.hash}/auth`) && r.request().method() === 'POST',
 		)
-		await page.locator('.button').filter({hasText: 'Login'}).click()
+		await page.locator('#link-share-submit').click()
 		const resp = await authRejected
 		expect(resp.status()).toBeGreaterThanOrEqual(400)
 
@@ -206,7 +206,7 @@ test.describe('Link share: password protection', () => {
 		await expect(passwordInput).toBeVisible()
 
 		await passwordInput.fill(TEST_PASSWORD)
-		await page.locator('.button').filter({hasText: 'Login'}).click()
+		await page.locator('#link-share-submit').click()
 
 		await expect(page.locator('h1.title')).toContainText(projects[0].title)
 		await expect(page.locator('.tasks')).toContainText(tasks[0].title)

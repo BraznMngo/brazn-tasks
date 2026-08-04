@@ -9,7 +9,7 @@ async function loginViaBrowser(page, username: string) {
 	await page.goto('/login')
 	await page.locator('input[id=username]').fill(username)
 	await page.locator('input[id=password]').fill(TEST_PASSWORD)
-	await page.locator('.button').filter({hasText: 'Login'}).click()
+	await page.locator('#login-submit').click()
 	await expect(page).toHaveURL('/')
 	await expect(page.locator('main h1')).toContainText(username)
 

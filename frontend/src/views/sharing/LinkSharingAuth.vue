@@ -17,6 +17,7 @@
 			/>
 
 			<XButton
+				id="link-share-submit"
 				:loading="loading"
 				@click="authenticate()"
 			>
