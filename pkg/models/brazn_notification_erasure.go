@@ -176,10 +176,18 @@ func decodeNotificationPayload(stored interface{}) (interface{}, error) {
 	// rather than an error, and the one failure mode here that could differ
 	// between backends.
 	if text, isText := payload.(string); isText {
+		// Asked as "is this text JSON" rather than by unmarshalling and
+		// treating the failure as a no: a payload that is genuinely just a
+		// string holds no object and therefore no user, which is an answer and
+		// not an error, and the two must not be written so that they look the
+		// same to the next reader.
+		if !json.Valid([]byte(text)) {
+			return nil, nil
+		}
+
 		var inner interface{}
 		if err := json.Unmarshal([]byte(text), &inner); err != nil {
-			// Not JSON at all, so it holds no object and therefore no user.
-			return nil, nil
+			return nil, err
 		}
 		return inner, nil
 	}
