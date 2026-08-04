@@ -102,6 +102,13 @@ Specifically confirm:
   the table has no foreign key or cascade to notice the entry is gone — so losing it leaves a
   deleted customer's organization, edition and seat status behind with nothing complaining.
   `TestDeleteUserErasesTheEntitlementProjection` is the check.
+- The same applies to every other fork entry in that list — the mailbox claim (BRA-1018), the
+  nine categories BRA-1104 added and the two BRA-1112 added. `migration_status` is the one to
+  look at hardest: it is deleted through a local stand-in struct, because the package that
+  declares the real type imports `pkg/models` and cannot be imported back, and the stand-in
+  also has to be synced in `pkg/models/setup_tests.go` or the test schema has no such table.
+  Two edits in two upstream files, either of which a merge can drop on its own.
+  `TestDeleteUserErasesEveryCategoryOfTheirData` is the check for all of them.
 
 ### 4. Assert the removals held
 

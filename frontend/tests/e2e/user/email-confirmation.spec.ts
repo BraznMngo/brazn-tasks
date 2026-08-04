@@ -17,9 +17,13 @@ test.describe('Email Confirmation', () => {
 		})
 		user = users[0]
 
-		// Create an email confirmation token for this user
+		// 64 alphanumeric characters, which is what utils.CryptoRandomString(64)
+		// produces. The fixture used to be a 57-character hyphenated string -
+		// a shape this instance has never issued - and a token of the wrong
+		// shape is now recognised as a broken link before it is ever sent, so a
+		// fixture like that would have tested the wrong screen.
 		// kind: 2 = TokenEmailConfirm
-		confirmationToken = 'test-email-confirm-token-12345678901234567890123456789012'
+		confirmationToken = 'e2eEmailConfirmToken0000000000000000000000000000000000000000abcd'
 		await TokenFactory.create(1, {
 			user_id: user.id,
 			kind: 2,
@@ -36,61 +40,79 @@ test.describe('Email Confirmation', () => {
 		await expect(page.locator('div.message.danger')).toContainText('Email address of the user not confirmed')
 	})
 
-	test('Should confirm email and allow login', async ({page, apiContext}) => {
-		// Setup response promise for the confirmation API call
+	// The mail sends people to the app root with the token in the query. The
+	// router hands that to the confirmation screen, which reads the token,
+	// clears it out of the address bar and asks the server about it.
+	test('Should confirm email when clicking the link from the email', async ({page, apiContext}) => {
 		const confirmEmailPromise = page.waitForResponse(response =>
 			response.url().includes('/user/confirm') && response.request().method() === 'POST',
 		)
 
-		// Manually set the token in localStorage before visiting the page
-		// This simulates what happens when the user clicks the email link
-		await page.goto('/login')
-		await page.evaluate((token) => {
-			localStorage.setItem('emailConfirmToken', token)
-		}, confirmationToken)
-		await page.reload()
+		await page.goto(`/?userEmailConfirm=${confirmationToken}`)
 
-		// Wait for the confirmation API call to complete
+		await expect(page).toHaveURL(/\/confirm/)
+
 		const confirmResponse = await confirmEmailPromise
 		expect(confirmResponse.status()).toBe(200)
 
-		// Should show success message
 		await expect(page.locator('.message.success')).toBeVisible({timeout: 10000})
-		await expect(page.locator('.message.success')).toContainText('You successfully confirmed your email')
+		await expect(page.locator('.message.success')).toContainText('Your address is confirmed')
 
-		// Now login should work
+		// The token does not stay in the address bar or in history.
+		await expect(page).not.toHaveURL(new RegExp(confirmationToken))
+
+		// And signing in now works.
+		await page.goto('/login')
 		await page.locator('input[id=username]').fill(user.username)
 		await page.locator('input[id=password]').fill(TEST_PASSWORD)
 		await page.locator('.button').filter({hasText: 'Login'}).click()
 
-		// Should successfully log in
-		await expect(page).toHaveURL(/\//)
 		await expect(page).not.toHaveURL(/\/login/)
-		// Check that the username appears in the greeting
 		await expect(page.locator('body')).toContainText(user.username)
 	})
 
-	test('Should fail with invalid confirmation token', async ({page, apiContext}) => {
-		// Setup response promise for the confirmation API call
+	// THE RULING, in a real browser with a link that was genuinely used: the
+	// first visit really confirms, and the second visit of the SAME link comes
+	// back green. A second click is not a failure, and showing it as one makes
+	// people think they broke something.
+	test('A link that was already used confirms again rather than failing', async ({page, apiContext}) => {
+		const firstConfirm = page.waitForResponse(response =>
+			response.url().includes('/user/confirm') && response.request().method() === 'POST',
+		)
+		await page.goto(`/?userEmailConfirm=${confirmationToken}`)
+		expect((await firstConfirm).status()).toBe(200)
+		await expect(page.locator('.message.success')).toBeVisible({timeout: 10000})
+
+		const secondConfirm = page.waitForResponse(response =>
+			response.url().includes('/user/confirm') && response.request().method() === 'POST',
+		)
+		await page.goto(`/?userEmailConfirm=${confirmationToken}`)
+		expect((await secondConfirm).status()).toBe(200)
+
+		await expect(page.locator('.message.success')).toBeVisible({timeout: 10000})
+		await expect(page.locator('.message.success')).toContainText('You have already used this link')
+		await expect(page.locator('.message.danger')).toHaveCount(0)
+		await expect(page.locator('.message.warning')).toHaveCount(0)
+	})
+
+	// A link this instance never issued. Well-formed, so it really is asked
+	// about, and the answer is the recoverable one - here is a new link - and
+	// not a dead end.
+	test('An unknown link offers a new one instead of a dead end', async ({page, apiContext}) => {
 		const confirmEmailPromise = page.waitForResponse(response =>
 			response.url().includes('/user/confirm') && response.request().method() === 'POST',
 		)
 
-		// Try to confirm with an invalid token
-		const invalidToken = 'invalid-token-that-does-not-exist-in-database'
+		const unissued = 'thisTokenWasNeverIssuedByThisInstance000000000000000000000000xyz'
+		await page.goto(`/?userEmailConfirm=${unissued}`)
+
+		expect((await confirmEmailPromise).status()).toBe(412)
+
+		await expect(page.locator('.message.warning')).toBeVisible({timeout: 10000})
+		await expect(page.locator('input[type="email"]')).toBeVisible()
+
+		// The account is untouched: signing in still says it is unconfirmed.
 		await page.goto('/login')
-		await page.evaluate((token) => {
-			localStorage.setItem('emailConfirmToken', token)
-		}, invalidToken)
-		await page.reload()
-
-		// Wait for the confirmation API call to fail
-		await confirmEmailPromise
-
-		// Should show error message
-		await expect(page.locator('.message.danger')).toBeVisible({timeout: 10000})
-
-		// Login should still fail
 		await page.locator('input[id=username]').fill(user.username)
 		await page.locator('input[id=password]').fill(TEST_PASSWORD)
 		await page.locator('.button').filter({hasText: 'Login'}).click()
@@ -98,69 +120,44 @@ test.describe('Email Confirmation', () => {
 		await expect(page.locator('div.message.danger')).toContainText('Email address of the user not confirmed')
 	})
 
-	test('Should not allow using the same token twice', async ({page, apiContext}) => {
-		// First confirmation - should work
-		let confirmEmailPromise = page.waitForResponse(response =>
-			response.url().includes('/user/confirm') && response.request().method() === 'POST',
-		)
+	// What a mail client does to a long link: breaks it, so what arrives is not
+	// the shape this instance issues. That is recognised without asking.
+	test('A link the mail client broke is not sent to the server at all', async ({page, apiContext}) => {
+		let asked = false
+		page.on('request', request => {
+			if (request.url().includes('/user/confirm') && request.method() === 'POST') {
+				asked = true
+			}
+		})
 
-		await page.goto('/login')
-		await page.evaluate((token) => {
-			localStorage.setItem('emailConfirmToken', token)
-		}, confirmationToken)
-		await page.reload()
+		await page.goto('/?userEmailConfirm=e2eEmailConfirmToken00000000000%0A0000000000000abcd')
 
-		let confirmResponse = await confirmEmailPromise
-		expect(confirmResponse.status()).toBe(200)
-		await expect(page.locator('.message.success')).toBeVisible({timeout: 10000})
-		await expect(page.locator('.message.success')).toContainText('You successfully confirmed your email')
-
-		// Try to use the same token again - should fail
-		confirmEmailPromise = page.waitForResponse(response =>
-			response.url().includes('/user/confirm') && response.request().method() === 'POST',
-		)
-
-		await page.goto('/login')
-		await page.evaluate((token) => {
-			localStorage.setItem('emailConfirmToken', token)
-		}, confirmationToken)
-		await page.reload()
-
-		await confirmEmailPromise
-		await expect(page.locator('.message.danger')).toBeVisible({timeout: 10000})
+		await expect(page.locator('.message.warning')).toBeVisible({timeout: 10000})
+		await expect(page.locator('input[type="email"]')).toBeVisible()
+		expect(asked).toBe(false)
 	})
 
-	test('Should confirm email when clicking link from email (via query parameter)', async ({page, apiContext}) => {
-		// Setup response promise for the confirmation API call
-		const confirmEmailPromise = page.waitForResponse(response =>
-			response.url().includes('/user/confirm') && response.request().method() === 'POST',
-		)
+	// AC7: the resend says the same thing for an address that is waiting and
+	// for one that has no account at all.
+	test('Asking for a new link says the same thing whatever address is given', async ({page, apiContext}) => {
+		const noticeFor = async (address: string) => {
+			// A fresh navigation each time, so the resend cooldown from the
+			// previous one is not what is being measured.
+			await page.goto('/confirm')
+			await page.locator('input[type="email"]').fill(address)
+			const resend = page.waitForResponse(response =>
+				response.url().includes('/user/confirm/resend') && response.request().method() === 'POST',
+			)
+			await page.locator('#confirm-resend').click()
+			expect((await resend).status()).toBe(200)
+			return (await page.locator('.resend-status[role="status"]').innerText()).trim()
+		}
 
-		// Simulate clicking the email confirmation link with query parameter
-		// This is what happens when a user clicks the link in their email
-		await page.goto(`/?userEmailConfirm=${confirmationToken}`)
+		const waiting = await noticeFor(user.email)
+		const unknown = await noticeFor('nobody-has-this-address@example.com')
 
-		// Should redirect to login page
-		await expect(page).toHaveURL(/\/login/)
-
-		// Wait for the confirmation API call to complete
-		const confirmResponse = await confirmEmailPromise
-		expect(confirmResponse.status()).toBe(200)
-
-		// Should show success message
-		await expect(page.locator('.message.success')).toBeVisible({timeout: 10000})
-		await expect(page.locator('.message.success')).toContainText('You successfully confirmed your email')
-
-		// Now login should work
-		await page.locator('input[id=username]').fill(user.username)
-		await page.locator('input[id=password]').fill(TEST_PASSWORD)
-		await page.locator('.button').filter({hasText: 'Login'}).click()
-
-		// Should successfully log in
-		await expect(page).toHaveURL(/\//)
-		await expect(page).not.toHaveURL(/\/login/)
-		// Check that the username appears in the greeting
-		await expect(page.locator('body')).toContainText(user.username)
+		expect(waiting).toBe(unknown)
+		expect(waiting).toContain('a new link is on its way')
 	})
 })
 

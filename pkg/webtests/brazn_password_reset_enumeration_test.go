@@ -37,14 +37,22 @@ import (
 // is something the test made true; the others are addresses nothing in the
 // fixtures or in this test ever creates.
 //
-// WHAT BREAKS IF THE GUARD IS DELETED, reasoned through because it cannot be
-// run on this host. Removing the `if user.IsErrUserDoesNotExist(err)` branch
-// from shared.RequestPasswordResetToken makes the unregistered addresses answer
-// 404 with an error body while the registered one still answers 200 with
-// {"message":"Token was sent."}. Every equality assertion below then fails, on
-// both API versions. The final subtest is the other half of the check: it fails
-// if the branch is widened into "swallow everything", because an address that
-// is not an address must still be refused.
+// THE GUARD IT CHECKS IS BRA-1101's, NOT THIS TICKET'S. BRA-1072 originally
+// swallowed ErrUserDoesNotExist in shared.RequestPasswordResetToken. BRA-1101
+// (#40) landed first and swallowed it — along with ErrAccountDisabled, and for
+// every caller rather than this one — inside
+// user.RequestUserPasswordResetTokenByEmail, which made the shared-layer branch
+// unreachable, so it was dropped on the merge rather than kept as dead code
+// with a comment describing behaviour that had moved.
+//
+// WHAT BREAKS IF THAT GUARD IS DELETED, reasoned through because it cannot be
+// run on this host. Removing the `IsErrUserDoesNotExist(err) ||
+// IsErrAccountDisabled(err)` branch from pkg/user/user_password_reset.go makes
+// the unregistered addresses answer 404 with an error body while the registered
+// one still answers 200 with {"message":"Token was sent."}. Every equality
+// assertion below then fails, on both API versions. The final subtest is the
+// other half of the check: it fails if the branch is widened into "swallow
+// everything", because an address that is not an address must still be refused.
 func TestPasswordResetRequestDoesNotEnumerateAddresses(t *testing.T) {
 	e, err := setupTestEnv()
 	require.NoError(t, err)

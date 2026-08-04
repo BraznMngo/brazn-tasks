@@ -209,6 +209,43 @@
       "tooManyAttempts": "Too many sign-in attempts from this browser. Wait a few minutes and try again.",
       "usernameHint": "Letters, numbers and punctuation, but no spaces."
     },
+    "confirm": {
+      "title": "Confirm your email address",
+      "verifying": {
+        "heading": "Checking your link",
+        "body": "One moment."
+      },
+      "inbox": {
+        "heading": "Check your inbox",
+        "body": "We have sent you a link. Open it to confirm your address.",
+        "bodyWithAddress": "We have sent a link to {email}. Open it to confirm your address.",
+        "spam": "If it is not there, look in your spam folder.",
+        "lifetime": "The link works for 24 hours.",
+        "addressMoves": "Changing this address moves your account. Your invoice keeps the address it was issued to."
+      },
+      "confirmed": {
+        "heading": "That is everything",
+        "body": "Your address is confirmed. You can sign in now."
+      },
+      "alreadyUsed": {
+        "heading": "That is everything",
+        "body": "You have already used this link. Your address is confirmed, so there is nothing left to do."
+      },
+      "expired": {
+        "heading": "That link has expired",
+        "body": "A confirmation link works for 24 hours. Enter your address and we will send you a new one."
+      },
+      "unreadable": {
+        "heading": "We could not read that link",
+        "body": "Some mail programs break long links across two lines. Enter your address and we will send you a new one."
+      },
+      "sendAgain": "Send it again",
+      "sendNewLink": "Send a new link",
+      "addressIsWrong": "That address is wrong",
+      "resent": "If that address is waiting to be confirmed, a new link is on its way.",
+      "resendCooldown": "You can ask for another link in {seconds} seconds.",
+      "somethingWentWrong": "We could not check that link just now. Please try again in a moment."
+    },
     "settings": {
       "bots": {
         "title": "Bot Users",

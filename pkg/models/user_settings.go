@@ -74,7 +74,10 @@ func ChangeUserPassword(ctx context.Context, s *xorm.Session, u *user.User, oldP
 		return user.ErrEmptyOldPassword{}
 	}
 
-	if _, err := user.CheckUserCredentials(ctx, s, &user.Login{Username: u.Username, Password: oldPassword}); err != nil {
+	// BRA-1101: the authenticated check, not the sign-in one. An account that
+	// signs in with Google has no password to change and must be told so (1021),
+	// rather than told its own owner got their password wrong.
+	if _, err := user.CheckPasswordForOwnAccount(ctx, s, u, oldPassword); err != nil {
 		return err
 	}
 

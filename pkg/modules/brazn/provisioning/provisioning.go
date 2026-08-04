@@ -63,10 +63,33 @@ const ContractVersion = "1"
 // for both would have the switch route a per-USER Inbox to the per-TEAM roots
 // and back, and neither call would notice: both payloads carry an organization
 // and a subject, so each would decode cleanly as the other.
+//
+// RESOLVING A MAILBOX IS THE SAME HAZARD WITH MORE AT STAKE. Its payload
+// carries exactly the two identifiers create_personal_inbox does, so under a
+// shared name the switch would route a READ to a WRITE - a question about an
+// address answered by provisioning one. Its name says resolve rather than get
+// because this build may answer that there is nothing to resolve.
+//
+// THE SAME ARGUMENT APPLIES WITH MORE FORCE TO erase_subject, whose payload is
+// field-for-field identical to create_personal_inbox's: one organization, one
+// subject. Under a shared name each would decode cleanly as the other and the
+// switch would route a DESTRUCTION to a creation, or the reverse. It is a
+// separate value for that reason and must stay one.
+//
+// AND MOST OF ALL TO resolve_user, whose recognition form carries EXACTLY THE
+// MEMBERS create_user carries - a contract version, an operation and a mailbox.
+// Under a shared name a question about an address would be answered by
+// provisioning one, which is BRA-1106's defect arriving from this side of the
+// seam: the read must never become the write. It is a separate value here, and
+// DecodeResolveUser checks the member as well, for the reason
+// DecodeEraseSubject gives about its own.
 const (
 	OperationCreateUser          = "create_user"
 	OperationCreatePersonalInbox = "create_personal_inbox"
 	OperationCreateTeamRoots     = "create_team_roots"
+	OperationResolveMailbox      = "resolve_mailbox"
+	OperationEraseSubject        = "erase_subject"
+	OperationResolveUser         = "resolve_user"
 )
 
 // maxMailboxLength is users.email's column width. An address past it is
@@ -163,6 +186,101 @@ type CreateTeamRoots struct {
 	TeamID string `json:"team_id"`
 }
 
+// ResolveMailbox is the whole signed payload of a resolve_mailbox operation:
+// which mailbox does this subject reach?
+//
+// It declares its own complete payload for the reason CreateUser gives, and on
+// this operation that reason has teeth rather than being a convention: this
+// payload and CreatePersonalInbox's carry THE SAME TWO IDENTIFIERS, so nothing
+// in the bytes tells them apart. The operation name is the whole of the
+// difference, which is why it is a separate constant above and why the switch,
+// not this type, is what keeps a read from being carried out as a write.
+type ResolveMailbox struct {
+	ContractVersion string `json:"contract_version"`
+	Operation       string `json:"operation"`
+	// OrganizationID is the commercial organization the caller believes the
+	// subject belongs to. It DECIDES NOTHING, exactly as CreatePersonalInbox's
+	// does and for the same reason: a mailbox belongs to a PERSON, and no
+	// answer here changes with the organization named. It is carried so the
+	// audit line records the pair rather than a bare id, and so this payload
+	// stays the same shape as its sibling's.
+	OrganizationID string `json:"organization_id"`
+	// UserID is this instance's own users.id in decimal form.
+	//
+	// The contract states a TIGHTER pattern than this build checks -
+	// ^[1-9][0-9]{0,18}$ against commercialID's class - and the difference is
+	// deliberate on both sides: strict producers, tolerant consumers. What the
+	// id resolves to is models' question, and an id no user carries is an
+	// answer here rather than a refusal.
+	UserID string `json:"user_id"`
+}
+
+// EraseSubject is the whole signed payload of an erase_subject operation: one
+// subject, and everything this instance holds for them, destroyed.
+//
+// IT IS THE ONLY IRREVERSIBLE OPERATION ON THIS CHANNEL. Its four members are
+// character for character those of CreatePersonalInbox, which is exactly why
+// they are declared separately here rather than shared: a single type used by
+// both would make the two requests indistinguishable to everything below the
+// switch, and the one place the difference is recorded - the operation member -
+// would then be the only thing between provisioning somebody an Inbox and
+// deleting their account.
+type EraseSubject struct {
+	ContractVersion string `json:"contract_version"`
+	Operation       string `json:"operation"`
+	// OrganizationID decides nothing, exactly as on CreatePersonalInbox. It is
+	// the caller's statement of which subject it BELIEVES it is erasing, and it
+	// is carried for the audit line so that a wrong erasure can be read back
+	// afterwards against the organization it was requested for.
+	OrganizationID string `json:"organization_id"`
+	// UserID is this instance's own users.id in decimal form. Whether a user of
+	// that id exists is models' question and deliberately not this one - for
+	// erasure, "no such subject" is a SUCCESS rather than a refusal, and a
+	// decoder that tried to answer it here would turn the resumable case into a
+	// permanent failure.
+	UserID string `json:"user_id"`
+}
+
+// ResolveUser is the whole signed payload of a resolve_user operation: is this
+// person already a user here, and is their mailbox confirmed?
+//
+// TWO REQUEST FORMS, EXACTLY ONE IDENTIFIER PER REQUEST. Both members are
+// declared on one type because the contract states one `oneOf` over one
+// operation - it is one lookup on one row with one projection, not two
+// operations - so which of the two arrived is a PRESENCE rule, checked in the
+// decoder. DisallowUnknownFields cannot see it: both members are declared, so
+// a payload carrying both decodes perfectly and means something the contract
+// refuses to define.
+//
+// IT IS ALSO THE ONE PAYLOAD ON THIS CHANNEL THAT IS A SUPERSET OF ANOTHER
+// OPERATION'S. Drop user_id and this is CreateUser, member for member. The
+// operation name is the whole of the difference, which is why the decoder below
+// checks it rather than trusting the switch alone.
+type ResolveUser struct {
+	ContractVersion string `json:"contract_version"`
+	Operation       string `json:"operation"`
+	// Email is the address to look up, UNTRANSFORMED, for the reason CreateUser
+	// gives about the mailbox on the way in.
+	//
+	// ⚠ IT IS MATCHED AGAINST brazn_provisioned_users.email AND NEVER
+	// users.email, which is the OPPOSITE of the answer resolve_mailbox gives
+	// and the one thing an implementer here is most likely to get wrong. Which
+	// column is a property of the schema rather than a preference, and
+	// models.ResolveUserByMailbox carries the whole argument and the address
+	// change it decides.
+	Email string `json:"email"`
+	// UserID is this instance's own users.id in decimal form, for the form
+	// requireVerifiedAccount asks by - it holds a bearer and an id and NO
+	// address, because the commercial layer stores none.
+	//
+	// The contract states a TIGHTER pattern than this build checks -
+	// ^[1-9][0-9]{0,18}$ against commercialID's class - which is the same
+	// deliberate split ResolveMailbox's user_id documents: strict producers,
+	// tolerant consumers. An id no user carries is an ANSWER here rather than a
+	// refusal, so nothing is lost by admitting a shape Percy never sends.
+	UserID string `json:"user_id"`
+}
+
 // operation is the lenient first read of a signed payload: enough to route it,
 // and deliberately nothing else. It ignores unknown members because at this
 // point every member of every operation is unknown to it.
@@ -247,6 +365,109 @@ func DecodeCreateTeamRoots(payload json.RawMessage) (*CreateTeamRoots, error) {
 	if !commercialID.MatchString(request.OrganizationID) ||
 		!commercialID.MatchString(request.UserID) ||
 		!commercialID.MatchString(request.TeamID) {
+		return nil, ErrInvalidRequest
+	}
+	return request, nil
+}
+
+// DecodeResolveMailbox reads a verified payload as a resolve_mailbox request
+// and checks the two identifiers it carries.
+//
+// It is the same shape as DecodeCreatePersonalInbox because the payload is, and
+// that similarity is the reason the two operations must never share a name: if
+// this decoder is ever reached for a create_personal_inbox payload, or the
+// reverse, the decode will succeed and only the switch will have been wrong.
+func DecodeResolveMailbox(payload json.RawMessage) (*ResolveMailbox, error) {
+	request := &ResolveMailbox{}
+	if err := decodeExactly(payload, request); err != nil {
+		return nil, err
+	}
+	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if !commercialID.MatchString(request.OrganizationID) ||
+		!commercialID.MatchString(request.UserID) {
+		return nil, ErrInvalidRequest
+	}
+	return request, nil
+}
+
+// DecodeEraseSubject reads a verified payload as an erase_subject request and
+// checks the two identifiers it carries.
+//
+// IT IS THE ONE DECODER THAT CHECKS THE OPERATION MEMBER, and the asymmetry is
+// deliberate. Routing already guarantees the value - Verify reads it from the
+// same signed bytes the switch dispatches on - so for the three creating
+// operations the check would be dead weight. This one is irreversible and its
+// payload is structurally identical to create_personal_inbox's, so the single
+// mistake that would matter is an editing error in the switch pointing a
+// create_personal_inbox case at this decoder, or the reverse. One comparison
+// makes that a refusal instead of a deletion.
+func DecodeEraseSubject(payload json.RawMessage) (*EraseSubject, error) {
+	request := &EraseSubject{}
+	if err := decodeExactly(payload, request); err != nil {
+		return nil, err
+	}
+	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationEraseSubject {
+		return nil, ErrInvalidRequest
+	}
+	if !commercialID.MatchString(request.OrganizationID) ||
+		!commercialID.MatchString(request.UserID) {
+		return nil, ErrInvalidRequest
+	}
+	return request, nil
+}
+
+// DecodeResolveUser reads a verified payload as a resolve_user request and
+// checks that it names exactly one subject, in one of the two forms.
+//
+// IT CHECKS THE OPERATION MEMBER, and it is the second decoder to do so after
+// DecodeEraseSubject. The asymmetry has the same cause: routing already
+// guarantees the value, so for the three creating operations the check would be
+// dead weight - but this payload's recognition form is create_user's payload
+// exactly, so the single editing error that would matter is a switch case
+// pointing one at the other's decoder. One comparison makes that a refusal
+// instead of an unasked-for account.
+//
+// EXACTLY ONE IDENTIFIER, AND BOTH IS REFUSED RATHER THAN RESOLVED BY
+// PRECEDENCE. A caller sending both is asserting a pairing rather than asking
+// about one, and neither side of this seam should have to decide which member
+// wins. Neither is refused for the plainer reason that it asks nothing.
+//
+// NOTHING BELOW READS OR WRITES STORED STATE, here as everywhere else in this
+// package. The lookup happens in models, after the route's switch, which is
+// after Verify - so an unsigned caller reaches the flat 400 without this
+// instance ever being asked about the address it named.
+func DecodeResolveUser(payload json.RawMessage) (*ResolveUser, error) {
+	request := &ResolveUser{}
+	if err := decodeExactly(payload, request); err != nil {
+		return nil, err
+	}
+	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationResolveUser {
+		return nil, ErrInvalidRequest
+	}
+	// Both present, or neither. Written as an equality between the two
+	// emptiness tests so that the two refusals cannot drift apart.
+	if (request.Email == "") == (request.UserID == "") {
+		return nil, ErrInvalidRequest
+	}
+	if request.Email != "" {
+		// The same bound and the same shape check DecodeCreateUser makes, for
+		// the same reason: an address past the column width is one a store
+		// would truncate into a DIFFERENT mailbox, which is another person's
+		// account.
+		if len(request.Email) > maxMailboxLength || !strings.Contains(request.Email, "@") {
+			return nil, ErrInvalidRequest
+		}
+		return request, nil
+	}
+	if !commercialID.MatchString(request.UserID) {
 		return nil, ErrInvalidRequest
 	}
 	return request, nil

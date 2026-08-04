@@ -209,6 +209,35 @@ func IsErrInvalidEmailConfirmToken(err error) bool {
 	return ok
 }
 
+// ErrExpiredEmailConfirmToken is an error where the email confirm token was
+// issued more than the link lifetime ago.
+//
+// Separate from ErrInvalidEmailConfirmToken because the two are different
+// things to be told: a link that has run out is recoverable by asking for
+// another one, and a link that was never issued is usually a link the mail
+// client broke across two lines. Percy-Account-Path.md §3 gives them different
+// screens, which it cannot do if the API gives them one code.
+type ErrExpiredEmailConfirmToken struct {
+}
+
+func (err ErrExpiredEmailConfirmToken) Error() string {
+	return "Expired email confirm token"
+}
+
+// ErrCodeExpiredEmailConfirmToken holds the unique world-error code of this error
+const ErrCodeExpiredEmailConfirmToken = 1035
+
+// HTTPError holds the http error description
+func (err ErrExpiredEmailConfirmToken) HTTPError() web.HTTPError {
+	return web.HTTPError{HTTPCode: http.StatusPreconditionFailed, Code: ErrCodeExpiredEmailConfirmToken, Message: "Expired email confirm token."}
+}
+
+// IsErrExpiredEmailConfirmToken checks if an error is a ErrExpiredEmailConfirmToken.
+func IsErrExpiredEmailConfirmToken(err error) bool {
+	_, ok := err.(ErrExpiredEmailConfirmToken)
+	return ok
+}
+
 // ErrWrongUsernameOrPassword is an error where the email was not confirmed
 type ErrWrongUsernameOrPassword struct {
 }

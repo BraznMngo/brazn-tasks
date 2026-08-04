@@ -63,20 +63,32 @@ func TestHumaAuthPublic(t *testing.T) {
 	})
 
 	t.Run("Request password reset token", func(t *testing.T) {
-		t.Run("normal", func(t *testing.T) {
-			rec := post("/api/v2/user/password/token", `{"email":"user1@example.com"}`)
-			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-			assert.Contains(t, rec.Body.String(), "Token was sent.")
-		})
+		// BRA-1101: this operation publishes "the response is the same whether
+		// or not an account exists" and then answered 404 for an unknown address
+		// and 412 for a disabled one, on an endpoint needing no credentials at
+		// all. The two below are compared against this one because sameness is
+		// what the contract says; this one is pinned to a literal 200 and a
+		// literal message so the set cannot be satisfied by all three failing
+		// identically.
+		known := post("/api/v2/user/password/token", `{"email":"user1@example.com"}`)
+		require.Equal(t, http.StatusOK, known.Code, known.Body.String())
+		require.Contains(t, known.Body.String(), "Token was sent.")
+
 		t.Run("no user with that email", func(t *testing.T) {
-			// Answered exactly like a registered address, so this endpoint
-			// cannot be asked which addresses are customers (BRA-1072 AC7).
-			// The property itself - same status AND same body across several
-			// addresses, on both API versions - is asserted in
+			// The same property BRA-1072 AC7 asks for, across BOTH API versions
+			// and against addresses the test registers itself, is asserted in
 			// TestPasswordResetRequestDoesNotEnumerateAddresses.
 			rec := post("/api/v2/user/password/token", `{"email":"user1000@example.com"}`)
-			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-			assert.Contains(t, rec.Body.String(), "Token was sent.")
+			assert.Equal(t, known.Code, rec.Code, rec.Body.String())
+			assert.Equal(t, known.Body.String(), rec.Body.String())
+		})
+		t.Run("disabled account", func(t *testing.T) {
+			// user17 is disabled and gets no token — see
+			// TestRequestPasswordResetTokenSaysNothingAboutTheAddress, which
+			// asserts that none is issued. Here it must only be indistinguishable.
+			rec := post("/api/v2/user/password/token", `{"email":"user17@example.com"}`)
+			assert.Equal(t, known.Code, rec.Code, rec.Body.String())
+			assert.Equal(t, known.Body.String(), rec.Body.String())
 		})
 	})
 
@@ -93,14 +105,55 @@ func TestHumaAuthPublic(t *testing.T) {
 	})
 
 	t.Run("Confirm email", func(t *testing.T) {
+		// Seeded rather than taken from the fixtures: a confirmation link is
+		// only good for 24 hours now, and the fixture tokens are dated 2021.
+		link := seedConfirmLink(t, 4)
+
 		t.Run("normal", func(t *testing.T) {
-			rec := post("/api/v2/user/confirm", `{"token":"tiepiQueed8ahc7zeeFe1eveiy4Ein8osooxegiephauph2Ael"}`)
+			rec := post("/api/v2/user/confirm", `{"token":"`+link+`"}`)
 			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-			assert.Contains(t, rec.Body.String(), "The email was confirmed successfully.")
+			assert.Contains(t, rec.Body.String(), `"already_confirmed":false`)
+		})
+		// A second click on a link that worked is a success, not a failure.
+		t.Run("already used", func(t *testing.T) {
+			rec := post("/api/v2/user/confirm", `{"token":"`+link+`"}`)
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+			assert.Contains(t, rec.Body.String(), `"already_confirmed":true`)
+		})
+		// The fixture token is dated 2021-07-12, so it is a genuinely expired
+		// link rather than one flagged as expired.
+		t.Run("expired token", func(t *testing.T) {
+			rec := post("/api/v2/user/confirm", `{"token":"tiepiQueed8ahc7zeeFe1eveiy4Ein8osooxegiephauph2Ael"}`)
+			assert.Equal(t, http.StatusPreconditionFailed, rec.Code)
 		})
 		t.Run("invalid token", func(t *testing.T) {
 			rec := post("/api/v2/user/confirm", `{"token":"invalidToken"}`)
 			assert.Equal(t, http.StatusPreconditionFailed, rec.Code)
+		})
+	})
+
+	// The resend endpoint answers the same for every address that could be one.
+	// Asserted as "identical to the first answer" rather than "each one is a
+	// 200", because three different bodies would all be 200 too.
+	t.Run("Resend email confirmation", func(t *testing.T) {
+		// Waiting on confirmation, confirmed long ago, and belonging to
+		// nobody. Three different facts about this instance, one answer.
+		first := post("/api/v2/user/confirm/resend", `{"email":"user4@example.com"}`)
+		require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+
+		for _, address := range []string{"user1@example.com", "nobody@example.com"} {
+			rec := post("/api/v2/user/confirm/resend", `{"email":"`+address+`"}`)
+			assert.Equal(t, first.Code, rec.Code, address+" answers with a different status")
+			assert.Equal(t, first.Body.String(), rec.Body.String(), address+" answers with a different body")
+		}
+
+		// A string that is not an address is refused, and that discloses
+		// nothing - the caller could tell without asking. What matters is that
+		// it is refused rather than quietly accepted, so the field is really
+		// being checked.
+		t.Run("not an address at all", func(t *testing.T) {
+			rec := post("/api/v2/user/confirm/resend", `{"email":"not-even-an-address"}`)
+			assert.Equal(t, http.StatusUnprocessableEntity, rec.Code, rec.Body.String())
 		})
 	})
 }

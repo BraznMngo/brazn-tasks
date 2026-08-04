@@ -57,13 +57,12 @@ func UserResetPassword(c *echo.Context) error {
 
 // UserRequestResetPasswordToken is the handler to change a users password
 // @Summary Request password reset token
-// @Description Requests a token to reset a users password. The token is sent via email.
+// @Description Requests a token to reset a users password. The token is sent via email. The response is the same whether or not an account exists.
 // @tags user
 // @Accept json
 // @Produce json
 // @Param credentials body user.PasswordTokenRequest true "The username of the user to request a token for."
 // @Success 200 {object} models.Message
-// @Failure 404 {object} web.HTTPError "The user does not exist."
 // @Failure 500 {object} models.Message "Internal error"
 // @Router /user/password/token [post]
 func UserRequestResetPasswordToken(c *echo.Context) error {

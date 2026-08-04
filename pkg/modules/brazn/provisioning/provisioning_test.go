@@ -173,6 +173,125 @@ func TestDecodeCreateUserRefusesWhatThisBuildCannotActOn(t *testing.T) {
 	})
 }
 
+// resolveMailbox is a well-formed resolve_mailbox payload in canonical JSON.
+//
+// It carries EXACTLY the members a create_personal_inbox payload does apart from
+// the operation name, which is the point of the test below and the reason the
+// two operations must never share one.
+const resolveMailbox = `{"contract_version":"1","operation":"resolve_mailbox",` +
+	`"organization_id":"org_3d77e0c15a84","user_id":"42"}`
+
+// TestResolveMailboxIsItsOwnOperation pins the operation name against the
+// contract's literal and against its three siblings.
+//
+// The literal is written out here rather than taken from the constant, for the
+// reason the signing domains above are: a typo would route and decode happily on
+// this side while Percy's caller - which has its own copy of the contract's
+// string - got the flat refusal for every message it ever sent.
+//
+// The inequality is not padding either. A resolve_mailbox payload and a
+// create_personal_inbox payload carry the same two identifiers, so if the two
+// names were ever made equal the switch would hand a question about an address
+// to the code that PROVISIONS one, and the decode would succeed.
+func TestResolveMailboxIsItsOwnOperation(t *testing.T) {
+	assert.Equal(t, "resolve_mailbox", OperationResolveMailbox)
+	assert.NotEqual(t, OperationCreatePersonalInbox, OperationResolveMailbox)
+	assert.NotEqual(t, OperationCreateTeamRoots, OperationResolveMailbox)
+	assert.NotEqual(t, OperationCreateUser, OperationResolveMailbox)
+}
+
+func TestVerifyReadsAWellFormedResolveMailboxRequest(t *testing.T) {
+	key := trustedKey(t)
+
+	operation, payload, err := Verify(envelopeOver(key, provisioningPrefix, resolveMailbox))
+	require.NoError(t, err)
+	assert.Equal(t, OperationResolveMailbox, operation)
+
+	request, err := DecodeResolveMailbox(payload)
+	require.NoError(t, err)
+	// The member names are the contract's, so the values are asserted against
+	// what the payload above puts under each of them: a decoder that had the two
+	// identifiers the wrong way round would still return a populated struct.
+	assert.Equal(t, "org_3d77e0c15a84", request.OrganizationID)
+	assert.Equal(t, "42", request.UserID)
+}
+
+func TestDecodeResolveMailboxRefusesWhatThisBuildCannotActOn(t *testing.T) {
+	key := trustedKey(t)
+
+	refused := func(t *testing.T, payload string) {
+		t.Helper()
+
+		operation, verified, err := Verify(envelopeOver(key, provisioningPrefix, payload))
+		require.NoError(t, err)
+		require.Equal(t, OperationResolveMailbox, operation)
+
+		_, err = DecodeResolveMailbox(verified)
+		require.ErrorIs(t, err, ErrInvalidRequest)
+	}
+
+	// The control. Every case below differs from this payload in one member, so
+	// a refusal is attributable to that member and to nothing else - and if the
+	// decoder started refusing everything, this is what would say so.
+	t.Run("control: the well-formed request is accepted", func(t *testing.T) {
+		operation, verified, err := Verify(envelopeOver(key, provisioningPrefix, resolveMailbox))
+		require.NoError(t, err)
+		require.Equal(t, OperationResolveMailbox, operation)
+
+		_, err = DecodeResolveMailbox(verified)
+		require.NoError(t, err)
+	})
+
+	// The contract's request schema carries no address, deliberately: a request
+	// that named a mailbox would be a confirmation oracle for "is this person
+	// here" for anyone holding the signing key, which is the exact fact erasure
+	// destroys. decodeExactly is what makes that structural rather than a
+	// promise - the member is undeclared, so it is REFUSED rather than ignored.
+	t.Run("an address in the request, which this operation answers with", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"dana@acme.example",`+
+			`"operation":"resolve_mailbox","organization_id":"org_3d77e0c15a84","user_id":"42"}`)
+	})
+
+	t.Run("a team id, which belongs to another operation", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","operation":"resolve_mailbox",`+
+			`"organization_id":"org_3d77e0c15a84","team_id":"team_1","user_id":"42"}`)
+	})
+
+	t.Run("a contract version this build does not define", func(t *testing.T) {
+		refused(t, `{"contract_version":"2","operation":"resolve_mailbox",`+
+			`"organization_id":"org_3d77e0c15a84","user_id":"42"}`)
+	})
+
+	t.Run("no subject at all", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","operation":"resolve_mailbox",`+
+			`"organization_id":"org_3d77e0c15a84","user_id":""}`)
+	})
+
+	t.Run("no organization at all", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","operation":"resolve_mailbox",`+
+			`"organization_id":"","user_id":"42"}`)
+	})
+
+	// A subject longer than the varchar(64) columns this instance stores
+	// commercial identifiers in. It is refused for the reason commercialID's
+	// bound exists: a value past it is one a store could truncate into a
+	// DIFFERENT subject.
+	t.Run("a subject longer than the column that would store it", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","operation":"resolve_mailbox",`+
+			`"organization_id":"org_3d77e0c15a84","user_id":"`+strings.Repeat("9", 65)+`"}`)
+	})
+
+	// A JSON number rather than the decimal string the contract fixes. This is
+	// the single most likely defect on this seam, because a Go or TypeScript
+	// producer marshalling an integer emits it without thinking - and it must
+	// fail here rather than be coerced, or the two sides disagree about the type
+	// of a primary key.
+	t.Run("a subject as a JSON number", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","operation":"resolve_mailbox",`+
+			`"organization_id":"org_3d77e0c15a84","user_id":42}`)
+	})
+}
+
 func TestVerifyReportsAnOperationThisBuildDoesNotDefine(t *testing.T) {
 	key := trustedKey(t)
 	payload := `{"contract_version":"1","operation":"delete_everything"}`

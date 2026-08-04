@@ -77,14 +77,35 @@ func RegisterUser(ctx context.Context, in *UserRegister) (*user.User, error) {
 		return nil, signup.HTTPRefusal(signup.ErrTokenUnusable)
 	}
 
-	newUser, err := models.RegisterUser(s, &user.User{
+	// The confirmation mail is left unsent until after the commit below. It is
+	// the one part of a registration that a rollback cannot take back: the
+	// redemption can still refuse, and then the user row goes and the mail does
+	// not. Sent inline it would let anyone who can type 43 plausible characters
+	// mail an address of their choosing, rate-limited and nothing else
+	// (BRA-1111).
+	candidate := &user.User{
 		Username: in.Username,
 		Password: in.Password,
 		Email:    in.Email,
 		Language: in.Language,
-	})
+	}
+	newUser, confirm, err := models.RegisterUserConfirmLater(s, candidate)
 	if err != nil {
 		_ = s.Rollback()
+		// A managed instance says ONE thing to everybody who has not proved an
+		// entitlement, whatever the real reason. checkIfUserExists answers 400
+		// with code 1001 or 1002 for a username or address that is already
+		// taken, and it answers it BEFORE the token is redeemed - so without
+		// this, typing a plausible token and reading the status code enumerates
+		// which addresses and usernames hold accounts here.
+		//
+		// Only these two are collapsed. Every other creation failure is a
+		// statement about what the caller themselves typed - a space in a
+		// username, a reserved prefix, a missing field - and discloses nothing
+		// about who is registered, so it keeps its own answer.
+		if managed && (user.IsErrUsernameExists(err) || user.IsErrUserEmailExists(err)) {
+			return nil, signup.HTTPRefusal(signup.ErrTokenUnusable)
+		}
 		return nil, err
 	}
 
@@ -95,7 +116,7 @@ func RegisterUser(ctx context.Context, in *UserRegister) (*user.User, error) {
 	// survives a refusal.
 	//
 	// in.Email rather than newUser.Email, and the difference is not cosmetic:
-	// models.RegisterUser returns the row read back by user.GetUserByID, which
+	// the registration returns the row read back by user.GetUserByID, which
 	// blanks the email on every read. Reporting that would send an empty
 	// address the contract refuses as malformed - a registration that could
 	// never succeed.
@@ -112,6 +133,15 @@ func RegisterUser(ctx context.Context, in *UserRegister) (*user.User, error) {
 	}
 
 	events.DispatchPending(ctx, s)
+
+	// Past the commit the account exists and the token is spent, so a mail that
+	// cannot be rendered or queued is not a failed registration and must not be
+	// reported as one - the caller would be told to try again with a token that
+	// no longer works. It is logged, and the address can ask for another link
+	// through the resend route.
+	if err := user.SendConfirmation(confirm); err != nil {
+		log.Errorf("Could not send the confirmation mail for user %d: %s", newUser.ID, err)
+	}
 
 	// Bust the cached user count so the new registration shows up in metrics
 	// immediately instead of after the regular cache expiry.
@@ -306,29 +336,11 @@ func ResetPassword(reset *user.PasswordReset) error {
 
 // RequestPasswordResetToken issues a password-reset token for the account with
 // the given email and sends it via email. Shared by v1 and v2.
-//
-// AN ADDRESS WITH NO ACCOUNT IS ANSWERED EXACTLY LIKE ONE THAT HAS.
-// user.RequestUserPasswordResetTokenByEmail looks the address up and returns
-// ErrUserDoesNotExist when it finds nothing, and both handlers turn a returned
-// error straight into its HTTP status. Passing that one on therefore made this
-// endpoint an account-existence oracle for anyone with a list of addresses: 404
-// for a stranger, 200 for a customer, from an endpoint that needs no
-// credentials at all. Swallowing it here rather than in either handler is what
-// makes v1 and v2 answer identically.
-//
-// ONLY that error is swallowed. Everything else - an empty address, a disabled
-// account, a database failure - still fails loudly, because none of them is a
-// statement about whether the address is registered.
 func RequestPasswordResetToken(req *user.PasswordTokenRequest) error {
 	s := db.NewSession()
 	defer s.Close()
 
-	err := user.RequestUserPasswordResetTokenByEmail(s, req)
-	if user.IsErrUserDoesNotExist(err) {
-		_ = s.Rollback()
-		return nil
-	}
-	if err != nil {
+	if err := user.RequestUserPasswordResetTokenByEmail(s, req); err != nil {
 		_ = s.Rollback()
 		return err
 	}
@@ -338,11 +350,33 @@ func RequestPasswordResetToken(req *user.PasswordTokenRequest) error {
 
 // ConfirmEmail confirms a newly registered user's email from the token sent to
 // them. Shared by v1 and v2.
-func ConfirmEmail(confirm *user.EmailConfirm) error {
+func ConfirmEmail(confirm *user.EmailConfirm) (*user.EmailConfirmResult, error) {
 	s := db.NewSession()
 	defer s.Close()
 
-	if err := user.ConfirmEmail(s, confirm); err != nil {
+	result, err := user.ConfirmEmail(s, confirm)
+	if err != nil {
+		_ = s.Rollback()
+		return nil, err
+	}
+
+	if err := s.Commit(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// ResendEmailConfirmation issues a fresh confirmation link for an address that
+// is waiting on one. Shared by v1 and v2.
+//
+// It reports success for every address it is given; see
+// user.ResendEmailConfirmation for why.
+func ResendEmailConfirmation(resend *user.EmailConfirmResend) error {
+	s := db.NewSession()
+	defer s.Close()
+
+	if err := user.ResendEmailConfirmation(s, resend); err != nil {
 		_ = s.Rollback()
 		return err
 	}

@@ -1,0 +1,6 @@
+{
+  "contract_version": "1",
+  "operation": "create_personal_inbox",
+  "organization_id": "org_3d77e0c15a84",
+  "user_id": "42"
+}

@@ -516,6 +516,77 @@ func existingUserForAddress(s *xorm.Session, email string) (*user.User, error) {
 	return existing, nil
 }
 
+// decideManagedFallbackMatch refuses to adopt an account that was matched by
+// address or username rather than by this provider's subject.
+//
+// That adoption is the silent join BRA-1071 rules out on a managed instance. It
+// stays exactly as it was everywhere else, which is stock behaviour.
+//
+// It is not the same guard as decideManagedSignUp and neither covers the other:
+// the deployed configuration carries emailfallback, so this is the one that
+// fires for an address that already has an account, and that one is what closes
+// the same hole on a deployment with no fallback configured at all.
+func decideManagedFallbackMatch(matched bool) error {
+	if matched && config.BraznManagedMode.GetBool() {
+		return errManagedUsePassword()
+	}
+	return nil
+}
+
+// decideManagedSignUp answers whether this callback may create a user at all.
+// It returns nil on a self-hosted instance, where none of this applies.
+//
+// THE ORDER OF THE THREE CHECKS IS DELIBERATE. A provider that will not vouch
+// for the address is refused first, because everything after it reasons about
+// an address; then an address that already has an account here, so a valid
+// token can never be spent joining one; and only then the token itself.
+//
+// The token check is its SHAPE only. Whether it is real is Percy Cloud's
+// answer, and asking costs a user id that does not exist yet - so the refusal
+// for a token that is merely absent is given here, and the one that decides is
+// redeemManagedSignUp.
+func decideManagedSignUp(s *xorm.Session, cl *claims, signupToken string) error {
+	if !config.BraznManagedMode.GetBool() {
+		return nil
+	}
+
+	if !bool(cl.EmailVerified) {
+		return errManagedUnverifiedAddress()
+	}
+
+	existing, err := existingUserForAddress(s, cl.Email)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		return errManagedUsePassword()
+	}
+
+	if !signup.CanBeRedeemed(signupToken) {
+		return errManagedNoSignUp()
+	}
+	return nil
+}
+
+// redeemManagedSignUp consumes the token and reports the users.id just created,
+// before the caller's session is committed - exactly as the password path does
+// it. A refusal returns an error, AuthenticateCallback rolls the session back,
+// and no user exists, which is what makes "no token, no user" hold by either
+// door rather than only the one somebody remembered.
+//
+// email is the claim rather than the stored column: user.CreateUser returns the
+// row read back by GetUserByID, and that blanks the email on every read.
+func redeemManagedSignUp(ctx context.Context, signupToken string, userID int64, email string) error {
+	if !config.BraznManagedMode.GetBool() {
+		return nil
+	}
+
+	if err := signup.Redeem(ctx, signupToken, userID, email); err != nil {
+		return signup.HTTPRefusal(err)
+	}
+	return nil
+}
+
 func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider *Provider, idToken *oidc.IDToken, signupToken string) (u *user.User, err error) {
 
 	// set defaults
@@ -558,17 +629,8 @@ func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider 
 			}
 		}
 
-		// A fallback match is an account found by ADDRESS or USERNAME rather
-		// than by this provider's subject, which is the silent join BRA-1071
-		// rules out on a managed instance. It is adopted everywhere else, which
-		// is stock behaviour and stays.
-		//
-		// This is not the same guard as the one in the sign-up branch below and
-		// neither covers the other: the deployed configuration enables no
-		// fallback at all, so that one is the one that fires there, and this
-		// one is what stops the join the moment a fallback is switched on.
-		if fallbackMatchFound && config.BraznManagedMode.GetBool() {
-			return nil, errManagedUsePassword()
+		if err := decideManagedFallbackMatch(fallbackMatchFound); err != nil {
+			return nil, err
 		}
 	}
 
@@ -590,36 +652,17 @@ func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider 
 		// user out of the instance. The distinction between the two things
 		// this route does only exists at this line.
 		//
-		// THE ORDER OF THE THREE CHECKS IS DELIBERATE. A provider that will not
-		// vouch for the address is refused first, because everything after it
-		// reasons about an address; then an address that already has an account
-		// here, so a valid token can never be spent joining one; and only then
-		// the token itself.
+		// What managed mode decides here, and in what order, is
+		// decideManagedSignUp. It lives outside this function because the three
+		// checks it holds put getOrCreateUser over the cyclomatic limit, and
+		// because the ordering between them is a property worth stating
+		// somewhere it can be read on its own.
 		//
 		// AuthenticateCallback logs every refusal here through its existing
 		// "Error creating new user" line, which is where an operator will read
 		// it.
-		managed := config.BraznManagedMode.GetBool()
-		if managed {
-			if !bool(cl.EmailVerified) {
-				return nil, errManagedUnverifiedAddress()
-			}
-
-			existing, lookupErr := existingUserForAddress(s, cl.Email)
-			if lookupErr != nil {
-				return nil, lookupErr
-			}
-			if existing != nil {
-				return nil, errManagedUsePassword()
-			}
-
-			// The shape check only. Whether the token is real is Percy Cloud's
-			// answer, and asking costs a user id this branch has not created
-			// yet - so the refusal for a token that is merely absent is given
-			// here, and the one that decides is below.
-			if !signup.CanBeRedeemed(signupToken) {
-				return nil, errManagedNoSignUp()
-			}
+		if err := decideManagedSignUp(s, cl, signupToken); err != nil {
+			return nil, err
 		}
 
 		// If no user exists, create one with the preferred username if it is not already taken
@@ -638,18 +681,8 @@ func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider 
 			return nil, err
 		}
 
-		// The token is consumed and the created users.id reported before this
-		// session is committed, exactly as the password path does it. A refusal
-		// returns an error, AuthenticateCallback rolls the session back, and no
-		// user exists - which is what makes "no token, no user" hold by either
-		// door rather than only the one somebody remembered.
-		//
-		// cl.Email rather than u.Email: user.CreateUser returns the row read
-		// back by GetUserByID, and that blanks the email on every read.
-		if managed {
-			if redeemErr := signup.Redeem(ctx, signupToken, u.ID, cl.Email); redeemErr != nil {
-				return nil, signup.HTTPRefusal(redeemErr)
-			}
+		if err := redeemManagedSignUp(ctx, signupToken, u.ID, cl.Email); err != nil {
+			return nil, err
 		}
 	} else if alreadyCreatedFromIssuer {
 
@@ -669,8 +702,16 @@ func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider 
 		}
 	}
 
-	// Try sync avatar if available
-	err = syncUserAvatarFromOpenID(s, u, cl.Picture)
+	// Try sync avatar if available.
+	//
+	// nolint:contextcheck — this function took no context before BRA-1071 gave
+	// it one for the redemption, so contextcheck now notices that the avatar
+	// download runs on its own background context. That is deliberate and
+	// unchanged: AuthenticateCallback's own comment says the token exchange,
+	// claim verification and avatar sync have always done so. Threading ctx
+	// through DownloadImage is a change to shared upstream code with nothing to
+	// do with this ticket.
+	err = syncUserAvatarFromOpenID(s, u, cl.Picture) //nolint:contextcheck
 	if err != nil {
 		log.Errorf("Error syncing avatar for user %s: %v", u.Username, err)
 	}

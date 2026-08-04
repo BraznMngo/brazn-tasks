@@ -38,11 +38,17 @@ type registerUserBody struct {
 }
 
 // messageBody carries a human-readable confirmation for endpoints that report
-// success without returning a resource (password reset, email confirm).
+// success without returning a resource (password reset, email confirm resend).
 type messageBody struct {
 	Body struct {
 		Message string `json:"message" readOnly:"true" doc:"A human-readable confirmation message."`
 	}
+}
+
+// emailConfirmBody carries which of the two successful confirmation outcomes
+// happened, because the screen shows them differently.
+type emailConfirmBody struct {
+	Body user.EmailConfirmResult
 }
 
 // linkShareTokenBody wraps the issued link-share auth token and its share.
@@ -118,13 +124,24 @@ func registerLocalAuthRoutes(api huma.API) {
 	Register(api, huma.Operation{
 		OperationID:   "auth-confirm-email",
 		Summary:       "Confirm an email address",
-		Description:   "Confirms the email address of a newly registered user using the token sent to that email.",
+		Description:   "Confirms the email address of a newly registered user using the token sent to that email. A link which was already used confirms successfully a second time, with already_confirmed set.",
 		Method:        http.MethodPost,
 		Path:          "/user/confirm",
 		DefaultStatus: http.StatusOK,
 		Tags:          authTags,
 		Security:      publicSecurity,
 	}, authConfirmEmail)
+
+	Register(api, huma.Operation{
+		OperationID:   "auth-resend-email-confirmation",
+		Summary:       "Send a new email confirmation link",
+		Description:   "Sends a new confirmation link to an address that is waiting on one. The response is the same for every address, so it cannot be used to find out whether an account exists.",
+		Method:        http.MethodPost,
+		Path:          "/user/confirm/resend",
+		DefaultStatus: http.StatusOK,
+		Tags:          authTags,
+		Security:      publicSecurity,
+	}, authResendEmailConfirmation)
 }
 
 func authRegister(ctx context.Context, in *struct{ Body shared.UserRegister }) (*registerUserBody, error) {
@@ -153,12 +170,20 @@ func authResetPassword(_ context.Context, in *struct{ Body user.PasswordReset })
 	return out, nil
 }
 
-func authConfirmEmail(_ context.Context, in *struct{ Body user.EmailConfirm }) (*messageBody, error) {
-	if err := shared.ConfirmEmail(&in.Body); err != nil {
+func authConfirmEmail(_ context.Context, in *struct{ Body user.EmailConfirm }) (*emailConfirmBody, error) {
+	result, err := shared.ConfirmEmail(&in.Body)
+	if err != nil {
+		return nil, translateDomainError(err)
+	}
+	return &emailConfirmBody{Body: *result}, nil
+}
+
+func authResendEmailConfirmation(_ context.Context, in *struct{ Body user.EmailConfirmResend }) (*messageBody, error) {
+	if err := shared.ResendEmailConfirmation(&in.Body); err != nil {
 		return nil, translateDomainError(err)
 	}
 	out := &messageBody{}
-	out.Body.Message = "The email was confirmed successfully."
+	out.Body.Message = "If that address is waiting to be confirmed, a new link is on its way."
 	return out, nil
 }
 

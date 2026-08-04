@@ -42,14 +42,31 @@ func TestUserRequestResetPasswordToken(t *testing.T) {
 		require.Error(t, err)
 		assert.Equal(t, http.StatusBadRequest, getHTTPErrorCode(err))
 	})
+	// BRA-1101: v1 shares RequestUserPasswordResetTokenByEmail with v2 and so
+	// shares its contract — the response is the same whether or not an account
+	// exists. Both of these used to name the account: 1005 for an address nobody
+	// holds, 1020 for a disabled one, on a handler that needs no credentials at
+	// all. The known address is asserted against a literal message so the pair
+	// cannot be satisfied by all three failing identically; that no token is
+	// actually issued is asserted in pkg/user's
+	// TestRequestPasswordResetTokenSaysNothingAboutTheAddress.
+	known, err := newTestRequest(t, http.MethodPost, apiv1.UserRequestResetPasswordToken, `{"email": "user1@example.com"}`, nil, nil)
+	require.NoError(t, err)
+	require.Contains(t, known.Body.String(), `Token was sent.`)
+
 	t.Run("No user with that email address", func(t *testing.T) {
-		// Answered exactly like a registered address, so this endpoint cannot
-		// be asked which addresses are customers (BRA-1072 AC7). The property
-		// itself - same status AND same body across several addresses, on both
-		// API versions - is asserted in
+		// The same property BRA-1072 AC7 asks for, across BOTH API versions and
+		// against addresses the test registers itself, is asserted in
 		// TestPasswordResetRequestDoesNotEnumerateAddresses.
 		rec, err := newTestRequest(t, http.MethodPost, apiv1.UserRequestResetPasswordToken, `{"email": "user1000@example.com"}`, nil, nil)
 		require.NoError(t, err)
-		assert.Contains(t, rec.Body.String(), `Token was sent.`)
+		assert.Equal(t, known.Code, rec.Code)
+		assert.Equal(t, known.Body.String(), rec.Body.String())
+	})
+	t.Run("A disabled account", func(t *testing.T) {
+		rec, err := newTestRequest(t, http.MethodPost, apiv1.UserRequestResetPasswordToken, `{"email": "user17@example.com"}`, nil, nil)
+		require.NoError(t, err)
+		assert.Equal(t, known.Code, rec.Code)
+		assert.Equal(t, known.Body.String(), rec.Body.String())
 	})
 }

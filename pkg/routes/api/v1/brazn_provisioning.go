@@ -84,6 +84,75 @@ type teamRootsReply struct {
 	TaskProjectRef string `json:"task_project_ref"`
 }
 
+// mailboxResolution is the answer to a resolve_mailbox operation, in the shape
+// the contract fixes (cloud/contracts/v1/mailbox/, BRA-1096).
+//
+// Email is omitempty because AN UNRESOLVABLE ANSWER CARRIES NOTHING AND THE
+// EMPTINESS IS THE GUARANTEE: the contract's response schema refuses an
+// `unresolvable` that names an address, and gives no `reason` member for an
+// implementation to write "the user was erased" into.
+type mailboxResolution struct {
+	Result string `json:"result"`
+	Email  string `json:"email,omitempty"`
+}
+
+// noMailbox is the ONE answer to every absence: a subject this instance never
+// had, and one an erasure destroyed - which are the same absence, because
+// DeleteUser takes the claim row holding the address away with the user.
+//
+// It is a single value rather than the same literal constructed on two paths,
+// so the two cases are byte-identical BY CONSTRUCTION rather than by two pieces
+// of code happening to agree. Whoever holds the provisioning signing key can
+// walk a sequential autoincrement; what they must not be able to learn from it
+// is which of those ids were once customers.
+var noMailbox = &mailboxResolution{Result: "unresolvable"}
+
+// resolvedUser is the answer to a resolve_user operation that found somebody,
+// in the shape the contract fixes (cloud/contracts/v1/user/, BRA-1109).
+//
+// USER_ID IS A STRING, for the reason provisionedUserReply's id is and with the
+// same consequence: the consumer validates it against ^[1-9][0-9]{0,18}$, a
+// JSON number passes that pattern by coercion and fails the type it is declared
+// with, and a Go handler marshalling an int64 emits 42 rather than "42". The
+// response schema names this the single most likely defect on this seam.
+//
+// NEITHER MEMBER CARRIES omitempty AND NEITHER MAY. email_verified is false for
+// every account still waiting on its confirmation mail, and omitempty drops a
+// false bool - which would emit a `resolved` with no verification member, read
+// as `undefined` by the consumer, and refuse or admit that customer depending
+// on how the check was written. The schema requires both members on this branch
+// for exactly that reason.
+type resolvedUser struct {
+	Result string `json:"result"`
+	UserID string `json:"user_id"`
+	// EmailVerified is the row's own confirmation status - see
+	// models.UserResolution, which is where it is derived and why it can never
+	// be anything the caller said.
+	EmailVerified bool `json:"email_verified"`
+}
+
+// unresolvableUser is the answer to every absence, and it is A SEPARATE TYPE
+// rather than resolvedUser with empty members.
+//
+// THE EMPTINESS IS THE GUARANTEE, so it is made structural: this type has no
+// field a user id or a verification state could be written into, and no field a
+// later change could put a reason in. mailboxResolution reaches the same
+// property with `omitempty` on one string, which works there because an empty
+// address is never a resolution - it cannot work here, because `false` is a
+// real answer that omitempty would drop.
+//
+// A single value rather than the same literal built on two paths, exactly as
+// noMailbox is: an erased subject and one this instance never minted then
+// answer byte-identically BY CONSTRUCTION rather than by two pieces of code
+// happening to agree. Whoever holds the signing key can walk a sequential
+// autoincrement, and what they must not learn from it is which ids were once
+// customers.
+type unresolvableUser struct {
+	Result string `json:"result"`
+}
+
+var noUser = &unresolvableUser{Result: "unresolvable"}
+
 // BraznProvision performs one provisioning operation for Brazn's commercial
 // service.
 //
@@ -138,6 +207,12 @@ func BraznProvision(c *echo.Context) error {
 		return provisionPersonalInbox(c, payload)
 	case provisioning.OperationCreateTeamRoots:
 		return provisionTeamRoots(c, payload)
+	case provisioning.OperationResolveMailbox:
+		return resolveMailbox(c, payload)
+	case provisioning.OperationEraseSubject:
+		return eraseSubject(c, payload)
+	case provisioning.OperationResolveUser:
+		return resolveUser(c, payload)
 	default:
 		// An operation this build does not define is refused rather than
 		// guessed at, in exactly the way an unknown edition is on the
@@ -224,6 +299,187 @@ func provisionTeamRoots(c *echo.Context, payload json.RawMessage) error {
 		TaskTeamRef:    strconv.FormatInt(root.TeamID, 10),
 		TaskProjectRef: strconv.FormatInt(root.ProjectID, 10),
 	})
+}
+
+// resolveMailbox is the resolve_mailbox operation: the address a subject
+// reaches, or the one answer every absence gets.
+//
+// IT ANSWERS 200 EITHER WAY, and that is a deliberate departure from the two
+// topology operations above, which refuse an unknown subject with the flat 400.
+// The 400 is right for them - the caller created that user moments earlier, so
+// an unknown subject IS a producer defect. Here an absent subject is an
+// expected, legitimate state: erasure suppresses the mailbox at step 4 and
+// destroys the user at step 5, so a resumed erasure asks about a subject that is
+// already gone.
+//
+// The consumer decides purely on status - cloud/service/src/fork.ts maps 5xx to
+// a retryable `unavailable` and every other non-2xx to a terminal
+// `invalid_state` - so folding "this subject has no mailbox" into the flat 400
+// would make it indistinguishable from a malformed request, and every resumed
+// erasure would refuse at step 4 forever, against a one-month statutory clock.
+// Refusals keep the flat 400; unreachable keeps its 5xx; absence is an ANSWER.
+//
+// A read rather than a write, which is why nothing here is transactional and
+// why no part of it may become one: the caller for step 4 of an erasure is
+// asking what to suppress, not asking this instance to change.
+func resolveMailbox(c *echo.Context, payload json.RawMessage) error {
+	request, err := provisioning.DecodeResolveMailbox(payload)
+	if err != nil {
+		return refuseProvisioning("the resolve_mailbox request is not one this build accepts")
+	}
+
+	mailbox, err := models.MailboxForSubject(request.UserID)
+	if err != nil {
+		return err
+	}
+
+	// The pair the request named and whether an address was found - never the
+	// address itself, as on every other log line on this seam. Reporting
+	// found-or-not discloses nothing the reply does not: it is resolved against
+	// unresolvable, and not erased against never-minted, which this instance
+	// could not tell apart if the line asked it to.
+	log.Debugf("Resolved the mailbox for Brazn Tasks user %s in organization %q (found: %t)",
+		request.UserID, request.OrganizationID, mailbox != "")
+
+	if mailbox == "" {
+		return c.JSON(http.StatusOK, noMailbox)
+	}
+	return c.JSON(http.StatusOK, &mailboxResolution{Result: "resolved", Email: mailbox})
+}
+
+// resolveUser is the resolve_user operation: is this person already a user
+// here, and is their mailbox confirmed?
+//
+// IT IS THE SIXTH OPERATION ON THIS CHANNEL - after create_user, the two
+// topology operations, resolve_mailbox and erase_subject - and it added exactly
+// what each of those added: a constant, a payload type, a decoder and this case,
+// touching nothing about authentication, the trust store, the route set or
+// route-classification.json. That is the claim the comment on BraznProvision
+// makes about its own extension point, and this is the fifth arm to hold it.
+//
+// ⚠ IT NEVER CREATES, AND NOTHING IT CALLS DOES. There is no write path in
+// either request form and there must be none: a resolve that helpfully created
+// the missing user would reintroduce the total signup outage BRA-1106 fixed,
+// from this side of the seam. The response schema states it as an obligation
+// the consumer cannot enforce, which is what makes it this handler's.
+//
+// ⚠ WHICH COLUMN THE MAILBOX FORM MATCHES is the one decision here that is easy
+// to get backwards, because resolve_mailbox above answers the OPPOSITE way and
+// is right to. models.ResolveUserByMailbox carries the argument and the address
+// change it decides; the short version is that users.email cannot be a
+// zero-or-one lookup and this operation answers with one id or nothing.
+//
+// IT ANSWERS 200 EITHER WAY, as resolve_mailbox does and for a sharper reason:
+// an unknown address is the ordinary answer for EVERY FIRST-TIME CUSTOMER, on
+// the busiest path the commercial service has. Folding it into the channel's
+// flat 400 would make every signup indistinguishable from a malformed request
+// and from an operation a deployed build does not define - and cloud/service/
+// src/fork.ts decides purely on status, mapping every non-5xx refusal to a
+// terminal invalid_state.
+//
+// ⚠ THE ORACLE. Unlike resolve_mailbox this request CARRIES an address, so
+// reaching this function at all is a membership answer for whoever holds the
+// signing key. Three things bound it, and the one that is this code's to keep
+// is that the signature is verified BEFORE the lookup runs: provisioning.Verify
+// runs above the switch, so an unverifiable caller reaches the flat 400 without
+// this instance ever being asked about the address it named. That property is
+// structural here rather than remembered, and the only way to lose it is to
+// deviate from the four-part shape - a lookup hoisted out of the switch, or a
+// short circuit for a "cheap" read. Do neither.
+//
+// Nothing below varies its STATUS with whether the address matched. Its timing
+// varies by one indexed read - a resolution reads the user row and an absence
+// does not - which is inherent in answering the question at all and is the same
+// on resolve_mailbox; no constant-time mechanism is invented here, and claiming
+// one would be worse than saying which property is actually held.
+//
+// A read rather than a write, which is why nothing here is transactional and
+// why no part of it may become one.
+func resolveUser(c *echo.Context, payload json.RawMessage) error {
+	request, err := provisioning.DecodeResolveUser(payload)
+	if err != nil {
+		return refuseProvisioning("the resolve_user request is not one this build accepts")
+	}
+
+	// Exactly one of the two, which the decoder has already established - both
+	// and neither are refused there rather than resolved by a precedence this
+	// branch would otherwise be inventing.
+	var resolution *models.UserResolution
+	if request.Email != "" {
+		resolution, err = models.ResolveUserByMailbox(request.Email)
+	} else {
+		resolution, err = models.ResolveUserBySubject(request.UserID)
+	}
+	if err != nil {
+		return err
+	}
+
+	// What the question was asked BY and whether it resolved - never the
+	// address, as on every log line on this seam. The verification form logs
+	// its subject the way resolve_mailbox logs its own; the recognition form
+	// logs only that it was a mailbox, because the value it carries is a
+	// customer's address and this is the operation that could leak one.
+	//
+	// Reporting found-or-not discloses nothing the reply does not: it is
+	// resolved against unresolvable, and never erased against never-minted,
+	// which this instance could not tell apart if the line asked it to.
+	subject := "a mailbox"
+	if request.Email == "" {
+		subject = "user " + request.UserID
+	}
+	log.Debugf("Resolved a Brazn Tasks user by %s (found: %t)", subject, resolution != nil)
+
+	if resolution == nil {
+		return c.JSON(http.StatusOK, noUser)
+	}
+	return c.JSON(http.StatusOK, &resolvedUser{
+		Result:        "resolved",
+		UserID:        strconv.FormatInt(resolution.UserID, 10),
+		EmailVerified: resolution.EmailVerified,
+	})
+}
+
+// eraseSubject is the erase_subject operation: everything this instance holds
+// for one commercial subject, destroyed.
+//
+// IT IS THE ONLY OPERATION ON THIS CHANNEL THAT DESTROYS ANYTHING, and the only
+// one for which "there is nothing here" is a success rather than a refusal. The
+// three creating operations answer ErrProvisioningSubjectUnknown with a 400
+// because a topology cannot be built for a subject this instance does not have;
+// erasure of a subject this instance does not have is exactly what a retry after
+// a successful erasure looks like, and the consumer treats a 400 as permanent.
+// See models.EraseSubject for why that would strand every resumed erasure.
+//
+// The reply is `{}` like its siblings, and carries no count. The consumer does
+// not read it (cloud/service/src/fork.ts) and must not: a number of destroyed
+// rows would be a fact about this schema for the commercial layer to depend on,
+// and it would raise the one question the contract settles the other way - what
+// a zero means.
+func eraseSubject(c *echo.Context, payload json.RawMessage) error {
+	request, err := provisioning.DecodeEraseSubject(payload)
+	if err != nil {
+		return refuseProvisioning("the erase_subject request is not one this build accepts")
+	}
+
+	if err := models.EraseSubject(c.Request().Context(), request.UserID); err != nil {
+		// Reached only for a subject id that is not a decimal number at all,
+		// which no correct sender can produce - never for one that is merely
+		// absent. models.EraseSubject draws that line and says why.
+		if errors.Is(err, models.ErrProvisioningSubjectUnknown) {
+			return refuseProvisioning(
+				"the erase_subject request names a subject this instance could not have minted")
+		}
+		return err
+	}
+
+	// The subject id and the organization, and nothing else - no mailbox, as on
+	// every log line on this seam. The organization is here because it is the
+	// caller's statement of which subject it believed it was erasing, and this
+	// is the line an erasure is read back from afterwards.
+	log.Debugf("Erased Brazn Tasks subject %s for organization %q",
+		request.UserID, request.OrganizationID)
+
+	return c.JSON(http.StatusOK, &nothingToReport{})
 }
 
 // refuseProvisioning logs why a verified request was turned down and returns

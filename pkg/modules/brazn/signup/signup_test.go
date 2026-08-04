@@ -91,9 +91,12 @@ func stub(t *testing.T, status int, answer []byte) *capturedRedemption {
 	t.Helper()
 
 	seen := &capturedRedemption{}
+	// assert rather than require inside the handler: this runs on the test
+	// server's goroutine, and require calls t.FailNow(), which is only defined
+	// on the goroutine running the test.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		seen.calls++
 		seen.body = body
 		seen.authorization = r.Header.Get(echo.HeaderAuthorization)
@@ -102,8 +105,7 @@ func stub(t *testing.T, status int, answer []byte) *capturedRedemption {
 		seen.query = r.URL.RawQuery
 
 		w.WriteHeader(status)
-		_, err = w.Write(answer)
-		require.NoError(t, err)
+		_, _ = w.Write(answer)
 	}))
 	t.Cleanup(server.Close)
 
@@ -246,13 +248,23 @@ func TestRedeemRefusesBeforeReachingTheNetwork(t *testing.T) {
 	t.Run("a token that is not the contract's shape", func(t *testing.T) {
 		seen := stub(t, http.StatusOK, readContract(t, contractResponsePath))
 
+		// Comments above each value rather than beside it: gofmt aligns a run
+		// of trailing comments and breaks the run when one line is much longer,
+		// so a hand-aligned block with a 66-character member in it is a
+		// formatting failure waiting to happen.
 		for _, wrong := range []string{
+			// absent
 			"",
-			token[:len(token)-1],                    // one short
-			token + "x",                             // one long
-			token[:len(token)-1] + "=",              // padded
-			token[:len(token)-1] + "+",              // standard base64, not base64url
-			"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", // hex
+			// one character short
+			token[:len(token)-1],
+			// one character long
+			token + "x",
+			// padded
+			token[:len(token)-1] + "=",
+			// standard base64 rather than base64url
+			token[:len(token)-1] + "+",
+			// hex, which is the other encoding 256 bits gets written in
+			"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		} {
 			require.ErrorIs(t, Redeem(context.Background(), wrong, 1, "dana@acme.example"), ErrTokenUnusable)
 		}

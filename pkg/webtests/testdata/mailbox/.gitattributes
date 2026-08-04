@@ -1,0 +1,10 @@
+# These fixtures are compared BYTE FOR BYTE against what this build emits and
+# accepts, so any end-of-line normalisation makes the comparison meaningless -
+# and would make it fail on a checkout with core.autocrlf=true while passing on
+# CI, which is the worst way for a conformance test to be wrong.
+#
+# -text switches conversion off in both directions, so every checkout gets the
+# committed bytes rather than a CRLF rendering of them.
+#
+# README.md is deliberately not listed; it is an ordinary source file.
+*.json -text

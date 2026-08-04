@@ -492,16 +492,18 @@ func stubRedemption(t *testing.T, status int, answer string) *redemptionRecord {
 	t.Helper()
 
 	record := &redemptionRecord{}
+	// assert rather than require inside the handler: this runs on the test
+	// server's goroutine, and require calls t.FailNow(), which is only defined
+	// on the goroutine running the test.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		record.calls++
 		record.body = string(body)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
-		_, err = w.Write([]byte(answer))
-		require.NoError(t, err)
+		_, _ = w.Write([]byte(answer))
 	}))
 	t.Cleanup(server.Close)
 
