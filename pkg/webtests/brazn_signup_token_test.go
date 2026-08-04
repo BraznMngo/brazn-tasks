@@ -277,11 +277,23 @@ func TestManagedModeLeavesAccountRecoveryOpen(t *testing.T) {
 	t.Run("a confirmation link resolves", func(t *testing.T) {
 		e := managedModeEcho(t, true)
 
+		// The link is minted here rather than read out of the fixtures, and it
+		// has to be. A confirmation link is only good for 24 hours
+		// (user.EmailConfirmMaxAge), so any date written into user_tokens.yml
+		// is either already past the deadline or will be tomorrow - the fixture
+		// token is dated 2021 and is now permanently expired. A test that
+		// depended on it would stop describing this route and start describing
+		// the calendar. This one carries its own precondition: the row is as
+		// old as the moment the test ran, so no clock can stale it.
+		//
+		// User 4 is status 1 in the fixtures, waiting on confirmation.
+		link := seedConfirmLink(t, 4)
+
 		rec := publicRequest(e, http.MethodPost, "/api/v1/user/confirm",
-			`{"token":"tiepiQueed8ahc7zeeFe1eveiy4Ein8osooxegiephauph2Ael"}`)
+			`{"token":"`+link+`"}`)
 
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-		assert.Contains(t, rec.Body.String(), "The email was confirmed successfully.")
+		assert.Contains(t, rec.Body.String(), `"already_confirmed":false`)
 	})
 
 	t.Run("a password reset can be requested", func(t *testing.T) {
