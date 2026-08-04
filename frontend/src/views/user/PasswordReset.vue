@@ -14,7 +14,16 @@
 			<Message variant="success">
 				{{ $t('user.auth.passwordResetSuccess') }}
 			</Message>
+			<!--
+				An id for the same reason the submits above have one, and it is
+				needed here even though this is a link rather than a submit: it
+				renders `user.auth.login`, so the test that clicked it by the
+				word "Login" broke when this ticket renamed that to "Sign in".
+				`id` falls through XButton and BaseButton to the anchor
+				RouterLink renders, the way `class="button"` already does.
+			-->
 			<XButton
+				id="password-reset-login"
 				:to="{ name: 'user.login' }"
 				class="mbs-4"
 			>

@@ -25,7 +25,12 @@ test.describe('Password Reset', () => {
 		// A fragment rather than the sentence: what matters is that the change
 		// took, not the wording that says so.
 		await expect(page.locator('.message.success')).toContainText('Your password was changed')
-		await page.locator('#login-submit').click()
+
+		// The way out of the success screen is a link to /login, not the sign-in
+		// form's submit — `#login-submit` does not exist on this screen at all.
+		// It reads the same because both render `user.auth.login`, which is why
+		// the blanket replacement of that label put the wrong id here.
+		await page.locator('#password-reset-login').click()
 		await expect(page).toHaveURL('/login')
 
 		// Try to login with the new password
