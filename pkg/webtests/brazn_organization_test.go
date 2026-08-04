@@ -71,7 +71,7 @@ func newOrganizationEnv(t *testing.T, seatsPurchased *int) (*managedEnv, int64) 
 	// test counts - it would count three, the assertion would say two, and the
 	// comment explaining why would be false. A subject in nobody else's
 	// organization is what "a personal account on this instance" actually is.
-	env.grantProjection(testuser2.ID, entitlement.EditionPersonal, false, nil, nil, otherOrganization)
+	env.grantProjection(testuser2.ID, entitlement.EditionPersonal, false, nil, nil, otherOrganization, nil)
 
 	// The primary team and its root are provisioned with the organization. It
 	// is the team the removal test must refuse, and the one team every
