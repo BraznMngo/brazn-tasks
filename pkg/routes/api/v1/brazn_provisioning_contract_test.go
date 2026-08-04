@@ -17,6 +17,7 @@
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"testing"
@@ -43,6 +44,14 @@ const (
 	contractUserReplyResolved    = contractRoot + "create-user-response.valid.conformance-resolved.json"
 	contractTeamRootsReply       = contractRoot + "create-team-roots-response.valid.conformance.json"
 	contractAcknowledgementReply = contractRoot + "provisioning-acknowledgement.valid.conformance.json"
+
+	contractUserResolved        = contractRoot + "user-resolution-response.valid.conformance-resolved.json"
+	contractUserUnresolvable    = contractRoot + "user-resolution-response.valid.conformance-unresolvable.json"
+	contractUserWithAddress     = contractRoot + "user-resolution-response.invalid.address-in-the-answer.json"
+	contractUserErasedResult    = contractRoot + "user-resolution-response.invalid.distinguishes-erasure.json"
+	contractUserWithoutID       = contractRoot + "user-resolution-response.invalid.resolved-without-user-id.json"
+	contractUserWithoutVerified = contractRoot + "user-resolution-response.invalid.resolved-without-verification.json"
+	contractUserAbsenceWithID   = contractRoot + "user-resolution-response.invalid.unresolvable-with-user-id.json"
 )
 
 // asContractMembers reads a JSON object into a member map.
@@ -148,4 +157,163 @@ func TestContractAcknowledgementIsAnEmptyObject(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, asContractMembers(t, frozen), asContractMembers(t, produced),
 		"an operation with nothing to report answers {} — never an empty body, never a count")
+}
+
+// asCompactContract compacts a fixture to the form encoding/json emits, so the
+// two can be compared BYTE FOR BYTE.
+//
+// The member-map comparison the tests above use cannot see member ORDER, and on
+// this operation order is part of what a captured payload is read against.
+// Compaction removes insignificant whitespace and nothing else — it does not
+// reorder members, drop them or change a value — so what survives is the exact
+// member set, in the exact order, with every literal intact.
+//
+// It takes the BYTES rather than a path, so every fixture is still read from a
+// constant at its own call site — the form gosec resolves, which is why the
+// files are named as constants above at all.
+func asCompactContract(t *testing.T, frozen []byte) string {
+	t.Helper()
+
+	compact := &bytes.Buffer{}
+	require.NoError(t, json.Compact(compact, frozen))
+	return compact.String()
+}
+
+// TestContractUserResolutionRepliesMatchTheContract is the response-side guard
+// for resolve_user (BRA-1109), compared byte for byte rather than by members.
+//
+// ⚠ USER_ID IS A STRING AND IT HAS TO BE. The contract declares it as the decimal
+// string form of users.id and validates it against ^[1-9][0-9]{0,18}$; a JSON
+// number passes that pattern by coercion on the consumer and fails the type it is
+// declared with. The response schema calls this the single most likely defect on
+// this seam, because a Go handler marshalling an int64 emits 42 rather than "42".
+// That is why resolvedUser declares UserID as a string and resolveUser formats it
+// with strconv.FormatInt.
+//
+// The literals here are written into this source rather than read from the
+// fixtures, per CLAUDE.md: a value both repositories take from one definition is
+// checked by neither.
+func TestContractUserResolutionRepliesMatchTheContract(t *testing.T) {
+	resolved, err := json.Marshal(&resolvedUser{
+		Result:        "resolved",
+		UserID:        "9001",
+		EmailVerified: true,
+	})
+	require.NoError(t, err)
+
+	// TWO ASSERTIONS PER REPLY, AND THEY PIN DIFFERENT THINGS. Do not collapse
+	// them into one.
+	//
+	// The first compares against the FROZEN FIXTURE as a string, so it pins the
+	// member ORDER as well as the member set — Equal on the compacted bytes, not
+	// JSONEq, because JSONEq is order-blind and order is what a reader of a
+	// captured payload relies on.
+	//
+	// The second compares against a LITERAL WRITTEN IN THIS SOURCE, which is the
+	// clause CLAUDE.md is about: a value both repositories take from one
+	// definition is checked by neither, so the fixture cannot be the only thing
+	// this build is measured against. It is JSONEq rather than Equal only because
+	// testifylint's encoded-compare requires it for a JSON literal, and nothing is
+	// lost by that here — order is already pinned one line above.
+	frozenResolved, err := os.ReadFile(contractUserResolved)
+	require.NoError(t, err)
+	assert.Equal(t, asCompactContract(t, frozenResolved), string(resolved),
+		"a resolution carries result, user_id and email_verified, in that order and no others")
+	assert.JSONEq(t, `{"result":"resolved","user_id":"9001","email_verified":true}`, string(resolved),
+		"the member names, the result string and the STRING user_id are the contract's, written here")
+
+	absent, err := json.Marshal(noUser)
+	require.NoError(t, err)
+
+	frozenAbsent, err := os.ReadFile(contractUserUnresolvable)
+	require.NoError(t, err)
+	assert.Equal(t, asCompactContract(t, frozenAbsent), string(absent))
+	assert.JSONEq(t, `{"result":"unresolvable"}`, string(absent))
+}
+
+// TestContractUserResolutionResolvedNeverDropsAMember is the omitempty trap, and
+// it is the reason resolvedUser declares EmailVerified without one.
+//
+// AN UNCONFIRMED CUSTOMER IS THE CASE THAT BREAKS. `email_verified` is false for
+// every account still waiting on its confirmation mail, and omitempty drops a
+// false bool — emitting a `resolved` with no verification member, which the
+// consumer reads as `undefined`. That is neither true nor false and would refuse
+// a confirmed customer or admit an unconfirmed one depending on how the check was
+// written, which is why the schema requires the member on this branch rather than
+// defaulting it.
+//
+// Deleting the guard: add `,omitempty` to either tag and the emitted object loses
+// a member the frozen invalid fixtures are named for. Both are asserted, because
+// a reply missing user_id would make a signup converge on undefined.
+func TestContractUserResolutionResolvedNeverDropsAMember(t *testing.T) {
+	unconfirmed, err := json.Marshal(&resolvedUser{
+		Result:        "resolved",
+		UserID:        "9001",
+		EmailVerified: false,
+	})
+	require.NoError(t, err)
+
+	members := asContractMembers(t, unconfirmed)
+	assert.Equal(t, map[string]interface{}{
+		"result":         "resolved",
+		"user_id":        "9001",
+		"email_verified": false,
+	}, members, "a false verification is a VALUE and must be emitted, never omitted")
+
+	// The three shapes the contract froze as invalid, asserted as things this
+	// build does not produce rather than as things it refuses to read.
+	withoutVerified, err := os.ReadFile(contractUserWithoutVerified)
+	require.NoError(t, err)
+	assert.NotEqual(t, asContractMembers(t, withoutVerified), members,
+		"an omitempty on email_verified would emit exactly this")
+
+	withoutID, err := os.ReadFile(contractUserWithoutID)
+	require.NoError(t, err)
+	assert.NotEqual(t, asContractMembers(t, withoutID), members,
+		"a resolution with no user_id would make a signup converge on undefined")
+
+	// And no address, ever. This operation exists so that a verification check
+	// does not have to pull a mailbox across the seam to look at a boolean, which
+	// is more disclosure than the question needs — resolve_mailbox is the other
+	// direction and is the only operation that returns one.
+	assert.NotContains(t, members, "email",
+		"nothing in a user resolution is an address; that is what keeps it off resolve_mailbox")
+
+	withAddress, err := os.ReadFile(contractUserWithAddress)
+	require.NoError(t, err)
+	assert.NotEqual(t, asContractMembers(t, withAddress), members)
+}
+
+// TestContractUserResolutionAbsenceCarriesNothing is the oracle boundary, and it
+// is asserted against the type rather than against a code path.
+//
+// unresolvableUser HAS NO FIELD an id or a verification state could be written
+// into, so the emptiness is structural: there is nothing for a later change to
+// populate and nothing a `reason` could go in. That is what makes an erased
+// subject indistinguishable from one that never existed — models.DeleteUser
+// destroys the brazn_provisioned_users row along with the user, so this instance
+// holds nothing that could tell them apart even if the vocabulary allowed it.
+//
+// Deleting the guard: answering absences with resolvedUser and empty members, or
+// giving unresolvableUser a third result, fails both comparisons below.
+func TestContractUserResolutionAbsenceCarriesNothing(t *testing.T) {
+	absent, err := json.Marshal(noUser)
+	require.NoError(t, err)
+
+	members := asContractMembers(t, absent)
+	assert.Equal(t, map[string]interface{}{"result": "unresolvable"}, members,
+		"an unresolvable carries one member, and the emptiness is the guarantee")
+
+	absenceWithID, err := os.ReadFile(contractUserAbsenceWithID)
+	require.NoError(t, err)
+	assert.NotEqual(t, asContractMembers(t, absenceWithID), members,
+		"an unresolvable naming a user_id is refused by the contract, not tolerated")
+
+	// TWO OUTCOMES AND NOT THREE. There is deliberately no member for "erased",
+	// because a vocabulary that could express the distinction is one an
+	// implementation would eventually be asked to populate.
+	erasedResult, err := os.ReadFile(contractUserErasedResult)
+	require.NoError(t, err)
+	assert.NotEqual(t, asContractMembers(t, erasedResult), members)
+	assert.NotEqual(t, "erased", members["result"])
 }

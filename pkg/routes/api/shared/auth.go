@@ -77,14 +77,35 @@ func RegisterUser(ctx context.Context, in *UserRegister) (*user.User, error) {
 		return nil, signup.HTTPRefusal(signup.ErrTokenUnusable)
 	}
 
-	newUser, err := models.RegisterUser(s, &user.User{
+	// The confirmation mail is left unsent until after the commit below. It is
+	// the one part of a registration that a rollback cannot take back: the
+	// redemption can still refuse, and then the user row goes and the mail does
+	// not. Sent inline it would let anyone who can type 43 plausible characters
+	// mail an address of their choosing, rate-limited and nothing else
+	// (BRA-1111).
+	candidate := &user.User{
 		Username: in.Username,
 		Password: in.Password,
 		Email:    in.Email,
 		Language: in.Language,
-	})
+	}
+	newUser, confirm, err := models.RegisterUserConfirmLater(s, candidate)
 	if err != nil {
 		_ = s.Rollback()
+		// A managed instance says ONE thing to everybody who has not proved an
+		// entitlement, whatever the real reason. checkIfUserExists answers 400
+		// with code 1001 or 1002 for a username or address that is already
+		// taken, and it answers it BEFORE the token is redeemed - so without
+		// this, typing a plausible token and reading the status code enumerates
+		// which addresses and usernames hold accounts here.
+		//
+		// Only these two are collapsed. Every other creation failure is a
+		// statement about what the caller themselves typed - a space in a
+		// username, a reserved prefix, a missing field - and discloses nothing
+		// about who is registered, so it keeps its own answer.
+		if managed && (user.IsErrUsernameExists(err) || user.IsErrUserEmailExists(err)) {
+			return nil, signup.HTTPRefusal(signup.ErrTokenUnusable)
+		}
 		return nil, err
 	}
 
@@ -95,7 +116,7 @@ func RegisterUser(ctx context.Context, in *UserRegister) (*user.User, error) {
 	// survives a refusal.
 	//
 	// in.Email rather than newUser.Email, and the difference is not cosmetic:
-	// models.RegisterUser returns the row read back by user.GetUserByID, which
+	// the registration returns the row read back by user.GetUserByID, which
 	// blanks the email on every read. Reporting that would send an empty
 	// address the contract refuses as malformed - a registration that could
 	// never succeed.
@@ -112,6 +133,15 @@ func RegisterUser(ctx context.Context, in *UserRegister) (*user.User, error) {
 	}
 
 	events.DispatchPending(ctx, s)
+
+	// Past the commit the account exists and the token is spent, so a mail that
+	// cannot be rendered or queued is not a failed registration and must not be
+	// reported as one - the caller would be told to try again with a token that
+	// no longer works. It is logged, and the address can ask for another link
+	// through the resend route.
+	if err := user.SendConfirmation(confirm); err != nil {
+		log.Errorf("Could not send the confirmation mail for user %d: %s", newUser.ID, err)
+	}
 
 	// Bust the cached user count so the new registration shows up in metrics
 	// immediately instead of after the regular cache expiry.

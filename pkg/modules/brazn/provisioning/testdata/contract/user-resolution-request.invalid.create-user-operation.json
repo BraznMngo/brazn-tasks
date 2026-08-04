@@ -1,0 +1,5 @@
+{
+  "contract_version": "1",
+  "operation": "create_user",
+  "email": "ada@example.com"
+}

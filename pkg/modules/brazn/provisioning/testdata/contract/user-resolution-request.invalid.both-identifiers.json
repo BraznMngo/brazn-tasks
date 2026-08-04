@@ -1,0 +1,6 @@
+{
+  "contract_version": "1",
+  "operation": "resolve_user",
+  "email": "ada@example.com",
+  "user_id": "9001"
+}
