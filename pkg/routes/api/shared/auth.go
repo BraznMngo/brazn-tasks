@@ -28,6 +28,7 @@ import (
 	"code.vikunja.io/api/pkg/modules/auth"
 	"code.vikunja.io/api/pkg/modules/auth/ldap"
 	"code.vikunja.io/api/pkg/modules/auth/openid"
+	"code.vikunja.io/api/pkg/modules/brazn/signup"
 	"code.vikunja.io/api/pkg/modules/keyvalue"
 	"code.vikunja.io/api/pkg/user"
 
@@ -42,6 +43,15 @@ type UserRegister struct {
 	// exact catalogue code ("de-DE") — see pkg/modules/brazn/locale, which backs
 	// the `language` validation tag and resolves the former onto the latter.
 	Language string `json:"language" valid:"language" doc:"The language of the new user as an IETF BCP 47 code: either a bare subtag (de) or an exact code this instance ships (de-DE). Anything else is rejected."`
+	// SignupToken is the token Percy Cloud issued to somebody who is entitled
+	// to an account here (BRA-1071). It is IGNORED unless this instance is in
+	// managed mode, so a self-hosted instance registers exactly as stock
+	// Vikunja does and this field is inert there.
+	//
+	// It carries no validation tag on purpose. Its shape is checked where it is
+	// redeemed and nowhere else, so there is one definition of what a token
+	// looks like; a `valid` tag here would be a second, and the two would drift.
+	SignupToken string `json:"signup_token" doc:"The signup token, when this instance requires one. Ignored otherwise."`
 	user.APIUserPassword
 }
 
@@ -56,6 +66,17 @@ func RegisterUser(ctx context.Context, in *UserRegister) (*user.User, error) {
 	// DispatchPending has run.
 	defer events.CleanupPending(s)
 
+	// BRA-1071: on a managed instance the token is the gate, not the switch.
+	// Refusing a token that is absent or the wrong shape BEFORE anything is
+	// created keeps the ordinary refusal free of a database write, a rolled
+	// back user and a confirmation mail for an account that will not exist.
+	// It is not the gate, though - the gate is the redemption below, which is
+	// the only thing that can tell a real token from a plausible one.
+	managed := config.BraznManagedMode.GetBool()
+	if managed && !signup.CanBeRedeemed(in.SignupToken) {
+		return nil, signup.HTTPRefusal(signup.ErrTokenUnusable)
+	}
+
 	newUser, err := models.RegisterUser(s, &user.User{
 		Username: in.Username,
 		Password: in.Password,
@@ -65,6 +86,24 @@ func RegisterUser(ctx context.Context, in *UserRegister) (*user.User, error) {
 	if err != nil {
 		_ = s.Rollback()
 		return nil, err
+	}
+
+	// The token is consumed and the created users.id reported INSIDE this
+	// transaction, and the commit below happens only when that answered
+	// `redeemed`. Every refusal is a rollback, so "no token, no user" is
+	// structural rather than a check: there is no ordering in which a user
+	// survives a refusal.
+	//
+	// in.Email rather than newUser.Email, and the difference is not cosmetic:
+	// models.RegisterUser returns the row read back by user.GetUserByID, which
+	// blanks the email on every read. Reporting that would send an empty
+	// address the contract refuses as malformed - a registration that could
+	// never succeed.
+	if managed {
+		if err := signup.Redeem(ctx, in.SignupToken, newUser.ID, in.Email); err != nil {
+			_ = s.Rollback()
+			return nil, signup.HTTPRefusal(err)
+		}
 	}
 
 	if err := s.Commit(); err != nil {

@@ -239,11 +239,13 @@ const (
 	PluginsDir     Key = `plugins.dir`
 	PluginsLoader  Key = `plugins.loader`
 
-	BraznManagedMode      Key = `brazn.managedmode`
-	BraznEntitlementKeys  Key = `brazn.entitlementkeys`
-	BraznEntitlementGrace Key = `brazn.entitlementgrace`
-	BraznFeedbackOwner    Key = `brazn.feedbackowner`
-	BraznAccountURL       Key = `brazn.accounturl`
+	BraznManagedMode         Key = `brazn.managedmode`
+	BraznEntitlementKeys     Key = `brazn.entitlementkeys`
+	BraznEntitlementGrace    Key = `brazn.entitlementgrace`
+	BraznFeedbackOwner       Key = `brazn.feedbackowner`
+	BraznAccountURL          Key = `brazn.accounturl`
+	BraznSignupRedemptionURL Key = `brazn.signupredemptionurl`
+	BraznServiceToken        Key = `brazn.servicetoken`
 
 	// LicenseKey gates optional paid features and funds Vikunja's development.
 	// See the package comment in pkg/license/license.go before removing.
@@ -536,6 +538,19 @@ func InitDefaultConfig() {
 	// sent never needs a release, which is the standing rule for anything
 	// customer-facing that is not code.
 	BraznAccountURL.setDefault("")
+	// Where a signup token is redeemed, and the credential presented when it
+	// is. Both empty by default, and both are required together: in managed
+	// mode an instance that cannot ask whether a token is good refuses every
+	// registration rather than allowing them, so an unconfigured instance is
+	// closed rather than open. A self-hosted instance never reaches this call
+	// at all.
+	//
+	// The URL is the full endpoint, including its path, so moving the
+	// commercial service never needs a release here. brazn.servicetoken is the
+	// shared service credential this instance presents as a bearer token; it is
+	// not the signup token and never appears in a URL.
+	BraznSignupRedemptionURL.setDefault("")
+	BraznServiceToken.setDefault("")
 
 	// Migrate deprecated webhook config keys to outgoingrequests.*
 	// This allows removing the old keys in a single place later.

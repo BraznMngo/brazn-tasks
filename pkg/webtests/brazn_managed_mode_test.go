@@ -265,6 +265,16 @@ func TestManagedModeReachesEveryGuardedRoute(t *testing.T) {
 			if route.Managed == "authentication" {
 				t.Skip("authentication is pass-through by design; see managed_rules_core.go")
 			}
+			// Registration is gated by a signup token inside the handler and
+			// not by this table (BRA-1071), so the middleware lets it through
+			// and this sweep's generic probe cannot say anything useful about
+			// it. What the sweep would have covered - the route is reachable
+			// and refuses without a token - is covered by
+			// TestManagedRegistrationIsGatedByASignupToken, which asserts the
+			// stronger form: that no user is created either.
+			if route.Managed == "signup-token" {
+				t.Skip("signup-token is gated in the handler; see brazn_signup_token_test.go")
+			}
 
 			want := http.StatusForbidden
 			if route.Managed == "disabled" {

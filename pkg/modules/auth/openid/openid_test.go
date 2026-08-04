@@ -17,8 +17,12 @@
 package openid
 
 import (
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -47,7 +51,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		provider := &Provider{}
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "12345"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		err = s.Commit()
 		require.NoError(t, err)
@@ -70,7 +74,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		provider := &Provider{}
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "12345"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		assert.NotEmpty(t, u.Username)
 		err = s.Commit()
@@ -92,7 +96,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		provider := &Provider{}
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "12345"}
 
-		_, err := getOrCreateUser(s, cl, provider, idToken)
+		_, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.Error(t, err)
 	})
 	t.Run("existing user, different email address", func(t *testing.T) {
@@ -106,7 +110,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		provider := &Provider{}
 		idToken := &oidc.IDToken{Issuer: "https://some.service.com", Subject: "12345"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		err = s.Commit()
 		require.NoError(t, err)
@@ -133,7 +137,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		provider := &Provider{Name: "Vikunja Login"}
 		idToken := &oidc.IDToken{Issuer: "https://some.service.com", Subject: "12345"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		teamData := getTeamDataFromToken(cl.VikunjaGroups, nil)
 		require.NoError(t, err)
@@ -170,7 +174,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		provider := &Provider{Name: "Vikunja Login"}
 		idToken := &oidc.IDToken{Issuer: "https://some.service.com", Subject: "12345"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		teamData := getTeamDataFromToken(cl.VikunjaGroups, nil)
 		err = models.SyncExternalTeamsForUser(s, u, teamData, "https://some.issuer", provider.Name)
@@ -252,7 +256,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		}
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "user11"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		assert.Equal(t, idToken.Subject, u.Username, "subject match username")
 		assert.Equal(t, user.IssuerLocal, u.Issuer, "User should be a local one")
@@ -272,7 +276,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		// PocketID-style: the subject is an opaque UUID that does not match any local username.
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "c0ffee00-dead-beef-cafe-000000000011"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		err = s.Commit()
 		require.NoError(t, err)
@@ -299,7 +303,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		}
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "user11"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		assert.Equal(t, idToken.Subject, u.Username, "subject should match username")
 		assert.Equal(t, user.IssuerLocal, u.Issuer, "User should be a local one")
@@ -322,7 +326,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		}
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "user11"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		assert.Equal(t, cl.Email, u.Email, "email should match")
 		assert.Equal(t, user.IssuerLocal, u.Issuer, "User should be a local one")
@@ -350,7 +354,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		}
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "attacker-subject"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		err = s.Commit()
 		require.NoError(t, err)
@@ -373,7 +377,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		}
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "attacker-subject"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		assert.Equal(t, 11, int(u.ID), "user id 11 expected")
 		assert.Equal(t, user.IssuerLocal, u.Issuer, "User should be a local one")
@@ -400,7 +404,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		}
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "opaque-subject-no-email"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		// Must not have linked an existing local user.
 		require.Error(t, err, "an empty email must not silently link an existing local user")
 		assert.Nil(t, u, "no existing local user should be returned for an empty email claim")
@@ -425,7 +429,7 @@ func TestGetOrCreateUser(t *testing.T) {
 		}
 		idToken := &oidc.IDToken{Issuer: "https://some.issuer", Subject: "user11"}
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		assert.Equal(t, cl.Email, u.Email, "email should match")
 		assert.Equal(t, idToken.Subject, u.Username, "subject match username")
@@ -452,10 +456,17 @@ func managedModeForTest(t *testing.T, managed bool) {
 //
 // It is built once and used by both of the first two subtests below, which is
 // the point of it: those two differ in brazn.managedmode and in nothing else.
+//
+// EmailVerified IS SET, and that is not decoration. Without it the managed
+// subtest would be refused by the unverified-address guard instead of by the
+// token guard, and would pass while asserting nothing about the token at all -
+// a refusal from an unrelated guard is the hardest kind of vacuous test to see
+// by reading. The unverified case has its own subtest below.
 func unmatchedGoogleSubject() (*claims, *Provider, *oidc.IDToken) {
 	cl := &claims{
 		Email:             "nobody-here-yet@example.com",
 		PreferredUsername: "nobody-here-yet",
+		EmailVerified:     true,
 	}
 	idToken := &oidc.IDToken{
 		Issuer:  "https://accounts.google.com",
@@ -464,11 +475,57 @@ func unmatchedGoogleSubject() (*claims, *Provider, *oidc.IDToken) {
 	return cl, &Provider{Name: "Google"}, idToken
 }
 
+// conformanceSignupToken is the token value from the contract's own
+// conformance fixture, quoted rather than invented: 43 unpadded base64url
+// characters, which is the only shape a token has.
+const conformanceSignupToken = "EXAMPLE_signup_token_43_chars_not_a_secret1"
+
+// redemptionRecord is what the stub below saw.
+type redemptionRecord struct {
+	calls int
+	body  string
+}
+
+// stubRedemption points brazn.signupredemptionurl at a server answering exactly
+// what the contract says, and records what this build actually sent.
+func stubRedemption(t *testing.T, status int, answer string) *redemptionRecord {
+	t.Helper()
+
+	record := &redemptionRecord{}
+	// assert rather than require inside the handler: this runs on the test
+	// server's goroutine, and require calls t.FailNow(), which is only defined
+	// on the goroutine running the test.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		assert.NoError(t, err)
+		record.calls++
+		record.body = string(body)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(answer))
+	}))
+	t.Cleanup(server.Close)
+
+	configForTest(t, config.BraznSignupRedemptionURL, server.URL)
+	configForTest(t, config.BraznServiceToken, "a-service-credential-for-the-test")
+	return record
+}
+
+// configForTest sets a config key for one test and puts it back.
+func configForTest(t *testing.T, key config.Key, value interface{}) {
+	t.Helper()
+
+	previous := key.Get()
+	t.Cleanup(func() { key.Set(previous) })
+	key.Set(value)
+}
+
 // TestGetOrCreateUserUnderManagedMode is the sign-in / sign-up split (BRA-1018,
-// Identity-and-Access-Rules.md §2.1, gap T2).
+// re-answered by BRA-1071, Identity-and-Access-Rules.md §11 cases 1, 2 and 7).
 //
 // WHY THIS CANNOT PASS FOR THE WRONG REASON, which is the whole reason it is
-// written as a pair. The first two subtests hand getOrCreateUser byte-identical
+// written as a set. The first two subtests hand getOrCreateUser byte-identical
 // claims, provider and token, load the same fixtures, and differ in exactly one
 // thing: brazn.managedmode. One creates a user and one refuses. No guard other
 // than the one under test reads that value, so no unrelated refusal can produce
@@ -479,7 +536,8 @@ func unmatchedGoogleSubject() (*claims, *Provider, *oidc.IDToken) {
 //
 // Deleting the managed-mode branch in getOrCreateUser makes the second subtest
 // fail on require.Error, because the call then does what the first one proves
-// it does.
+// it does. Deleting the signup.Redeem call makes "a token the service refuses"
+// fail, because a user then survives a refusal.
 func TestGetOrCreateUserUnderManagedMode(t *testing.T) {
 	t.Run("managed mode off signs the subject up, as every self-hosted instance must", func(t *testing.T) {
 		db.LoadAndAssertFixtures(t)
@@ -489,7 +547,7 @@ func TestGetOrCreateUserUnderManagedMode(t *testing.T) {
 
 		cl, provider, idToken := unmatchedGoogleSubject()
 
-		u, err := getOrCreateUser(s, cl, provider, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.NoError(t, err)
 		require.NoError(t, s.Commit())
 
@@ -508,13 +566,113 @@ func TestGetOrCreateUserUnderManagedMode(t *testing.T) {
 
 		cl, provider, idToken := unmatchedGoogleSubject()
 
-		_, err := getOrCreateUser(s, cl, provider, idToken)
+		_, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, "")
 		require.Error(t, err)
 		var refusal *echo.HTTPError
 		require.ErrorAs(t, err, &refusal)
 		assert.Equal(t, http.StatusForbidden, refusal.Code)
 		require.NoError(t, s.Rollback())
 
+		db.AssertMissing(t, "users", map[string]interface{}{"email": cl.Email})
+	})
+
+	// The one this ticket exists for. Same subject, same claims, same managed
+	// mode as the refusal above - the only difference is a token the service
+	// says is good.
+	t.Run("a valid token signs the same subject up and reports the created user", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		managedModeForTest(t, true)
+		record := stubRedemption(t, http.StatusOK, `{"result":"redeemed"}`)
+		s := db.NewSession()
+		defer s.Close()
+
+		cl, provider, idToken := unmatchedGoogleSubject()
+
+		u, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, conformanceSignupToken)
+		require.NoError(t, err)
+		require.NoError(t, s.Commit())
+
+		db.AssertExists(t, "users", map[string]interface{}{
+			"id":      u.ID,
+			"email":   cl.Email,
+			"subject": idToken.Subject,
+		}, false)
+
+		// AC7, asserted as a JOIN rather than at either end: the id on the wire
+		// has to be the id of the row that now exists, as a decimal STRING.
+		// Checking only that some id was sent, or only that some user was
+		// created, would pass with the two unrelated.
+		require.Equal(t, 1, record.calls)
+		var sent map[string]interface{}
+		require.NoError(t, json.Unmarshal([]byte(record.body), &sent))
+		assert.Equal(t, strconv.FormatInt(u.ID, 10), sent["user_id"])
+		assert.Equal(t, conformanceSignupToken, sent["token"])
+		assert.Equal(t, cl.Email, sent["email"])
+	})
+
+	t.Run("a token the service refuses creates no user", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		managedModeForTest(t, true)
+		record := stubRedemption(t, http.StatusForbidden, `{"error":"token_unusable"}`)
+		s := db.NewSession()
+		defer s.Close()
+
+		cl, provider, idToken := unmatchedGoogleSubject()
+
+		_, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, conformanceSignupToken)
+		require.Error(t, err)
+		var refusal *echo.HTTPError
+		require.ErrorAs(t, err, &refusal)
+		assert.Equal(t, http.StatusForbidden, refusal.Code)
+		require.NoError(t, s.Rollback())
+
+		// The call was made - so this is the redemption refusing, not the shape
+		// check refusing before it - and no row survived it.
+		assert.Equal(t, 1, record.calls)
+		db.AssertMissing(t, "users", map[string]interface{}{"email": cl.Email})
+	})
+
+	// Google and a password on one address do not join automatically. user1 in
+	// the fixtures holds this address with the local issuer.
+	t.Run("an address that already has an account is never adopted", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		managedModeForTest(t, true)
+		record := stubRedemption(t, http.StatusOK, `{"result":"redeemed"}`)
+		s := db.NewSession()
+		defer s.Close()
+
+		cl, provider, idToken := unmatchedGoogleSubject()
+		cl.Email = "user1@example.com"
+
+		_, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, conformanceSignupToken)
+		require.Error(t, err)
+		var refusal *echo.HTTPError
+		require.ErrorAs(t, err, &refusal)
+		assert.Equal(t, http.StatusForbidden, refusal.Code)
+		require.NoError(t, s.Rollback())
+
+		// A perfectly good token must not be spent on a refusal, so the check
+		// has to come first: if the redemption ran here, somebody's token would
+		// be gone and they would still have no account.
+		assert.Equal(t, 0, record.calls)
+		db.AssertMissing(t, "users", map[string]interface{}{"subject": idToken.Subject})
+	})
+
+	t.Run("a provider that will not verify the address cannot sign anybody up", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		managedModeForTest(t, true)
+		record := stubRedemption(t, http.StatusOK, `{"result":"redeemed"}`)
+		s := db.NewSession()
+		defer s.Close()
+
+		cl, provider, idToken := unmatchedGoogleSubject()
+		cl.EmailVerified = false
+
+		_, err := getOrCreateUser(context.Background(), s, cl, provider, idToken, conformanceSignupToken)
+		require.Error(t, err)
+		require.NoError(t, s.Rollback())
+
+		assert.Equal(t, 0, record.calls)
 		db.AssertMissing(t, "users", map[string]interface{}{"email": cl.Email})
 	})
 
@@ -529,10 +687,31 @@ func TestGetOrCreateUserUnderManagedMode(t *testing.T) {
 		cl := &claims{Email: "user15@some.service.com"}
 		idToken := &oidc.IDToken{Issuer: "https://some.service.com", Subject: "12345"}
 
-		u, err := getOrCreateUser(s, cl, &Provider{}, idToken)
+		u, err := getOrCreateUser(context.Background(), s, cl, &Provider{}, idToken, "")
 		require.NoError(t, err)
 		require.NoError(t, s.Commit())
 		assert.Equal(t, int64(14), u.ID)
+	})
+
+	// AC3. Carrying a token into a sign-in must change nothing: the person
+	// already has an account, so there is nothing to redeem, and redeeming
+	// anyway would consume somebody's token and bind it to a user that was
+	// never created for it.
+	t.Run("a token changes nothing for a subject this instance already has", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		managedModeForTest(t, true)
+		record := stubRedemption(t, http.StatusOK, `{"result":"redeemed"}`)
+		s := db.NewSession()
+		defer s.Close()
+
+		cl := &claims{Email: "user15@some.service.com", EmailVerified: true}
+		idToken := &oidc.IDToken{Issuer: "https://some.service.com", Subject: "12345"}
+
+		u, err := getOrCreateUser(context.Background(), s, cl, &Provider{}, idToken, conformanceSignupToken)
+		require.NoError(t, err)
+		require.NoError(t, s.Commit())
+		assert.Equal(t, int64(14), u.ID)
+		assert.Equal(t, 0, record.calls)
 	})
 }
 
