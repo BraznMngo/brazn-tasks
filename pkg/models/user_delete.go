@@ -328,19 +328,16 @@ func DeleteUser(s *xorm.Session, u *user.User) (err error) {
 		{"user_id", &migrationStatus{}},
 
 		// ------------------------------------------------------------------
-		// OPEN, NOT OMITTED (BRA-1112). Copies of this person embedded in
-		// OTHER PEOPLE'S notification rows are not handled here yet, and this
-		// entry exists so that is a recorded gap rather than a silent one.
+		// RESOLVED (BRA-1117), and not in this list because it is not a
+		// delete keyed on one column. Copies of this person embedded in OTHER
+		// PEOPLE'S notification rows - which BRA-1112 recorded here as an open
+		// gap - are deleted by deleteNotificationsNamingUser, called below.
 		//
-		// Six notification types return themselves from ToDB(), so notifyDB
-		// json.Marshals the whole struct - including a *user.User, which
-		// serialises id, name, username AND email - onto the RECIPIENT's row.
-		// The notifiable_id delete below is keyed on the recipient, so it
-		// never reaches these. Whether they are scrubbed in place, deleted
-		// outright, or retained with a stated reason is a product decision
-		// about other people's inboxes, not an engineering one; it is with
-		// the PM on BRA-1112. Whichever is chosen joins one of the blocks in
-		// this list.
+		// Sebastian ruled that those rows go rather than being scrubbed: the
+		// payload is the only place the copy lives, so retaining it is not
+		// lawful, and a scrub cannot be shown to have reached every place the
+		// person appears inside it. The reasoning is written out in full on
+		// deleteNotificationsNamingUser in brazn_notification_erasure.go.
 		// ------------------------------------------------------------------
 
 		// ------------------------------------------------------------------
@@ -399,6 +396,18 @@ func DeleteUser(s *xorm.Session, u *user.User) (err error) {
 	// impossible rather than merely unlikely.
 	if _, err = s.Where("notifiable_id = ?", u.ID).
 		Delete(&notifications.DatabaseNotification{}); err != nil {
+		return err
+	}
+
+	// Brazn fork (BRA-1117). The delete above is keyed on the recipient, so it
+	// only ever empties this person's own inbox. This one takes the copies of
+	// them sitting inside OTHER PEOPLE'S rows, which nothing else reaches.
+	//
+	// It runs after that delete for the reason that one runs after Notify - so
+	// nothing written during the erasure itself outlives it - and second only
+	// because the person's own rows are already gone by then and need not be
+	// scanned.
+	if err = deleteNotificationsNamingUser(s, u.ID); err != nil {
 		return err
 	}
 
