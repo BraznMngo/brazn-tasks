@@ -27,6 +27,7 @@ import (
 
 	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
+	"code.vikunja.io/api/pkg/mail"
 	"code.vikunja.io/api/pkg/routes"
 
 	"github.com/labstack/echo/v5"
@@ -227,6 +228,15 @@ func TestManagedRegistrationIsGatedByASignupToken(t *testing.T) {
 // asserts the fork does not reintroduce the distinction on its own side: an
 // unknown token and a consumed one produce the same status and the same body.
 // A helpful message added later - "this link has expired" - fails here.
+//
+// READ WHAT IT COVERS BEFORE TRUSTING THE NAME. Both requests below are handed
+// the SAME token_unusable stub, so this compares two refusals of ONE class. It
+// cannot see a refusal that never reached the redemption at all, and it stayed
+// green through the whole of BRA-1111 - where an address that already existed
+// was answered 400 by user creation long before the token was consulted. The
+// property this name promises is asserted by
+// TestManagedRegistrationTellsNobodyWhichAddressesExist below; this one only
+// pins the wording of a redemption refusal.
 func TestManagedRegistrationRefusalsAreIndistinguishable(t *testing.T) {
 	e := managedModeEcho(t, true)
 	stub := stubSignupRedemption(t, http.StatusForbidden, `{"error":"token_unusable"}`)
@@ -241,6 +251,137 @@ func TestManagedRegistrationRefusalsAreIndistinguishable(t *testing.T) {
 	assert.Equal(t, unknown.Body.String(), consumed.Body.String())
 	assert.NotContains(t, strings.ToLower(unknown.Body.String()), "expired")
 	assert.NotContains(t, strings.ToLower(unknown.Body.String()), "consumed")
+}
+
+// TestManagedRegistrationTellsNobodyWhichAddressesExist is BRA-1111 half one.
+//
+// Registration creates the user BEFORE it redeems the token, so the duplicate
+// check answered first: an address already held returned 400 with code 1002 and
+// a free one returned 403 from the redemption. Anyone able to type 43 plausible
+// characters could therefore ask this endpoint which addresses and usernames
+// hold accounts, without authenticating and without a real token.
+//
+// WHAT MAKES THIS TEST MEAN ANYTHING is the stub call count. Three requests go
+// in and only ONE of them reaches the redemption, which proves the three took
+// genuinely different paths through the server - and the assertions then say
+// that none of that difference reached the caller. Without that count this
+// would be satisfied by three refusals of one class, which is exactly how the
+// test above passed through the defect.
+//
+// DELETING THE GUARD MUST BREAK IT: remove the IsErrUsernameExists /
+// IsErrUserEmailExists collapse from shared.RegisterUser and the two taken
+// identities answer 400 while the free one answers 403, so both equality
+// assertions fail on status and on body.
+func TestManagedRegistrationTellsNobodyWhichAddressesExist(t *testing.T) {
+	e := managedModeEcho(t, true)
+	stub := stubSignupRedemption(t, http.StatusForbidden, `{"error":"token_unusable"}`)
+
+	// The fixture asserted rather than assumed. If user1 were not really here -
+	// a renamed fixture, a table cleared by a neighbour - all three requests
+	// would take the free-address path and agree with each other while proving
+	// nothing at all.
+	db.AssertExists(t, "users", map[string]interface{}{
+		"username": "user1",
+		"email":    "user1@example.com",
+	}, false)
+	db.AssertMissing(t, "users", map[string]interface{}{"username": "nobody-at-all"})
+
+	takenEmail := publicRequest(e, http.MethodPost, "/api/v1/register",
+		registrationBody("a-username-nobody-has", "user1@example.com", conformanceSignupToken))
+	takenUsername := publicRequest(e, http.MethodPost, "/api/v1/register",
+		registrationBody("user1", "an-address-nobody-has@example.com", conformanceSignupToken))
+	free := publicRequest(e, http.MethodPost, "/api/v1/register",
+		registrationBody("nobody-at-all", "nobody-at-all@example.com", conformanceSignupToken))
+
+	require.Equal(t, 1, stub.calls,
+		"only the request whose identity is free may get as far as the redemption; "+
+			"if all three did, the fixtures are not what this test needs them to be")
+
+	for _, taken := range []struct {
+		what string
+		rec  *httptest.ResponseRecorder
+	}{
+		{"an address that already exists", takenEmail},
+		{"a username that already exists", takenUsername},
+	} {
+		assert.Equal(t, free.Code, taken.rec.Code,
+			taken.what+" must answer exactly as a free one does")
+		assert.Equal(t, free.Body.String(), taken.rec.Body.String(),
+			taken.what+" must answer exactly as a free one does")
+	}
+
+	// Pinned against a fixed expectation written out here, not against whatever
+	// the handler produced. Three responses agreeing with each other are
+	// satisfied just as well by three copies of the wrong answer, so the
+	// equalities above cannot be the only thing asserted.
+	assert.Equal(t, http.StatusForbidden, free.Code)
+	assert.Contains(t, free.Body.String(), "This signup link cannot be used.")
+	assert.NotContains(t, strings.ToLower(free.Body.String()), "already exists")
+
+	// None of the three may leave a row behind either.
+	db.AssertMissing(t, "users", map[string]interface{}{"username": "a-username-nobody-has"})
+	db.AssertMissing(t, "users", map[string]interface{}{"username": "nobody-at-all"})
+}
+
+// TestManagedRegistrationMailsNobodyItRefuses is BRA-1111 half two.
+//
+// The confirmation mail was dispatched inline from user.CreateUser, outside the
+// transaction, BEFORE the token was redeemed. The redemption then refused and
+// the user row was rolled back - the row came back, the mail did not. That is
+// unauthenticated mail to any address a caller names, bounded only by the
+// no-auth rate limit, on the one verified sending domain the product has.
+//
+// IT IS OBSERVED AT mail.SendMail, which is the last thing before the SMTP
+// queue and so the place the outcome is actually decided - not at the
+// notification, which is one hop earlier and would still be recorded by a build
+// that only meant to send.
+//
+// THE FIRST SUBTEST IS THE CONTROL AND IS NOT OPTIONAL. mailer.enabled defaults
+// to FALSE, and with it off user.CreateUser returns before it ever builds a
+// confirmation - so "no mail was sent" would hold for a completely broken
+// build, a correct one, and the defect alike. Proving a completed registration
+// DOES mail is what makes the refusal's silence evidence of anything.
+func TestManagedRegistrationMailsNobodyItRefuses(t *testing.T) {
+	e := managedModeEcho(t, true)
+	setConfigForTest(t, config.MailerEnabled, true)
+
+	t.Run("a completed registration sends the confirmation", func(t *testing.T) {
+		stub := stubSignupRedemption(t, http.StatusOK, `{"result":"redeemed"}`)
+		mail.ResetSent()
+
+		rec := publicRequest(e, http.MethodPost, "/api/v1/register",
+			registrationBody("gets-confirmed", "gets-confirmed@example.com", conformanceSignupToken))
+
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.Equal(t, 1, stub.calls)
+
+		sent := mail.LastSent()
+		require.NotNil(t, sent,
+			"a registration that completed must have mailed its confirmation; if it did not, "+
+				"the seam this test observes is dead and the refusal subtest below proves nothing")
+		assert.Equal(t, "gets-confirmed@example.com", sent.To)
+	})
+
+	t.Run("a refused registration sends nothing", func(t *testing.T) {
+		stub := stubSignupRedemption(t, http.StatusForbidden, `{"error":"token_unusable"}`)
+		mail.ResetSent()
+
+		rec := publicRequest(e, http.MethodPost, "/api/v1/register",
+			registrationBody("never-confirmed", "never-confirmed@example.com", conformanceSignupToken))
+
+		require.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+		// The refusal has to be the REDEMPTION's. A registration turned away by
+		// the shape check never reaches user creation, so it could not have
+		// mailed anything however the code were written, and asserting silence
+		// on that path would be worthless.
+		require.Equal(t, 1, stub.calls,
+			"this must be the redemption refusing after the user existed, not the shape check refusing before")
+		db.AssertMissing(t, "users", map[string]interface{}{"username": "never-confirmed"})
+
+		assert.Nil(t, mail.LastSent(),
+			"a registration that was refused must not have mailed the address it was handed; "+
+				"the row is rolled back and the mail cannot be")
+	})
 }
 
 // TestSelfHostedRegistrationNeedsNoSignupToken is AC4, and it is the criterion
