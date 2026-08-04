@@ -31,9 +31,9 @@ import (
 )
 
 // erasureFixtureTaskID is a fixture task in a project the seeded people do not
-// own, so the comment and the unread-status row below are the case upstream
-// never reaches: attached to somebody else's project, and therefore not swept up
-// by the project cascade.
+// own, so the comment, the unread-status row and the time entry below are the
+// case upstream never reaches: attached to somebody else's project, and
+// therefore not swept up by the project cascade.
 const erasureFixtureTaskID = 1
 
 // erasureSubject is one seeded person, and the two file ids that have to be
@@ -51,7 +51,7 @@ type erasureSubject struct {
 }
 
 // seedErasableData writes one row into every table BRA-1104 found surviving a
-// user deletion, for one person.
+// user deletion, plus the two BRA-1112 added, for one person.
 //
 // IT SEEDS THE SAME SHAPES FOR THE RETAINED SIBLING TOO, which is the half that
 // makes the assertions mean anything. A delete that lost its WHERE clause empties
@@ -201,6 +201,36 @@ func seedErasableData(t *testing.T, s *xorm.Session, username string) *erasureSu
 	_, err = s.Insert(&TaskUnreadStatus{TaskID: erasureFixtureTaskID, UserID: u.ID})
 	require.NoError(t, err)
 
+	// BRA-1112. Their own work log, attached to a task in somebody else's
+	// project - the case Project.Delete cannot reach even in principle, because
+	// it does not delete time entries at all.
+	//
+	// start_time is "not null" and is not one of xorm's auto-filled columns, so
+	// it is set here for the reason the Session seed above gives: a zero
+	// time.Time reaches MySQL as '0000-00-00 00:00:00' and strict mode refuses
+	// it. end_time is nullable but set anyway, so the row is a completed entry
+	// rather than a live timer.
+	endTime := testUpdatedTime
+	_, err = s.Insert(&TimeEntry{
+		UserID:    u.ID,
+		TaskID:    erasureFixtureTaskID,
+		StartTime: testCreatedTime,
+		EndTime:   &endTime,
+		Comment:   "seeded by the erasure test",
+	})
+	require.NoError(t, err)
+
+	// BRA-1112. Which import they ran, and when. Seeded through the local
+	// stand-in for the same reason DeleteUser deletes through it: the real
+	// migration.Status lives in a package that imports this one.
+	_, err = s.Insert(&migrationStatus{
+		UserID:       u.ID,
+		MigratorName: "todoist",
+		StartedAt:    testCreatedTime,
+		FinishedAt:   testUpdatedTime,
+	})
+	require.NoError(t, err)
+
 	return subject
 }
 
@@ -219,6 +249,13 @@ func seedErasableData(t *testing.T, s *xorm.Session, username string) *erasureSu
 // AssertMissing and on nothing else. That is the check the brief asks for and it
 // is reasoned rather than run: nothing in this repository may be executed on the
 // development host, so CI is the only verifier.
+//
+// BRA-1112 added the last two categories, on the same argument. It did NOT add
+// the erased person's copies inside other people's notification rows: that one
+// is named in user_delete.go as an open decision rather than fixed here, so
+// there is deliberately no assertion for it below. A test written against a
+// decision nobody has made would only pin whichever answer the test author
+// happened to assume.
 func TestDeleteUserErasesEveryCategoryOfTheirData(t *testing.T) {
 	// THIS TEST MUST NOT RUN UNDER notifications.Fake(), and undoing it here is
 	// required rather than tidy. Fake() sets process-global state and files that
@@ -279,6 +316,9 @@ func TestDeleteUserErasesEveryCategoryOfTheirData(t *testing.T) {
 		{"link shares they created", "link_shares", "shared_by_id"},
 		{"OAuth authorization codes", "oauth_codes", "user_id"},
 		{"per-task unread state", "task_unread_statuses", "user_id"},
+		// BRA-1112.
+		{"their own time log, and the free text they wrote on it", "time_entries", "user_id"},
+		{"which import they ran, and when", "migration_status", "user_id"},
 	}
 
 	for _, category := range categories {

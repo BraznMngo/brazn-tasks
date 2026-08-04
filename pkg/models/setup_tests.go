@@ -36,6 +36,14 @@ func SetupTests() {
 	tables := []interface{}{}
 	tables = append(tables, GetTables()...)
 	tables = append(tables, notifications.GetTables()...)
+	// Brazn fork (BRA-1112). DeleteUser now deletes from migration_status, and
+	// in production that table is created by pkg/migration. Nothing creates it
+	// here: it belongs to pkg/modules/migration, which imports this package and
+	// so cannot be imported back, and it is deliberately absent from
+	// GetTables(). Without this line every test that erases a user fails on "no
+	// such table" - the same gap pkg/webtests/huma_testing_test.go documents
+	// for TruncateAllTables.
+	tables = append(tables, &migrationStatus{})
 
 	err = x.Sync2(tables...)
 	if err != nil {
