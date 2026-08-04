@@ -1183,20 +1183,33 @@ func CreateNewProjectForUser(s *xorm.Session, u *user.User) (err error) {
 
 // RegisterUser creates a user plus their default inbox project; shared by /register and the admin create-user route.
 func RegisterUser(s *xorm.Session, u *user.User) (*user.User, error) {
-	newUser, err := user.CreateUser(s, u)
+	newUser, confirm, err := RegisterUserConfirmLater(s, u)
 	if err != nil {
 		return nil, err
 	}
 
+	return newUser, user.SendConfirmation(confirm, s)
+}
+
+// RegisterUserConfirmLater is RegisterUser with the confirmation mail left
+// unsent and handed back instead; see user.CreateUserConfirmLater for why that
+// is worth a second entry point. Send it with user.SendConfirmation, and only
+// once s has committed.
+func RegisterUserConfirmLater(s *xorm.Session, u *user.User) (*user.User, *user.EmailConfirmNotification, error) {
+	newUser, confirm, err := user.CreateUserConfirmLater(s, u)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if err := CreateNewProjectForUser(s, newUser); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := CreateDefaultSavedFiltersForUser(s, newUser); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return newUser, nil
+	return newUser, confirm, nil
 }
 
 func UpdateProject(s *xorm.Session, project *Project, auth web.Auth, updateProjectBackground bool) (err error) {
