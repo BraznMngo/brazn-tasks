@@ -777,10 +777,11 @@ func TestCleanupOldTokens(t *testing.T) {
 		deleted, err := CleanupOldTokens(s)
 		require.NoError(t, err)
 
-		// Fixtures have three old tokens that should be cleaned up:
+		// Fixtures have five old tokens that should be cleaned up:
 		// id=1 (kind=1, TokenPasswordReset, created 2021), id=4 (kind=3, TokenAccountDeletion, created 2021),
-		// and id=5 (kind=1, TokenPasswordReset for disabled user, created 2024)
-		assert.Equal(t, int64(3), deleted)
+		// id=5 (kind=1, TokenPasswordReset for disabled user, created 2024), and
+		// ids 2 and 3 (kind=2, TokenEmailConfirm, created 2021) - see below.
+		assert.Equal(t, int64(5), deleted)
 
 		err = s.Commit()
 		require.NoError(t, err)
@@ -799,7 +800,16 @@ func TestCleanupOldTokens(t *testing.T) {
 			"kind":  TokenPasswordReset,
 		}, false)
 	})
-	t.Run("does not delete email confirm tokens", func(t *testing.T) {
+	// CHANGED BY BRA-1072, and it is the reverse of what this asserted before.
+	//
+	// Confirmation tokens used to be kept forever, which contradicted the
+	// 24-hour link lifetime the product states on screen as fact
+	// (Percy-Account-Path.md §6, decision 5b): a link from last year still
+	// worked. They are swept now, along with the spent markers a used link
+	// leaves behind - and ConfirmEmail enforces the same deadline itself, so a
+	// link is not usable for the fraction of an hour between running out and
+	// being swept.
+	t.Run("deletes email confirm tokens past the link lifetime", func(t *testing.T) {
 		db.LoadAndAssertFixtures(t)
 		s := db.NewSession()
 		defer s.Close()
@@ -810,14 +820,38 @@ func TestCleanupOldTokens(t *testing.T) {
 		err = s.Commit()
 		require.NoError(t, err)
 
-		// The old email confirm tokens (kind=2) from fixtures should still exist
+		// The fixtures' confirmation tokens are dated 2021, so both are gone.
+		db.AssertMissing(t, "user_tokens", map[string]interface{}{
+			"id": 2,
+		})
+		db.AssertMissing(t, "user_tokens", map[string]interface{}{
+			"id": 3,
+		})
+	})
+
+	// The deadline is what decides, not the kind. A confirmation link issued a
+	// moment ago survives the sweep it would have been caught by if the new
+	// clause were a blanket "delete every confirmation token".
+	t.Run("keeps a confirmation token that is still inside the lifetime", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		fresh := &Token{
+			UserID: 4,
+			Token:  "afreshconfirmationtoken",
+			Kind:   TokenEmailConfirm,
+		}
+		_, err := s.Insert(fresh)
+		require.NoError(t, err)
+
+		_, err = CleanupOldTokens(s)
+		require.NoError(t, err)
+		require.NoError(t, s.Commit())
+
 		db.AssertExists(t, "user_tokens", map[string]interface{}{
-			"id":   2,
-			"kind": TokenEmailConfirm,
-		}, false)
-		db.AssertExists(t, "user_tokens", map[string]interface{}{
-			"id":   3,
-			"kind": TokenEmailConfirm,
+			"token": "afreshconfirmationtoken",
+			"kind":  TokenEmailConfirm,
 		}, false)
 	})
 }

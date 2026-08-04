@@ -281,11 +281,33 @@ func RequestPasswordResetToken(req *user.PasswordTokenRequest) error {
 
 // ConfirmEmail confirms a newly registered user's email from the token sent to
 // them. Shared by v1 and v2.
-func ConfirmEmail(confirm *user.EmailConfirm) error {
+func ConfirmEmail(confirm *user.EmailConfirm) (*user.EmailConfirmResult, error) {
 	s := db.NewSession()
 	defer s.Close()
 
-	if err := user.ConfirmEmail(s, confirm); err != nil {
+	result, err := user.ConfirmEmail(s, confirm)
+	if err != nil {
+		_ = s.Rollback()
+		return nil, err
+	}
+
+	if err := s.Commit(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// ResendEmailConfirmation issues a fresh confirmation link for an address that
+// is waiting on one. Shared by v1 and v2.
+//
+// It reports success for every address it is given; see
+// user.ResendEmailConfirmation for why.
+func ResendEmailConfirmation(resend *user.EmailConfirmResend) error {
+	s := db.NewSession()
+	defer s.Close()
+
+	if err := user.ResendEmailConfirmation(s, resend); err != nil {
 		_ = s.Rollback()
 		return err
 	}
