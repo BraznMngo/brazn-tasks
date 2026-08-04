@@ -1,7 +1,18 @@
 name: Notify Percy Vikunja deploy
 
 # On each brazn/main commit, ask Percy to rebuild this SHA and redeploy development.
-# Requires repository secret PERCY_DISPATCH_TOKEN with dispatch access to BraznMngo/Percy.
+#
+# THE SECRET AND THE PERMISSION POINT AT DIFFERENT REPOSITORIES, and reading it
+# either way round is how a whole morning goes. Spelled out because the short
+# form ("dispatch access to BraznMngo/Percy") was read as scoping the token to
+# this repository, which 404s:
+#
+#   the secret PERCY_DISPATCH_TOKEN is stored HERE, in BraznMngo/brazn-tasks,
+#     because this is where the workflow that presents it runs;
+#   its repository access must be BraznMngo/PERCY — Contents: read and write —
+#     because Percy is the repository the API call below writes to.
+#
+# A classic token with `repo` works too and has no resource owner to get wrong.
 #
 # Carried forward from `main` by BRA-774 and retargeted: `brazn/main` is now the
 # controlled baseline and the default branch, so `main` no longer represents this
@@ -39,11 +50,23 @@ jobs:
             echo "GITHUB_SHA is not a full commit SHA." >&2
             exit 1
           fi
+          # `--method POST` IS NOT OPTIONAL AND `--input` DOES NOT IMPLY IT.
+          # The gh manual: "The default HTTP request method is GET normally and
+          # POST if any parameters were added" — parameters meaning `-f`/`-F`
+          # field flags, which this call has none of. Without the flag this sent
+          # `GET /repos/BraznMngo/Percy/dispatches`, a route that exists only for
+          # POST, so GitHub answered 404 no matter what the token was.
+          #
+          # It failed that way on EVERY push since this file was written, and the
+          # 404 is indistinguishable from a token that cannot see the repository,
+          # which is what it was mistaken for. Verified before the fix: a token
+          # that returns `BraznMngo/Percy` from `gh api repos/BraznMngo/Percy`
+          # still gets 404 from a GET on this path.
           jq -n \
             --arg sha "${GITHUB_SHA}" \
             --arg ref "${GITHUB_REF}" \
             '{
               event_type: "vikunja-source-updated",
               client_payload: {sha: $sha, ref: $ref}
-            }' | gh api repos/BraznMngo/Percy/dispatches --input -
+            }' | gh api --method POST repos/BraznMngo/Percy/dispatches --input -
           echo "Dispatched Percy redeploy for ${GITHUB_SHA}"
