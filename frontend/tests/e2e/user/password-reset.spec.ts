@@ -49,10 +49,16 @@ test.describe('Password Reset', () => {
 		await page.locator('input[id=password]').fill(newPassword)
 		await page.locator('#password-reset-submit').click()
 
-		// The screen renders whatever `getErrorText` returns for the server's
-		// refusal, which this ticket did not rewrite. Asserted on the danger
+		// This screen used to print the server's own sentence, "Invalid token to
+		// reset a user's password." The restyle sends the rejection through
+		// `getErrorText` instead, which resolves code 1009 to `error.1009`,
+		// "Invalid password reset token." Both say the same thing and they share
+		// no usable substring, so the old assertion could not survive the swap.
+		//
+		// `error.1009` is the shared API error catalogue, which this ticket does
+		// not touch — unlike the screen copy it replaced. Asserted on the danger
 		// variant specifically, so a success banner cannot satisfy it.
-		await expect(page.locator('.message.danger')).toContainText('Invalid token')
+		await expect(page.locator('.message.danger')).toContainText('Invalid password reset token')
 	})
 
 	test('Should redirect to login if no token is present in query param when visiting /password-reset directly', async ({page, apiContext}) => {
