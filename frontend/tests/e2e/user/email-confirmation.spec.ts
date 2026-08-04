@@ -35,7 +35,7 @@ test.describe('Email Confirmation', () => {
 		await page.goto('/login')
 		await page.locator('input[id=username]').fill(user.username)
 		await page.locator('input[id=password]').fill(TEST_PASSWORD)
-		await page.locator('.button').filter({hasText: 'Login'}).click()
+		await page.locator('#login-submit').click()
 
 		await expect(page.locator('div.message.danger')).toContainText('Email address of the user not confirmed')
 	})
@@ -65,7 +65,7 @@ test.describe('Email Confirmation', () => {
 		await page.goto('/login')
 		await page.locator('input[id=username]').fill(user.username)
 		await page.locator('input[id=password]').fill(TEST_PASSWORD)
-		await page.locator('.button').filter({hasText: 'Login'}).click()
+		await page.locator('#login-submit').click()
 
 		await expect(page).not.toHaveURL(/\/login/)
 		await expect(page.locator('body')).toContainText(user.username)
@@ -115,7 +115,7 @@ test.describe('Email Confirmation', () => {
 		await page.goto('/login')
 		await page.locator('input[id=username]').fill(user.username)
 		await page.locator('input[id=password]').fill(TEST_PASSWORD)
-		await page.locator('.button').filter({hasText: 'Login'}).click()
+		await page.locator('#login-submit').click()
 
 		await expect(page.locator('div.message.danger')).toContainText('Email address of the user not confirmed')
 	})

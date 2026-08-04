@@ -22,13 +22,13 @@ test.describe('Password Reset', () => {
 		await page.locator('button').filter({hasText: 'Reset your password'}).click()
 
 		await expect(page.locator('.message.success')).toContainText('The password was updated successfully.')
-		await page.locator('.button').filter({hasText: 'Login'}).click()
+		await page.locator('#login-submit').click()
 		await expect(page).toHaveURL('/login')
 
 		// Try to login with the new password
 		await page.locator('input[id=username]').fill(user.username)
 		await page.locator('input[id=password]').fill(newPassword)
-		await page.locator('.button').filter({hasText: 'Login'}).click()
+		await page.locator('#login-submit').click()
 		await expect(page).toHaveURL('/')
 	})
 

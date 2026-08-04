@@ -17,7 +17,7 @@ const testAndAssertFailed = async (page: Page, fixture: LoginCredentials): Promi
 	await page.goto('/login')
 	await page.locator('input[id=username]').fill(fixture.username)
 	await page.locator('input[id=password]').fill(fixture.password)
-	await page.locator('.button').filter({hasText: 'Login'}).click()
+	await page.locator('#login-submit').click()
 
 	await loginPromise
 	await expect(page).toHaveURL('/login')
@@ -32,7 +32,7 @@ const credentials: LoginCredentials = {
 async function login(page: Page): Promise<void> {
 	await page.locator('input[id=username]').fill(credentials.username)
 	await page.locator('input[id=password]').fill(credentials.password)
-	await page.locator('.button').filter({hasText: 'Login'}).click()
+	await page.locator('#login-submit').click()
 	await expect(page).toHaveURL('/')
 }
 
@@ -107,7 +107,7 @@ test.describe('Login', () => {
 		// Login without expecting redirect to /
 		await page.locator('input[id=username]').fill(credentials.username)
 		await page.locator('input[id=password]').fill(credentials.password)
-		await page.locator('.button').filter({hasText: 'Login'}).click()
+		await page.locator('#login-submit').click()
 
 		// Should redirect back to the project route
 		await expect(page).toHaveURL(new RegExp(`/projects/${projects[0].id}/1`))

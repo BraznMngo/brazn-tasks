@@ -103,6 +103,7 @@
 			/>
 
 			<XButton
+				id="login-submit"
 				class="is-fullwidth"
 				:loading="isLoading"
 				:aria-busy="isLoading"
