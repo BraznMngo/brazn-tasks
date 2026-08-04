@@ -285,6 +285,11 @@ func RegisterRoutes(e *echo.Echo) {
 		// Caldav routes
 		wkg := e.Group("/.well-known")
 		wkg.Use(middleware.BasicAuth(caldav.BasicAuth))
+		// AFTER the basic auth it depends on and BEFORE the routes it guards.
+		// Group middleware is snapshotted when a route is added, so one attached
+		// below these two lines would silently guard nothing. See
+		// registerCalDavRoutes for why this surface needs the gate at all.
+		wkg.Use(RequireManagedPolicy())
 		wkg.Any("/caldav", caldav.PrincipalHandler)
 		wkg.Any("/caldav/", caldav.PrincipalHandler)
 		c := e.Group("/dav")
@@ -1117,6 +1122,20 @@ func registerCalDavRoutes(c *echo.Group) {
 
 	// Basic auth middleware
 	c.Use(middleware.BasicAuth(caldav.BasicAuth))
+
+	// CalDAV IS A WRITE SURFACE AND HAS TO BE GATED LIKE ONE. Without this the
+	// only enforcement point is on the /api/v1 and /api/v2 groups, so a customer
+	// whose entitlement restricts them to settings could point any CalDAV client
+	// at /dav with their ordinary username and password and carry on creating
+	// and editing tasks - the browser refusing them the whole time. Reads are
+	// untouched: RequireManagedPolicy refuses only mutating methods, and the
+	// PROPFIND, REPORT and GET a client actually spends its traffic on are not
+	// among them.
+	//
+	// Attached after the basic auth it reads the subject from, and before the
+	// routes below, because echo copies a group's middleware into each route as
+	// that route is added.
+	c.Use(RequireManagedPolicy())
 
 	// THIS is the entry point for caldav clients, otherwise projects will show up double
 	c.Any("", caldav.EntryHandler)

@@ -27,6 +27,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
@@ -303,12 +304,12 @@ func RequireManagedPolicy() echo.MiddlewareFunc {
 // have refused sharing and team creation - already refused - and let every task
 // edit through.
 //
-// THE ANSWER COMES OFF THE TOKEN, for the reason decideByEdition's does: the
-// entitlement is read once when the token is minted, so this is a map lookup on
-// a claim and not a query. It is also what makes paying clear the block with no
-// manual step - the next token issued after the projection changes carries no
-// restriction - and it bounds the other direction at one token lifetime, which
-// is the bound the whole design already accepts.
+// THE ANSWER COMES OFF THE TOKEN WHEN THERE IS ONE, for the reason
+// decideByEdition's does: the entitlement is read once when the token is minted,
+// so this is a map lookup on a claim and not a query. It is also what makes
+// paying clear the block with no manual step - the next token issued after the
+// projection changes carries no restriction - and it bounds the other direction
+// at one token lifetime, which is the bound the whole design already accepts.
 //
 // A READ IS NEVER REFUSED. The rule is read-only, not no-access: existing work
 // keeps functioning and stays readable, and what stops is changing it.
@@ -316,7 +317,7 @@ func refuseRestrictedWrite(c *echo.Context) error {
 	if IsReadOnlyMethod(c.Request().Method) {
 		return nil
 	}
-	if !auth2.WriteRestrictedFromToken(c) {
+	if !writeRestrictedSubject(c) {
 		return nil
 	}
 	if _, writable := settingsWritableRoutes[c.Request().Method+" "+c.Path()]; writable {
@@ -326,6 +327,67 @@ func refuseRestrictedWrite(c *echo.Context) error {
 	log.Debugf("[managed] %s %s refused: this account's writes are restricted to settings",
 		c.Request().Method, c.Path())
 	return errWritesRestricted()
+}
+
+// writeRestrictedSubject answers for whichever way the request authenticated.
+//
+// THERE ARE TWO WAYS IN AND ONLY ONE OF THEM CARRIES A TOKEN, which is the whole
+// reason this exists rather than the token read alone. Everything under /api
+// authenticates with a session JWT and is answered by the claim stamped into it.
+// CalDAV does not: middleware.BasicAuth(caldav.BasicAuth) puts a *user.User in
+// the context under "userBasicAuth" and there is no JWT anywhere in the request,
+// so WriteRestrictedFromToken finds nothing to read and correctly returns its
+// permitting answer. Attaching the gate to /dav without this would therefore
+// have produced a middleware that runs on every CalDAV write and permits every
+// one of them - a green test over a live bypass.
+func writeRestrictedSubject(c *echo.Context) bool {
+	if auth2.WriteRestrictedFromToken(c) {
+		return true
+	}
+	return writeRestrictedBasicAuthSubject(c)
+}
+
+// writeRestrictedBasicAuthSubject answers for a request that authenticated with
+// a username and a password.
+//
+// THIS ONE READS THE DATABASE, and it is the deliberate exception to what
+// decideByEdition says about never doing that per request. That rule is possible
+// because a session token is minted once and can be stamped on the way out; a
+// CalDAV client presents its credentials afresh on every request and there is no
+// token to stamp. The choice is between one indexed row read plus one signature
+// verification on a mutating CalDAV request, and not enforcing the restriction
+// on that surface at all. It is also bounded to the requests that can do harm:
+// the caller has already answered IsReadOnlyMethod, and PROPFIND, REPORT and GET
+// are the overwhelming majority of what a synchronising client sends.
+//
+// THE DECISION FUNCTION IS THE ONE THE TOKEN PATH USES, not a second reading of
+// the projection. models.EntitlementForToken is what decides what a session
+// token minted at this instant would carry, so a CalDAV request gets precisely
+// the answer the same subject's next login would have been stamped with, and the
+// two cannot drift into disagreeing. Reading Signed.WriteRestricted directly
+// would have been the obvious shortcut and would have been wrong in a way no
+// test here would show: it skips the checks ForToken makes first, so a
+// CANCELLED or suspended subject - who carries no restriction over the API,
+// deliberately, because they owe nothing - would have been write-blocked over
+// CalDAV alone.
+//
+// Absence of an entitlement is not a restriction, on the same reasoning: a
+// missing projection, an unreadable one and a self-hosted instance with managed
+// mode off all mean this is not a subject the restriction was minted for.
+// EntitlementForToken already answers nil to every one of those.
+func writeRestrictedBasicAuthSubject(c *echo.Context) bool {
+	u, isUser := c.Get("userBasicAuth").(*user.User)
+	if !isUser || u == nil {
+		return false
+	}
+
+	// Opened and closed before the handler runs, for the reason decideByEdition
+	// gives: holding a read session across the handler's write deadlocks SQLite.
+	s := db.NewSession()
+	defer s.Close()
+
+	entitled := models.EntitlementForToken(s, u.ID, time.Now())
+	return entitled != nil && entitled.WriteRestricted
 }
 
 // errWritesRestricted is the refusal a write-restricted subject gets.
