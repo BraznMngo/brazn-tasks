@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"time"
 
 	"code.vikunja.io/api/pkg/db"
@@ -308,6 +309,66 @@ func resolveProvisionedMailbox(email string) (*user.User, error) {
 	}
 
 	return userByID(s, claim.UserID)
+}
+
+// MailboxForSubject answers a resolve_mailbox request: the current address of
+// the subject it names, or the empty string when this instance has no mailbox
+// to report for that subject.
+//
+// IT READS users.email AND NEVER brazn_provisioned_users.email, which is the one
+// thing this function exists to get right. The two are not copies of each other:
+// the claim row is the mailbox Percy Cloud provisioned AGAINST and is the
+// authoritative map from that mailbox to a user - see ProvisionedUser - while
+// the user row carries the address the person has NOW, and the two diverge the
+// moment somebody changes theirs. Both callers want the user row: contact has to
+// reach the person where they are, and a suppression entry has to name the
+// address that would otherwise really be sent to. Reaching for the claim table
+// is the natural mistake here, because it is the table this file owns and it is
+// already keyed the right way round.
+//
+// ABSENCE IS ONE ANSWER AND HAS ONE RETURN VALUE. An id this instance never
+// minted, and a subject DeleteUser erased, come back the same way - and on this
+// path that is structural rather than a rule to remember, because DeleteUser
+// takes the claim row holding the erased subject's address away with the user,
+// so afterwards nothing is left that COULD tell the two apart. users.id is a
+// sequential autoincrement and possession of the provisioning signing key is the
+// whole of the authorisation on this channel, so an answer that distinguished
+// them would let a key holder walk the keyspace and map which ids were once
+// customers.
+//
+// The empty address is in that set deliberately rather than by oversight.
+// users.email is `varchar(250) null` with every bot user carrying the empty
+// string, so it is a value this read can really see; it is not a mailbox, and
+// the contract's response has no way to report a resolution that names none.
+//
+// A DISABLED OR LOCKED ACCOUNT STILL HAS A MAILBOX, which the read below gives
+// for free by asking the table rather than the accessor: user.GetUserByID
+// returns an error for either status, and treating that as absence would leave a
+// locked customer unsuppressable. Suppressing their address is exactly as
+// necessary as suppressing anyone else's.
+func MailboxForSubject(subject string) (string, error) {
+	id, err := strconv.ParseInt(subject, 10, 64)
+	if err != nil || id < 1 {
+		return "", nil
+	}
+
+	s := db.NewSession()
+	defer s.Close()
+
+	// The row itself, the way userForMailbox reads one, rather than through
+	// user.GetUserByID. That is not a shortcut and must not be "simplified" into
+	// one: GetUserByID BLANKS Email on the way out, so the obvious call answers
+	// with an empty string for every subject that exists - a resolution that
+	// resolves nothing, for everybody, while every other assertion about it
+	// passes. Its guard against a zero id goes with it, which is why the id is
+	// checked above: a Get with no condition answers with some user rather than
+	// none.
+	found := &user.User{}
+	has, err := s.Where("id = ?", id).Get(found)
+	if err != nil || !has {
+		return "", err
+	}
+	return found.Email, nil
 }
 
 // userForMailbox finds an existing user by mailbox, or nil.
