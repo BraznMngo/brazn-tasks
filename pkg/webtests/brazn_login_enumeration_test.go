@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	"code.vikunja.io/api/pkg/db"
+	"code.vikunja.io/api/pkg/events"
+	"code.vikunja.io/api/pkg/modules/keyvalue"
 	"code.vikunja.io/api/pkg/user"
 
 	"github.com/stretchr/testify/assert"
@@ -164,6 +166,110 @@ func TestLoginDoesNotEnumerateAccounts(t *testing.T) {
 			rec := login(api.path, unconfirmedAddress, correctPassword)
 			assert.Equal(t, http.StatusPreconditionFailed, rec.Code, rec.Body.String())
 			assert.Equal(t, user.ErrCodeEmailNotConfirmed, problemCode(t, rec), rec.Body.String())
+		})
+	}
+}
+
+// TestSelfServiceAnswersItsOwnOwnerTruthfully is the other half of BRA-1101, and
+// the half that reversing the reorder above would break.
+//
+// /login must answer a Google account exactly what it answers a stranger,
+// because whoever typed the address has proved nothing. Changing your password
+// and changing your email address run the same credential check against the same
+// account — but their caller arrives holding a session token, so there is
+// nothing left to withhold, and the sign-in answer is wrong for them twice over:
+// it tells the account's own owner they got their own password wrong, and on the
+// way there it books a failed sign-in against them, which is an audit entry, a
+// step up the failed-attempt ladder, and at every third try an email about an
+// attempt they never made. TOTP setup answers the same account 1021 correctly,
+// so without this the product contradicts itself about one user in one session.
+//
+// WHAT BREAKS IF THE GUARD IS REMOVED, reasoned through rather than run, because
+// this host is not an execution environment for this repository: delete the
+// !IsLocalUser() branch from CheckPasswordForOwnAccount and both requests below
+// fall through to CheckUserPassword, which finds no stored hash, answers
+// ErrWrongUsernameOrPassword and reaches handleFailedPassword. Each subtest then
+// fails three times over — 403 against an expected 412, code 1011 against an
+// expected 1021, and a failed-attempt counter and audit event that exist where
+// there must be neither.
+func TestSelfServiceAnswersItsOwnOwnerTruthfully(t *testing.T) {
+	e, err := setupTestEnv()
+	require.NoError(t, err)
+
+	// Built by production's own constructor rather than written into users.yml,
+	// for the reason the test above spells out: CreateUser hashes a password
+	// only for a local issuer, so this row lands with an empty password column
+	// exactly as a real Google account does. users.yml's two non-local rows
+	// (user14, user19) carry a working bcrypt hash for "12345678", which no OIDC
+	// account ever has — with one of those, removing the guard would answer
+	// through the ordinary wrong-password branch and every assertion below would
+	// hold whether or not the guard is there.
+	var google *user.User
+	func() {
+		s := db.NewSession()
+		defer s.Close()
+
+		google, err = user.CreateUser(s, &user.User{
+			Username: "selfservice-google",
+			Email:    "selfservice-google@example.com",
+			Issuer:   "https://accounts.google.com",
+			Subject:  "selfservice-google-subject",
+		})
+		require.NoError(t, err)
+
+		// Read the row back with a bare xorm Get rather than through one of
+		// pkg/user's helpers: those blank fields on the way out, so a helper is
+		// the wrong witness for "this account has no password".
+		stored := &user.User{}
+		found, err := s.Where("id = ?", google.ID).Get(stored)
+		require.NoError(t, err)
+		require.True(t, found, "the account this test just created must be readable")
+		require.Empty(t, stored.Password,
+			"a non-local account must reach these paths with no password hash, or this test is gentler than production")
+
+		require.NoError(t, s.Commit())
+	}()
+
+	token := humaTokenFor(t, google)
+
+	// handleFailedPassword's own two observables, read directly: the counter
+	// that feeds the "failed login attempt" mail, and the event the audit trail
+	// is built from. A status-code assertion alone would miss both, and they are
+	// half of what is wrong with answering 1011 here.
+	assertNoFailedSignInRecorded := func(t *testing.T) {
+		t.Helper()
+		_, exists, err := keyvalue.Get(google.GetFailedPasswordAttemptsKey())
+		require.NoError(t, err)
+		assert.False(t, exists,
+			"a signed-in owner using their own settings page must not accrue a failed sign-in")
+		assert.Equal(t, 0, events.CountDispatchedEvents((&user.LoginFailedEvent{}).Name()),
+			"nor be written into the audit trail as one")
+	}
+
+	for _, route := range []struct {
+		what   string
+		method string
+		url    string
+		body   string
+	}{
+		{
+			"changing the password",
+			http.MethodPost, "/api/v2/user/password",
+			`{"old_password":"12345678","new_password":"123456789"}`,
+		},
+		{
+			"changing the email address",
+			http.MethodPut, "/api/v2/user/settings/email",
+			`{"new_email":"selfservice-google-new@example.com","password":"12345678"}`,
+		},
+	} {
+		t.Run(route.what+" tells a Google account it has no password to confirm with", func(t *testing.T) {
+			events.ClearDispatchedEvents()
+
+			rec := humaRequest(t, e, route.method, route.url, route.body, token, "")
+			assert.Equal(t, http.StatusPreconditionFailed, rec.Code, rec.Body.String())
+			assert.Equal(t, user.ErrCodeAccountIsNotLocal, problemCode(t, rec), rec.Body.String())
+			assertNoFailedSignInRecorded(t)
 		})
 	}
 }
