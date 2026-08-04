@@ -63,14 +63,29 @@ func TestHumaAuthPublic(t *testing.T) {
 	})
 
 	t.Run("Request password reset token", func(t *testing.T) {
-		t.Run("normal", func(t *testing.T) {
-			rec := post("/api/v2/user/password/token", `{"email":"user1@example.com"}`)
-			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-			assert.Contains(t, rec.Body.String(), "Token was sent.")
-		})
+		// BRA-1101: this operation publishes "the response is the same whether
+		// or not an account exists" and then answered 404 for an unknown address
+		// and 412 for a disabled one, on an endpoint needing no credentials at
+		// all. The two below are compared against this one because sameness is
+		// what the contract says; this one is pinned to a literal 200 and a
+		// literal message so the set cannot be satisfied by all three failing
+		// identically.
+		known := post("/api/v2/user/password/token", `{"email":"user1@example.com"}`)
+		require.Equal(t, http.StatusOK, known.Code, known.Body.String())
+		require.Contains(t, known.Body.String(), "Token was sent.")
+
 		t.Run("no user with that email", func(t *testing.T) {
 			rec := post("/api/v2/user/password/token", `{"email":"user1000@example.com"}`)
-			assert.Equal(t, http.StatusNotFound, rec.Code)
+			assert.Equal(t, known.Code, rec.Code, rec.Body.String())
+			assert.Equal(t, known.Body.String(), rec.Body.String())
+		})
+		t.Run("disabled account", func(t *testing.T) {
+			// user17 is disabled and gets no token — see
+			// TestRequestPasswordResetTokenSaysNothingAboutTheAddress, which
+			// asserts that none is issued. Here it must only be indistinguishable.
+			rec := post("/api/v2/user/password/token", `{"email":"user17@example.com"}`)
+			assert.Equal(t, known.Code, rec.Code, rec.Body.String())
+			assert.Equal(t, known.Body.String(), rec.Body.String())
 		})
 	})
 

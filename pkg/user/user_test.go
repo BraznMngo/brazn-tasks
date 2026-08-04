@@ -700,17 +700,62 @@ func TestUserPasswordReset(t *testing.T) {
 	})
 }
 
-func TestRequestPasswordResetTokenDisabledUser(t *testing.T) {
-	t.Run("disabled user cannot request password reset token", func(t *testing.T) {
+// TestRequestPasswordResetTokenSaysNothingAboutTheAddress is BRA-1101 on the
+// reset path. The operation publishes "the response is the same whether or not
+// an account exists", needs no credentials to call, and then answered 404/1005
+// for an unknown address and 412/1020 for a disabled one — which sorts a list of
+// addresses into customers and non-customers exactly as two different sign-in
+// answers would.
+//
+// Each address is asserted twice, and the second assertion is the one that has
+// to be here: returning nil is also reachable by issuing the token anyway, which
+// would hand a disabled account a live reset link and write a token row against
+// the zero user for an address nobody holds. Remove either arm of the guard in
+// RequestUserPasswordResetTokenByEmail and require.NoError fails; replace it
+// with a fall-through and the token counts fail instead.
+func TestRequestPasswordResetTokenSaysNothingAboutTheAddress(t *testing.T) {
+	t.Run("a disabled account is given no token and is not named", func(t *testing.T) {
 		db.LoadAndAssertFixtures(t)
 		s := db.NewSession()
 		defer s.Close()
 
-		err := RequestUserPasswordResetTokenByEmail(s, &PasswordTokenRequest{
-			Email: "user17@example.com",
-		})
+		// Asserted rather than assumed: were user17 ever made active in the
+		// fixtures, this subtest would silently become a test of the ordinary
+		// success path.
+		disabled, err := GetUserWithEmail(s, &User{Email: "user17@example.com"})
 		require.Error(t, err)
-		assert.True(t, IsErrAccountDisabled(err))
+		require.True(t, IsErrAccountDisabled(err),
+			"fixture user17 must be disabled, or this subtest asserts nothing")
+
+		before, err := getTokensForKind(s, disabled, TokenPasswordReset)
+		require.NoError(t, err)
+
+		require.NoError(t, RequestUserPasswordResetTokenByEmail(s, &PasswordTokenRequest{
+			Email: "user17@example.com",
+		}))
+
+		after, err := getTokensForKind(s, disabled, TokenPasswordReset)
+		require.NoError(t, err)
+		assert.Len(t, after, len(before),
+			"a disabled account must be told nothing, and given nothing either")
+	})
+
+	t.Run("an address with no account is given no token and is not named", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		before, err := s.Where("kind = ?", TokenPasswordReset).Count(&Token{})
+		require.NoError(t, err)
+
+		require.NoError(t, RequestUserPasswordResetTokenByEmail(s, &PasswordTokenRequest{
+			Email: "nobody-has-this-address@example.com",
+		}))
+
+		after, err := s.Where("kind = ?", TokenPasswordReset).Count(&Token{})
+		require.NoError(t, err)
+		assert.Equal(t, before, after,
+			"an address with no account must produce no token at all")
 	})
 }
 

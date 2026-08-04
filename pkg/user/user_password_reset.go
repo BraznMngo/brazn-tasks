@@ -108,8 +108,23 @@ func RequestUserPasswordResetTokenByEmail(s *xorm.Session, tr *PasswordTokenRequ
 
 	// Check if the user exists
 	user, err := GetUserWithEmail(s, &User{Email: tr.Email})
-	if err != nil && !IsErrAccountLocked(err) {
-		return err
+	if err != nil {
+		// BRA-1101: this operation publishes "the response is the same whether
+		// or not an account exists" and then answered 1005 for an address with
+		// no account and 1020 for a disabled one, which is the same oracle
+		// /login has just been stopped from being: anyone with a list of
+		// addresses could sort it into customers and non-customers, on an
+		// endpoint that needs no credentials at all. Neither gets a token, and
+		// neither is told so — both leave here the way success leaves here.
+		if IsErrUserDoesNotExist(err) || IsErrAccountDisabled(err) {
+			return nil //nolint:nilerr // saying nothing is the published contract
+		}
+		// A locked account is the one refusal that still proceeds: a lockout
+		// comes from failed sign-ins, and a reset is how its owner gets out of
+		// one.
+		if !IsErrAccountLocked(err) {
+			return err
+		}
 	}
 
 	return RequestUserPasswordResetToken(s, user)
