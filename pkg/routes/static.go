@@ -281,6 +281,35 @@ func serveFile(c *echo.Context, file io.ReadSeeker, info os.FileInfo, etag strin
 	return nil
 }
 
+// referrerPolicy stops a page's own URL from being disclosed to anywhere it
+// links to or fetches from.
+//
+// IT IS PART OF THE SIGNUP HANDOFF (BRA-1071, contract BRA-1080). A signup token
+// arrives in the URL FRAGMENT, and RFC 7231 already requires a browser to strip
+// the fragment before sending a Referer - so this header is not what protects
+// the token. What it protects is the PATH: /register with a token in the
+// fragment is a page whose visit is worth nothing to anybody else, and
+// no-referrer is the setting that keeps the fact of it from leaving the origin
+// at all. It costs nothing here because this product's own requests are
+// same-origin and authenticated by a bearer token rather than by a Referer.
+//
+// Applied to the frontend and not to /api/, matching the gzip skipper directly
+// above it: an API response has no page to be the referrer of, and changing
+// what an API client sees is not this ticket's business.
+func referrerPolicy() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			// The request path rather than the matched route: an unmatched path
+			// has no route, and the frontend's own paths are all unmatched -
+			// they are served by the static handler's fallback.
+			if !strings.HasPrefix(c.Request().URL.Path, "/api/") {
+				c.Response().Header().Set(echo.HeaderReferrerPolicy, "no-referrer")
+			}
+			return next(c)
+		}
+	}
+}
+
 func setupStaticFrontendFilesHandler(e *echo.Echo) {
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		Level:     6,
@@ -289,6 +318,8 @@ func setupStaticFrontendFilesHandler(e *echo.Echo) {
 			return strings.HasPrefix(c.Path(), "/api/")
 		},
 	}))
+
+	e.Use(referrerPolicy())
 
 	e.Use(static())
 }

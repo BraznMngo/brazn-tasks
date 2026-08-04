@@ -21,6 +21,7 @@ import (
 
 	"code.vikunja.io/api/pkg/cron"
 	"code.vikunja.io/api/pkg/db"
+	"code.vikunja.io/api/pkg/files"
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/notifications"
 	"code.vikunja.io/api/pkg/user"
@@ -199,6 +200,102 @@ func DeleteUser(s *xorm.Session, u *user.User) (err error) {
 		// Upstream file: re-apply on merge (patch-surface area 4, entitlement
 		// synchronization).
 		{"user_id", &ProvisionedUser{}},
+
+		// ------------------------------------------------------------------
+		// Brazn fork (BRA-1104). Everything below is data upstream leaves
+		// behind, and the first four entries are LIVE CREDENTIALS rather than
+		// residue.
+		//
+		// THERE ARE NO FOREIGN KEYS AND NO CASCADES IN THIS SCHEMA - see
+		// pkg/routes/api/shared/testing.go, which says so about this exact
+		// problem. So a row this list does not name is not tidied up later by
+		// anything. It stays for the life of the database.
+		//
+		// The nine entries are one flat list rather than the "second,
+		// package-crossing phase" the ticket sketched, because the premise for
+		// that split does not hold: pkg/models already imports pkg/user,
+		// pkg/notifications and pkg/files, none of the three imports pkg/models
+		// back, and every type below is exported. A delete keyed on one column
+		// belongs here whatever package declares the struct - the loop below
+		// only needs a table name and a predicate. Only the two file blobs need
+		// their own step, and that is because a blob is not a row.
+		// ------------------------------------------------------------------
+
+		// A webhook keeps its HMAC Secret, its Basic-Auth password and its
+		// TargetURL, AND IT KEEPS FIRING. Nothing else in the package deletes
+		// one except the single-id API handler, and project deletion does not
+		// delete by project_id either, so an erased person's webhook outlives
+		// both them and, often, the project it was attached to.
+		//
+		// BOTH COLUMNS, and they are not the same set. user_id is only set on a
+		// user-level webhook; a webhook this person put on a PROJECT carries
+		// created_by_id and a null user_id. Deleting by user_id alone leaves
+		// exactly the case that matters most - a webhook on a project that
+		// survives them, still posting that project's contents to an address
+		// they chose, signed with a secret only they know.
+		{"user_id", &Webhook{}},
+		{"created_by_id", &Webhook{}},
+		// The refresh-token hash, the RAW OIDC id token, the device and the IP.
+		// This is a working way back into the account, and leaving it is the
+		// difference between "deleted" and "cannot currently sign in".
+		{"user_id", &Session{}},
+		// All four kinds of user token: password reset, email confirmation,
+		// CalDAV authentication and - with a straight face - account deletion.
+		// A password-reset token that outlives the account is a credential for
+		// an account that is coming back if the mailbox is ever re-provisioned.
+		{"user_id", &user.Token{}},
+		// The raw TOTP shared secret. It is stored to generate passcodes from,
+		// not hashed, so it is exactly as sensitive as it was the day it was
+		// enrolled.
+		{"user_id", &user.TOTP{}},
+		// Comments the person wrote. Upstream removes these only transitively,
+		// when the task's project is hard-deleted, so a comment on somebody
+		// else's project survives with a dangling author id.
+		//
+		// DELETED RATHER THAN ANONYMISED, deliberately: the comment body is
+		// free text this person wrote, which is their personal data whoever
+		// owns the project it sits in. Blanking author_id would keep the text
+		// and lose only the attribution, which is the wrong half.
+		{"author_id", &TaskComment{}},
+		// Membership of projects shared TO this person. Upstream deletes these
+		// by project_id when a project goes and by the unshare endpoint, never
+		// by user_id, so every project somebody else shared with them keeps a
+		// row naming them.
+		{"user_id", &ProjectUser{}},
+		// Link shares this person created. Cleaned only when the link's own
+		// project is hard-deleted; shared_by_id is not a delete predicate
+		// anywhere upstream. Each row is a live unauthenticated URL into a
+		// project, some of them password-protected with a hash that also stays.
+		{"shared_by_id", &LinkSharing{}},
+		// Short-lived by design and therefore the least of these, but "expires
+		// soon" is a different claim from "is gone", and the row names the user
+		// either way.
+		{"user_id", &OAuthCode{}},
+		// Per-user read state. No secret in it, and it is here because it is
+		// keyed on the user and would otherwise be a row about a person who
+		// does not exist.
+		{"user_id", &TaskUnreadStatus{}},
+
+		// ------------------------------------------------------------------
+		// RETAINED, WITH THE REASON, so that none of these is a silent
+		// omission (BRA-1104 AC1).
+		//
+		// teams.created_by_id, buckets.created_by_id, labels.created_by_id,
+		// tasks.created_by_id, task_attachments.created_by_id and
+		// task_relations.created_by_id are all left alone. They are authorship
+		// on objects that BELONG TO A SURVIVING PROJECT - one this person was
+		// not the last admin of, so getProjectsToDelete transferred it rather
+		// than deleting it. Deleting the rows would destroy other people's
+		// tasks, labels and boards to erase one attribution, and blanking the
+		// column is a schema decision rather than a deletion one. The
+		// attribution is a dangling id and not a name, an address or anything
+		// else that identifies them once the users row is gone.
+		//
+		// files rows for TASK ATTACHMENTS are retained for the same reason and
+		// are not the two files handled below: an attachment belongs to a task
+		// in a project that survives, and removing its blob would break a
+		// document for everybody who can still see the task.
+		// ------------------------------------------------------------------
 	}
 
 	for _, entity := range relatedEntities {
@@ -206,6 +303,12 @@ func DeleteUser(s *xorm.Session, u *user.User) (err error) {
 		if err != nil {
 			return err
 		}
+	}
+
+	// Brazn fork (BRA-1104). The person's own two files - their avatar and
+	// their data export - and the blobs behind them.
+	if err = deleteUserOwnFiles(s, u.ID); err != nil {
+		return err
 	}
 
 	// Notify before deleting the user row, because ShouldNotify will try to
@@ -217,8 +320,67 @@ func DeleteUser(s *xorm.Session, u *user.User) (err error) {
 		return err
 	}
 
+	// Brazn fork (BRA-1104). Every notification this person ever received.
+	//
+	// IT RUNS AFTER Notify ABOVE rather than in relatedEntities with the rest,
+	// so that nothing written during the erasure itself outlives it. Today that
+	// is belt and braces - AccountDeletedNotification.ToDB() returns nil, so
+	// notifyDB writes no row for it and the mail goes out inline - but that is a
+	// property of one method in another package. A future ToDB() with a body
+	// would otherwise make the erasure's own last act a permanent record of the
+	// erased person, and nothing here would look wrong. This ordering makes that
+	// impossible rather than merely unlikely.
+	if _, err = s.Where("notifiable_id = ?", u.ID).
+		Delete(&notifications.DatabaseNotification{}); err != nil {
+		return err
+	}
+
 	_, err = s.Where("id = ?", u.ID).Delete(&user.User{})
 	return err
+}
+
+// deleteUserOwnFiles removes the two files that belong to the person rather
+// than to a project: their avatar, and their data export.
+//
+// THE IDS ARE READ FROM THE STORED ROW AND NEVER FROM THE ARGUMENT. DeleteUser
+// is called with a bare &user.User{ID: n} by the CLI and by every test in this
+// package, and only the deletion cron passes a fully loaded struct - so
+// u.AvatarFileID and u.ExportFileID are zero on most calls even when the row
+// has them. Trusting the argument would delete the export for one caller and
+// silently skip it for the others, which is the shape of bug a test written
+// against the cron would never see.
+//
+// The export file is the reason this matters most: it is a complete copy of
+// everything the person had, sitting on the storage backend under a numeric
+// name, with the users row that pointed at it about to be deleted. Once that
+// pointer is gone nothing can ever find the blob to remove it.
+func deleteUserOwnFiles(s *xorm.Session, userID int64) error {
+	stored := &user.User{}
+	has, err := s.Where("id = ?", userID).Get(stored)
+	if err != nil {
+		return err
+	}
+	if !has {
+		// No row to read ids from. Nothing to do, and not an error: the caller
+		// decides what an absent user means, not this helper.
+		return nil
+	}
+
+	for _, fileID := range []int64{stored.AvatarFileID, stored.ExportFileID} {
+		if fileID == 0 {
+			continue
+		}
+		f := &files.File{ID: fileID}
+		err := f.Delete(s)
+		// A file the users row still points at but which is already gone is a
+		// SUCCESS. Nothing keeps the two in step - there is no foreign key -
+		// so a dangling id must not be able to fail an erasure.
+		if err != nil && !files.IsErrFileDoesNotExist(err) {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func ensureProjectAdminUser(s *xorm.Session, l *Project) (hadUsers bool, err error) {

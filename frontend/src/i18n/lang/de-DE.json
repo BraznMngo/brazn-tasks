@@ -199,6 +199,43 @@
 			"passwordResetTokenMissing": "Das Passwort-Reset-Token fehlt.",
 			"registrationFailed": "Bei der Registrierung ist ein Fehler aufgetreten. Bitte prüfe deine Eingabe und versuche es erneut."
 		},
+		"confirm": {
+			"title": "Bestätige deine E-Mail-Adresse",
+			"verifying": {
+				"heading": "Wir prüfen deinen Link",
+				"body": "Einen Moment."
+			},
+			"inbox": {
+				"heading": "Schau in dein Postfach",
+				"body": "Wir haben dir einen Bestätigungslink geschickt. Öffne ihn, um deine Adresse zu bestätigen.",
+				"bodyWithAddress": "Wir haben einen Bestätigungslink an {email} geschickt. Öffne ihn, um deine Adresse zu bestätigen.",
+				"spam": "Wenn er nicht da ist, schau in deinen Spam-Ordner.",
+				"lifetime": "Der Bestätigungslink gilt 24 Stunden.",
+				"addressMoves": "Wenn du diese Adresse änderst, wandert dein Konto mit. Deine Rechnung behält die Adresse, auf die sie ausgestellt wurde."
+			},
+			"confirmed": {
+				"heading": "Das war alles",
+				"body": "Deine Adresse ist bestätigt. Du kannst dich jetzt anmelden."
+			},
+			"alreadyUsed": {
+				"heading": "Das war alles",
+				"body": "Diesen Link hast du schon benutzt. Deine Adresse ist bestätigt, es ist also nichts mehr zu tun."
+			},
+			"expired": {
+				"heading": "Dieser Link ist abgelaufen",
+				"body": "Ein Bestätigungslink gilt 24 Stunden. Gib deine Adresse ein, dann schicken wir dir einen neuen."
+			},
+			"unreadable": {
+				"heading": "Wir konnten diesen Link nicht lesen",
+				"body": "Manche E-Mail-Programme brechen lange Links auf zwei Zeilen um. Gib deine Adresse ein, dann schicken wir dir einen neuen."
+			},
+			"sendAgain": "Schick ihn noch einmal",
+			"sendNewLink": "Neuen Link schicken",
+			"addressIsWrong": "Diese Adresse stimmt nicht",
+			"resent": "Wenn diese Adresse auf eine Bestätigung wartet, ist ein neuer Link unterwegs.",
+			"resendCooldown": "In {seconds} Sekunden kannst du einen neuen Link anfordern.",
+			"somethingWentWrong": "Wir konnten diesen Link gerade nicht prüfen. Bitte versuche es gleich noch einmal."
+		},
 		"settings": {
 			"bots": {
 				"title": "Bot-Accounts",

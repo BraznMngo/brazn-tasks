@@ -83,6 +83,22 @@ const router = createRouter({
 				title: 'user.auth.resetPassword',
 			},
 		},
+		// Email confirmation (BRA-1072, docs/Percy-Account-Path.md §3).
+		//
+		// Before this existed the confirmation link was swallowed by the guard
+		// below, stashed in localStorage and turned into a redirect to the
+		// login form - which can say "confirmed" and nothing else. It could not
+		// say that a link had run out and here is another one, or that one had
+		// already been used and that is fine, and those are the two answers
+		// that decide whether somebody who mistyped an address ever recovers.
+		{
+			path: '/confirm',
+			name: 'user.confirm',
+			component: () => import('@/views/user/ConfirmEmail.vue'),
+			meta: {
+				title: 'user.confirm.title',
+			},
+		},
 		{
 			path: '/register',
 			name: 'user.register',
@@ -555,15 +571,14 @@ export async function getAuthForRoute(to: RouteLocation, authStore) {
 		return {name: 'user.login'}
 	}
 
-	// Check if email confirmation token is in query params
+	// The confirmation link the mail carries lands on the app root with the
+	// token in a query parameter, so it is caught here wherever it arrives and
+	// handed to the screen that owns it. The token is not stashed anywhere on
+	// the way: Confirm.vue reads it from the query and clears it from the
+	// address bar itself.
 	const emailConfirmToken = to.query.userEmailConfirm as string | undefined
-	if (emailConfirmToken) {
-		// Save token to localStorage before redirecting
-		localStorage.setItem('emailConfirmToken', emailConfirmToken)
-		// Redirect to login page where it will be processed
-		if (to.name !== 'user.login') {
-			return {name: 'user.login'}
-		}
+	if (emailConfirmToken && to.name !== 'user.confirm') {
+		return {name: 'user.confirm', query: {userEmailConfirm: emailConfirmToken}}
 	}
 
 	// Keep the destination in the address bar (not just per-browser localStorage) so a native
@@ -588,19 +603,14 @@ export async function getAuthForRoute(to: RouteLocation, authStore) {
 
 	// Check if the route the user wants to go to is a route which needs authentication. We use this to
 	// redirect the user after successful login.
-	const isValidUserAppRoute = !AUTH_ROUTE_NAMES.has(to.name as string) &&
-		localStorage.getItem('emailConfirmToken') === null
+	//
+	// The localStorage confirmation token this used to consult is gone: nothing
+	// writes it any more, so both clauses that read it were constants.
+	const isValidUserAppRoute = !AUTH_ROUTE_NAMES.has(to.name as string)
 
 	if (isValidUserAppRoute) {
 		saveLastVisited(to.name as string, to.params, to.query)
-	}
-
-	if (isValidUserAppRoute) {
 		return {name: 'user.login'}
-	}
-	
-	if(localStorage.getItem('emailConfirmToken') !== null && to.name !== 'user.login') {
-		return {name: 'user.login', query: to.query}
 	}
 }
 

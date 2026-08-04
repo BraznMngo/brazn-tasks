@@ -114,6 +114,7 @@ import {useRedirectToLastVisited} from '@/composables/useRedirectToLastVisited'
 import {useAuthStore} from '@/stores/auth'
 import {useConfigStore} from '@/stores/config'
 import {validatePassword} from '@/helpers/validatePasswort'
+import {clearSignupToken, readSignupTokenFromFragment} from '@/helpers/signupToken'
 
 const {t} = useI18n()
 const authStore = useAuthStore()
@@ -123,6 +124,12 @@ const {redirectIfSaved} = useRedirectToLastVisited()
 // FIXME: use the `beforeEnter` hook of vue-router
 // Check if the user is already logged in, if so, redirect them to the homepage
 onBeforeMount(() => {
+	// Read the signup token out of the URL fragment and clear it from the
+	// address bar before anything else happens on this page. It is remembered
+	// for this tab, so it also survives the round trip if they choose Google
+	// instead of filling the form in.
+	readSignupTokenFromFragment()
+
 	if (authStore.authenticated) {
 		router.push({name: 'home'})
 	}
@@ -231,6 +238,9 @@ async function submit() {
 
 	try {
 		await authStore.register(toRaw(credentials))
+		// The token is consumed server-side by a successful registration, so
+		// holding onto it would only offer a spent value to the next attempt.
+		clearSignupToken()
 		redirectIfSaved()
 	} catch (e: unknown) {
 		// Parse field-specific validation errors

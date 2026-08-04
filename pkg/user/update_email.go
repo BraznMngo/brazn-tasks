@@ -37,7 +37,10 @@ type EmailUpdate struct {
 // (kicking off confirmation when the mailer is enabled). Shared by the v1 and
 // v2 email-update handlers; only HTTP input binding stays in the handlers.
 func ChangeUserEmail(ctx context.Context, s *xorm.Session, u *User, password, newEmail string) error {
-	verified, err := CheckUserCredentials(ctx, s, &Login{Username: u.Username, Password: password})
+	// BRA-1101: the authenticated check, not the sign-in one. An account that
+	// signs in with Google has no password to confirm with and must be told so
+	// (1021), rather than told its own owner got their password wrong.
+	verified, err := CheckPasswordForOwnAccount(ctx, s, u, password)
 	if err != nil {
 		return err
 	}
