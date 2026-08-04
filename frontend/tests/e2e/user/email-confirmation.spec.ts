@@ -37,7 +37,16 @@ test.describe('Email Confirmation', () => {
 		await page.locator('input[id=password]').fill(TEST_PASSWORD)
 		await page.locator('#login-submit').click()
 
-		await expect(page.locator('div.message.danger')).toContainText('Email address of the user not confirmed')
+		// `notConfirmedYet`, not the raw `1012` string. This screen now maps that
+		// code to copy written for the person reading it, so asserting the API's
+		// own sentence would fail against a correct build - which is exactly what
+		// it did when the restyle landed.
+		//
+		// A FRAGMENT RATHER THAN THE WHOLE SENTENCE, deliberately: the tail tells
+		// people where to look and is expected to be reworded. This clause is what
+		// separates "unconfirmed" from every other sign-in refusal, and that is the
+		// whole of what this test exists to prove.
+		await expect(page.locator('div.message.danger')).toContainText('has not been confirmed yet')
 	})
 
 	// The mail sends people to the app root with the token in the query. The
@@ -117,7 +126,12 @@ test.describe('Email Confirmation', () => {
 		await page.locator('input[id=password]').fill(TEST_PASSWORD)
 		await page.locator('#login-submit').click()
 
-		await expect(page.locator('div.message.danger')).toContainText('Email address of the user not confirmed')
+		// Same clause as the first test, and for the same reason. This assertion
+		// is the load-bearing half of this case: an unissued token must leave the
+		// account exactly as it found it, and the only way to see that from the
+		// outside is that sign-in still refuses for the unconfirmed reason rather
+		// than any other.
+		await expect(page.locator('div.message.danger')).toContainText('has not been confirmed yet')
 	})
 
 	// What a mail client does to a long link: breaks it, so what arrives is not
