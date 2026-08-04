@@ -201,13 +201,26 @@ func TestContractUserResolutionRepliesMatchTheContract(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// TWO ASSERTIONS PER REPLY, AND THEY PIN DIFFERENT THINGS. Do not collapse
+	// them into one.
+	//
+	// The first compares against the FROZEN FIXTURE as a string, so it pins the
+	// member ORDER as well as the member set — Equal on the compacted bytes, not
+	// JSONEq, because JSONEq is order-blind and order is what a reader of a
+	// captured payload relies on.
+	//
+	// The second compares against a LITERAL WRITTEN IN THIS SOURCE, which is the
+	// clause CLAUDE.md is about: a value both repositories take from one
+	// definition is checked by neither, so the fixture cannot be the only thing
+	// this build is measured against. It is JSONEq rather than Equal only because
+	// testifylint's encoded-compare requires it for a JSON literal, and nothing is
+	// lost by that here — order is already pinned one line above.
 	frozenResolved, err := os.ReadFile(contractUserResolved)
 	require.NoError(t, err)
 	assert.Equal(t, asCompactContract(t, frozenResolved), string(resolved),
 		"a resolution carries result, user_id and email_verified, in that order and no others")
-
-	assert.Equal(t, `{"result":"resolved","user_id":"9001","email_verified":true}`, string(resolved),
-		"the member names and the result string are the contract's, asserted as literals here")
+	assert.JSONEq(t, `{"result":"resolved","user_id":"9001","email_verified":true}`, string(resolved),
+		"the member names, the result string and the STRING user_id are the contract's, written here")
 
 	absent, err := json.Marshal(noUser)
 	require.NoError(t, err)
@@ -215,7 +228,7 @@ func TestContractUserResolutionRepliesMatchTheContract(t *testing.T) {
 	frozenAbsent, err := os.ReadFile(contractUserUnresolvable)
 	require.NoError(t, err)
 	assert.Equal(t, asCompactContract(t, frozenAbsent), string(absent))
-	assert.Equal(t, `{"result":"unresolvable"}`, string(absent))
+	assert.JSONEq(t, `{"result":"unresolvable"}`, string(absent))
 }
 
 // TestContractUserResolutionResolvedNeverDropsAMember is the omitempty trap, and
