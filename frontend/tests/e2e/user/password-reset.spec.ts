@@ -19,9 +19,12 @@ test.describe('Password Reset', () => {
 
 		const newPassword = 'newSecurePassword123'
 		await page.locator('input[id=password]').fill(newPassword)
-		await page.locator('button').filter({hasText: 'Reset your password'}).click()
+		await page.locator('#password-reset-submit').click()
 
-		await expect(page.locator('.message.success')).toContainText('The password was updated successfully.')
+		// The success copy is `passwordResetSuccess`, which this ticket rewrote.
+		// A fragment rather than the sentence: what matters is that the change
+		// took, not the wording that says so.
+		await expect(page.locator('.message.success')).toContainText('Your password was changed')
 		await page.locator('#login-submit').click()
 		await expect(page).toHaveURL('/login')
 
@@ -39,9 +42,12 @@ test.describe('Password Reset', () => {
 		// Attempt to reset password
 		const newPassword = 'newSecurePassword123'
 		await page.locator('input[id=password]').fill(newPassword)
-		await page.locator('button').filter({hasText: 'Reset your password'}).click()
+		await page.locator('#password-reset-submit').click()
 
-		await expect(page.locator('.message')).toContainText('Invalid token')
+		// The screen renders whatever `getErrorText` returns for the server's
+		// refusal, which this ticket did not rewrite. Asserted on the danger
+		// variant specifically, so a success banner cannot satisfy it.
+		await expect(page.locator('.message.danger')).toContainText('Invalid token')
 	})
 
 	test('Should redirect to login if no token is present in query param when visiting /password-reset directly', async ({page, apiContext}) => {

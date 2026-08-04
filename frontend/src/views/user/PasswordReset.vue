@@ -51,7 +51,13 @@
 				</p>
 			</div>
 
+			<!--
+				An id, for the reason the sign-in and link-share submits have one:
+				a test that finds this button by its English label breaks the moment
+				the label is reworded, and rewording labels is what this ticket does.
+			-->
 			<XButton
+				id="password-reset-submit"
 				class="is-fullwidth"
 				:loading="passwordResetService.loading"
 				:aria-busy="passwordResetService.loading"
