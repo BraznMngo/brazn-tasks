@@ -1,0 +1,9 @@
+# The artifacts in this directory are exact wire payloads, not source files.
+#
+# Any end-of-line normalisation changes the bytes: these are copies verified by
+# git hash-object against the canonical set in the Percy repository, and a
+# checkout on a host with core.autocrlf=true would otherwise get a CRLF
+# rendering of them rather than the committed bytes.
+#
+# README.md is deliberately not listed; it is an ordinary source file.
+*.json -text
