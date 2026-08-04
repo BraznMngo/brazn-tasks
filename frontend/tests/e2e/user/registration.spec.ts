@@ -42,6 +42,17 @@ test.describe('Registration', () => {
 		await page.locator('#email').fill(fixture.email)
 		await page.locator('#password').fill(fixture.password)
 		await page.locator('#register-submit').click()
-		await expect(page.locator('div.message.danger')).toContainText('A user with this username already exists.')
+
+		// A taken username is a field-level error on the username input, not a
+		// page-level banner: Register.vue maps code 1001 to
+		// serverValidationErrors.username, and only an email collision still
+		// raises `div.message.danger`. Asserting through the input's own ARIA
+		// wiring rather than "the sentence is somewhere on the page" is what
+		// makes this fail if the right message ever lands on the wrong field.
+		await expect(page.locator('#username')).toHaveAttribute('aria-invalid', 'true')
+		await expect(page.locator('#username'))
+			.toHaveAttribute('aria-describedby', /(^|\s)username-error(\s|$)/)
+		await expect(page.locator('#username-error'))
+			.toContainText('A user with this username already exists.')
 	})
 })
