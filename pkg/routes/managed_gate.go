@@ -133,18 +133,61 @@ func registerEditionRule(rule managedRule, edition string, decide managedRuleFun
 	editionRules[rule][edition] = decide
 }
 
+// writeMarker names why a route survives a subject whose writes are cut back to
+// settings. It is diagnostic rather than a branch - every value permits, and the
+// gate reads only whether one is present - so the file records WHICH of
+// Sebastian's four a route belongs to and a reviewer can check the list against
+// the ruling instead of against the code.
+type writeMarker string
+
+const (
+	writeBilling        writeMarker = "billing"
+	writeCredentials    writeMarker = "credentials"
+	writeExport         writeMarker = "export"
+	writeDeletion       writeMarker = "deletion"
+	writeAuthentication writeMarker = "authentication"
+)
+
+var allWriteMarkers = []writeMarker{
+	writeBilling,
+	writeCredentials,
+	writeExport,
+	writeDeletion,
+	writeAuthentication,
+}
+
+// KnownWriteMarkers returns every "write" value route-classification.json may
+// use, sorted. Exported for the classification harness, which is what stops a
+// typo from silently becoming a route nobody can reach: an unrecognised marker
+// is not a permit, so it would fail closed and be invisible until a customer
+// could not pay.
+func KnownWriteMarkers() []string {
+	names := make([]string, 0, len(allWriteMarkers))
+	for _, m := range allWriteMarkers {
+		names = append(names, string(m))
+	}
+	sort.Strings(names)
+	return names
+}
+
 // classifiedRouteEntry reads only what enforcement needs from the
 // classification file. The class itself is the harness's business.
 type classifiedRouteEntry struct {
 	Method  string      `json:"method"`
 	Path    string      `json:"path"`
 	Managed managedRule `json:"managed"`
+	Write   writeMarker `json:"write"`
 }
 
 // managedRouteRules maps "METHOD /registered/path" to the rule that decides it.
 var managedRouteRules = loadManagedRouteRules()
 
-func loadManagedRouteRules() map[string]managedRule {
+// settingsWritableRoutes is the set of routes a subject restricted to settings
+// may still reach. Membership is the whole answer; which marker put a route
+// here is documentation.
+var settingsWritableRoutes = loadSettingsWritableRoutes()
+
+func classifiedRoutes() []classifiedRouteEntry {
 	var file struct {
 		Routes []classifiedRouteEntry `json:"routes"`
 	}
@@ -153,14 +196,53 @@ func loadManagedRouteRules() map[string]managedRule {
 		// build, and a build that cannot enforce policy must not start.
 		panic("could not parse the embedded route-classification.json: " + err.Error())
 	}
+	return file.Routes
+}
 
-	rules := make(map[string]managedRule, len(file.Routes))
-	for _, route := range file.Routes {
+func loadManagedRouteRules() map[string]managedRule {
+	entries := classifiedRoutes()
+
+	rules := make(map[string]managedRule, len(entries))
+	for _, route := range entries {
 		if route.Managed != "" {
 			rules[route.Method+" "+route.Path] = route.Managed
 		}
 	}
 	return rules
+}
+
+// loadSettingsWritableRoutes reads only the markers this build recognises. An
+// unknown one is deliberately NOT a permit: a marker this build cannot name is
+// a value from a newer file or a typo, and reading either as "let it through"
+// would open a route on the strength of a string nobody checked.
+func loadSettingsWritableRoutes() map[string]struct{} {
+	known := make(map[writeMarker]struct{}, len(allWriteMarkers))
+	for _, marker := range allWriteMarkers {
+		known[marker] = struct{}{}
+	}
+
+	writable := make(map[string]struct{}, 64)
+	for _, route := range classifiedRoutes() {
+		if _, isKnown := known[route.Write]; isKnown {
+			writable[route.Method+" "+route.Path] = struct{}{}
+		}
+	}
+	return writable
+}
+
+// IsReadOnlyMethod reports whether a method cannot change state by contract.
+// Everything else - including echo's catch-all pseudo-method used by the CalDAV
+// routes - counts as mutating. Unknown or new methods therefore fail closed.
+//
+// Exported for the classification harness, which decides from the same answer
+// which routes the file must inventory. ONE DEFINITION IS THE POINT: the
+// harness's question ("is this a write, so must it be classified") and this
+// gate's ("is this a write, so must it be refused") are the same question, and
+// two copies of it could come to disagree - leaving a route the inventory
+// covers and the restriction does not.
+func IsReadOnlyMethod(method string) bool {
+	return method == http.MethodGet || method == http.MethodHead ||
+		method == http.MethodOptions || method == "PROPFIND" || method == "REPORT"
 }
 
 // errNotAUser is returned when the request is authenticated as something other
@@ -182,6 +264,23 @@ func RequireManagedPolicy() echo.MiddlewareFunc {
 			}
 
 			rule, guarded := managedRouteRules[c.Request().Method+" "+c.Path()]
+
+			// A route the managed edition does not offer answers 404 whatever
+			// else is true of the account, so this is decided before the write
+			// restriction rather than after it. Letting the restriction answer
+			// first would turn that 404 into a 403 and tell a prober the route
+			// exists - which is the single thing the disabled rule is for.
+			if guarded && rule == ruleDisabled {
+				if err := decideManagedRule(c, rule); err != nil {
+					return err
+				}
+				return next(c)
+			}
+
+			if err := refuseRestrictedWrite(c); err != nil {
+				return err
+			}
+
 			if !guarded {
 				return next(c)
 			}
@@ -192,6 +291,61 @@ func RequireManagedPolicy() echo.MiddlewareFunc {
 			return next(c)
 		}
 	}
+}
+
+// refuseRestrictedWrite turns down a mutating request from a subject whose
+// entitlement says their writes are cut back to settings.
+//
+// IT RUNS BEFORE THE RULE LOOKUP AND NOT INSIDE IT, because the rules only ever
+// see the routes the classification guards, and this restriction is mostly
+// about the ones it does not: creating and editing a task is `ordinary`, which
+// is precisely the class that carries no rule. A per-rule implementation would
+// have refused sharing and team creation - already refused - and let every task
+// edit through.
+//
+// THE ANSWER COMES OFF THE TOKEN, for the reason decideByEdition's does: the
+// entitlement is read once when the token is minted, so this is a map lookup on
+// a claim and not a query. It is also what makes paying clear the block with no
+// manual step - the next token issued after the projection changes carries no
+// restriction - and it bounds the other direction at one token lifetime, which
+// is the bound the whole design already accepts.
+//
+// A READ IS NEVER REFUSED. The rule is read-only, not no-access: existing work
+// keeps functioning and stays readable, and what stops is changing it.
+func refuseRestrictedWrite(c *echo.Context) error {
+	if IsReadOnlyMethod(c.Request().Method) {
+		return nil
+	}
+	if !auth2.WriteRestrictedFromToken(c) {
+		return nil
+	}
+	if _, writable := settingsWritableRoutes[c.Request().Method+" "+c.Path()]; writable {
+		return nil
+	}
+
+	log.Debugf("[managed] %s %s refused: this account's writes are restricted to settings",
+		c.Request().Method, c.Path())
+	return errWritesRestricted()
+}
+
+// errWritesRestricted is the refusal a write-restricted subject gets.
+//
+// Unlike errManagedUnavailable it says what is wrong and what fixes it, and the
+// difference is deliberate. "Not available for this account" is true of a
+// feature the plan never included and there is nothing the reader can do about
+// it; this one is temporary, self-inflicted and curable, and the customer is
+// the only person who can cure it. Telling them their account cannot do this
+// would send them to support to be told to pay an invoice.
+//
+// It names no amount, no date and no invoice, because the projection carries
+// none - what is owed is the commercial service's to say and the billing
+// surface's to show.
+func errWritesRestricted() error {
+	return echo.NewHTTPError(http.StatusForbidden,
+		"This account is read-only because its subscription is unpaid. "+
+			"Your existing work is still here and can still be read, and "+
+			"settling the outstanding invoice restores it. Your password, "+
+			"email address, data export and account deletion are unaffected.")
 }
 
 // decideManagedRule runs a rule's preflight decision if it has one, and

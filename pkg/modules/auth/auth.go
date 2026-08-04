@@ -182,6 +182,20 @@ func NewUserAuthTokenResponse(u *user.User, c *echo.Context, long bool, oidc *mo
 // decide without a query - see routes.RequireManagedPolicy.
 const BraznEditionClaim = "brazn_edition"
 
+// BraznWriteRestrictedClaim carries the entitlement's `write_access` answer, as
+// the one bit the enforcement point needs: true when this holder's writes are
+// cut back to the payment method, their own credentials, export and deletion.
+//
+// ABSENCE IS THE PERMITTING CASE HERE, which is the opposite of the claim above
+// and is deliberate. A token minted by a build that predates the member, or for
+// a subject whose projection carries no `write_access`, must not be blocked -
+// absence means `full` in the contract, and reading it any other way would
+// write-block every existing session the moment this build shipped.
+//
+// It is stamped only when true, so no token that would have been issued before
+// this existed changes shape.
+const BraznWriteRestrictedClaim = "brazn_write_restricted"
+
 // NewUserJWTAuthtoken generates and signs a new short-lived jwt token for a user.
 // The token includes the session UUID as the `sid` claim. This is a global
 // function to be able to call it from web tests.
@@ -247,6 +261,12 @@ func newUserJWTAuthtoken(u *user.User, sessionID string, entitled *entitlement.T
 		if !entitled.EndsAt.IsZero() && entitled.EndsAt.Before(expires) {
 			expires = entitled.EndsAt
 		}
+		// Stamped only when it restricts. A false claim and no claim mean the
+		// same thing to every reader, and writing the false one would change the
+		// shape of every token this instance has ever issued for no gain.
+		if entitled.WriteRestricted {
+			claims[BraznWriteRestrictedClaim] = true
+		}
 	}
 	claims["exp"] = expires.Unix()
 
@@ -276,6 +296,43 @@ func EditionFromToken(c *echo.Context) (string, bool) {
 		return "", false
 	}
 	return edition, true
+}
+
+// WriteRestrictedFromToken reports whether the request's session token says its
+// holder's writes are cut back to settings.
+//
+// FALSE IS THE PERMITTING ANSWER and it covers every way of not carrying the
+// claim, including not being a user JWT at all. That is what makes this safe to
+// consult on every mutating request rather than only guarded ones: an API token
+// or a link share is not a subject this restriction was minted for, and
+// refusing them here would take ordinary reads and shares away from accounts
+// that are not restricted at all.
+//
+// A LINK SHARE IS THEREFORE NOT COVERED BY THIS, and that is a real boundary
+// rather than an oversight. A share issued before the restriction began keeps
+// whatever write rights it was given, because the token carries no subject
+// whose entitlement could be read - resolving share to project to owner to
+// organization is the per-request database read the gate was deliberately built
+// to stop doing. Creating a NEW share is refused, so the surface cannot grow.
+//
+// A non-boolean claim restricts, on the same fail-closed reasoning as
+// Signed.WriteRestricted: this build not understanding what a token says is not
+// a reason to give it more than it asked for.
+func WriteRestrictedFromToken(c *echo.Context) bool {
+	jwtinf, isJWT := c.Get("user").(*jwt.Token)
+	if !isJWT {
+		return false
+	}
+	claims, isClaims := jwtinf.Claims.(jwt.MapClaims)
+	if !isClaims {
+		return false
+	}
+	raw, present := claims[BraznWriteRestrictedClaim]
+	if !present {
+		return false
+	}
+	restricted, isBool := raw.(bool)
+	return !isBool || restricted
 }
 
 // NewLinkShareJWTAuthtoken creates a new jwt token from a link share

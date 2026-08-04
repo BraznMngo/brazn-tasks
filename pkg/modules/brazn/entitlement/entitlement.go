@@ -56,6 +56,27 @@ func KnownEdition(edition string) bool {
 	return edition == EditionCommunity || edition == EditionPersonal || edition == EditionTeams
 }
 
+// The values the v2 contract's optional `state.write_access` may carry.
+//
+// 'settings_only' means the organization's subscription is unpaid past the
+// commercial grace period: every write is refused EXCEPT the payment method and
+// invoice details, the person's own credentials, data export and account
+// deletion. Existing work keeps functioning and stays readable; what stops is
+// changing it.
+//
+// IT IS NOT A FOURTH `effective_state`, and the reason matters here rather than
+// only in the contract. Active reads that enum to decide whether the entitlement
+// is in force at all, and treats a value it does not recognise as NOT ENTITLED -
+// so a new member there would have failed closed onto the wrong rule, taking
+// read access away from a merely late customer along with the billing surface
+// they need to pay. This is orthogonal: it says nothing about whether the
+// entitlement is in force, and a suspended or closed subject is refused on those
+// terms whatever this says.
+const (
+	WriteAccessFull         = "full"
+	WriteAccessSettingsOnly = "settings_only"
+)
+
 // ContractVersion is the only projection contract version this build accepts.
 // A projection from a newer contract is refused rather than guessed at.
 const ContractVersion = "2"
@@ -208,12 +229,32 @@ type Subject struct {
 // orders nothing, so the same count on N members' projections is N copies with
 // no defined tie-break. Nothing here reads it from anyone but the acting
 // administrator - see models.OrganizationFor.
+// WriteAccess is a POINTER for the reason the two above are, and the third
+// distinct absence doctrine in this struct. ABSENCE MEANS `full`, which is the
+// opposite reading to ValidTo and is nonetheless the safe one: an absent
+// ValidTo read as "no end" would GRANT time nobody paid for, whereas an absent
+// write_access grants nothing that was not already granted - the subject is
+// inside a live subscription and entitled either way, and the only thing not
+// yet enforced is a restriction on writing. The failure mode is a late payer
+// who can still edit a task, which is the state this product shipped in until
+// the member existed.
+//
+// A value type could not express that. It would collapse "the producer sent
+// nothing" into "the producer sent an empty string", and only the first is a
+// projection a conforming producer emits - so the second has to be able to
+// reach WriteRestricted and be refused there.
+//
+// `omitempty` is what keeps this additive. The producer omits the member when
+// it would say `full`, so no existing projection's signed bytes move, and
+// nothing that marshals this struct - the golden corpus included - changes
+// shape by the member merely existing.
 type State struct {
 	Edition           string     `json:"edition"`
 	SeatStatus        string     `json:"seat_status"`
 	OrganizationAdmin bool       `json:"organization_admin"`
 	EffectiveState    string     `json:"effective_state"`
 	SeatsPurchased    *int       `json:"seats_purchased"`
+	WriteAccess       *string    `json:"write_access,omitempty"`
 	ValidFrom         time.Time  `json:"valid_from"`
 	ValidTo           *time.Time `json:"valid_to"`
 }
@@ -226,6 +267,12 @@ type TokenEntitlement struct {
 	// EndsAt is the instant the token must not outlive. ZERO means the
 	// entitlement records no end, so the token keeps its normal lifetime.
 	EndsAt time.Time
+	// WriteRestricted is the answer to Signed.WriteRestricted, carried so the
+	// gate can read it without going back to the database - the same reason
+	// Edition is here. FALSE is the permitting answer and is what a token minted
+	// by a build that predates this member carries, which is the transitional
+	// behaviour the contract asks for.
+	WriteRestricted bool
 }
 
 // Signed is the signed half of the envelope, and the only half a policy
@@ -250,6 +297,36 @@ func (s *Signed) Active() bool {
 	return s.State.EffectiveState == stateActive && s.State.SeatStatus == stateActive
 }
 
+// WriteRestricted reports whether this subject's writes are cut back to the four
+// things that must stay writable: the payment method and invoice details, the
+// person's own credentials, data export and account deletion.
+//
+// A VALUE THIS BUILD DOES NOT RECOGNISE RESTRICTS. That is the fail-closed
+// direction and it is the one thing here that is easy to get backwards, because
+// the two obvious alternatives are both wrong:
+//
+//   - Reading an unknown value as `full` would hand full write access to an
+//     account a newer producer had just restricted, silently, on exactly the
+//     accounts a future restriction was written to catch.
+//   - Refusing the whole PROJECTION for an unknown value - which is what Verify
+//     does for an unknown FIELD - is fail-open in effect, not fail-closed. A
+//     refused projection leaves the last good one in force, and the last good
+//     one is by definition the less restricted one. The message is structurally
+//     valid; it is only its meaning this build cannot follow, so the safe thing
+//     is to accept it and apply the strictest reading of it.
+//
+// An older build that does not know the member at all is a different case and
+// not this one. It refuses the projection outright, because every level of the
+// schema is additionalProperties: false and hasUndeclaredField enforces that -
+// which is why the producer must not emit the member until a build declaring it
+// has shipped.
+func (s *Signed) WriteRestricted() bool {
+	if s.State.WriteAccess == nil {
+		return false
+	}
+	return *s.State.WriteAccess != WriteAccessFull
+}
+
 // ForToken decides what a session token issued at `at` may carry for this
 // subject. Nil means it may carry no entitlement at all, which leaves the token
 // its normal lifetime and no edition claim - the holder can still do ordinary
@@ -266,6 +343,22 @@ func (s *Signed) Active() bool {
 // `grace` is configuration rather than a constant because how long a session
 // may run on past a paid period is a commercial decision, not a property of the
 // protocol.
+//
+// THE WRITE RESTRICTION RIDES A LIVE ENTITLEMENT AND NOTHING ELSE, which is
+// what keeps a CANCELLED customer out of it. Every path that returns nil above
+// returns it before WriteRestricted is consulted, so a subject with no live
+// entitlement - cancelled and past their paid period, suspended, seat withdrawn
+// - carries no restriction claim and is not write-blocked by this. That is the
+// correct answer and not an oversight: a cancelled customer owes nothing, and
+// keying the block on "has no active entitlement" would eventually catch every
+// one of them. The commercial service agrees from the other side, returning
+// `full` for a cancelled account before it evaluates any money condition.
+//
+// What such a subject gets instead is the treatment they already had: every
+// access-expanding and protected-topology operation refused for want of an
+// edition claim, and ordinary task work continuing. That is `suspended`
+// semantics, which is a real and materially weaker rule, and it is the right
+// one for a subject whose entitlement is not in force.
 func (s *Signed) ForToken(at time.Time, grace time.Duration) *TokenEntitlement {
 	if !s.Active() {
 		return nil
@@ -277,13 +370,20 @@ func (s *Signed) ForToken(at time.Time, grace time.Duration) *TokenEntitlement {
 		return nil
 	}
 	if s.State.ValidTo == nil {
-		return &TokenEntitlement{Edition: s.State.Edition}
+		return &TokenEntitlement{
+			Edition:         s.State.Edition,
+			WriteRestricted: s.WriteRestricted(),
+		}
 	}
 	endsAt := s.State.ValidTo.Add(grace)
 	if !endsAt.After(at) {
 		return nil
 	}
-	return &TokenEntitlement{Edition: s.State.Edition, EndsAt: endsAt}
+	return &TokenEntitlement{
+		Edition:         s.State.Edition,
+		EndsAt:          endsAt,
+		WriteRestricted: s.WriteRestricted(),
+	}
 }
 
 // SigningDomain is the domain-separation prefix the v2 entitlement contract
