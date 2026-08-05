@@ -95,6 +95,35 @@
         "unavailable": "We could not complete the removal, so nothing was changed. This is our side, not yours, and it is safe to try again in a moment."
       }
     },
+    "requests": {
+      "title": "Requests to join",
+      "none": "Nobody is waiting. When someone asks to join one of your teams and confirms their address, they appear here.",
+      "unavailable": {
+        "title": "Requests to join are not available on this instance yet.",
+        "text": "Nobody has been turned away and nothing is lost — requests are held until this page can read them. This is our side, not yours."
+      },
+      "asked": "asked {since}",
+      "confirmed": "confirmed {since}",
+      "approve": "Approve",
+      "decline": "Decline",
+      "withinSeats": "{used} / {limit} seats in use, so approving fills a seat you have already paid for.",
+      "buysASeat": {
+        "title": "Approving buys a seat.",
+        "text": "All {limit} seats you have bought are taken, and {used} are in use. Approving anyone here buys another seat and charges it pro rata for the rest of your current period.",
+        "unknown": "We cannot read how many seats you have bought, so we cannot tell you whether approving fills a seat you have paid for or buys another one. Assume it buys one."
+      },
+      "approveTitle": "Let {email} in?",
+      "approveText": "They join the team they asked for and get access straight away. Declining later is removing a member, not undoing this.",
+      "approveBuysASeat": "This approval buys a seat and charges it pro rata for the rest of your current period.",
+      "declineTitle": "Decline {email}?",
+      "declineText": "The request is closed and they are not told why. They can ask again.",
+      "approved": "{email} has joined.",
+      "declined": "{email} was declined.",
+      "notAdmitted": "{email} was not let in, so nothing has changed and the request is still waiting. This can happen when your plan cannot take another member. The approval can be made again once that is sorted out.",
+      "notInvitable": "{email} cannot be let in: that address already belongs somewhere else, or to a personal subscription. The request is still waiting, and nothing was charged.",
+      "notAdministrator": "Only the organization administrator can see and answer these requests.",
+      "gone": "That request is no longer waiting. It may have been answered elsewhere or run out of time. The list has been brought up to date."
+    },
     "seats": {
       "title": "Seats",
       "add": "Add seats",
@@ -469,6 +498,22 @@
         "noOtherSessions": "No other active sessions."
       }
     },
+    "cancellation": {
+      "title": "Cancel your subscription",
+      "text": "Cancelling stops the subscription renewing. It does not end your access today: you keep everything until the end of the period you have already paid for, and there is no refund for the part you do not use.",
+      "keeps": "Your projects, tasks and Inbox are untouched by this. Cancelling is not deleting your account, and it can be done separately.",
+      "confirm": "Cancel my subscription",
+      "confirmTitle": "Stop this subscription renewing?",
+      "confirmText": "You keep your access until the end of the period you have paid for. After that the subscription does not renew.",
+      "done": {
+        "title": "Your subscription will not renew.",
+        "text": "You keep everything until {date}. Nothing changes before then."
+      },
+      "teamsMember": "This seat is paid for by your organization, so cancelling it is your administrator's to do, not yours. Ask them to remove your seat.",
+      "noSubscription": "We cannot find a subscription for this account, so there is nothing to cancel.",
+      "notCancellable": "This subscription cannot be cancelled here right now — it may already be cancelled, or have no renewal date yet. Nothing was changed. Please contact support if you expected otherwise.",
+      "failed": "We could not cancel your subscription, so nothing was changed. This is our side, not yours, and it is safe to try again in a moment."
+    },
     "deletion": {
       "title": "Delete your Brazn Tasks Account",
       "text1": "The deletion of your account is permanent and cannot be undone. We will delete all your projects, tasks and everything associated with it.",
@@ -483,7 +528,26 @@
       "scheduledCancelText": "To cancel the deletion of your account, please enter your password below:",
       "scheduledCancelButton": "To cancel the deletion of your account, please press the button below:",
       "scheduledCancelConfirm": "Cancel the deletion of my account",
-      "scheduledCancelSuccess": "We will not delete your account."
+      "scheduledCancelSuccess": "We will not delete your account.",
+      "successor": {
+        "title": "Someone has to take the organization",
+        "text": "You administer this organization, and it is never left without an administrator. Choose who takes it over. They keep every member, team and project; what goes is your own account and your own Inbox.",
+        "placeholder": "Choose a person",
+        "required": "Choose who takes over the organization before deleting your account."
+      },
+      "erasure": {
+        "text": "Your account is deleted by the service you pay, not by this product, so it goes at once and everywhere: this app, Percy and the API together. We email you first, and we only delete once that email has gone out.",
+        "confirmTitle": "Delete your account permanently?",
+        "confirmText": "There is no grace period and no undo. Your Inbox goes with you and is not passed to anyone.",
+        "confirmSuccessor": "{name} becomes the organization administrator.",
+        "unavailable": {
+          "title": "Deleting your account is handled where your subscription lives.",
+          "text": "It cannot be done from this page on this instance. Your account and everything in it are untouched.",
+          "action": "Open your account"
+        },
+        "noAccount": "We cannot find a subscription for this account, so there is nothing here to delete. Nothing was changed.",
+        "failed": "We could not delete your account, so nothing was changed. This is our side, not yours, and it is safe to try again in a moment."
+      }
     },
     "export": {
       "title": "Export your Brazn Tasks data",

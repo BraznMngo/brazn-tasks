@@ -26,6 +26,7 @@ const caldavEnabled = computed(() => configStore.caldavEnabled)
 const migratorsEnabled = computed(() => configStore.migratorsEnabled)
 const selfManagedCredentials = useSelfManagedCredentials()
 const userDeletionEnabled = computed(() => configStore.userDeletionEnabled)
+const managedMode = computed(() => configStore.braznManagedMode)
 const webhooksEnabled = computed(() => configStore.webhooksEnabled)
 
 const navigationItems = computed(() => {
@@ -90,9 +91,18 @@ const navigationItems = computed(() => {
 			routeName: 'user.settings.bots',
 		},
 		{
+			title: t('user.cancellation.title'),
+			routeName: 'user.settings.cancellation',
+			condition: managedMode.value,
+		},
+		{
 			title: t('user.deletion.title'),
 			routeName: 'user.settings.deletion',
-			condition: userDeletionEnabled.value,
+			// Managed mode erases through the commercial service, which does not
+			// consult this instance's own deletion switch - so the entry has to
+			// appear even where that switch is off, or the screen that works is
+			// the one nobody can reach.
+			condition: managedMode.value || userDeletionEnabled.value,
 		},
 	]
 

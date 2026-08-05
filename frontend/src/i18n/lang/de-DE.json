@@ -95,6 +95,35 @@
 				"unavailable": "Das Entfernen konnte nicht abgeschlossen werden, es wurde also nichts geändert. Das liegt an uns, nicht an euch, und ihr könnt es gleich erneut versuchen."
 			}
 		},
+		"requests": {
+			"title": "Beitrittsanfragen",
+			"none": "Es wartet niemand. Wer um Aufnahme in eines eurer Teams bittet und seine Adresse bestätigt, erscheint hier.",
+			"unavailable": {
+				"title": "Beitrittsanfragen sind auf dieser Instanz noch nicht verfügbar.",
+				"text": "Es wurde niemand abgewiesen und nichts geht verloren — Anfragen werden aufbewahrt, bis diese Seite sie lesen kann. Das liegt an uns, nicht an euch."
+			},
+			"asked": "gefragt {since}",
+			"confirmed": "bestätigt {since}",
+			"approve": "Annehmen",
+			"decline": "Ablehnen",
+			"withinSeats": "{used} / {limit} Sitzplätze belegt. Eine Annahme füllt also einen Platz, den ihr bereits bezahlt habt.",
+			"buysASeat": {
+				"title": "Eine Annahme kauft einen Sitzplatz.",
+				"text": "Alle {limit} gekauften Sitzplätze sind vergeben, {used} sind belegt. Wer hier angenommen wird, kostet einen weiteren Sitzplatz, der anteilig für den Rest eures laufenden Zeitraums berechnet wird.",
+				"unknown": "Wir können nicht lesen, wie viele Sitzplätze ihr gekauft habt, und daher nicht sagen, ob eine Annahme einen bezahlten Platz füllt oder einen weiteren kauft. Geht davon aus, dass sie einen kauft."
+			},
+			"approveTitle": "{email} aufnehmen?",
+			"approveText": "Die Person kommt in das angefragte Team und hat sofort Zugang. Ein späteres Ablehnen ist das Entfernen eines Mitglieds und nicht das Rückgängigmachen davon.",
+			"approveBuysASeat": "Diese Annahme kauft einen Sitzplatz und berechnet ihn anteilig für den Rest eures laufenden Zeitraums.",
+			"declineTitle": "{email} ablehnen?",
+			"declineText": "Die Anfrage wird geschlossen, und die Person erfährt keinen Grund. Sie kann erneut fragen.",
+			"approved": "{email} ist beigetreten.",
+			"declined": "{email} wurde abgelehnt.",
+			"notAdmitted": "{email} wurde nicht aufgenommen, es hat sich also nichts geändert und die Anfrage wartet weiter. Das kann passieren, wenn euer Tarif kein weiteres Mitglied aufnehmen kann. Die Annahme kann erneut erfolgen, sobald das geklärt ist.",
+			"notInvitable": "{email} kann nicht aufgenommen werden: Diese Adresse gehört bereits woandershin oder zu einem persönlichen Abonnement. Die Anfrage wartet weiter, und es wurde nichts berechnet.",
+			"notAdministrator": "Nur der Organisationsadministrator kann diese Anfragen sehen und beantworten.",
+			"gone": "Diese Anfrage wartet nicht mehr. Sie wurde möglicherweise anderswo beantwortet oder ist abgelaufen. Die Liste ist jetzt aktuell."
+		},
 		"seats": {
 			"title": "Sitzplätze",
 			"add": "Sitzplätze hinzufügen",
@@ -468,6 +497,22 @@
 				"noOtherSessions": "Keine anderen aktiven Sitzungen."
 			}
 		},
+		"cancellation": {
+			"title": "Abonnement kündigen",
+			"text": "Die Kündigung beendet die Verlängerung des Abonnements. Dein Zugang endet nicht heute: Du behältst alles bis zum Ende des Zeitraums, den du bereits bezahlt hast, und für den ungenutzten Teil gibt es keine Rückerstattung.",
+			"keeps": "Deine Projekte, Aufgaben und dein Posteingang bleiben davon unberührt. Kündigen ist nicht dasselbe wie das Löschen deines Kontos, und beides geht getrennt.",
+			"confirm": "Abonnement kündigen",
+			"confirmTitle": "Verlängerung dieses Abonnements beenden?",
+			"confirmText": "Du behältst deinen Zugang bis zum Ende des bezahlten Zeitraums. Danach verlängert sich das Abonnement nicht mehr.",
+			"done": {
+				"title": "Dein Abonnement wird nicht verlängert.",
+				"text": "Du behältst alles bis zum {date}. Bis dahin ändert sich nichts."
+			},
+			"teamsMember": "Dieser Sitzplatz wird von deiner Organisation bezahlt. Die Kündigung ist daher Sache eurer Administration und nicht deine. Bitte sie, deinen Sitzplatz zu entfernen.",
+			"noSubscription": "Wir finden kein Abonnement zu diesem Konto, es gibt also nichts zu kündigen.",
+			"notCancellable": "Dieses Abonnement kann hier gerade nicht gekündigt werden — möglicherweise ist es bereits gekündigt oder hat noch kein Verlängerungsdatum. Es wurde nichts geändert. Bitte wende dich an den Support, wenn du etwas anderes erwartet hast.",
+			"failed": "Wir konnten dein Abonnement nicht kündigen, es wurde also nichts geändert. Das liegt an uns, nicht an dir, und du kannst es gleich erneut versuchen."
+		},
 		"deletion": {
 			"title": "Lösche deinen Brazn Tasks-Account",
 			"text1": "Das Löschen deines Accounts ist dauerhaft und unwiderruflich. Alle Projekte, Aufgaben und zugehörige Daten werden gelöscht.",
@@ -482,7 +527,26 @@
 			"scheduledCancelText": "Um die Löschung deines Accounts abzubrechen, gib bitte dein Passwort unten ein:",
 			"scheduledCancelButton": "Um die Löschung deines Accounts abzubrechen, klicke unten auf den Button:",
 			"scheduledCancelConfirm": "Löschung meines Accounts abbrechen",
-			"scheduledCancelSuccess": "Wir werden deinen Account nicht löschen."
+			"scheduledCancelSuccess": "Wir werden deinen Account nicht löschen.",
+			"successor": {
+				"title": "Jemand muss die Organisation übernehmen",
+				"text": "Du verwaltest diese Organisation, und sie bleibt nie ohne Administrator. Wähle aus, wer sie übernimmt. Alle Mitglieder, Teams und Projekte bleiben bestehen; es gehen nur dein eigenes Konto und dein eigener Posteingang.",
+				"placeholder": "Person auswählen",
+				"required": "Wähle aus, wer die Organisation übernimmt, bevor du dein Konto löschst."
+			},
+			"erasure": {
+				"text": "Dein Konto wird von dem Dienst gelöscht, den du bezahlst, und nicht von diesem Produkt. Es geht sofort und überall: diese App, Percy und die API gemeinsam. Wir schreiben dir vorher eine E-Mail und löschen erst, wenn sie verschickt ist.",
+				"confirmTitle": "Konto endgültig löschen?",
+				"confirmText": "Es gibt keine Schonfrist und kein Zurück. Dein Posteingang geht mit dir und wird an niemanden weitergegeben.",
+				"confirmSuccessor": "{name} wird Organisationsadministrator.",
+				"unavailable": {
+					"title": "Das Löschen deines Kontos wird dort erledigt, wo dein Abonnement liegt.",
+					"text": "Auf dieser Instanz geht es nicht von dieser Seite aus. Dein Konto und alles darin bleiben unberührt.",
+					"action": "Konto öffnen"
+				},
+				"noAccount": "Wir finden kein Abonnement zu diesem Konto, es gibt hier also nichts zu löschen. Es wurde nichts geändert.",
+				"failed": "Wir konnten dein Konto nicht löschen, es wurde also nichts geändert. Das liegt an uns, nicht an dir, und du kannst es gleich erneut versuchen."
+			}
 		},
 		"export": {
 			"title": "Exportiere deine Brazn Tasks-Daten",

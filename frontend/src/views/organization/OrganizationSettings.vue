@@ -14,14 +14,16 @@ import SideNavShell from '@/components/misc/SideNavShell.vue'
 // responsive behaviour, its active-item styling and its stacking breakpoint,
 // and adds no layout primitive of its own.
 //
-// The seven entries are the seven pages, in the order the design lists them:
-// Overview first, because it is now the first page an administrator sees.
+// The eight entries are the eight pages, in the order the design lists them:
+// Overview first, because it is now the first page an administrator sees, and
+// Requests beside Members because both are about who is in the organization.
 const {t} = useI18n({useScope: 'global'})
 useTitle(() => t('organization.title'))
 
 const navigationItems = computed(() => [
 	{title: t('organization.overview.title'), routeName: 'organization.overview'},
 	{title: t('organization.members.title'), routeName: 'organization.members'},
+	{title: t('organization.requests.title'), routeName: 'organization.requests'},
 	{title: t('organization.seats.title'), routeName: 'organization.seats'},
 	{title: t('organization.teams.title'), routeName: 'organization.teams'},
 	{title: t('organization.administration.title'), routeName: 'organization.administration'},

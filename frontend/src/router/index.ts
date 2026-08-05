@@ -136,6 +136,11 @@ const router = createRouter({
 					component: () => import('@/views/organization/settings/OrganizationMembers.vue'),
 				},
 				{
+					path: '/organization/requests',
+					name: 'organization.requests',
+					component: () => import('@/views/organization/settings/OrganizationRequests.vue'),
+				},
+				{
 					path: '/organization/seats',
 					name: 'organization.seats',
 					component: () => import('@/views/organization/settings/OrganizationSeats.vue'),
@@ -193,6 +198,11 @@ const router = createRouter({
 					path: '/user/settings/feeds',
 					name: 'user.settings.feeds',
 					component: () => import('@/views/user/settings/AtomFeed.vue'),
+				},
+				{
+					path: '/user/settings/cancellation',
+					name: 'user.settings.cancellation',
+					component: () => import('@/views/user/settings/Cancellation.vue'),
 				},
 				{
 					path: '/user/settings/deletion',
