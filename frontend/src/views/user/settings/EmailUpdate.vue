@@ -1,6 +1,6 @@
 <template>
 	<Card
-		v-if="isLocalUser"
+		v-if="selfManagedCredentials"
 		:title="$t('user.settings.updateEmailTitle')"
 	>
 		<form @submit.prevent="updateEmail">
@@ -34,27 +34,29 @@
 			{{ $t('misc.save') }}
 		</XButton>
 	</Card>
+
+	<CredentialsManagedElsewhere v-else />
 </template>
 
 
 <script setup lang="ts">
-import {reactive, computed, shallowReactive} from 'vue'
+import {reactive, shallowReactive} from 'vue'
 import {useI18n} from 'vue-i18n'
 
 import EmailUpdateService from '@/services/emailUpdate'
 import EmailUpdateModel from '@/models/emailUpdate'
 import FormField from '@/components/input/FormField.vue'
+import CredentialsManagedElsewhere from '@/components/user/CredentialsManagedElsewhere.vue'
 import {success} from '@/message'
 import {useTitle} from '@/composables/useTitle'
-import {useAuthStore} from '@/stores/auth'
+import {useSelfManagedCredentials} from '@/composables/useSelfManagedCredentials'
 
 defineOptions({name: 'UserSettingsUpdateEmail'})
 
 const {t} = useI18n({useScope: 'global'})
 useTitle(() => `${t('user.settings.updateEmailTitle')} - ${t('user.settings.title')}`)
 
-const authStore = useAuthStore()
-const isLocalUser = computed(() => authStore.info?.isLocalUser)
+const selfManagedCredentials = useSelfManagedCredentials()
 
 const emailUpdate = reactive(new EmailUpdateModel())
 const emailUpdateService = shallowReactive(new EmailUpdateService())

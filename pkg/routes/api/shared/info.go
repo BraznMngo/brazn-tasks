@@ -61,6 +61,20 @@ type VikunjaInfos struct {
 	// commercial service is authoritative for and this product deliberately
 	// does not duplicate (BRA-917 AC5). Empty renders no link.
 	BraznAccountURL string `json:"brazn_account_url" doc:"Where the Organization area links out to for billing and membership. Empty when this instance has no commercial service behind it."`
+	// BraznManagedMode reports that account lifecycle on this instance belongs
+	// to the commercial service rather than to this API. It is the same value
+	// the managed gate enforces on, published so a client can stop DRAWING the
+	// controls that gate refuses - password, address, second factor and
+	// self-deletion are all service-managed, for everyone on the instance
+	// including its administrator, so the granularity here is the instance and
+	// not the account.
+	//
+	// A client that renders a form this instance will refuse is the Rules §1
+	// violation the Organization area already declines to commit; without this
+	// field the frontend has no way to know, because a provisioned account is
+	// created with the local issuer and therefore looks local to every check
+	// the browser can make.
+	BraznManagedMode bool `json:"brazn_managed_mode" doc:"Whether account lifecycle on this instance is performed by the commercial service. When true, clients must not offer password, email, second-factor or account-deletion controls, because this API refuses them."`
 }
 
 // AuthInfo describes the authentication methods enabled on this instance.
@@ -125,7 +139,8 @@ func BuildInfo() VikunjaInfos {
 			ImprintURL:       config.LegalImprintURL.GetString(),
 			PrivacyPolicyURL: config.LegalPrivacyURL.GetString(),
 		},
-		BraznAccountURL: config.BraznAccountURL.GetString(),
+		BraznAccountURL:  config.BraznAccountURL.GetString(),
+		BraznManagedMode: config.BraznManagedMode.GetBool(),
 		AuthInfo: AuthInfo{
 			Local: LocalAuthInfo{
 				Enabled:             config.AuthLocalEnabled.GetBool(),

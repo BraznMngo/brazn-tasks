@@ -9,6 +9,7 @@
 import {computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {useTitle} from '@/composables/useTitle'
+import {useSelfManagedCredentials} from '@/composables/useSelfManagedCredentials'
 import {useConfigStore} from '@/stores/config'
 import {useAuthStore} from '@/stores/auth'
 
@@ -23,7 +24,7 @@ const authStore = useAuthStore()
 const totpEnabled = computed(() => configStore.totpEnabled)
 const caldavEnabled = computed(() => configStore.caldavEnabled)
 const migratorsEnabled = computed(() => configStore.migratorsEnabled)
-const isLocalUser = computed(() => authStore.info?.isLocalUser)
+const selfManagedCredentials = useSelfManagedCredentials()
 const userDeletionEnabled = computed(() => configStore.userDeletionEnabled)
 const webhooksEnabled = computed(() => configStore.webhooksEnabled)
 
@@ -36,12 +37,12 @@ const navigationItems = computed(() => {
 		{
 			title: t('user.settings.newPasswordTitle'),
 			routeName: 'user.settings.password-update',
-			condition: isLocalUser.value,
+			condition: selfManagedCredentials.value,
 		},
 		{
 			title: t('user.settings.updateEmailTitle'),
 			routeName: 'user.settings.email-update',
-			condition: isLocalUser.value,
+			condition: selfManagedCredentials.value,
 		},
 		{
 			title: t('user.settings.avatar.title'),
@@ -50,7 +51,7 @@ const navigationItems = computed(() => {
 		{
 			title: t('user.settings.totp.title'),
 			routeName: 'user.settings.totp',
-			condition: totpEnabled.value && isLocalUser.value,
+			condition: totpEnabled.value && selfManagedCredentials.value,
 		},
 		{
 			title: t('user.export.title'),

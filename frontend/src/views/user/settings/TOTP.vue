@@ -1,6 +1,6 @@
 <template>
 	<Card
-		v-if="totpEnabled && isLocalUser"
+		v-if="totpEnabled && selfManagedCredentials"
 		:title="$t('user.settings.totp.title')"
 	>
 		<XButton
@@ -78,6 +78,8 @@
 			</div>
 		</template>
 	</Card>
+
+	<CredentialsManagedElsewhere v-else />
 </template>
 
 
@@ -88,10 +90,12 @@ import {useI18n} from 'vue-i18n'
 import TotpService from '@/services/totp'
 import TotpModel from '@/models/totp'
 import FormField from '@/components/input/FormField.vue'
+import CredentialsManagedElsewhere from '@/components/user/CredentialsManagedElsewhere.vue'
 
 import {success} from '@/message'
 
 import {useTitle} from '@/composables/useTitle'
+import {useSelfManagedCredentials} from '@/composables/useSelfManagedCredentials'
 import {useConfigStore} from '@/stores/config'
 import {useAuthStore} from '@/stores/auth'
 import type {ITotp} from '@/modelTypes/ITotp'
@@ -112,12 +116,12 @@ const totpDisablePassword = ref('')
 const configStore = useConfigStore()
 const authStore = useAuthStore()
 const totpEnabled = computed(() => configStore.totpEnabled)
-const isLocalUser = computed(() => authStore.info?.isLocalUser)
+const selfManagedCredentials = useSelfManagedCredentials()
 
 totpStatus()
 
 async function totpStatus() {
-	if (!totpEnabled.value || !isLocalUser.value) {
+	if (!totpEnabled.value || !selfManagedCredentials.value) {
 		return
 	}
 	try {

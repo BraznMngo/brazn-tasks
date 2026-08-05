@@ -76,9 +76,23 @@
       "roleAdministrator": "Organization administrator",
       "roleMember": "Member",
       "managedElsewhere": {
-        "title": "Invitations and removals are handled where your subscription lives.",
-        "text": "Who holds a paid seat is decided by the service you pay, not by this product, so inviting and removing people happen there and the change appears here. This page shows who currently holds one.",
-        "action": "Manage members"
+        "title": "Invitations are handled where your subscription lives.",
+        "text": "Who may be offered a paid seat is decided by the service you pay, so invitations are sent there and the new member appears here. Removing someone is done on this page.",
+        "action": "Invite someone"
+      },
+      "remove": {
+        "action": "Remove",
+        "confirm": {
+          "title": "Remove {name}?",
+          "access": "They lose access immediately. Organization and team access, Percy's access and direct API access all stop together. There is no grace period, no read-only tail and no undo.",
+          "inbox": "Their Inbox closes with them and does not come to you. You were never able to read it and removing them does not change that. They get a copy of their own tasks by email and can fetch it for 30 days.",
+          "team": "Anything they had moved into a team project stays. Those were never theirs alone."
+        },
+        "removed": "{name} was removed. Their access ended the moment you confirmed, and the seat is free again.",
+        "stillAdministrator": "The organization administrator cannot be removed, because that would leave this organization without one. The role is transferred where your subscription lives, and the person can be removed once someone else holds it.",
+        "notAMember": "That person is not a member of this organization any more. Nothing was changed, and the list above has been brought up to date.",
+        "notAdministrator": "Only the organization administrator can remove a member, and this account no longer is one. Nothing was changed.",
+        "unavailable": "We could not complete the removal, so nothing was changed. This is our side, not yours, and it is safe to try again in a moment."
       }
     },
     "seats": {
@@ -269,6 +283,11 @@
       "updateEmailTitle": "Update Your Email Address",
       "updateEmailNew": "New email address",
       "updateEmailSuccess": "Your email address was successfully updated. We've sent you a link to confirm it.",
+      "managedElsewhere": {
+        "title": "Your sign-in details are handled where your subscription lives.",
+        "text": "Your password, your email address and your second factor belong to the account you signed up with, not to this product. Changing them there changes them here.",
+        "action": "Open your account"
+      },
       "general": {
         "title": "General Settings",
         "name": "My Name",

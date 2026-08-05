@@ -76,9 +76,23 @@
 			"roleAdministrator": "Organisationsadministrator",
 			"roleMember": "Mitglied",
 			"managedElsewhere": {
-				"title": "Einladungen und Entfernungen laufen dort, wo euer Abonnement liegt.",
-				"text": "Wer einen bezahlten Sitzplatz hält, entscheidet der Dienst, den ihr bezahlt, und nicht dieses Produkt. Einladen und Entfernen passieren dort, die Änderung erscheint hier. Diese Seite zeigt, wer aktuell einen hält.",
-				"action": "Mitglieder verwalten"
+				"title": "Einladungen laufen dort, wo euer Abonnement liegt.",
+				"text": "Wer einen bezahlten Sitzplatz bekommen darf, entscheidet der Dienst, den ihr bezahlt. Einladungen werden dort verschickt, das neue Mitglied erscheint hier. Das Entfernen geschieht auf dieser Seite.",
+				"action": "Jemanden einladen"
+			},
+			"remove": {
+				"action": "Entfernen",
+				"confirm": {
+					"title": "{name} entfernen?",
+					"access": "Der Zugang endet sofort. Organisations- und Teamzugang, Percys Zugang und der direkte API-Zugang enden gemeinsam. Es gibt keine Schonfrist, keine Lesephase und kein Zurück.",
+					"inbox": "Der Posteingang wird mit der Person geschlossen und geht nicht an euch über. Ihr konntet ihn nie lesen, und das Entfernen ändert daran nichts. Die Person erhält eine Kopie ihrer eigenen Aufgaben per E-Mail und kann sie 30 Tage lang abrufen.",
+					"team": "Was die Person in ein Teamprojekt verschoben hat, bleibt dort. Das gehörte nie ihr allein."
+				},
+				"removed": "{name} wurde entfernt. Der Zugang endete in dem Moment, in dem ihr bestätigt habt, und der Sitzplatz ist wieder frei.",
+				"stillAdministrator": "Der Organisationsadministrator kann nicht entfernt werden, weil diese Organisation sonst ohne einen dastünde. Die Rolle wird dort übertragen, wo euer Abonnement liegt, und die Person kann entfernt werden, sobald jemand anderes sie hält.",
+				"notAMember": "Diese Person ist kein Mitglied dieser Organisation mehr. Es wurde nichts geändert, und die Liste oben ist jetzt aktuell.",
+				"notAdministrator": "Nur der Organisationsadministrator kann Mitglieder entfernen, und dieses Konto ist es nicht mehr. Es wurde nichts geändert.",
+				"unavailable": "Das Entfernen konnte nicht abgeschlossen werden, es wurde also nichts geändert. Das liegt an uns, nicht an euch, und ihr könnt es gleich erneut versuchen."
 			}
 		},
 		"seats": {
@@ -269,6 +283,11 @@
 			"updateEmailTitle": "Aktualisiere deine E-Mail-Adresse",
 			"updateEmailNew": "Neue E-Mail-Adresse",
 			"updateEmailSuccess": "Deine E-Mail-Adresse wurde erfolgreich aktualisiert. Wir haben dir einen Link zur Bestätigung geschickt.",
+			"managedElsewhere": {
+				"title": "Deine Anmeldedaten werden dort verwaltet, wo dein Abonnement liegt.",
+				"text": "Dein Passwort, deine E-Mail-Adresse und dein zweiter Faktor gehören zu dem Konto, mit dem du dich angemeldet hast, und nicht zu diesem Produkt. Wenn du sie dort änderst, ändern sie sich auch hier.",
+				"action": "Konto öffnen"
+			},
 			"general": {
 				"title": "Allgemeine Einstellungen",
 				"name": "Mein Name",

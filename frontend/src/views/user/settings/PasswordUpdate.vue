@@ -1,6 +1,6 @@
 <template>
 	<Card
-		v-if="isLocalUser"
+		v-if="selfManagedCredentials"
 		:title="$t('user.settings.newPasswordTitle')"
 		:loading="passwordUpdateService.loading"
 	>
@@ -36,6 +36,8 @@
 			{{ $t('misc.save') }}
 		</XButton>
 	</Card>
+
+	<CredentialsManagedElsewhere v-else />
 </template>
 
 
@@ -47,10 +49,11 @@ import PasswordUpdateService from '@/services/passwordUpdateService'
 import PasswordUpdateModel from '@/models/passwordUpdate'
 import FormField from '@/components/input/FormField.vue'
 import Password from '@/components/input/Password.vue'
+import CredentialsManagedElsewhere from '@/components/user/CredentialsManagedElsewhere.vue'
 
 import {useTitle} from '@/composables/useTitle'
 import {success} from '@/message'
-import {useAuthStore} from '@/stores/auth'
+import {useSelfManagedCredentials} from '@/composables/useSelfManagedCredentials'
 import {validatePassword} from '@/helpers/validatePasswort'
 
 defineOptions({name: 'UserSettingsPasswordUpdate'})
@@ -61,8 +64,7 @@ const passwordUpdate = reactive(new PasswordUpdateModel())
 const {t} = useI18n({useScope: 'global'})
 useTitle(() => `${t('user.settings.newPasswordTitle')} - ${t('user.settings.title')}`)
 
-const authStore = useAuthStore()
-const isLocalUser = computed(() => authStore.info?.isLocalUser)
+const selfManagedCredentials = useSelfManagedCredentials()
 const isValid = computed(() => validatePassword(passwordUpdate.newPassword) === true && passwordUpdate.oldPassword !== '')
 
 async function updatePassword() {

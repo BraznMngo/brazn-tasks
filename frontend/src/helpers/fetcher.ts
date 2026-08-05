@@ -21,6 +21,23 @@ export function apiV2Url(path: string): string {
 	return new URL(v2Base + path, window.location.origin).toString()
 }
 
+/**
+ * Returns an absolute URL for a commercial-service `/v1` path.
+ *
+ * The commercial service owns `/v1` on the same host that serves this app —
+ * `/brazntasks` here, `/v1` there, one origin — so these are SAME-ORIGIN
+ * requests and need no CORS. The service publishes no CORS headers at all, so
+ * an instance that split the two across origins would not merely need this
+ * function changed; it would need the service changed.
+ *
+ * Absolute for `apiV2Url`'s reason: the shared axios instances pin `baseURL` to
+ * this fork's own `/api/v1`, so a relative path would be sent to
+ * `…/brazntasks/api/v1/v1/…` and never arrive.
+ */
+export function commercialV1Url(path: string): string {
+	return new URL(`/v1/${path}`, window.location.origin).toString()
+}
+
 export function HTTPFactory() {
 	const instance = axios.create({
 		baseURL: getApiBaseUrl(),
