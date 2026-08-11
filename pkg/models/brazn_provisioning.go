@@ -372,6 +372,33 @@ func MailboxForSubject(subject string) (string, error) {
 	return found.Email, nil
 }
 
+// RevokeSessionForSubject deletes one Brazn Tasks session, scoped to the
+// subject provisioning names as its owner (BRA-1014).
+//
+// A session that is already gone - never existed, already revoked, expired
+// and swept, or belonged to a different user than the one named - is not a
+// refusal. Revocation must be safe to repeat: the commercial service calls
+// this before it marks its own device-authorization row revoked, and a retry
+// of a call whose response it lost must be able to commit rather than fail
+// against a row that no longer needs deleting.
+//
+// A MALFORMED SUBJECT IS NOT THE SAME CASE, matching EraseSubject's own rule
+// and for the same reason: the commercial service validates subject ids
+// against ^[1-9][0-9]{0,18}$ before it ever stores one, so this cannot arise
+// from a correct sender. Answering success for it would report a revocation
+// that could not have happened, so it is refused rather than swallowed as
+// nothing-to-revoke.
+func RevokeSessionForSubject(ctx context.Context, subject, sessionID string) error {
+	id, err := strconv.ParseInt(subject, 10, 64)
+	if err != nil || id < 1 {
+		return ErrProvisioningSubjectUnknown
+	}
+
+	return provisionInTransaction(ctx, func(s *xorm.Session) error {
+		return DeleteSessionForUser(s, sessionID, id)
+	})
+}
+
 // UserResolution is what one resolve_user request answers with: the user this
 // instance holds for the subject named, and whether its mailbox is confirmed.
 //

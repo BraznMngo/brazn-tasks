@@ -179,6 +179,24 @@ func (sess *Session) Delete(s *xorm.Session, a web.Auth) error {
 	return err
 }
 
+// DeleteSessionForUser deletes one session scoped to the user it belongs to,
+// for callers that are not a web.Auth (BRA-1014) - the signed provisioning
+// channel, which authenticates the message rather than a session, so there is
+// no acting user for Delete's own signature to take.
+//
+// Both id and user_id are in the same WHERE as Delete's: a caller naming
+// somebody else's session id must not be able to remove it by getting the
+// user id wrong, in either direction.
+//
+// Zero rows affected is not an error. The session may already be gone -
+// signed out, expired and swept, or already revoked - and revocation has to
+// be safe to repeat: the commercial service retries a call whose response it
+// may have lost, and a retry must be able to commit.
+func DeleteSessionForUser(s *xorm.Session, sessionID string, userID int64) error {
+	_, err := s.Where("id = ? AND user_id = ?", sessionID, userID).Delete(&Session{})
+	return err
+}
+
 // UpdateSessionLastActive updates the last_active timestamp of a session.
 func UpdateSessionLastActive(s *xorm.Session, sessionID string) error {
 	_, err := s.Where("id = ?", sessionID).

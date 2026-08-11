@@ -213,6 +213,8 @@ func BraznProvision(c *echo.Context) error {
 		return eraseSubject(c, payload)
 	case provisioning.OperationResolveUser:
 		return resolveUser(c, payload)
+	case provisioning.OperationRevokeSession:
+		return revokeSession(c, payload)
 	default:
 		// An operation this build does not define is refused rather than
 		// guessed at, in exactly the way an unknown edition is on the
@@ -478,6 +480,49 @@ func eraseSubject(c *echo.Context, payload json.RawMessage) error {
 	// is the line an erasure is read back from afterwards.
 	log.Debugf("Erased Brazn Tasks subject %s for organization %q",
 		request.UserID, request.OrganizationID)
+
+	return c.JSON(http.StatusOK, &nothingToReport{})
+}
+
+// revokeSession is the revoke_session operation (BRA-1014): destroy one
+// session, so the device it belongs to can no longer refresh into a new
+// access token.
+//
+// A SESSION ALREADY GONE IS A SUCCESS, matching eraseSubject's own rule and
+// for the same reason: the commercial service calls this before it marks its
+// device-authorization row revoked (cloud/service/src/service.ts), so a retry
+// after a response it lost must be able to commit rather than fail against a
+// row this instance already removed.
+//
+// A SUBJECT THIS INSTANCE COULD NOT HAVE MINTED IS NOT THE SAME CASE, and
+// answers a 400 rather than the success above. See
+// models.RevokeSessionForSubject for why.
+//
+// The reply is `{}` like every other operation on this channel that destroys
+// rather than reports - there is nothing here for the caller to read, and a
+// count would be a fact about this schema the commercial layer must not come
+// to depend on.
+func revokeSession(c *echo.Context, payload json.RawMessage) error {
+	request, err := provisioning.DecodeRevokeSession(payload)
+	if err != nil {
+		return refuseProvisioning("the revoke_session request is not one this build accepts")
+	}
+
+	if err := models.RevokeSessionForSubject(c.Request().Context(), request.UserID, request.SessionID); err != nil {
+		// Reached only for a subject id that is not a decimal number at all,
+		// which no correct sender can produce - never for one that is merely
+		// absent. models.RevokeSessionForSubject draws that line and says why.
+		if errors.Is(err, models.ErrProvisioningSubjectUnknown) {
+			return refuseProvisioning(
+				"the revoke_session request names a subject this instance could not have minted")
+		}
+		return err
+	}
+
+	// The subject and nothing else - no session id, which on every other
+	// device that subject holds is exactly as sensitive as the one being
+	// revoked, and this line is not the audit trail for which one that was.
+	log.Debugf("Revoked a session for Brazn Tasks subject %s", request.UserID)
 
 	return c.JSON(http.StatusOK, &nothingToReport{})
 }
