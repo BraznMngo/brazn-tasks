@@ -533,6 +533,21 @@ func registerAPIRoutes(a *echo.Group) {
 	ur.Use(RateLimit(rateLimiter, "ip"))
 	ur.Use(RequireManagedPolicy())
 
+	// The commercial ingest routes' own group (BRA-1208), unconditional like
+	// ur's for the same reason: a protection that exists only when an
+	// unrelated switch (ratelimit.enabled) happens to be on is a protection
+	// nobody can rely on. Not ur itself - ur's limit is sized for humans
+	// guessing a password, and every request on these two routes legitimately
+	// arrives from one address (Percy Cloud), so a per-human-guesser budget
+	// would throttle the one real caller long before it bothered an attacker.
+	bi := a.Group("")
+	braznIngestRate := limiter.Rate{
+		Period: 60 * time.Second,
+		Limit:  config.RateLimitBraznIngestLimit.GetInt64(),
+	}
+	bi.Use(RateLimit(createRateLimiter(braznIngestRate), "ip"))
+	bi.Use(RequireManagedPolicy())
+
 	if config.AuthLocalEnabled.GetBool() {
 		ur.POST("/register", apiv1.RegisterUser)
 		ur.POST("/user/password/token", apiv1.UserRequestResetPasswordToken)
@@ -571,25 +586,26 @@ func registerAPIRoutes(a *echo.Group) {
 	// and refuses everything while brazn.entitlementkeys is empty - which is
 	// the default, so an instance nobody configured is inert rather than open.
 	//
-	// Registered on n and not on ur, even though it takes no JWT: ur's
-	// ten-requests-per-minute-per-IP cap is sized for humans guessing
-	// passwords, and every projection in the system arrives from one address.
-	// Note what that leaves, because it is easy to read this as "n limits it
-	// some other way": n's own limiter is attached only when ratelimit.enabled
-	// is set, and that defaults to false, so on a stock instance this route has
-	// no rate limit at all while still writing a log line per refusal.
+	// Registered on bi and neither n nor ur (BRA-1208). Not ur, even though it
+	// takes no JWT: ur's ten-requests-per-minute-per-IP cap is sized for
+	// humans guessing passwords, and every projection in the system arrives
+	// from one address. Not n either any more - n's own limiter is attached
+	// only when ratelimit.enabled is set, and that defaults to false, which
+	// used to mean this route had no rate limit at all on a stock instance
+	// while still writing a log line per refusal. bi's limiter has no such
+	// switch.
 	//
 	// Registered unconditionally, like every other route here. Gating it on
 	// brazn.managedmode would make the route table depend on an operator's
 	// config, and the classification harness derives the mutating surface from
 	// this function - a route that appears only sometimes is a route that is
 	// sometimes unclassified.
-	n.POST("/brazn/entitlements", apiv1.BraznApplyEntitlementProjection)
+	bi.POST("/brazn/entitlements", apiv1.BraznApplyEntitlementProjection)
 
-	// The provisioning channel (BRA-1018). Registered on n, unconditionally,
-	// and unauthenticated at the transport for every reason the entitlement
-	// ingest above is: it is the same seam, authenticated the same way, and
-	// refuses everything while brazn.entitlementkeys is empty.
+	// The provisioning channel (BRA-1018). Registered on bi (BRA-1208),
+	// unconditionally, and unauthenticated at the transport for every reason
+	// the entitlement ingest above is: it is the same seam, authenticated the
+	// same way, and refuses everything while brazn.entitlementkeys is empty.
 	//
 	// ONE ROUTE, NOT ONE PER OPERATION. The operation is a value inside the
 	// signed payload, so the second one (BRA-1026's organization roots) needs
@@ -600,7 +616,7 @@ func registerAPIRoutes(a *echo.Group) {
 	// signature-authenticated service-plane channel for Percy Cloud, not a
 	// JWT-authenticated resource for product clients, so new operations land
 	// here rather than on /api/v2.
-	n.POST("/brazn/provisioning", apiv1.BraznProvision)
+	bi.POST("/brazn/provisioning", apiv1.BraznProvision)
 
 	// Link share auth
 	if config.ServiceEnableLinkSharing.GetBool() {

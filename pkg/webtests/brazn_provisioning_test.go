@@ -21,6 +21,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -28,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/user"
@@ -234,6 +236,40 @@ func TestCreateOrResolveUserForMailboxRecoversFromALostProvisioning(t *testing.T
 	assert.Equal(t, winnerID, resolved.ID)
 
 	db.AssertCount(t, "brazn_provisioned_users", builder.Eq{"email": "raced@example.com"}, 1)
+}
+
+// TestBraznProvisioningIsRateLimitedIndependentlyOfTheGlobalSwitch pins
+// BRA-1208's whole point: ratelimit.enabled being OFF must not remove the
+// protection on this route, because that switch has nothing to do with it -
+// n's own limiter (the general unauthenticated group) is gated on it, but
+// this route no longer lives on n.
+//
+// THE CHEAP CHECK: register /brazn/provisioning back on n instead of bi
+// (routes.go, its state before this ticket) and this goes red, because
+// ratelimit.enabled is deliberately false here.
+//
+// THE OTHER CHEAP CHECK CLAUDE.md warns about: every request below is a
+// genuinely well-formed, correctly signed create_user request for a distinct
+// mailbox - never a malformed one - so the 429 this asserts cannot be the
+// signature or envelope check refusing something else and merely looking
+// like the rate limit.
+//
+// /brazn/entitlements is not re-tested here: it is registered on the SAME
+// bi group with the SAME middleware (routes.go), so this is one assertion
+// about the group both routes share rather than two identical ones.
+func TestBraznProvisioningIsRateLimitedIndependentlyOfTheGlobalSwitch(t *testing.T) {
+	setConfigForTest(t, config.RateLimitBraznIngestLimit, int64(2))
+	setConfigForTest(t, config.RateLimitEnabled, false)
+
+	env := newManagedEnv(t)
+
+	for i := 0; i < 2; i++ {
+		rec := env.provision(createUserPayload(fmt.Sprintf("ingest-%d@example.com", i)))
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	refused := env.provision(createUserPayload("ingest-over-budget@example.com"))
+	assert.Equal(t, http.StatusTooManyRequests, refused.Code, refused.Body.String())
 }
 
 // TestBraznProvisioningAdoptsAnAccountThisInstanceAlreadyHas covers the
