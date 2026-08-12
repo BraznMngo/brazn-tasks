@@ -135,6 +135,23 @@ func TestBraznRevokeSessionCannotReachAnotherUsersSession(t *testing.T) {
 	db.AssertMissing(t, "sessions", map[string]interface{}{"id": sessionID})
 }
 
+// TestBraznRevokeSessionRefusesALeadingZeroUserID pins the fix for the
+// aliasing gap ParseInt's leniency opens: "01" parses to the same int64 a
+// correct sender's bare "1" would, so without a round-trip check a malformed
+// subject does not read as absent, it reads as the REAL user underneath it -
+// and here that would delete a session belonging to someone the caller never
+// named correctly.
+func TestBraznRevokeSessionRefusesALeadingZeroUserID(t *testing.T) {
+	env := newManagedEnv(t)
+
+	created := provisioned(t, env.provision(createUserPayload("revoke-leading-zero@example.com")))
+	sessionID := createSessionForTest(t, mustParseSubject(t, created.ID))
+
+	rec := env.provision(revokeSessionPayload("0"+created.ID, sessionID))
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	db.AssertExists(t, "sessions", map[string]interface{}{"id": sessionID}, false)
+}
+
 func TestBraznRevokeSessionRefusesWhatItCannotAccept(t *testing.T) {
 	env := newManagedEnv(t)
 
@@ -156,6 +173,11 @@ func TestBraznRevokeSessionRefusesWhatItCannotAccept(t *testing.T) {
 			"a user id that is not one this instance could have minted",
 			`{"contract_version":"1","operation":"revoke_session","session_id":"` +
 				`550e8400-e29b-41d4-a716-446655440000","user_id":"not-a-number"}`,
+		},
+		{
+			"a session id outside the identifier class",
+			`{"contract_version":"1","operation":"revoke_session",` +
+				`"session_id":"550e8400 e29b 41d4","user_id":"1"}`,
 		},
 	} {
 		t.Run(refused.what, func(t *testing.T) {

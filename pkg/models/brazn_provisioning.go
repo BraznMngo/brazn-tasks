@@ -388,9 +388,14 @@ func MailboxForSubject(subject string) (string, error) {
 // from a correct sender. Answering success for it would report a revocation
 // that could not have happened, so it is refused rather than swallowed as
 // nothing-to-revoke.
+//
+// THE ROUND-TRIP CHECK IS NOT REDUNDANT WITH id < 1. ParseInt accepts leading
+// zeros - "01" parses to the same 1 a correct sender would send bare - so
+// without it a malformed subject does not fall into "no such id", it ALIASES
+// a real one, and this would revoke a session it was never asked to.
 func RevokeSessionForSubject(ctx context.Context, subject, sessionID string) error {
 	id, err := strconv.ParseInt(subject, 10, 64)
-	if err != nil || id < 1 {
+	if err != nil || id < 1 || strconv.FormatInt(id, 10) != subject {
 		return ErrProvisioningSubjectUnknown
 	}
 
