@@ -17,6 +17,7 @@
 package webtests
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
@@ -25,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/models"
@@ -175,6 +177,56 @@ func TestTheMailboxClaimCannotBeHeldTwice(t *testing.T) {
 	require.Error(t, err, "the mailbox is the unique key, and a second claim on it must not be stored")
 	assert.True(t, db.IsUniqueConstraintError(err, "brazn_provisioned_users"),
 		"the refusal must come from the unique index, not from something else: %v", err)
+}
+
+// TestCreateOrResolveUserForMailboxRecoversFromALostProvisioning constructs
+// the exact state ErrMailboxProvisioningLost answers (BRA-1207) directly on
+// the table, for the same reason TestTheMailboxClaimCannotBeHeldTwice does:
+// two real goroutines racing an INSERT on SQLite very likely just run one
+// after the other, which would prove nothing about the retry. A claim row
+// whose winner crashed before recording its UserID is a state this call
+// genuinely produces (see resolveProvisionedMailbox's own comment), and
+// constructing it directly is the only reliable way to put a test on the
+// other side of it.
+//
+// THE CHEAP CHECK: reduce maxMailboxProvisioningAttempts to 1 (no retry) and
+// this goes red — the first and only read finds UserID 0 and returns
+// ErrMailboxProvisioningLost before the goroutine below has fixed it.
+func TestCreateOrResolveUserForMailboxRecoversFromALostProvisioning(t *testing.T) {
+	env := newManagedEnv(t)
+
+	// A real user to be "the winner" - created through the ordinary path so
+	// resolveProvisionedMailbox's final userByID has a real row to find.
+	winner := provisioned(t, env.provision(createUserPayload("winner@example.com")))
+	winnerID, err := strconv.ParseInt(winner.ID, 10, 64)
+	require.NoError(t, err)
+
+	s := db.NewSession()
+	claim := &models.ProvisionedUser{Email: "raced@example.com", UserID: 0}
+	_, err = s.Insert(claim)
+	require.NoError(t, err)
+	require.NoError(t, s.Commit())
+	s.Close()
+
+	// The "other provisioning call" finishing shortly after this one starts -
+	// late enough that the first two attempts still see UserID 0 and only the
+	// third succeeds, proving the retry ran rather than merely not mattering.
+	go func() {
+		time.Sleep(70 * time.Millisecond)
+		fix := db.NewSession()
+		defer fix.Close()
+		_, updateErr := fix.Where("email = ?", "raced@example.com").
+			Cols("user_id").Update(&models.ProvisionedUser{UserID: winnerID})
+		require.NoError(t, updateErr)
+		require.NoError(t, fix.Commit())
+	}()
+
+	resolved, created, err := models.CreateOrResolveUserForMailbox(context.Background(), "raced@example.com")
+	require.NoError(t, err, "the retry must recover once the other call's commit lands")
+	assert.False(t, created, "the mailbox already had a winner; this call resolved rather than created")
+	assert.Equal(t, winnerID, resolved.ID)
+
+	db.AssertCount(t, "brazn_provisioned_users", builder.Eq{"email": "raced@example.com"}, 1)
 }
 
 // TestBraznProvisioningAdoptsAnAccountThisInstanceAlreadyHas covers the
