@@ -45,21 +45,19 @@ func newFeedbackEnv(t *testing.T) *managedEnv {
 }
 
 // provisionFeedback runs the product's own provisioning for one member and
-// returns the project id it bound the exemption to.
+// returns the id of the sub-project it bound their exemption to.
 func (env *managedEnv) provisionFeedback(member *user.User) int64 {
 	env.t.Helper()
 
 	s := db.NewSession()
 	defer s.Close()
 
-	require.NoError(env.t, models.ProvisionFeedbackAccess(s, member))
-
-	project, err := models.FeedbackProject(s)
+	projectID, err := models.ProvisionFeedbackAccess(s, member)
 	require.NoError(env.t, err)
-	require.NotNil(env.t, project, "provisioning must leave a Percy Feedback project behind")
+	require.NotZero(env.t, projectID, "provisioning must leave a Percy Feedback sub-project behind")
 	require.NoError(env.t, s.Commit())
 
-	return project.ProjectID
+	return projectID
 }
 
 func countFeedbackEntities(t *testing.T) int64 {
@@ -237,11 +235,12 @@ func TestFeedbackEnrolmentGrantsNothingBeyondTheOneProject(t *testing.T) {
 }
 
 // TestFeedbackMembersEndpointIsNotACrossOrganisationDirectory pins BRA-1182
-// (A2). Percy Feedback enrols every account on the instance with Write, so its
-// members listing - unlike an ordinary project's, whose membership a sharer
-// chose deliberately - is a full instance-wide user and email directory to
-// anyone merely enrolled, unless this endpoint refuses them the way the
-// general users endpoint already does.
+// (A2), against the one project a members listing can still say anything
+// about after BRA-1180 (A1) gave every reporter their own sub-project: the
+// root. Two accounts enrolled there directly - which no code path takes after
+// A1, but which is exactly the shape an instance that ran the pre-A1
+// provisioning still carries for every account already registered before
+// this ticket - is the members listing this guard exists for.
 //
 // Two separate assertions, because they are two separate exposures: an empty
 // search enumerates every reporter, and an exact search for a known username
@@ -255,12 +254,28 @@ func TestFeedbackEnrolmentGrantsNothingBeyondTheOneProject(t *testing.T) {
 func TestFeedbackMembersEndpointIsNotACrossOrganisationDirectory(t *testing.T) {
 	env := newFeedbackEnv(t)
 
-	feedback := env.provisionFeedback(&testuser1)
-	require.Equal(t, feedback, env.provisionFeedback(&testuser2),
-		"a second reporter must join the same Percy Feedback project, or this test is not exercising the shared directory")
+	// A throwaway third reporter's own provisioning is what brings the root
+	// into existence at all; this test's own two reporters are enrolled on
+	// that root directly below, simulating the pre-A1 dual enrolment an
+	// instance still carries for every account registered before A1 shipped -
+	// provisionFeedback gives each reporter their own sub-project now, so this
+	// guard's real target has to be built by hand rather than provisioned.
+	env.provisionFeedback(&testuser15)
 
-	owner, err := user.GetUserByUsername(dbSessionForTest(t), feedbackOwnerUsername)
+	s := dbSessionForTest(t)
+	root, err := models.FeedbackProject(s)
 	require.NoError(t, err)
+	require.NotNil(t, root)
+	feedback := root.ProjectID
+
+	owner, err := user.GetUserByUsername(s, feedbackOwnerUsername)
+	require.NoError(t, err)
+
+	for _, reporter := range []*user.User{&testuser1, &testuser2} {
+		member := &models.ProjectUser{ProjectID: feedback, Username: reporter.Username, Permission: models.PermissionWrite}
+		require.NoError(t, member.Create(s, owner))
+	}
+	require.NoError(t, s.Commit())
 
 	path := fmt.Sprintf("/api/v1/projects/%d/users", feedback)
 
@@ -279,6 +294,40 @@ func TestFeedbackMembersEndpointIsNotACrossOrganisationDirectory(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		assert.Contains(t, rec.Body.String(), testuser1.Username)
 		assert.Contains(t, rec.Body.String(), testuser2.Username)
+	})
+}
+
+// TestFeedbackSubProjectsAreIsolatedPerReporter pins BRA-1180 (A1)'s core
+// acceptance criterion, over the real route and against a genuine second
+// reporter: a reporter reaches only their own Percy Feedback sub-project.
+//
+// The two provisioned ids being different IS the structural claim this ticket
+// makes - isolation is a property of there being two projects, not of a
+// permission tweak on one - so it is asserted here rather than only implied
+// by the requests below succeeding or failing.
+func TestFeedbackSubProjectsAreIsolatedPerReporter(t *testing.T) {
+	env := newFeedbackEnv(t)
+
+	feedbackA := env.provisionFeedback(&testuser1)
+	feedbackB := env.provisionFeedback(&testuser2)
+	require.NotEqual(t, feedbackA, feedbackB,
+		"two reporters must land in two different projects, or there is nothing here to isolate")
+
+	t.Run("control: a reporter can file into their own sub-project", func(t *testing.T) {
+		rec := env.request(http.MethodPost, "/api/v1/tasks/1",
+			fmt.Sprintf(`{"id":1,"title":"my own report","project_id":%d}`, feedbackA), &testuser1)
+		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	})
+
+	t.Run("a reporter cannot file into another reporter's sub-project", func(t *testing.T) {
+		rec := env.request(http.MethodPost, "/api/v1/tasks/2",
+			fmt.Sprintf(`{"id":2,"title":"planted report","project_id":%d}`, feedbackB), &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	})
+
+	t.Run("a reporter cannot read another reporter's sub-project members listing", func(t *testing.T) {
+		rec := env.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d/users", feedbackB), "", &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
 	})
 }
 
@@ -310,10 +359,11 @@ func TestFeedbackIsNotProvisionedWithoutAResolvableOwner(t *testing.T) {
 			s := db.NewSession()
 			defer s.Close()
 
-			require.NoError(t, models.ProvisionFeedbackAccess(s, &testuser1),
-				"an unresolvable owner must not fail the registration it runs inside")
+			projectID, err := models.ProvisionFeedbackAccess(s, &testuser1)
+			require.NoError(t, err, "an unresolvable owner must not fail the registration it runs inside")
 			require.NoError(t, s.Commit())
 
+			assert.Zero(t, projectID, "no owner means no sub-project either")
 			assert.Zero(t, countFeedbackEntities(t), "no owner means no project")
 			assert.Len(t, projectMemberships(t, testuser1.ID), before, "and no enrolment")
 		})

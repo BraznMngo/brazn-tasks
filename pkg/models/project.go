@@ -1156,7 +1156,7 @@ func CreateNewProjectForUser(s *xorm.Session, u *user.User) (err error) {
 		if err := RegisterProtectedProject(s, ProtectedKindInbox, p.ID, 0); err != nil {
 			return err
 		}
-		if err := ProvisionFeedbackAccess(s, u); err != nil {
+		if _, err := ProvisionFeedbackAccess(s, u); err != nil {
 			return err
 		}
 	}

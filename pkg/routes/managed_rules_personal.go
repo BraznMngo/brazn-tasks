@@ -66,17 +66,28 @@ func denyPersonal(reason string) managedRuleFunc {
 }
 
 // decidePersonalTaskMove allows a task to be moved only into the account's own
-// Inbox or into Percy Feedback.
+// Inbox or into the account's own Percy Feedback sub-project.
 //
 // Percy Feedback is the whole of "controlled task submission": a customer can
-// send work into it, and that is all. Everything that would weaken the
-// account's isolation - renaming it, deleting it, sharing it, nesting anything
-// under it - is refused by the rules above, which treat it exactly like the
-// Inbox because both are protected entities.
+// send work into their own sub-project beneath it, and that is all.
+// Everything that would weaken the account's isolation - renaming it,
+// deleting it, sharing it, nesting anything under it - is refused by the
+// rules above, which treat it exactly like the Inbox because both are
+// protected entities.
+//
+// THE PROTECTED LOOKUP WALKS TO THE ROOT (ProtectedRootOf) rather than
+// matching destination exactly, because a Percy Feedback destination is now a
+// reporter's own sub-project (BRA-1180/A1) and only the root carries the
+// managed-topology registration. This is a strict generalisation for Inbox,
+// which has no parent, so the walk is zero-length and nothing changes there.
 //
 // Ownership of the destination Inbox is checked against the acting user, so
 // "move a task into someone else's Inbox" fails here and not only in the
-// permission layer.
+// permission layer. Percy Feedback's sub-projects are never owned by the
+// reporter, so the equivalent check is direct membership (hasFeedbackAccess)
+// rather than ownership - each reporter holds exactly one, granted at
+// provisioning, so "the caller has a membership here" already means "here is
+// the caller's own".
 func decidePersonalTaskMove(e *managedEval) error {
 	body, err := e.requestBody()
 	if err != nil {
@@ -91,7 +102,7 @@ func decidePersonalTaskMove(e *managedEval) error {
 	}
 	destination := *stated
 
-	protected, err := models.GetProtectedEntityForProject(e.s, destination)
+	protected, err := models.ProtectedRootOf(e.s, destination)
 	if err != nil {
 		return e.refuse("the destination project could not be resolved")
 	}
@@ -100,7 +111,14 @@ func decidePersonalTaskMove(e *managedEval) error {
 	}
 
 	if protected.Kind == models.ProtectedKindFeedback {
-		return nil
+		has, err := e.hasFeedbackAccess(destination)
+		if err != nil {
+			return e.refuse("the destination project could not be resolved")
+		}
+		if has {
+			return nil
+		}
+		return e.refuse("the destination is another reporter's Percy Feedback project")
 	}
 
 	if protected.Kind == models.ProtectedKindInbox {

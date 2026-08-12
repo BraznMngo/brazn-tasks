@@ -61,61 +61,44 @@ func FeedbackProject(s *xorm.Session) (*ProtectedEntity, error) {
 }
 
 // ProvisionFeedbackAccess makes sure this instance has its Percy Feedback
-// project and that u can submit into it.
+// project and that u can submit into a project of their own beneath it,
+// returning that sub-project's id.
 //
 // It mirrors the Inbox where the Inbox's reasoning carries over and departs
 // from it where it does not. Like the Inbox it is created at the single point
 // every account passes through (CreateNewProjectForUser) and bound to managed
 // mode by its immutable id, because that is the only place the binding can be
-// made reliably. Unlike the Inbox there is ONE of it for the whole instance
-// rather than one per account, so an account is enrolled into the existing
-// project rather than given its own.
+// made reliably. Unlike the Inbox there is ONE root for the whole instance
+// rather than one per account - but each account is given its own PROJECT
+// beneath that root, rather than being enrolled into a project shared with
+// every other account (BRA-1180/A1). See ensureFeedbackSubProject for why.
 //
-// THAT DIFFERENCE IS WHAT KEEPS THE PERSONAL EDITION HONEST. Percy Feedback is
-// owned by a Brazn account, and a customer holds a membership in it and nothing
-// else, so "a personal account has exactly one customer-owned project" stays
-// literally true - the second project in their list is not theirs.
+// THE ROOT ITSELF STAYS WHAT KEEPS THE PERSONAL EDITION HONEST. Every
+// sub-project this returns is owned by the same Brazn account as the root,
+// never by the customer, so "a personal account has exactly one
+// customer-owned project" stays literally true - the second project in their
+// list is not theirs.
 //
 // A missing or unresolvable owner is not an error. brazn.feedbackowner names a
 // Brazn staff account, and an instance where the operator has not created it
 // yet must still be able to register customers. Skipping is also the safe
 // direction to be wrong in: no project means no access, where failing here
-// would mean no account.
+// would mean no account. Returns 0 in that case.
 //
 // Enrolment is Write, which is the least permission that can file a task. Read
 // could submit nothing and Admin would hand the project to the customer.
-//
-// THIS GRANTS NO PER-REPORTER ISOLATION and must not be read as if it did.
-// Vikunja's permissions are project-wide with no per-task layer, so every
-// enrolled member can see every other reporter's submissions. BRA-764 states
-// that boundary explicitly - feedback visibility and the return channel are
-// separate tickets - and it is the reason nothing downstream may widen this
-// into an ordinary share.
-func ProvisionFeedbackAccess(s *xorm.Session, u *user.User) error {
+func ProvisionFeedbackAccess(s *xorm.Session, u *user.User) (int64, error) {
 	owner, err := feedbackOwner(s)
 	if err != nil || owner == nil {
-		return err
+		return 0, err
 	}
 
-	projectID, err := ensureFeedbackProject(s, owner)
+	rootID, err := ensureFeedbackProject(s, owner)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	member := &ProjectUser{
-		ProjectID:  projectID,
-		Username:   u.Username,
-		Permission: PermissionWrite,
-	}
-
-	// Already enrolled, or the owner registering their own account. Both mean
-	// the access this function exists to grant is already in place, and both
-	// happen on an ordinary re-run rather than only in a broken state.
-	err = member.Create(s, owner)
-	if err != nil && !IsErrUserAlreadyHasAccess(err) {
-		return err
-	}
-	return nil
+	return ensureFeedbackSubProject(s, rootID, owner, u)
 }
 
 // feedbackOwner resolves the Brazn account that owns Percy Feedback, or nil
@@ -171,4 +154,72 @@ func ensureFeedbackProject(s *xorm.Session, owner *user.User) (int64, error) {
 		return 0, err
 	}
 	return project.ID, nil
+}
+
+// ensureFeedbackSubProject returns the id of u's own project beneath the
+// Percy Feedback root, creating it and granting u Write on first use.
+//
+// ONE SUB-PROJECT PER REPORTER IS THE WHOLE OF THEIR ISOLATION (BRA-1180/A1).
+// Vikunja's permissions are project-wide with no per-task layer, so "each
+// reporter reaches their own submissions and no others" cannot be expressed
+// inside one project shared by every reporter - it has to be a project of its
+// own. THIS GRANTS NO PER-REPORTER ISOLATION was the warning this replaces;
+// per-reporter isolation is now structural rather than something downstream
+// must not assume.
+//
+// NESTING UNDER THE ROOT, RATHER THAN MAKING EACH A SECOND TOP-LEVEL PROJECT,
+// IS WHAT GIVES THE OWNER A TRIAGE VIEW WITHOUT A SECOND GRANT PER REPORTER.
+// Project permission checks already walk a project's ancestors to resolve the
+// acting user's level (the same mechanism Teams topology relies on), so Admin
+// on the root - which the owner holds by owning it - is Admin on every child
+// with no membership row of its own. See ProtectedRootOf for the same walk
+// applied to the managed-topology check that keeps this the only project a
+// personal account may move a task into.
+//
+// NOT OWNED BY u, deliberately - matching the root, and for the reason
+// ProvisionFeedbackAccess gives: "a personal account has exactly one
+// customer-owned project" (their Inbox) must stay true. u holds a Write
+// membership and nothing else; sub.Create(s, owner) is what keeps ownership on
+// the Brazn account rather than the reporter creating it.
+//
+// SAME DISPLAY TITLE AS THE ROOT, deliberately, so a client that finds "the"
+// Percy Feedback project by title - the only way anything outside this
+// package has ever done so, since there is no dedicated lookup route -
+// keeps working unmodified: every reporter's own sub-project is the one
+// project so named that they can see.
+//
+// The lookup is the idempotence: CreateNewProjectForUser runs this on every
+// registration attempt an account makes, and a repeat must find the
+// sub-project already made rather than growing a second one.
+func ensureFeedbackSubProject(s *xorm.Session, rootID int64, owner, u *user.User) (int64, error) {
+	existing := &Project{}
+	has, err := s.
+		Join("INNER", "users_projects", "users_projects.project_id = projects.id").
+		Where("projects.parent_project_id = ? AND users_projects.user_id = ?", rootID, u.ID).
+		Get(existing)
+	if err != nil {
+		return 0, err
+	}
+	if has {
+		return existing.ID, nil
+	}
+
+	sub := &Project{Title: FeedbackProjectTitle, ParentProjectID: Ptr(rootID)}
+	if err := sub.Create(s, owner); err != nil {
+		return 0, err
+	}
+
+	member := &ProjectUser{
+		ProjectID:  sub.ID,
+		Username:   u.Username,
+		Permission: PermissionWrite,
+	}
+
+	// The owner registering their own account is the one caller for whom this
+	// is a no-op rather than a grant: they already hold Admin on sub by owning
+	// it, and Create refuses to add an owner as their own member.
+	if err := member.Create(s, owner); err != nil && !IsErrUserAlreadyHasAccess(err) {
+		return 0, err
+	}
+	return sub.ID, nil
 }
