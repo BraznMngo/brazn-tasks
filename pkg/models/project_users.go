@@ -187,12 +187,25 @@ func (lu *ProjectUser) Delete(s *xorm.Session, _ web.Auth) (err error) {
 func (lu *ProjectUser) ReadAll(s *xorm.Session, a web.Auth, search string, page int, perPage int) (result interface{}, resultCount int, numberOfTotalItems int64, err error) {
 	// Check if the user has access to the project
 	l := &Project{ID: lu.ProjectID}
-	canRead, _, err := l.CanRead(s, a)
+	canRead, permission, err := l.CanRead(s, a)
 	if err != nil {
 		return nil, 0, 0, err
 	}
 	if !canRead {
 		return nil, 0, 0, ErrNeedToHaveProjectReadAccess{UserID: a.GetID(), ProjectID: lu.ProjectID}
+	}
+
+	// Percy Feedback enrolls every account on the instance with Write, so this
+	// listing - unlike an ordinary project's, whose members a sharer chose - is
+	// a full instance-wide user and email directory to anyone merely enrolled.
+	// Only the project's own Admin (the feedback owner) may read it; the same
+	// refusal an ordinary caller would get for lacking read access at all.
+	if permission < int(PermissionAdmin) {
+		if protected, protectedErr := GetProtectedEntityForProject(s, lu.ProjectID); protectedErr != nil {
+			return nil, 0, 0, protectedErr
+		} else if protected != nil && protected.Kind == ProtectedKindFeedback {
+			return nil, 0, 0, ErrNeedToHaveProjectReadAccess{UserID: a.GetID(), ProjectID: lu.ProjectID}
+		}
 	}
 
 	limit, start := getLimitFromPageIndex(page, perPage)

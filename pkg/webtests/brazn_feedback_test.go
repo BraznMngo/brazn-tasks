@@ -236,6 +236,52 @@ func TestFeedbackEnrolmentGrantsNothingBeyondTheOneProject(t *testing.T) {
 		"the least permission that can submit a task, and no more")
 }
 
+// TestFeedbackMembersEndpointIsNotACrossOrganisationDirectory pins BRA-1182
+// (A2). Percy Feedback enrols every account on the instance with Write, so its
+// members listing - unlike an ordinary project's, whose membership a sharer
+// chose deliberately - is a full instance-wide user and email directory to
+// anyone merely enrolled, unless this endpoint refuses them the way the
+// general users endpoint already does.
+//
+// Two separate assertions, because they are two separate exposures: an empty
+// search enumerates every reporter, and an exact search for a known username
+// confirms it exists without enumerating anything. A minimum search length
+// alone would close only the first.
+//
+// DELETE-THE-GUARD: removing the permission check above closes both, and
+// leaves the owner's own listing (the control case) working as before -
+// exactly the asymmetry a permission-level check gives that a route-wide
+// refusal could not.
+func TestFeedbackMembersEndpointIsNotACrossOrganisationDirectory(t *testing.T) {
+	env := newFeedbackEnv(t)
+
+	feedback := env.provisionFeedback(&testuser1)
+	require.Equal(t, feedback, env.provisionFeedback(&testuser2),
+		"a second reporter must join the same Percy Feedback project, or this test is not exercising the shared directory")
+
+	owner, err := user.GetUserByUsername(dbSessionForTest(t), feedbackOwnerUsername)
+	require.NoError(t, err)
+
+	path := fmt.Sprintf("/api/v1/projects/%d/users", feedback)
+
+	t.Run("a reporter cannot enumerate the roster with an empty search", func(t *testing.T) {
+		rec := env.request(http.MethodGet, path, "", &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	})
+
+	t.Run("a reporter cannot confirm another reporter's username by searching for it exactly", func(t *testing.T) {
+		rec := env.request(http.MethodGet, path+"?s="+testuser2.Username, "", &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	})
+
+	t.Run("control: the feedback owner can still read the roster", func(t *testing.T) {
+		rec := env.request(http.MethodGet, path, "", owner)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		assert.Contains(t, rec.Body.String(), testuser1.Username)
+		assert.Contains(t, rec.Body.String(), testuser2.Username)
+	})
+}
+
 // TestFeedbackIsNotProvisionedWithoutAResolvableOwner records the fail-safe
 // direction, in both the ways the owner can be absent.
 //
