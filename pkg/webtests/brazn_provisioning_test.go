@@ -211,14 +211,21 @@ func TestCreateOrResolveUserForMailboxRecoversFromALostProvisioning(t *testing.T
 	// The "other provisioning call" finishing shortly after this one starts -
 	// late enough that the first two attempts still see UserID 0 and only the
 	// third succeeds, proving the retry ran rather than merely not mattering.
+	//
+	// assert, not require: require calls t.FailNow(), which is documented as
+	// safe only from the goroutine running the test itself - calling it here
+	// would not fail the test cleanly, it would just stop this goroutine. A
+	// failure here still fails the test (assert marks it failed), and if this
+	// update never lands the assertion below on the call's own result fails
+	// too, so nothing is lost by not halting immediately.
 	go func() {
 		time.Sleep(70 * time.Millisecond)
 		fix := db.NewSession()
 		defer fix.Close()
 		_, updateErr := fix.Where("email = ?", "raced@example.com").
 			Cols("user_id").Update(&models.ProvisionedUser{UserID: winnerID})
-		require.NoError(t, updateErr)
-		require.NoError(t, fix.Commit())
+		assert.NoError(t, updateErr)
+		assert.NoError(t, fix.Commit())
 	}()
 
 	resolved, created, err := models.CreateOrResolveUserForMailbox(context.Background(), "raced@example.com")
