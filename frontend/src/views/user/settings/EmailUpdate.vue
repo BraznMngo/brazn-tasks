@@ -34,8 +34,6 @@
 			{{ $t('misc.save') }}
 		</XButton>
 	</Card>
-
-	<CredentialsManagedElsewhere v-else />
 </template>
 
 
@@ -46,7 +44,6 @@ import {useI18n} from 'vue-i18n'
 import EmailUpdateService from '@/services/emailUpdate'
 import EmailUpdateModel from '@/models/emailUpdate'
 import FormField from '@/components/input/FormField.vue'
-import CredentialsManagedElsewhere from '@/components/user/CredentialsManagedElsewhere.vue'
 import {success} from '@/message'
 import {useTitle} from '@/composables/useTitle'
 import {useSelfManagedCredentials} from '@/composables/useSelfManagedCredentials'

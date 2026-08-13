@@ -78,8 +78,6 @@
 			</div>
 		</template>
 	</Card>
-
-	<CredentialsManagedElsewhere v-else />
 </template>
 
 
@@ -90,7 +88,6 @@ import {useI18n} from 'vue-i18n'
 import TotpService from '@/services/totp'
 import TotpModel from '@/models/totp'
 import FormField from '@/components/input/FormField.vue'
-import CredentialsManagedElsewhere from '@/components/user/CredentialsManagedElsewhere.vue'
 
 import {success} from '@/message'
 

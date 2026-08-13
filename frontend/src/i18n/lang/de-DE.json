@@ -312,11 +312,6 @@
 			"updateEmailTitle": "Aktualisiere deine E-Mail-Adresse",
 			"updateEmailNew": "Neue E-Mail-Adresse",
 			"updateEmailSuccess": "Deine E-Mail-Adresse wurde erfolgreich aktualisiert. Wir haben dir einen Link zur Bestätigung geschickt.",
-			"managedElsewhere": {
-				"title": "Deine Anmeldedaten werden dort verwaltet, wo dein Abonnement liegt.",
-				"text": "Dein Passwort, deine E-Mail-Adresse und dein zweiter Faktor gehören zu dem Konto, mit dem du dich angemeldet hast, und nicht zu diesem Produkt. Wenn du sie dort änderst, ändern sie sich auch hier.",
-				"action": "Konto öffnen"
-			},
 			"general": {
 				"title": "Allgemeine Einstellungen",
 				"name": "Mein Name",

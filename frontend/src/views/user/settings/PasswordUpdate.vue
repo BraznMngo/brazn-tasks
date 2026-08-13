@@ -36,8 +36,6 @@
 			{{ $t('misc.save') }}
 		</XButton>
 	</Card>
-
-	<CredentialsManagedElsewhere v-else />
 </template>
 
 
@@ -49,7 +47,6 @@ import PasswordUpdateService from '@/services/passwordUpdateService'
 import PasswordUpdateModel from '@/models/passwordUpdate'
 import FormField from '@/components/input/FormField.vue'
 import Password from '@/components/input/Password.vue'
-import CredentialsManagedElsewhere from '@/components/user/CredentialsManagedElsewhere.vue'
 
 import {useTitle} from '@/composables/useTitle'
 import {success} from '@/message'

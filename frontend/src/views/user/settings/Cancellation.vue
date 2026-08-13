@@ -61,6 +61,7 @@ import {useTitle} from '@/composables/useTitle'
 import {useConfigStore} from '@/stores/config'
 import {formatDisplayDate} from '@/helpers/time/formatDate'
 import {AuthenticatedHTTPFactory, commercialV1Url} from '@/helpers/fetcher'
+import {httpStatusOf} from '@/helpers/authErrorCodes'
 
 defineOptions({name: 'UserSettingsCancellation'})
 
@@ -104,7 +105,7 @@ async function cancel() {
 		// what the customer keeps, not what this particular click bought.
 		cancelled.value = new Date((data as {access_ends_at: string}).access_ends_at)
 	} catch (e) {
-		const status = (e as {response?: {status?: number}})?.response?.status
+		const status = httpStatusOf(e)
 		if (status === 403) {
 			// The one refusal here that names a different person's action. A
 			// Teams member holds a seat their organization pays for, and

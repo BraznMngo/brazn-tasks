@@ -145,6 +145,7 @@ import {useOrganizationStore} from '@/stores/organization'
 import {useAuthStore} from '@/stores/auth'
 import {useCommercialUrl} from '@/composables/useCommercialUrl'
 import {AuthenticatedHTTPFactory, commercialV1Url} from '@/helpers/fetcher'
+import {httpStatusOf} from '@/helpers/authErrorCodes'
 
 const {t} = useI18n({useScope: 'global'})
 
@@ -218,7 +219,7 @@ async function remove() {
 		// with no body, so there is no server sentence to show and a blank
 		// refusal would be worse than a local one that is accurate about which
 		// refusal it was.
-		const status = (e as {response?: {status?: number}})?.response?.status
+		const status = httpStatusOf(e)
 		if (status === 403) {
 			refusal.value = t('organization.members.remove.notAdministrator')
 		} else if (status === 503) {

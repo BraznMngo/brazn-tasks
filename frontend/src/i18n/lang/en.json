@@ -312,11 +312,6 @@
       "updateEmailTitle": "Update Your Email Address",
       "updateEmailNew": "New email address",
       "updateEmailSuccess": "Your email address was successfully updated. We've sent you a link to confirm it.",
-      "managedElsewhere": {
-        "title": "Your sign-in details are handled where your subscription lives.",
-        "text": "Your password, your email address and your second factor belong to the account you signed up with, not to this product. Changing them there changes them here.",
-        "action": "Open your account"
-      },
       "general": {
         "title": "General Settings",
         "name": "My Name",

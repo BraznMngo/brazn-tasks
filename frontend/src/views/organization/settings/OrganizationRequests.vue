@@ -166,6 +166,7 @@ import OrganizationPage from '@/components/organization/OrganizationPage.vue'
 import {useOrganizationStore} from '@/stores/organization'
 import {formatDateSince} from '@/helpers/time/formatDate'
 import {AuthenticatedHTTPFactory, commercialV1Url} from '@/helpers/fetcher'
+import {httpStatusOf} from '@/helpers/authErrorCodes'
 
 interface JoinRequest {
 	requestId: string
@@ -224,7 +225,7 @@ async function load() {
 			verifiedAt: row.verified_at ?? null,
 		}))
 	} catch (e) {
-		const status = (e as {response?: {status?: number}})?.response?.status
+		const status = httpStatusOf(e)
 		if (status === 404) {
 			unavailable.value = true
 			return
@@ -293,17 +294,32 @@ async function decide() {
 		// Re-read both sides after every answer, including a refusal: an approval
 		// that seated somebody moves the seat count, and one that did not still
 		// leaves a queue this page must show as the server now has it.
-		await Promise.all([load(), organizationStore.load()])
+		//
+		// Wrapped in its own try/catch: a failure here is a stale read, not a
+		// failed decision, and must not land in the catch below and overwrite
+		// the outcome just set above with an unrelated refusal - the decide POST
+		// already succeeded by the time this runs.
+		try {
+			await Promise.all([load(), organizationStore.load()])
+		} catch {
+			// Best-effort. The message set above still describes what happened.
+		}
 	} catch (e) {
-		const status = (e as {response?: {status?: number}})?.response?.status
+		const status = httpStatusOf(e)
 		if (status === 403) {
 			refusal.value = t('organization.requests.notAdministrator')
 		} else if (status === 404) {
 			// Unknown, already decided, or never confirmed - flattened by the
-			// service into one answer. The queue is re-read rather than argued
-			// with, because whatever the cause, what is on screen is stale.
+			// service into one answer. Both sides are re-read rather than argued
+			// with, because whatever the cause, what is on screen is stale - and
+			// an approval racing this decision would have moved the seat count
+			// too.
 			refusal.value = t('organization.requests.gone')
-			await load()
+			try {
+				await Promise.all([load(), organizationStore.load()])
+			} catch {
+				// Best-effort, matching the success path above.
+			}
 		} else {
 			refusal.value = t('organization.error.text')
 		}

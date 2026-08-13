@@ -214,6 +214,7 @@ import {useConfigStore} from '@/stores/config'
 import {useCommercialUrl} from '@/composables/useCommercialUrl'
 import {useOrganizationStore} from '@/stores/organization'
 import {AuthenticatedHTTPFactory, commercialV1Url} from '@/helpers/fetcher'
+import {httpStatusOf} from '@/helpers/authErrorCodes'
 import FormField from '@/components/input/FormField.vue'
 import Message from '@/components/misc/Message.vue'
 
@@ -265,6 +266,13 @@ async function loadCandidates() {
 	}
 
 	const HTTP = AuthenticatedHTTPFactory()
+	// Started alongside the candidate fetch rather than after it. Only an
+	// administrator is ever offered a choice, and only an administrator can
+	// read this, so the two conditions coincide and the roster is needed on
+	// the common path anyway — organizationStore.load() never throws, so
+	// starting it here overlaps the two requests instead of paying for them
+	// back to back.
+	const membersLoaded = organizationStore.load()
 	try {
 		const {data} = await HTTP.get(commercialV1Url('account/successor-candidates'))
 		const ids: string[] = (data?.candidates ?? []).map((candidate: {user_id: string}) => candidate.user_id)
@@ -273,9 +281,7 @@ async function loadCandidates() {
 			return
 		}
 
-		// Only an administrator is ever offered a choice, and only an
-		// administrator can read this, so the two conditions coincide.
-		await organizationStore.load()
+		await membersLoaded
 		const members = organizationStore.organization?.members ?? []
 		candidates.value = ids.map(id => {
 			const member = members.find(m => String(m.userId) === id)
@@ -288,7 +294,7 @@ async function loadCandidates() {
 		candidates.value = []
 		// See the template: a 404 here is the route's absence, not this account's
 		// state, and it is the one failure that must change what is drawn.
-		if ((e as {response?: {status?: number}})?.response?.status === 404) {
+		if (httpStatusOf(e) === 404) {
 			erasureUnavailable.value = true
 		}
 		// Anything else is not fatal on its own: erasure itself refuses with a
@@ -331,7 +337,7 @@ async function eraseAccount() {
 		// no longer exists.
 		await authStore.logout()
 	} catch (e) {
-		const status = (e as {response?: {status?: number}})?.response?.status
+		const status = httpStatusOf(e)
 		if (status === 409) {
 			// ONE STATUS, TWO CAUSES, and the service does not distinguish them on
 			// the wire: a successor is required and none was named, or the one
