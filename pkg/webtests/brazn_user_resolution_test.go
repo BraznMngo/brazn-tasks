@@ -273,6 +273,26 @@ func TestBraznResolveUserVerifiesBySubject(t *testing.T) {
 		"a request asserting its own verification is refused, not ignored")
 }
 
+// TestBraznResolveUserDoesNotAliasALeadingZeroUserID pins the same aliasing
+// gap TestBraznRevokeSessionRefusesALeadingZeroUserID closes from the strict
+// side, for the verification form: it reads a malformed subject as an
+// ordinary absence rather than a refusal. strconv.ParseInt("0"+id, ...)
+// parses to the exact int64 a correct sender's bare id would, so without
+// models.parseSubjectID's round-trip check this would answer with the real
+// subject's own verification status for a subject string nobody sent.
+func TestBraznResolveUserDoesNotAliasALeadingZeroUserID(t *testing.T) {
+	env := newManagedEnv(t)
+
+	const mailbox = "user-leading-zero@example.com"
+	subject := provisioned(t, env.provision(createUserPayload(mailbox)))
+	require.True(t, subject.Created)
+
+	rec := env.provision(resolveUserBySubjectPayload("0" + subject.ID))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Equal(t, map[string]interface{}{"result": "unresolvable"}, answerMembers(t, rec),
+		"a malformed subject must read as absent, not as the real subject a bare id names")
+}
+
 // TestBraznResolveUserNeverCreates is the obligation the response schema states
 // as the fork's, because the consumer cannot enforce it: an `unresolvable` must
 // never be turned into a creation.

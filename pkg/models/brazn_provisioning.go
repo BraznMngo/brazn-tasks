@@ -347,9 +347,41 @@ func resolveProvisionedMailbox(email string) (*user.User, error) {
 // returns an error for either status, and treating that as absence would leave a
 // locked customer unsuppressable. Suppressing their address is exactly as
 // necessary as suppressing anyone else's.
-func MailboxForSubject(subject string) (string, error) {
+
+// parseSubjectID is every subject-string parse on this channel, in one place.
+//
+// THE ROUND-TRIP CHECK IS NOT REDUNDANT WITH id >= 1. strconv.ParseInt accepts
+// leading zeros - "01" parses to the same 1 a correct sender's bare "1" would -
+// so without comparing the reformatted digits back against the original string,
+// a malformed subject does not fall into "no such id", it ALIASES a real one.
+// RevokeSessionForSubject was the first caller to close this, and its own
+// comment explained why at length; this is that same check, lifted here so
+// every caller on this channel closes it rather than the one that happened to
+// get the comment. MailboxForSubject, ResolveUserBySubject, EraseSubject and
+// provisioningSubject all parse the identical subject grammar and all shared
+// the identical gap until this was extracted - a leading-zero subject aliased
+// a real user's mailbox, verification status, erasure target, or provisioned
+// topology exactly as it would have aliased a revoked session.
+//
+// TOLERANT VS STRICT STAYS WITH THE CALLER, deliberately. What a malformed
+// subject MEANS differs by operation - MailboxForSubject and
+// ResolveUserBySubject read it as an ordinary absence, while EraseSubject,
+// provisioningSubject and RevokeSessionForSubject refuse it outright, because
+// answering success/no-op for a request that named no real subject would
+// report an action that never happened. Only the parse - and the aliasing gap
+// in it - is shared; ok=false is this function's only vocabulary, and each
+// caller decides on its own established terms what that means for it.
+func parseSubjectID(subject string) (id int64, ok bool) {
 	id, err := strconv.ParseInt(subject, 10, 64)
-	if err != nil || id < 1 {
+	if err != nil || id < 1 || strconv.FormatInt(id, 10) != subject {
+		return 0, false
+	}
+	return id, true
+}
+
+func MailboxForSubject(subject string) (string, error) {
+	id, ok := parseSubjectID(subject)
+	if !ok {
 		return "", nil
 	}
 
@@ -387,15 +419,11 @@ func MailboxForSubject(subject string) (string, error) {
 // against ^[1-9][0-9]{0,18}$ before it ever stores one, so this cannot arise
 // from a correct sender. Answering success for it would report a revocation
 // that could not have happened, so it is refused rather than swallowed as
-// nothing-to-revoke.
-//
-// THE ROUND-TRIP CHECK IS NOT REDUNDANT WITH id < 1. ParseInt accepts leading
-// zeros - "01" parses to the same 1 a correct sender would send bare - so
-// without it a malformed subject does not fall into "no such id", it ALIASES
-// a real one, and this would revoke a session it was never asked to.
+// nothing-to-revoke. See parseSubjectID for why that check is a round-trip
+// and not just id < 1.
 func RevokeSessionForSubject(ctx context.Context, subject, sessionID string) error {
-	id, err := strconv.ParseInt(subject, 10, 64)
-	if err != nil || id < 1 || strconv.FormatInt(id, 10) != subject {
+	id, ok := parseSubjectID(subject)
+	if !ok {
 		return ErrProvisioningSubjectUnknown
 	}
 
@@ -503,8 +531,8 @@ func ResolveUserByMailbox(email string) (*UserResolution, error) {
 // the contract's producer never sends, and this is the consumer's tolerant half
 // of that split.
 func ResolveUserBySubject(subject string) (*UserResolution, error) {
-	id, err := strconv.ParseInt(subject, 10, 64)
-	if err != nil || id < 1 {
+	id, ok := parseSubjectID(subject)
+	if !ok {
 		return nil, nil
 	}
 

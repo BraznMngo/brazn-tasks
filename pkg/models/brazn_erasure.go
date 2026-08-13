@@ -18,7 +18,6 @@ package models
 
 import (
 	"context"
-	"strconv"
 
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/events"
@@ -59,9 +58,11 @@ import (
 // while nothing was destroyed. The commercial service validates subject ids
 // against ^[1-9][0-9]{0,18}$ before it ever stores one, so this cannot arise
 // from a correct sender; it means the producer is broken, and it should be loud.
+// See parseSubjectID: a leading zero ("01") is exactly such a case, and without
+// its round-trip check would alias the real subject ("1") rather than refuse.
 func EraseSubject(ctx context.Context, subject string) error {
-	id, err := strconv.ParseInt(subject, 10, 64)
-	if err != nil || id <= 0 {
+	id, ok := parseSubjectID(subject)
+	if !ok {
 		return ErrProvisioningSubjectUnknown
 	}
 

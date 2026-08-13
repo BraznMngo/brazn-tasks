@@ -101,6 +101,22 @@ func TestBraznErasureDestroysTheSubject(t *testing.T) {
 	db.AssertMissing(t, "brazn_provisioned_users", map[string]interface{}{"user_id": id})
 }
 
+// TestBraznErasureRefusesALeadingZeroUserID pins the same aliasing gap
+// RevokeSessionForSubject's own leading-zero test closes, for the operation
+// where getting it wrong is irreversible. strconv.ParseInt("0"+id, ...) parses
+// to the exact int64 a correct sender's bare id would, so without
+// models.parseSubjectID's round-trip check a malformed subject would not read
+// as absent - it would destroy the real, unrelated account underneath it.
+func TestBraznErasureRefusesALeadingZeroUserID(t *testing.T) {
+	env := newManagedEnv(t)
+
+	id := provisionSubjectToErase(t, env, "erasure-leading-zero@example.com")
+
+	rec := env.provision(eraseSubjectPayload(managedTestOrganization, "0"+strconv.FormatInt(id, 10)))
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	db.AssertExists(t, "users", map[string]interface{}{"id": id}, false)
+}
+
 // TestBraznErasureAnswersASubjectAlreadyGoneWith200 is the acceptance criterion
 // this operation exists to get right, and the one an obvious implementation
 // fails.

@@ -19,7 +19,6 @@ package models
 import (
 	"context"
 	"errors"
-	"strconv"
 
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/events"
@@ -159,9 +158,14 @@ func provisionInTransaction(ctx context.Context, do func(s *xorm.Session) error)
 // error is not treated as absence - the same reading userByID takes on the
 // create_user path. Refusing to provision an Inbox for a locked account would
 // leave the topology incomplete for someone whose account is later unlocked.
+//
+// See parseSubjectID: a leading zero ("01") parses to the same id a correct
+// sender's bare form ("1") would, so refusing only id <= 0 would provision
+// topology for that aliased, unintended account instead of refusing the
+// malformed request.
 func provisioningSubject(s *xorm.Session, subject string) (*user.User, error) {
-	id, err := strconv.ParseInt(subject, 10, 64)
-	if err != nil || id <= 0 {
+	id, ok := parseSubjectID(subject)
+	if !ok {
 		return nil, ErrProvisioningSubjectUnknown
 	}
 
