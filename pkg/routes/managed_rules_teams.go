@@ -191,8 +191,24 @@ func decideTeamsMembership(e *managedEval) error {
 	return e.requireEntitledTarget()
 }
 
-// decideTeamsTaskMove allows a task into the member's own Inbox, into Percy
-// Feedback, or anywhere inside the collaborative topology - and nowhere else.
+// decideTeamsTaskMove allows a task into the member's own Inbox, into the
+// member's own Percy Feedback sub-project, or anywhere inside the
+// collaborative topology - and nowhere else.
+//
+// THE PROTECTED LOOKUP WALKS TO THE ROOT (ProtectedRootOf), matching
+// decidePersonalTaskMove's own reasoning: a Percy Feedback destination is a
+// reporter's own sub-project (BRA-1180/A1), and only the root carries the
+// managed-topology registration - matching destination exactly, as this used
+// to, never finds it, since a sub-project carries no protected-entity row of
+// its own. That refused a Teams member's own feedback submission outright.
+//
+// Feedback access is also checked with hasFeedbackAccess rather than allowed
+// unconditionally once the root resolves - for the same reason
+// decidePersonalTaskMove checks it, and because unconditional allow is unsafe
+// in a way exact-matching used to mask: naming the shared root itself, rather
+// than a sub-project beneath it, also resolves to a Feedback root, and
+// nothing before this check has confirmed the caller has any membership
+// there at all.
 func decideTeamsTaskMove(e *managedEval) error {
 	body, err := e.requestBody()
 	if err != nil {
@@ -205,12 +221,19 @@ func decideTeamsTaskMove(e *managedEval) error {
 	}
 	destination := *stated
 
-	protected, err := models.GetProtectedEntityForProject(e.s, destination)
+	protected, err := models.ProtectedRootOf(e.s, destination)
 	if err != nil {
 		return e.refuse("the destination project could not be resolved")
 	}
 	if protected != nil && protected.Kind == models.ProtectedKindFeedback {
-		return nil
+		has, err := e.hasFeedbackAccess(destination)
+		if err != nil {
+			return e.refuse("the destination project could not be resolved")
+		}
+		if has {
+			return nil
+		}
+		return e.refuse("the destination is another reporter's Percy Feedback project")
 	}
 	if protected != nil && protected.Kind == models.ProtectedKindInbox {
 		owns, err := e.ownsProject(destination)

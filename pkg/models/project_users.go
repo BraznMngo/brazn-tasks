@@ -200,10 +200,19 @@ func (lu *ProjectUser) ReadAll(s *xorm.Session, a web.Auth, search string, page 
 	// a full instance-wide user and email directory to anyone merely enrolled.
 	// Only the project's own Admin (the feedback owner) may read it; the same
 	// refusal an ordinary caller would get for lacking read access at all.
+	//
+	// ProtectedRootOf, NOT the exact-match GetProtectedEntityForProject: since
+	// BRA-1180/A1 each reporter's Feedback destination is their own
+	// sub-project beneath the root, and only the root carries a
+	// protected-entity row. An exact match against lu.ProjectID would never
+	// see a sub-project as Feedback at all, and a caller who inherited access
+	// to one - the pending legacy-account migration is exactly such a caller,
+	// but it is not the only way inheritance could ever reach a sub-project
+	// here - would read that reporter's own member listing unguarded.
 	if permission < int(PermissionAdmin) {
-		if protected, protectedErr := GetProtectedEntityForProject(s, lu.ProjectID); protectedErr != nil {
-			return nil, 0, 0, protectedErr
-		} else if protected != nil && protected.Kind == ProtectedKindFeedback {
+		if root, rootErr := ProtectedRootOf(s, lu.ProjectID); rootErr != nil {
+			return nil, 0, 0, rootErr
+		} else if root != nil && root.Kind == ProtectedKindFeedback {
 			return nil, 0, 0, ErrNeedToHaveProjectReadAccess{UserID: a.GetID(), ProjectID: lu.ProjectID}
 		}
 	}

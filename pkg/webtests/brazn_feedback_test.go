@@ -127,6 +127,41 @@ func TestFeedbackProvisioningMakesOneProjectTheCustomerDoesNotOwn(t *testing.T) 
 	assert.NotEqual(t, testuser1.ID, projectOwnerID(t, first))
 }
 
+// TestFeedbackOwnerReprovisioningDoesNotDuplicateTheirOwnSubProject is
+// TestFeedbackProvisioningMakesOneProjectTheCustomerDoesNotOwn's counterpart
+// for the one caller ensureFeedbackSubProject's ordinary idempotence lookup
+// can never find a row for: the feedback owner's own account.
+//
+// ProjectUser.Create refuses to add a project's own owner as a member of it
+// (l.OwnerID == lu.UserID), which is exactly right for every OTHER reporter's
+// sub-project - the owner already holds Admin on it by ownership - but it
+// means the owner's OWN sub-project never gets a users_projects row for the
+// join-based lookup every other reporter's repeat call relies on.
+//
+// DELETE-THE-GUARD: remove ensureFeedbackSubProject's ownership branch and
+// this fails on the count - the second call finds nothing via the join and
+// creates a second sub-project under the same root for the same account.
+func TestFeedbackOwnerReprovisioningDoesNotDuplicateTheirOwnSubProject(t *testing.T) {
+	env := newFeedbackEnv(t)
+
+	owner, err := user.GetUserByUsername(dbSessionForTest(t), feedbackOwnerUsername)
+	require.NoError(t, err)
+
+	first := env.provisionFeedback(owner)
+	second := env.provisionFeedback(owner)
+	assert.Equal(t, first, second,
+		"a repeat call for the owner's own account must find the same sub-project, not make another")
+
+	s := db.NewSession()
+	defer s.Close()
+
+	root, err := models.FeedbackProject(s)
+	require.NoError(t, err)
+	subProjects := []*models.Project{}
+	require.NoError(t, s.Where("parent_project_id = ?", root.ProjectID).Find(&subProjects))
+	assert.Len(t, subProjects, 1, "the owner's own account must not accumulate a second sub-project")
+}
+
 // TestFeedbackExemptionFollowsTheProjectIDAndNotTheTitle is the leak BRA-764
 // exists to prevent, stated as a test.
 //
@@ -327,6 +362,38 @@ func TestFeedbackSubProjectsAreIsolatedPerReporter(t *testing.T) {
 
 	t.Run("a reporter cannot read another reporter's sub-project members listing", func(t *testing.T) {
 		rec := env.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d/users", feedbackB), "", &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	})
+}
+
+// TestTeamsFeedbackSubProjectsAreIsolatedPerReporter is
+// TestFeedbackSubProjectsAreIsolatedPerReporter's Teams-edition sibling.
+//
+// decideTeamsTaskMove used to match a Feedback destination by exact id
+// (GetProtectedEntityForProject), which only the ROOT carries a
+// protected-entity row for - a reporter's own sub-project (BRA-1180/A1) never
+// matched, so a Teams member's own feedback submission was refused outright.
+// This pins that filing into one's own sub-project is allowed, and - since
+// the fix also replaced an unconditional allow with hasFeedbackAccess - that
+// another reporter's sub-project still is not.
+func TestTeamsFeedbackSubProjectsAreIsolatedPerReporter(t *testing.T) {
+	env, _ := newTeamsEnv(t)
+	setConfigForTest(t, config.BraznFeedbackOwner, feedbackOwnerUsername)
+
+	feedbackA := env.provisionFeedback(&testuser1)
+	feedbackB := env.provisionFeedback(&testuser6)
+	require.NotEqual(t, feedbackA, feedbackB,
+		"two reporters must land in two different projects, or there is nothing here to isolate")
+
+	t.Run("control: a member can file into their own sub-project", func(t *testing.T) {
+		rec := env.request(http.MethodPost, "/api/v1/tasks/1",
+			fmt.Sprintf(`{"id":1,"title":"my own report","project_id":%d}`, feedbackA), &testuser1)
+		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	})
+
+	t.Run("a member cannot file into another member's sub-project", func(t *testing.T) {
+		rec := env.request(http.MethodPost, "/api/v1/tasks/2",
+			fmt.Sprintf(`{"id":2,"title":"planted report","project_id":%d}`, feedbackB), &testuser1)
 		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
 	})
 }

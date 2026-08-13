@@ -191,7 +191,34 @@ func ensureFeedbackProject(s *xorm.Session, owner *user.User) (int64, error) {
 // The lookup is the idempotence: CreateNewProjectForUser runs this on every
 // registration attempt an account makes, and a repeat must find the
 // sub-project already made rather than growing a second one.
+//
+// THE OWNER REGISTERING THEIR OWN ACCOUNT TAKES A SEPARATE PATH, because for
+// them the join below can never find a row to make idempotence work.
+// ProjectUser.Create refuses to add a project's own owner as a member of it
+// (l.OwnerID == lu.UserID, checked before any insert) - which is exactly
+// right for every other reporter's sub-project, where the owner already
+// holds Admin by ownership, but it means the owner's OWN sub-project never
+// gets a users_projects row for the join to find. Without this branch, every
+// repeat call for the owner's account would find nothing and create a second
+// sub-project.
 func ensureFeedbackSubProject(s *xorm.Session, rootID int64, owner, u *user.User) (int64, error) {
+	if u.ID == owner.ID {
+		existing := &Project{}
+		has, err := s.Where("parent_project_id = ? AND owner_id = ?", rootID, owner.ID).Get(existing)
+		if err != nil {
+			return 0, err
+		}
+		if has {
+			return existing.ID, nil
+		}
+
+		sub := &Project{Title: FeedbackProjectTitle, ParentProjectID: Ptr(rootID)}
+		if err := sub.Create(s, owner); err != nil {
+			return 0, err
+		}
+		return sub.ID, nil
+	}
+
 	existing := &Project{}
 	has, err := s.
 		Join("INNER", "users_projects", "users_projects.project_id = projects.id").
@@ -214,10 +241,6 @@ func ensureFeedbackSubProject(s *xorm.Session, rootID int64, owner, u *user.User
 		Username:   u.Username,
 		Permission: PermissionWrite,
 	}
-
-	// The owner registering their own account is the one caller for whom this
-	// is a no-op rather than a grant: they already hold Admin on sub by owning
-	// it, and Create refuses to add an owner as their own member.
 	if err := member.Create(s, owner); err != nil && !IsErrUserAlreadyHasAccess(err) {
 		return 0, err
 	}
