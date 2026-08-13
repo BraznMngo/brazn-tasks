@@ -479,6 +479,11 @@
                     "key": "noauthlimit",
                     "default_value": "10",
                     "comment": "The number of requests a user can make from the same IP to all unauthenticated routes (login, register,\npassword confirmation, email verification, password reset request) per minute. This limit cannot be disabled.\nYou should only change this if you know what you're doing."
+                },
+                {
+                    "key": "brazningestlimit",
+                    "default_value": "300",
+                    "comment": "The number of requests per minute allowed to the Brazn entitlement and provisioning ingest routes\n(/brazn/entitlements and /brazn/provisioning), the doors through which Percy Cloud writes commercial\nstate into this instance. This limit cannot be disabled and applies independently of \"enabled\" above."
                 }
             ]
         },
