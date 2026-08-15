@@ -90,6 +90,14 @@ const (
 	OperationResolveMailbox      = "resolve_mailbox"
 	OperationEraseSubject        = "erase_subject"
 	OperationResolveUser         = "resolve_user"
+	// OperationRevokeSession is BRA-1014: destroying one session by id, the
+	// fork's half of a device revocation the account page has been showing as
+	// already-done since the row it writes was added. Its payload carries the
+	// same two members ResolveUser's recognition form does - a subject and one
+	// other string - but the other string is a session id rather than a
+	// mailbox, so a shared name with anything on this channel is not a
+	// question this operation shares.
+	OperationRevokeSession = "revoke_session"
 )
 
 // maxMailboxLength is users.email's column width. An address past it is
@@ -281,6 +289,30 @@ type ResolveUser struct {
 	UserID string `json:"user_id"`
 }
 
+// RevokeSession is the revoke_session operation's payload (BRA-1014): destroy
+// one session, naming both the session and the subject it must belong to.
+//
+// UserID IS NOT ADVISORY, unlike OrganizationID on EraseSubject. There it
+// decides nothing and exists only for the audit line; here it is one half of
+// the WHERE the deletion runs under (models.DeleteSessionForUser), because a
+// session id alone would let a caller who mistyped - or a caller this
+// instance should never have trusted with somebody else's session in the
+// first place - remove a row it named without also being right about whose it
+// is.
+type RevokeSession struct {
+	ContractVersion string `json:"contract_version"`
+	Operation       string `json:"operation"`
+	// UserID is this instance's own users.id in decimal form, the same
+	// producer-strict pattern CreateUser's and EraseSubject's carry -
+	// ^[1-9][0-9]{0,18}$ - checked against commercialID's wider class below.
+	UserID string `json:"user_id"`
+	// SessionID is models.Session.ID: the UUID the OAuth exchange minted and
+	// embedded as the JWT `sid` claim. commercialID's class - letters, digits,
+	// underscore, hyphen, up to 64 - already covers a UUID's alphabet and
+	// length without a second pattern to keep in step with the first.
+	SessionID string `json:"session_id"`
+}
+
 // operation is the lenient first read of a signed payload: enough to route it,
 // and deliberately nothing else. It ignores unknown members because at this
 // point every member of every operation is unknown to it.
@@ -468,6 +500,33 @@ func DecodeResolveUser(payload json.RawMessage) (*ResolveUser, error) {
 		return request, nil
 	}
 	if !commercialID.MatchString(request.UserID) {
+		return nil, ErrInvalidRequest
+	}
+	return request, nil
+}
+
+// DecodeRevokeSession reads a verified payload as a revoke_session request
+// and checks the two identifiers it carries.
+//
+// IT CHECKS THE OPERATION MEMBER, matching DecodeEraseSubject and
+// DecodeResolveUser. This payload's shape has no sibling on the channel it
+// could be confused with today - the check costs one comparison and keeps the
+// rule uniform rather than "only where a collision has already been found."
+func DecodeRevokeSession(payload json.RawMessage) (*RevokeSession, error) {
+	request := &RevokeSession{}
+	if err := decodeExactly(payload, request); err != nil {
+		return nil, err
+	}
+	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationRevokeSession {
+		return nil, ErrInvalidRequest
+	}
+	if !commercialID.MatchString(request.UserID) {
+		return nil, ErrInvalidRequest
+	}
+	if !commercialID.MatchString(request.SessionID) {
 		return nil, ErrInvalidRequest
 	}
 	return request, nil

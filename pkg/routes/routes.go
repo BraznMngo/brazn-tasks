@@ -595,6 +595,11 @@ func registerAPIRoutes(a *echo.Group) {
 	// signed payload, so the second one (BRA-1026's organization roots) needs
 	// no second route, no second classification entry and no second argument
 	// about how a service-plane route is classified.
+	//
+	// This is the recorded exception to AGENTS.md's v1-freeze: it is a
+	// signature-authenticated service-plane channel for Percy Cloud, not a
+	// JWT-authenticated resource for product clients, so new operations land
+	// here rather than on /api/v2.
 	n.POST("/brazn/provisioning", apiv1.BraznProvision)
 
 	// Link share auth

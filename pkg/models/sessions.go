@@ -175,7 +175,18 @@ func (sess *Session) ReadAll(s *xorm.Session, a web.Auth, _ string, page int, pe
 
 // Delete deletes a session by ID, scoped to the owning user.
 func (sess *Session) Delete(s *xorm.Session, a web.Auth) error {
-	_, err := s.Where("id = ? AND user_id = ?", sess.ID, a.GetID()).Delete(&Session{})
+	return DeleteSessionForUser(s, sess.ID, a.GetID())
+}
+
+// DeleteSessionForUser deletes one session scoped to the user it belongs to,
+// for callers that are not a web.Auth (BRA-1014) - the signed provisioning
+// channel authenticates the message rather than a session, so there is no
+// acting user for Delete's own signature to take.
+//
+// Zero rows affected is not an error: revocation must be safe to retry
+// against a session that is already gone.
+func DeleteSessionForUser(s *xorm.Session, sessionID string, userID int64) error {
+	_, err := s.Where("id = ? AND user_id = ?", sessionID, userID).Delete(&Session{})
 	return err
 }
 

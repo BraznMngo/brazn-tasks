@@ -427,6 +427,18 @@ func TestBraznProvisioningRefusesATopologyItCannotPlace(t *testing.T) {
 		refused(t, teamRootsPayload("99999", managedTestPrimaryTeam))
 	})
 
+	// strconv.ParseInt("0"+id, ...) parses to the exact int64 managedTopologySubject's
+	// own bare form ("1") would, so without models.parseSubjectID's round-trip
+	// check this would provision an Inbox for that real, unintended account
+	// instead of refusing the malformed subject.
+	t.Run("an Inbox for a leading-zero subject", func(t *testing.T) {
+		refused(t, personalInboxPayload("0"+managedTopologySubject))
+	})
+
+	t.Run("team roots for a leading-zero subject", func(t *testing.T) {
+		refused(t, teamRootsPayload("0"+managedTopologySubject, managedTestPrimaryTeam))
+	})
+
 	// An id no producer may mint. It is refused before anything is written
 	// rather than stored and matched against later, because what a repeat is
 	// matched against is exactly this value.
