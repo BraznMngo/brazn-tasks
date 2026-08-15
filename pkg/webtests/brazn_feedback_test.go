@@ -45,21 +45,19 @@ func newFeedbackEnv(t *testing.T) *managedEnv {
 }
 
 // provisionFeedback runs the product's own provisioning for one member and
-// returns the project id it bound the exemption to.
+// returns the id of the sub-project it bound their exemption to.
 func (env *managedEnv) provisionFeedback(member *user.User) int64 {
 	env.t.Helper()
 
 	s := db.NewSession()
 	defer s.Close()
 
-	require.NoError(env.t, models.ProvisionFeedbackAccess(s, member))
-
-	project, err := models.FeedbackProject(s)
+	projectID, err := models.ProvisionFeedbackAccess(s, member)
 	require.NoError(env.t, err)
-	require.NotNil(env.t, project, "provisioning must leave a Percy Feedback project behind")
+	require.NotZero(env.t, projectID, "provisioning must leave a Percy Feedback sub-project behind")
 	require.NoError(env.t, s.Commit())
 
-	return project.ProjectID
+	return projectID
 }
 
 func countFeedbackEntities(t *testing.T) int64 {
@@ -127,6 +125,41 @@ func TestFeedbackProvisioningMakesOneProjectTheCustomerDoesNotOwn(t *testing.T) 
 	assert.Equal(t, owner.ID, projectOwnerID(t, first),
 		"Percy Feedback belongs to Brazn; a customer who owned it would have two owned projects")
 	assert.NotEqual(t, testuser1.ID, projectOwnerID(t, first))
+}
+
+// TestFeedbackOwnerReprovisioningDoesNotDuplicateTheirOwnSubProject is
+// TestFeedbackProvisioningMakesOneProjectTheCustomerDoesNotOwn's counterpart
+// for the one caller ensureFeedbackSubProject's ordinary idempotence lookup
+// can never find a row for: the feedback owner's own account.
+//
+// ProjectUser.Create refuses to add a project's own owner as a member of it
+// (l.OwnerID == lu.UserID), which is exactly right for every OTHER reporter's
+// sub-project - the owner already holds Admin on it by ownership - but it
+// means the owner's OWN sub-project never gets a users_projects row for the
+// join-based lookup every other reporter's repeat call relies on.
+//
+// DELETE-THE-GUARD: remove ensureFeedbackSubProject's ownership branch and
+// this fails on the count - the second call finds nothing via the join and
+// creates a second sub-project under the same root for the same account.
+func TestFeedbackOwnerReprovisioningDoesNotDuplicateTheirOwnSubProject(t *testing.T) {
+	env := newFeedbackEnv(t)
+
+	owner, err := user.GetUserByUsername(dbSessionForTest(t), feedbackOwnerUsername)
+	require.NoError(t, err)
+
+	first := env.provisionFeedback(owner)
+	second := env.provisionFeedback(owner)
+	assert.Equal(t, first, second,
+		"a repeat call for the owner's own account must find the same sub-project, not make another")
+
+	s := db.NewSession()
+	defer s.Close()
+
+	root, err := models.FeedbackProject(s)
+	require.NoError(t, err)
+	subProjects := []*models.Project{}
+	require.NoError(t, s.Where("parent_project_id = ?", root.ProjectID).Find(&subProjects))
+	assert.Len(t, subProjects, 1, "the owner's own account must not accumulate a second sub-project")
 }
 
 // TestFeedbackExemptionFollowsTheProjectIDAndNotTheTitle is the leak BRA-764
@@ -236,6 +269,135 @@ func TestFeedbackEnrolmentGrantsNothingBeyondTheOneProject(t *testing.T) {
 		"the least permission that can submit a task, and no more")
 }
 
+// TestFeedbackMembersEndpointIsNotACrossOrganisationDirectory pins BRA-1182
+// (A2), against the one project a members listing can still say anything
+// about after BRA-1180 (A1) gave every reporter their own sub-project: the
+// root. Two accounts enrolled there directly - which no code path takes after
+// A1, but which is exactly the shape an instance that ran the pre-A1
+// provisioning still carries for every account already registered before
+// this ticket - is the members listing this guard exists for.
+//
+// Two separate assertions, because they are two separate exposures: an empty
+// search enumerates every reporter, and an exact search for a known username
+// confirms it exists without enumerating anything. A minimum search length
+// alone would close only the first.
+//
+// DELETE-THE-GUARD: removing the permission check above closes both, and
+// leaves the owner's own listing (the control case) working as before -
+// exactly the asymmetry a permission-level check gives that a route-wide
+// refusal could not.
+func TestFeedbackMembersEndpointIsNotACrossOrganisationDirectory(t *testing.T) {
+	env := newFeedbackEnv(t)
+
+	// A throwaway third reporter's own provisioning is what brings the root
+	// into existence at all; this test's own two reporters are enrolled on
+	// that root directly below, simulating the pre-A1 dual enrolment an
+	// instance still carries for every account registered before A1 shipped -
+	// provisionFeedback gives each reporter their own sub-project now, so this
+	// guard's real target has to be built by hand rather than provisioned.
+	env.provisionFeedback(&testuser15)
+
+	s := dbSessionForTest(t)
+	root, err := models.FeedbackProject(s)
+	require.NoError(t, err)
+	require.NotNil(t, root)
+	feedback := root.ProjectID
+
+	owner, err := user.GetUserByUsername(s, feedbackOwnerUsername)
+	require.NoError(t, err)
+
+	for _, reporter := range []*user.User{&testuser1, &testuser2} {
+		member := &models.ProjectUser{ProjectID: feedback, Username: reporter.Username, Permission: models.PermissionWrite}
+		require.NoError(t, member.Create(s, owner))
+	}
+	require.NoError(t, s.Commit())
+
+	path := fmt.Sprintf("/api/v1/projects/%d/users", feedback)
+
+	t.Run("a reporter cannot enumerate the roster with an empty search", func(t *testing.T) {
+		rec := env.request(http.MethodGet, path, "", &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	})
+
+	t.Run("a reporter cannot confirm another reporter's username by searching for it exactly", func(t *testing.T) {
+		rec := env.request(http.MethodGet, path+"?s="+testuser2.Username, "", &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	})
+
+	t.Run("control: the feedback owner can still read the roster", func(t *testing.T) {
+		rec := env.request(http.MethodGet, path, "", owner)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		assert.Contains(t, rec.Body.String(), testuser1.Username)
+		assert.Contains(t, rec.Body.String(), testuser2.Username)
+	})
+}
+
+// TestFeedbackSubProjectsAreIsolatedPerReporter pins BRA-1180 (A1)'s core
+// acceptance criterion, over the real route and against a genuine second
+// reporter: a reporter reaches only their own Percy Feedback sub-project.
+//
+// The two provisioned ids being different IS the structural claim this ticket
+// makes - isolation is a property of there being two projects, not of a
+// permission tweak on one - so it is asserted here rather than only implied
+// by the requests below succeeding or failing.
+func TestFeedbackSubProjectsAreIsolatedPerReporter(t *testing.T) {
+	env := newFeedbackEnv(t)
+
+	feedbackA := env.provisionFeedback(&testuser1)
+	feedbackB := env.provisionFeedback(&testuser2)
+	require.NotEqual(t, feedbackA, feedbackB,
+		"two reporters must land in two different projects, or there is nothing here to isolate")
+
+	t.Run("control: a reporter can file into their own sub-project", func(t *testing.T) {
+		rec := env.request(http.MethodPost, "/api/v1/tasks/1",
+			fmt.Sprintf(`{"id":1,"title":"my own report","project_id":%d}`, feedbackA), &testuser1)
+		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	})
+
+	t.Run("a reporter cannot file into another reporter's sub-project", func(t *testing.T) {
+		rec := env.request(http.MethodPost, "/api/v1/tasks/2",
+			fmt.Sprintf(`{"id":2,"title":"planted report","project_id":%d}`, feedbackB), &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	})
+
+	t.Run("a reporter cannot read another reporter's sub-project members listing", func(t *testing.T) {
+		rec := env.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d/users", feedbackB), "", &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	})
+}
+
+// TestTeamsFeedbackSubProjectsAreIsolatedPerReporter is
+// TestFeedbackSubProjectsAreIsolatedPerReporter's Teams-edition sibling.
+//
+// decideTeamsTaskMove used to match a Feedback destination by exact id
+// (GetProtectedEntityForProject), which only the ROOT carries a
+// protected-entity row for - a reporter's own sub-project (BRA-1180/A1) never
+// matched, so a Teams member's own feedback submission was refused outright.
+// This pins that filing into one's own sub-project is allowed, and - since
+// the fix also replaced an unconditional allow with hasFeedbackAccess - that
+// another reporter's sub-project still is not.
+func TestTeamsFeedbackSubProjectsAreIsolatedPerReporter(t *testing.T) {
+	env, _ := newTeamsEnv(t)
+	setConfigForTest(t, config.BraznFeedbackOwner, feedbackOwnerUsername)
+
+	feedbackA := env.provisionFeedback(&testuser1)
+	feedbackB := env.provisionFeedback(&testuser6)
+	require.NotEqual(t, feedbackA, feedbackB,
+		"two reporters must land in two different projects, or there is nothing here to isolate")
+
+	t.Run("control: a member can file into their own sub-project", func(t *testing.T) {
+		rec := env.request(http.MethodPost, "/api/v1/tasks/1",
+			fmt.Sprintf(`{"id":1,"title":"my own report","project_id":%d}`, feedbackA), &testuser1)
+		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	})
+
+	t.Run("a member cannot file into another member's sub-project", func(t *testing.T) {
+		rec := env.request(http.MethodPost, "/api/v1/tasks/2",
+			fmt.Sprintf(`{"id":2,"title":"planted report","project_id":%d}`, feedbackB), &testuser1)
+		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	})
+}
+
 // TestFeedbackIsNotProvisionedWithoutAResolvableOwner records the fail-safe
 // direction, in both the ways the owner can be absent.
 //
@@ -264,10 +426,11 @@ func TestFeedbackIsNotProvisionedWithoutAResolvableOwner(t *testing.T) {
 			s := db.NewSession()
 			defer s.Close()
 
-			require.NoError(t, models.ProvisionFeedbackAccess(s, &testuser1),
-				"an unresolvable owner must not fail the registration it runs inside")
+			projectID, err := models.ProvisionFeedbackAccess(s, &testuser1)
+			require.NoError(t, err, "an unresolvable owner must not fail the registration it runs inside")
 			require.NoError(t, s.Commit())
 
+			assert.Zero(t, projectID, "no owner means no sub-project either")
 			assert.Zero(t, countFeedbackEntities(t), "no owner means no project")
 			assert.Len(t, projectMemberships(t, testuser1.ID), before, "and no enrolment")
 		})

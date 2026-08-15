@@ -678,6 +678,20 @@ func (e *managedEval) ownsProject(projectID int64) (bool, error) {
 	return project.OwnerID == e.user.ID, nil
 }
 
+// hasFeedbackAccess reports whether the acting user has legitimate access to
+// a Percy Feedback project: direct membership, which is what provisioning
+// actually grants a reporter on their own sub-project (never ownership - see
+// ProvisionFeedbackAccess), or ownership, which policy-table tests exercise
+// this rule against directly and which Vikunja treats as implying every
+// lesser permission anyway.
+func (e *managedEval) hasFeedbackAccess(projectID int64) (bool, error) {
+	owns, err := e.ownsProject(projectID)
+	if err != nil || owns {
+		return owns, err
+	}
+	return e.s.Where("project_id = ? AND user_id = ?", projectID, e.user.ID).Exist(&models.ProjectUser{})
+}
+
 // refuse logs why a request was turned down - a policy refusal is otherwise
 // invisible to whoever has to explain it to a customer - and returns the
 // response the caller sees.
