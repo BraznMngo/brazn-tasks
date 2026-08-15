@@ -157,6 +157,15 @@ const (
 	RateLimitLimit             Key = `ratelimit.limit`
 	RateLimitStore             Key = `ratelimit.store`
 	RateLimitNoAuthRoutesLimit Key = `ratelimit.noauthlimit`
+	// RateLimitBraznIngestLimit bounds the entitlement and provisioning ingest
+	// routes (BRA-1208), independently of RateLimitEnabled: those two routes
+	// are the doors through which Percy Cloud writes commercial state into
+	// this fork, and a protection that only exists when an unrelated switch
+	// is on is a protection nobody can rely on. Not on the same limiter as
+	// RateLimitNoAuthRoutesLimit either — that one is sized for humans
+	// guessing a password, and every projection in the system legitimately
+	// arrives from one address.
+	RateLimitBraznIngestLimit Key = `ratelimit.brazningestlimit`
 
 	FilesBasePath Key = `files.basepath`
 	FilesMaxSize  Key = `files.maxsize`
@@ -458,6 +467,9 @@ func InitDefaultConfig() {
 	RateLimitPeriod.setDefault(60)
 	RateLimitStore.setDefault("memory")
 	RateLimitNoAuthRoutesLimit.setDefault(10)
+	// 300/minute: generous for the one legitimate caller (Percy Cloud), and
+	// still a real bound against a flood or a bug that turned into one.
+	RateLimitBraznIngestLimit.setDefault(300)
 	// Files
 	FilesBasePath.setDefault("files")
 	FilesMaxSize.setDefault("20MB")
