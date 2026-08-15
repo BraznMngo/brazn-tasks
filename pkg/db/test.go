@@ -46,7 +46,13 @@ func CreateTestEngine() (engine *xorm.Engine, err error) {
 			return nil, err
 		}
 	} else {
-		engine, err = xorm.NewEngine("sqlite3", "file::memory:?cache=shared")
+		// _busy_timeout matches CreateDBEngine's own sqlite DSN (db.go): without
+		// it, a writer that finds the shared in-memory database locked gets
+		// SQLITE_BUSY immediately instead of waiting, which a real deployment
+		// never sees but a test exercising genuine concurrent writes against
+		// this shared engine can - surfacing as a raw driver error unrelated to
+		// whatever the test is actually checking.
+		engine, err = xorm.NewEngine("sqlite3", "file::memory:?cache=shared&_busy_timeout=5000")
 		if err != nil {
 			return nil, err
 		}

@@ -102,10 +102,57 @@ func (ProvisionedUser) TableName() string {
 	return "brazn_provisioned_users"
 }
 
+// maxMailboxProvisioningAttempts bounds the retry BRA-1207 adds around
+// ErrMailboxProvisioningLost. The race it waits out is one HTTP request's own
+// commit or rollback, not a human process - three short windows are enough to
+// let an ordinary race resolve on its own, and a caller for whom it is still
+// unresolved after three has a genuinely stuck winner, not a slow one.
+const maxMailboxProvisioningAttempts = 3
+
+// mailboxProvisioningRetryDelay is deliberately short for the same reason:
+// long enough to let a concurrent INSERT's own commit land, nowhere near long
+// enough to make an ordinary signup feel slow.
+const mailboxProvisioningRetryDelay = 50 * time.Millisecond
+
 // CreateOrResolveUserForMailbox creates the Brazn Tasks user for one mailbox or
 // returns the one that already exists, and reports which of the two happened.
-// It owns its own transactions, because the conflict path has to read what
-// another transaction committed.
+//
+// RETRIES ErrMailboxProvisioningLost IN PLACE (BRA-1207), rather than leaving
+// it for the caller. Nothing downstream of this — cloud/service/src/fork.ts
+// maps this route's 5xx to a retryable `unavailable`, but Percy Cloud's own
+// signup handler (web/lib/checkout.ts) does not retry it, it tells the
+// customer "unavailable" and waits for them to resubmit the form. A customer
+// who paid deserves better than depending on noticing an error and trying
+// again, so this closes the race itself before ever answering the caller.
+//
+// IDEMPOTENT BY THE SAME CONSTRUCTION EVERY ATTEMPT ALREADY HAD: each retry is
+// a fresh claim on the same unique index, so it either wins (there was
+// nothing there — the previous winner rolled back) or loses again and reads
+// back whoever is really there. No attempt can ever mint a second user for
+// one mailbox; that is `provisionedMailboxConstraint`'s job, not this loop's.
+func CreateOrResolveUserForMailbox(ctx context.Context, email string) (*user.User, bool, error) {
+	var lastErr error
+	for attempt := 0; attempt < maxMailboxProvisioningAttempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, false, ctx.Err()
+			case <-time.After(mailboxProvisioningRetryDelay):
+			}
+		}
+		u, created, err := createOrResolveUserForMailboxOnce(ctx, email)
+		if err == nil || !errors.Is(err, ErrMailboxProvisioningLost) {
+			return u, created, err
+		}
+		lastErr = err
+	}
+	return nil, false, lastErr
+}
+
+// createOrResolveUserForMailboxOnce is one attempt at the claim above, unwound
+// from CreateOrResolveUserForMailbox so the retry loop can call it more than
+// once. It owns its own transactions, because the conflict path has to read
+// what another transaction committed.
 //
 // THE ORDER IS THE POINT. The mailbox is claimed by an INSERT before anything
 // else happens, so the unique index decides who provisions and who resolves -
@@ -116,7 +163,7 @@ func (ProvisionedUser) TableName() string {
 // The claim is also why the expensive half is never wasted: a caller that lost
 // has done no user creation, sent no confirmation mail and written nothing it
 // has to undo.
-func CreateOrResolveUserForMailbox(ctx context.Context, email string) (*user.User, bool, error) {
+func createOrResolveUserForMailboxOnce(ctx context.Context, email string) (*user.User, bool, error) {
 	s := db.NewSession()
 	defer s.Close()
 	// Discards events queued during a rolled-back transaction (the user
