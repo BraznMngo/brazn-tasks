@@ -18,12 +18,14 @@ package webtests
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/user"
@@ -249,4 +251,43 @@ func TestBraznProvisioningWithPasswordNeverLogsThePassword(t *testing.T) {
 	assert.Contains(t, string(logged), "Refused a provisioning request",
 		"the refusal line must actually have been written, or the absence check below proves nothing")
 	assert.NotContains(t, string(logged), plaintext)
+}
+
+// TestBraznProvisioningWithPasswordAccountIsImmediatelyActive pins BRA-1335's
+// whole point against the one config state that silently defeats it: with
+// mail configured, RegisterUser's ordinary path (used by /register) leaves a
+// brand-new account at StatusEmailConfirmationRequired and mails a token
+// nobody asked this account to need - Percy Cloud already proved the mailbox
+// works by reaching this signed call at all, so re-gating on a second proof
+// of the same fact would mean the customer lands on the login screen unable
+// to log in, which is the opposite of "the account is ready the moment they
+// open the task app."
+//
+// THE CHEAP CHECK: swap CreateProvisionedUserWithPassword's
+// RegisterUserConfirmLater + forced-active back to a plain RegisterUser call,
+// and this goes red - the account is created but stored at
+// StatusEmailConfirmationRequired, and the login below is refused.
+func TestBraznProvisioningWithPasswordAccountIsImmediatelyActive(t *testing.T) {
+	config.MailerEnabled.Set(true)
+	defer config.MailerEnabled.Set(false)
+
+	env := newManagedEnv(t)
+
+	result := provisionedPasswordAccount(t, env.provision(
+		createUserWithPasswordPayload("ready-on-arrival@example.com", "ready-on-arrival", "a-strong-password")))
+
+	id, err := strconv.ParseInt(result.ID, 10, 64)
+	require.NoError(t, err)
+
+	db.AssertExists(t, "users", map[string]interface{}{
+		"id":     id,
+		"status": int(user.StatusActive),
+	}, false)
+
+	// The real proof: the account this call just created can actually log in,
+	// with no confirmation step in the way - not just that the status column
+	// reads correctly in isolation.
+	loginResp := humaRequest(t, env.e, http.MethodPost, "/api/v1/login",
+		`{"username":"ready-on-arrival","password":"a-strong-password"}`, "", "")
+	require.Equal(t, 200, loginResp.Code, loginResp.Body.String())
 }

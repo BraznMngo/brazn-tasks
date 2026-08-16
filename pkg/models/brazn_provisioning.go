@@ -417,12 +417,20 @@ func CreateProvisionedUserWithPassword(ctx context.Context, email, username, pas
 		return nil, ErrPasswordAccountEmailOrUsernameTaken
 	}
 
-	// RegisterUser rather than user.CreateUser, matching registerUserForMailbox
-	// below: a new account needs its Inbox and its default saved filters too.
+	// RegisterUserConfirmLater rather than RegisterUser: a new account needs
+	// its Inbox and its default saved filters too (matching
+	// registerUserForMailbox below), but NOT a confirmation mail. Percy Cloud
+	// already required a working, receiving mailbox to reach this call at all
+	// - a checkout, or a trial start, both prove the address before this
+	// operation is ever signed - so re-gating the account on a second proof
+	// of the same fact would leave the customer unable to log in the moment
+	// this call returns, which defeats BRA-1335's entire point: the account
+	// is supposed to be immediately usable.
+	//
 	// checkIfUserExists inside it is what catches a username, or an email,
 	// that already belongs to some OTHER account this call did not just
 	// claim - the second half of the collision this operation must refuse.
-	created, err := RegisterUser(s, &user.User{
+	created, confirm, err := RegisterUserConfirmLater(s, &user.User{
 		Username: username,
 		Password: password,
 		Email:    email,
@@ -434,6 +442,22 @@ func CreateProvisionedUserWithPassword(ctx context.Context, email, username, pas
 			return nil, ErrPasswordAccountEmailOrUsernameTaken
 		}
 		return nil, err
+	}
+
+	// A non-nil confirmation means the instance has mail configured, which is
+	// what made CreateUserConfirmLater write StatusEmailConfirmationRequired
+	// and mint a token in the same breath. Neither is sent nor left standing:
+	// the token can never be redeemed once status is forced back to active
+	// (nothing here calls user.SendConfirmation), and it stays as an unusable
+	// row rather than something worth deleting - the same shape a normal
+	// customer's account is in the instant after they click their own
+	// confirmation link.
+	if confirm != nil {
+		if err := user.SetUserStatus(s, created, user.StatusActive); err != nil {
+			_ = s.Rollback()
+			return nil, err
+		}
+		created.Status = user.StatusActive
 	}
 
 	if err := bindClaim(s, claim, created.ID); err != nil {
