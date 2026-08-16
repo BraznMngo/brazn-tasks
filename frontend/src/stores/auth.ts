@@ -99,6 +99,23 @@ export const useAuthStore = defineStore('auth', () => {
 	const isLoading = ref(false)
 	const isLoadingGeneralSettings = ref(false)
 
+	// The Brazn managed-mode claims (BRA-1342), read out of the same JWT
+	// payload `sid` already comes from. Both mirror pkg/modules/auth/auth.go:
+	// `managedEdition` is `brazn_edition` (BraznEditionClaim) and
+	// `writeRestricted` is `brazn_write_restricted` (BraznWriteRestrictedClaim).
+	//
+	// DECISION (BRA-1342 step 7): the capability payload comes from the JWT
+	// alongside the write-restriction claim, not from a new endpoint. The
+	// edition claim already exists on every session token minted by
+	// NewEntitledUserJWTAuthtoken, so reading it here needs no backend change
+	// and stays consistent with how writeRestricted already works: both are
+	// read once per token instead of queried per request.
+	//
+	// Absence of either claim is the permissive case, matching the backend's
+	// own fail-open reasoning for a token minted with no entitlement.
+	const managedEdition = ref<string | null>(null)
+	const writeRestricted = ref(false)
+
 	const authUser = computed(() => {
 		return authenticated.value && (
 			info.value &&
@@ -190,6 +207,16 @@ export const useAuthStore = defineStore('auth', () => {
 
 	function updateLastUserRefresh() {
 		lastUserInfoRefresh.value = new Date()
+	}
+
+	// Reads the two managed-mode claims out of a decoded JWT payload. Absence of
+	// either is the permissive reading (no edition, writes not restricted),
+	// matching WriteRestrictedFromToken and EditionFromToken server-side.
+	function applyManagedClaims(payload: Record<string, unknown>) {
+		managedEdition.value = typeof payload.brazn_edition === 'string' && payload.brazn_edition !== ''
+			? payload.brazn_edition
+			: null
+		writeRestricted.value = payload.brazn_write_restricted === true
 	}
 
 	// Logs a user in with a set of credentials.
@@ -356,6 +383,7 @@ export const useAuthStore = defineStore('auth', () => {
 
 				isAuthenticated = jwtUser.exp >= ts
 				currentSessionId.value = payload.sid ?? null
+				applyManagedClaims(payload)
 
 				if (isAuthenticated) {
 					// Only set user from JWT if we don't already have a fully loaded
@@ -392,6 +420,7 @@ export const useAuthStore = defineStore('auth', () => {
 							const freshUser = new UserModel(p)
 							isAuthenticated = freshUser.exp >= ts
 							currentSessionId.value = p.sid ?? null
+							applyManagedClaims(p)
 							if (info.value === null || info.value.id !== freshUser.id) {
 								setUser(freshUser, false)
 							} else {
@@ -421,6 +450,8 @@ export const useAuthStore = defineStore('auth', () => {
 		setAuthenticated(isAuthenticated)
 		if (!isAuthenticated) {
 			setUser(null)
+			managedEdition.value = null
+			writeRestricted.value = false
 			redirectToSpecifiedProvider()
 		}
 		
@@ -612,6 +643,9 @@ export const useAuthStore = defineStore('auth', () => {
 
 		currentSessionId: readonly(currentSessionId),
 		lastUserInfoRefresh: readonly(lastUserInfoRefresh),
+
+		managedEdition: readonly(managedEdition),
+		writeRestricted: readonly(writeRestricted),
 
 		authUser,
 		authLinkShare,

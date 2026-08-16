@@ -14,6 +14,7 @@ import {useAuthStore} from '@/stores/auth'
 import {useBaseStore} from '@/stores/base'
 import {useConfigStore} from '@/stores/config'
 import {useOrganizationStore} from '@/stores/organization'
+import {useManagedCapabilities} from '@/composables/useManagedCapabilities'
 
 import Login from '@/views/user/Login.vue'
 import Register from '@/views/user/Register.vue'
@@ -319,6 +320,7 @@ const router = createRouter({
 			component: () => import('@/views/project/NewProject.vue'),
 			meta: {
 				showAsModal: true,
+				requiresProjectCreateCapability: true,
 			},
 		},
 		{
@@ -328,6 +330,7 @@ const router = createRouter({
 			props: route => ({ parentProjectId: Number(route.params.parentProjectId as string) }),
 			meta: {
 				showAsModal: true,
+				requiresProjectCreateCapability: true,
 			},
 		},
 		{
@@ -668,6 +671,17 @@ router.beforeEach(async (to, from) => {
 				organizationStore.markStale()
 				return
 			}
+			return {name: 'not-found'}
+		}
+	}
+
+	if (to.meta?.requiresProjectCreateCapability) {
+		// A UI hint, not the real gate (BRA-1342): the four entry points that
+		// link here already hide themselves when this is false, so this only
+		// covers a direct URL, a stale tab, or a bookmark. The server's managed
+		// gate (ruleProjectCreate) is what actually refuses the create call.
+		const {capabilities} = useManagedCapabilities()
+		if (!capabilities.value.projectCreate) {
 			return {name: 'not-found'}
 		}
 	}

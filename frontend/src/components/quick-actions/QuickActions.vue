@@ -135,6 +135,7 @@ import {useProjectStore} from '@/stores/projects'
 import {useLabelStore} from '@/stores/labels'
 import {useTaskStore} from '@/stores/tasks'
 import {useAuthStore} from '@/stores/auth'
+import {useManagedCapabilities} from '@/composables/useManagedCapabilities'
 
 import {getHistory} from '@/modules/projectHistory'
 import {parseTaskText, PREFIXES, PrefixMode} from '@/modules/quickAddMagic'
@@ -155,6 +156,7 @@ const projectStore = useProjectStore()
 const labelStore = useLabelStore()
 const taskStore = useTaskStore()
 const authStore = useAuthStore()
+const {capabilities} = useManagedCapabilities()
 
 const {isQuickAddMode} = useQuickAddMode()
 
@@ -374,10 +376,13 @@ const hintText = computed(() => {
 	return t('quickActions.hint', prefixes)
 })
 
+// newProject bypasses the project.create route entirely (calls
+// projectStore.createProject() directly), so it needs its own capability
+// check rather than inheriting the router guard's.
 const availableCmds = computed(() => {
 	return [
 		commands.value.newTask,
-		commands.value.newProject,
+		...(capabilities.value.projectCreate ? [commands.value.newProject] : []),
 		commands.value.newTeam,
 	]
 })
