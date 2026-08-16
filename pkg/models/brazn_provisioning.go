@@ -359,6 +359,97 @@ func resolveProvisionedMailbox(email string) (*user.User, error) {
 	return userByID(s, claim.UserID)
 }
 
+// ErrPasswordAccountEmailOrUsernameTaken means a create_user_with_password
+// request (BRA-1335) named a mailbox or a username this instance already has a
+// DIFFERENT account for.
+//
+// IT IS A REFUSAL AND DELIBERATELY NOT AN ADOPTION, which is the one place
+// this operation must NOT copy CreateOrResolveUserForMailbox's own collision
+// handling. That adoption exists for OAuth-adopted identities, which carry no
+// password to conflict over (BRA-1106) - resolving to whoever is already
+// there loses nothing, because there was never anything to lose. This
+// operation always arrives with a password somebody chose at checkout, and
+// adopting an existing account would mean one of two bad things happened
+// silently: a stranger's account gains the caller's password, or the caller
+// is told an account was made for them when it was really somebody else's.
+// Either is unacceptable, so any collision refuses.
+var ErrPasswordAccountEmailOrUsernameTaken = errors.New(
+	"the email or username names an account this instance already has")
+
+// CreateProvisionedUserWithPassword is the create_user_with_password operation
+// (BRA-1335): a brand-new Brazn Tasks account for somebody who chose a
+// username and a password at Percy Cloud checkout, created synchronously so
+// the account exists the moment they open this instance rather than after a
+// second registration step.
+//
+// THE MAILBOX IS CLAIMED BY THE SAME INSERT-AS-CLAIM
+// CreateOrResolveUserForMailbox uses, and for the identical reason: a lookup
+// followed by an insert is check-then-act, and the loser of that race would
+// mint a second account for one mailbox. It is not the same FUNCTION, because
+// what a lost claim means here differs - see ErrPasswordAccountEmailOrUsernameTaken.
+//
+// NEVER RETRIES. CreateOrResolveUserForMailbox retries ErrMailboxProvisioningLost
+// because a claim with no user yet is a WINDOW to wait out - the real winner is
+// mid-transaction and will finish. Here a lost claim means an account already
+// exists, full stop; there is nothing to wait for and nothing to resolve to.
+//
+// password ARRIVES AS PLAINTEXT EXACTLY ONCE. It is handed straight to
+// RegisterUser, which is the one place downstream that turns it into a bcrypt
+// hash (user.HashPassword, called from user.CreateUserConfirmLater) - this
+// function never hashes it itself, never logs it, and never stores it any
+// other way.
+func CreateProvisionedUserWithPassword(ctx context.Context, email, username, password string) (*user.User, error) {
+	s := db.NewSession()
+	defer s.Close()
+	// Discards events queued during a rolled-back transaction; a no-op once
+	// DispatchPending has run.
+	defer events.CleanupPending(s)
+
+	claim := &ProvisionedUser{Email: email}
+	if _, err := s.Insert(claim); err != nil {
+		_ = s.Rollback()
+		if !db.IsUniqueConstraintError(err, provisionedMailboxConstraint) {
+			return nil, err
+		}
+		// Somebody - create_user's OAuth adoption, or an earlier call to this
+		// very operation - already holds this mailbox. Refusing rather than
+		// reading back the winner is the whole point; see the error's comment.
+		return nil, ErrPasswordAccountEmailOrUsernameTaken
+	}
+
+	// RegisterUser rather than user.CreateUser, matching registerUserForMailbox
+	// below: a new account needs its Inbox and its default saved filters too.
+	// checkIfUserExists inside it is what catches a username, or an email,
+	// that already belongs to some OTHER account this call did not just
+	// claim - the second half of the collision this operation must refuse.
+	created, err := RegisterUser(s, &user.User{
+		Username: username,
+		Password: password,
+		Email:    email,
+		Issuer:   user.IssuerLocal,
+	})
+	if err != nil {
+		_ = s.Rollback()
+		if user.IsErrUsernameExists(err) || user.IsErrUserEmailExists(err) {
+			return nil, ErrPasswordAccountEmailOrUsernameTaken
+		}
+		return nil, err
+	}
+
+	if err := bindClaim(s, claim, created.ID); err != nil {
+		_ = s.Rollback()
+		return nil, err
+	}
+
+	if err := s.Commit(); err != nil {
+		_ = s.Rollback()
+		return nil, err
+	}
+
+	events.DispatchPending(ctx, s)
+	return created, nil
+}
+
 // MailboxForSubject answers a resolve_mailbox request: the current address of
 // the subject it names, or the empty string when this instance has no mailbox
 // to report for that subject.

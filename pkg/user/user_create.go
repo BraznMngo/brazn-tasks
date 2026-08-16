@@ -175,7 +175,7 @@ func CreateBotUser(s *xorm.Session, bot *User, owner *User) (*User, error) {
 	}
 
 	// Reuse the same username format rules as regular user creation
-	if err := checkUsernameFormat(bot.Username); err != nil {
+	if err := CheckUsernameFormat(bot.Username); err != nil {
 		return nil, err
 	}
 	if !strings.HasPrefix(bot.Username, "bot-") {
@@ -214,8 +214,11 @@ func HashPassword(password string) (string, error) {
 	return string(bytes), err
 }
 
-// checkUsernameFormat validates username format rules shared by regular and bot users.
-func checkUsernameFormat(username string) error {
+// CheckUsernameFormat validates username format rules shared by regular and bot
+// users. Exported so the Brazn provisioning channel's create_user_with_password
+// operation (BRA-1335) can apply the exact rule /register does, rather than a
+// second copy of it that could drift.
+func CheckUsernameFormat(username string) error {
 	if username == "" {
 		return ErrNoUsernamePassword{}
 	}
@@ -245,7 +248,7 @@ func checkIfUserIsValid(user *User) error {
 		return ErrNoUsernamePassword{}
 	}
 
-	if err := checkUsernameFormat(user.Username); err != nil {
+	if err := CheckUsernameFormat(user.Username); err != nil {
 		return err
 	}
 

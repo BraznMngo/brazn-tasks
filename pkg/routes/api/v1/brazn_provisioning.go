@@ -55,6 +55,22 @@ type provisionedUserReply struct {
 	EmailVerified bool `json:"email_verified"`
 }
 
+// provisionedPasswordAccountReply is the answer to a create_user_with_password
+// operation (BRA-1335).
+//
+// ID IS A STRING for the identical reason provisionedUserReply's is: the
+// contract validates it against ^[1-9][0-9]{0,18}$, and a Go int64 marshals to
+// 42 rather than "42".
+//
+// "created" DOES NOT APPEAR HERE, and that is not an oversight: create_user's
+// create-or-resolve contract needs to say which of the two happened, and this
+// operation never resolves - see models.CreateProvisionedUserWithPassword's
+// comment on why a collision refuses rather than adopting - so the member
+// would always read true and carry no information a caller could act on.
+type provisionedPasswordAccountReply struct {
+	ID string `json:"id"`
+}
+
 // nothingToReport is the answer to a performed operation that has nothing to
 // say, and it marshals to `{}`.
 //
@@ -215,6 +231,8 @@ func BraznProvision(c *echo.Context) error {
 		return resolveUser(c, payload)
 	case provisioning.OperationRevokeSession:
 		return revokeSession(c, payload)
+	case provisioning.OperationCreateUserWithPassword:
+		return provisionUserWithPassword(c, payload)
 	default:
 		// An operation this build does not define is refused rather than
 		// guessed at, in exactly the way an unknown edition is on the
@@ -252,6 +270,45 @@ func provisionUser(c *echo.Context, payload json.RawMessage) error {
 		ID:            strconv.FormatInt(u.ID, 10),
 		Created:       created,
 		EmailVerified: u.Status != user.StatusEmailConfirmationRequired,
+	})
+}
+
+// provisionUserWithPassword is the create_user_with_password operation
+// (BRA-1335): a brand-new Brazn Tasks account for somebody who chose a
+// username and a password at Percy Cloud checkout.
+//
+// IT NEVER ADOPTS, unlike provisionUser above. See
+// models.CreateProvisionedUserWithPassword and
+// models.ErrPasswordAccountEmailOrUsernameTaken for why a collision on the
+// mailbox OR the username must refuse rather than resolve to whoever is
+// already there: this operation always arrives with a password somebody
+// chose, and adopting an existing account would either hand a stranger's
+// account a caller's password or tell the caller an account was made for them
+// that was really somebody else's.
+func provisionUserWithPassword(c *echo.Context, payload json.RawMessage) error {
+	request, err := provisioning.DecodeCreateUserWithPassword(payload)
+	if err != nil {
+		return refuseProvisioning("the create_user_with_password request is not one this build accepts")
+	}
+
+	u, err := models.CreateProvisionedUserWithPassword(
+		c.Request().Context(), request.Email, request.Username, request.Password)
+	if err != nil {
+		if errors.Is(err, models.ErrPasswordAccountEmailOrUsernameTaken) {
+			return refuseProvisioning(
+				"the create_user_with_password request names an email or username this instance already has")
+		}
+		return err
+	}
+
+	// Neither the mailbox nor the username on this line, as on every other
+	// log line on this seam - and the password never reaches this function at
+	// all past the call above, which is what makes "never logged" true by
+	// construction rather than by remembering to leave it out here.
+	log.Debugf("Provisioned a Brazn Tasks password account: user %d", u.ID)
+
+	return c.JSON(http.StatusOK, &provisionedPasswordAccountReply{
+		ID: strconv.FormatInt(u.ID, 10),
 	})
 }
 

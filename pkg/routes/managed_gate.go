@@ -60,7 +60,6 @@ const (
 	ruleServiceManaged managedRule = "service-managed"
 	ruleAuthentication managedRule = "authentication"
 	ruleAccessRevoke   managedRule = "access-revoke"
-	ruleSignupToken    managedRule = "signup-token"
 
 	ruleProjectCreate    managedRule = "project-create"
 	ruleProjectDuplicate managedRule = "project-duplicate"
@@ -81,7 +80,6 @@ var allManagedRules = []managedRule{
 	ruleServiceManaged,
 	ruleAuthentication,
 	ruleAccessRevoke,
-	ruleSignupToken,
 	ruleProjectCreate,
 	ruleProjectDuplicate,
 	ruleProjectUpdate,
