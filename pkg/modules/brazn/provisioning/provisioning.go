@@ -37,6 +37,7 @@ import (
 	"strings"
 
 	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
+	"code.vikunja.io/api/pkg/user"
 )
 
 // SigningDomain is the domain-separation prefix a provisioning signature
@@ -98,6 +99,19 @@ const (
 	// mailbox, so a shared name with anything on this channel is not a
 	// question this operation shares.
 	OperationRevokeSession = "revoke_session"
+	// OperationCreateUserWithPassword is BRA-1335: a brand-new Brazn Tasks
+	// account for somebody who chose a username and a password at Percy Cloud
+	// checkout, so the account exists before they ever open this instance.
+	//
+	// IT IS A SEPARATE OPERATION FROM create_user AND MUST STAY ONE.
+	// create_user carries only an email, deliberately - see CreateUser's own
+	// comment - because its callers are OAuth-adopted identities with no
+	// password to arrive with. Widening create_user to also accept a username
+	// and a password would let its payload decode as this one's, one field
+	// short, with the switch below the only thing keeping an OAuth-adoption
+	// caller's request from being read as a password-signup request. A
+	// distinct name makes that impossible rather than merely unlikely.
+	OperationCreateUserWithPassword = "create_user_with_password"
 )
 
 // maxMailboxLength is users.email's column width. An address past it is
@@ -106,6 +120,24 @@ const (
 // same reasoning the entitlement contract's opaqueId length bound is written
 // for.
 const maxMailboxLength = 250
+
+// maxUsernameLength is users.username's column width, for the same reason
+// maxMailboxLength bounds the mailbox: a value past it is one a store would
+// truncate into a DIFFERENT username - which is another person's account,
+// silently.
+const maxUsernameLength = 250
+
+// minPasswordBytes and maxPasswordBytes are the exact bounds
+// pkg/user/validator.go's own "bcrypt_password" rule already applies to every
+// other password this fork ever accepts - not a policy this package is
+// inventing, but the one hard technical fact it must not ignore: bcrypt
+// refuses anything over 72 bytes outright (golang.org/x/crypto/bcrypt), so
+// admitting a longer value here would only turn user.HashPassword's error
+// into this channel's flat, unhelpful 400 further downstream.
+const (
+	minPasswordBytes = 8
+	maxPasswordBytes = 72
+)
 
 // commercialID is the entitlement contract's $defs/opaqueId, which is the shape
 // every identifier minted by the commercial service carries - an organization
@@ -311,6 +343,38 @@ type RevokeSession struct {
 	// underscore, hyphen, up to 64 - already covers a UUID's alphabet and
 	// length without a second pattern to keep in step with the first.
 	SessionID string `json:"session_id"`
+}
+
+// CreateUserWithPassword is the whole signed payload of a
+// create_user_with_password operation (BRA-1335): a brand-new Brazn Tasks
+// account for somebody who set a username and a password at Percy Cloud
+// checkout.
+//
+// It declares its own complete payload rather than embedding CreateUser's, for
+// the reason every sibling on this channel gives: a member belonging to
+// another operation must be undeclared here and refused, instead of accepted
+// and ignored because a sibling happens to declare it. That matters more here
+// than usual, because dropping username and password from this payload leaves
+// exactly CreateUser's shape - see OperationCreateUserWithPassword's own
+// comment on why the two must never share a name.
+type CreateUserWithPassword struct {
+	ContractVersion string `json:"contract_version"`
+	Operation       string `json:"operation"`
+	// Email is the mailbox to provision, treated as an OPAQUE KEY exactly as
+	// CreateUser's is - see that type's comment for why nothing here
+	// transforms it.
+	Email string `json:"email"`
+	// Username is validated by the exact rule /register applies
+	// (user.CheckUsernameFormat), reused rather than reimplemented so the two
+	// entry points can never quietly disagree about what a username looks
+	// like.
+	Username string `json:"username"`
+	// Password is PLAINTEXT and arrives exactly once. This package's only
+	// obligation toward it is to decode it and hand it on: it is never logged,
+	// never echoed into a refusal, and this type is the last place in the
+	// process that can see it before models.CreateProvisionedUserWithPassword
+	// turns it into a bcrypt hash and lets the plaintext go out of scope.
+	Password string `json:"password"`
 }
 
 // operation is the lenient first read of a signed payload: enough to route it,
@@ -527,6 +591,45 @@ func DecodeRevokeSession(payload json.RawMessage) (*RevokeSession, error) {
 		return nil, ErrInvalidRequest
 	}
 	if !commercialID.MatchString(request.SessionID) {
+		return nil, ErrInvalidRequest
+	}
+	return request, nil
+}
+
+// DecodeCreateUserWithPassword reads a verified payload as a
+// create_user_with_password request and checks the three members it carries.
+//
+// IT DOES NOT CHECK THE OPERATION MEMBER, matching create_user's own decoder
+// and for the reason given there: routing already guarantees the value, and
+// this payload has no sibling it could be mistaken for on the way IN - it is a
+// strict superset of create_user's shape, so a payload actually meant for
+// create_user is refused here as soon as decodeExactly sees the two members it
+// does not declare. See OperationCreateUserWithPassword for the direction that
+// does need a name check (create_user must never widen into this).
+func DecodeCreateUserWithPassword(payload json.RawMessage) (*CreateUserWithPassword, error) {
+	request := &CreateUserWithPassword{}
+	if err := decodeExactly(payload, request); err != nil {
+		return nil, err
+	}
+	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	// The same mailbox shape check DecodeCreateUser makes, for the same
+	// reason: an address past the column width is one a store would truncate
+	// into a DIFFERENT mailbox, which is another person's account.
+	if len(request.Email) > maxMailboxLength || !strings.Contains(request.Email, "@") {
+		return nil, ErrInvalidRequest
+	}
+	// user.CheckUsernameFormat is the exact rule /register applies, reused
+	// rather than reimplemented; maxUsernameLength is this decoder's own
+	// addition, for the truncation reason its comment gives.
+	if len(request.Username) > maxUsernameLength {
+		return nil, ErrInvalidRequest
+	}
+	if err := user.CheckUsernameFormat(request.Username); err != nil {
+		return nil, ErrInvalidRequest
+	}
+	if len(request.Password) < minPasswordBytes || len([]byte(request.Password)) > maxPasswordBytes {
 		return nil, ErrInvalidRequest
 	}
 	return request, nil

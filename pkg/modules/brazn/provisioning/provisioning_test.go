@@ -304,3 +304,135 @@ func TestVerifyReportsAnOperationThisBuildDoesNotDefine(t *testing.T) {
 	// would produce.
 	assert.Equal(t, "delete_everything", operation)
 }
+
+// createUserWithPassword is a well-formed create_user_with_password payload
+// (BRA-1335) in canonical JSON: members sorted by key.
+const createUserWithPassword = `{"contract_version":"1","email":"someone@example.com",` +
+	`"operation":"create_user_with_password","password":"a-strong-password","username":"someone"}`
+
+func TestVerifyReadsAWellFormedCreateUserWithPasswordRequest(t *testing.T) {
+	key := trustedKey(t)
+
+	operation, payload, err := Verify(envelopeOver(key, provisioningPrefix, createUserWithPassword))
+	require.NoError(t, err)
+	assert.Equal(t, OperationCreateUserWithPassword, operation)
+
+	request, err := DecodeCreateUserWithPassword(payload)
+	require.NoError(t, err)
+	assert.Equal(t, "someone@example.com", request.Email)
+	assert.Equal(t, "someone", request.Username)
+	assert.Equal(t, "a-strong-password", request.Password)
+}
+
+// TestCreateUserWithPasswordIsItsOwnOperation pins the operation name and the
+// asymmetric relationship with create_user its own comment describes: dropping
+// username and password from this payload leaves exactly create_user's shape,
+// so a create_user_with_password payload sent with the WRONG operation name
+// must decode as create_user's undeclared-member refusal, while a genuine
+// create_user payload decodes cleanly under this operation's own decoder
+// (its username and password simply read as empty, which
+// DecodeCreateUserWithPassword's own format check then refuses on a different
+// ground - see the refusal table below).
+func TestCreateUserWithPasswordIsItsOwnOperation(t *testing.T) {
+	assert.Equal(t, "create_user_with_password", OperationCreateUserWithPassword)
+	assert.NotEqual(t, OperationCreateUser, OperationCreateUserWithPassword)
+
+	key := trustedKey(t)
+
+	t.Run("a create_user_with_password payload does not decode as create_user", func(t *testing.T) {
+		operation, verified, err := Verify(envelopeOver(key, provisioningPrefix, createUserWithPassword))
+		require.NoError(t, err)
+		require.Equal(t, OperationCreateUserWithPassword, operation)
+
+		_, err = DecodeCreateUser(verified)
+		require.ErrorIs(t, err, ErrInvalidRequest,
+			"username and password are undeclared on CreateUser, so decodeExactly must refuse rather than ignore them")
+	})
+}
+
+func TestDecodeCreateUserWithPasswordRefusesWhatThisBuildCannotActOn(t *testing.T) {
+	key := trustedKey(t)
+
+	refused := func(t *testing.T, payload string) {
+		t.Helper()
+
+		operation, verified, err := Verify(envelopeOver(key, provisioningPrefix, payload))
+		require.NoError(t, err)
+		require.Equal(t, OperationCreateUserWithPassword, operation)
+
+		_, err = DecodeCreateUserWithPassword(verified)
+		require.ErrorIs(t, err, ErrInvalidRequest)
+	}
+
+	// The control, for the reason every sibling's own control exists: every
+	// case below differs from this payload in one member, so a refusal is
+	// attributable to that member and to nothing else.
+	t.Run("control: the well-formed request is accepted", func(t *testing.T) {
+		operation, verified, err := Verify(envelopeOver(key, provisioningPrefix, createUserWithPassword))
+		require.NoError(t, err)
+		require.Equal(t, OperationCreateUserWithPassword, operation)
+
+		_, err = DecodeCreateUserWithPassword(verified)
+		require.NoError(t, err)
+	})
+
+	t.Run("a contract version this build does not define", func(t *testing.T) {
+		refused(t, `{"contract_version":"2","email":"someone@example.com",`+
+			`"operation":"create_user_with_password","password":"a-strong-password","username":"someone"}`)
+	})
+
+	t.Run("an undeclared member, which a later contract carries meaning in", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"someone@example.com","organization_id":"org_1",`+
+			`"operation":"create_user_with_password","password":"a-strong-password","username":"someone"}`)
+	})
+
+	t.Run("an address that is not a mailbox", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"someone",`+
+			`"operation":"create_user_with_password","password":"a-strong-password","username":"someone"}`)
+	})
+
+	t.Run("no address at all", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"",`+
+			`"operation":"create_user_with_password","password":"a-strong-password","username":"someone"}`)
+	})
+
+	t.Run("an address longer than the column that would store it", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"`+strings.Repeat("a", 245)+`@example.com",`+
+			`"operation":"create_user_with_password","password":"a-strong-password","username":"someone"}`)
+	})
+
+	// user.CheckUsernameFormat's own rules, reused rather than reimplemented -
+	// this is the assertion that they are actually WIRED UP, not a second copy
+	// of what user_create_test.go already proves about the rule itself.
+	t.Run("no username at all", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"someone@example.com",`+
+			`"operation":"create_user_with_password","password":"a-strong-password","username":""}`)
+	})
+
+	t.Run("a username with a space in it", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"someone@example.com",`+
+			`"operation":"create_user_with_password","password":"a-strong-password","username":"a name"}`)
+	})
+
+	t.Run("a username matching the reserved link-share pattern", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"someone@example.com",`+
+			`"operation":"create_user_with_password","password":"a-strong-password","username":"link-share-42"}`)
+	})
+
+	t.Run("a username longer than the column that would store it", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"someone@example.com","operation":"create_user_with_password",`+
+			`"password":"a-strong-password","username":"`+strings.Repeat("a", 251)+`"}`)
+	})
+
+	// minPasswordBytes and maxPasswordBytes, quoted from pkg/user/validator.go's
+	// own "bcrypt_password" rule rather than a bound this package invented.
+	t.Run("a password shorter than every other password this fork accepts", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"someone@example.com",`+
+			`"operation":"create_user_with_password","password":"short","username":"someone"}`)
+	})
+
+	t.Run("a password past bcrypt's own 72-byte limit", func(t *testing.T) {
+		refused(t, `{"contract_version":"1","email":"someone@example.com",`+
+			`"operation":"create_user_with_password","password":"`+strings.Repeat("a", 73)+`","username":"someone"}`)
+	})
+}

@@ -59,6 +59,18 @@ type UserRegister struct {
 // busts the cached user-count metric so the registration shows up immediately.
 // The caller is responsible for the registration-enabled gate and input
 // validation; both v1 and v2 share this body.
+//
+// THE managed BRANCH BELOW IS NOW UNREACHABLE OVER HTTP AND DELIBERATELY LEFT
+// IN PLACE (BRA-1335). Percy Cloud provisions a password account directly
+// through the brazn provisioning channel's create_user_with_password operation
+// at checkout (pkg/models/brazn_provisioning.go,
+// CreateProvisionedUserWithPassword) - the account exists before the customer
+// ever reaches this instance - so /register itself is now classified
+// "service-managed" in route-classification.json and refuses before this
+// function runs at all. Removing the branch, the signup-token contract it
+// redeems against, and this instance's Vue /register page is BRA-1337's job,
+// not this one's: this function still backs self-hosted registration, where
+// managed is always false and nothing below changes.
 func RegisterUser(ctx context.Context, in *UserRegister) (*user.User, error) {
 	s := db.NewSession()
 	defer s.Close()
