@@ -658,6 +658,12 @@ func registerAPIRoutes(a *echo.Group) {
 	a.PUT("/brazn/organization/teams", apiv1.BraznCreateOrganizationTeam)
 	a.DELETE("/brazn/organization/teams/:team", apiv1.BraznDeleteOrganizationTeam)
 
+	// Whether a project sits beneath the organization's Public root (BRA-1343),
+	// so the link-share toggle can be drawn honestly. Also unclassified and for
+	// the same reason as the GET above: it is a read, gated by the handler's own
+	// ordinary project-read check rather than by the managed-policy table.
+	a.GET("/brazn/projects/:project/public-root", apiv1.BraznGetProjectRoot)
+
 	// Avatar endpoint
 	a.GET("/avatar/:username", apiv1.GetAvatar)
 

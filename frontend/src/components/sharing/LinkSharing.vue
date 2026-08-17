@@ -12,7 +12,7 @@
 
 		<div class="sharables-project">
 			<XButton
-				v-if="!showNewForm && canCreate && capabilities.linkShare"
+				v-if="!showNewForm && canCreate && capabilities.linkShare && isUnderPublicRoot"
 				icon="plus"
 				class="mbe-4"
 				@click="showNewForm = true"
@@ -208,6 +208,7 @@ import LinkShareService from '@/services/linkShare'
 
 import {useCopyToClipboard} from '@/composables/useCopyToClipboard'
 import {useManagedCapabilities} from '@/composables/useManagedCapabilities'
+import {useProjectPublicRoot} from '@/composables/useProjectPublicRoot'
 import {success} from '@/message'
 import {getDisplayName} from '@/models/user'
 import {useConfigStore} from '@/stores/config'
@@ -240,6 +241,11 @@ const {capabilities} = useManagedCapabilities()
 // would grant admin permission - READ_WRITE is the floor for showing the
 // button at all).
 const canCreate = computed(() => (projectStore.projects[props.projectId]?.maxPermission ?? PERMISSIONS.READ) > PERMISSIONS.READ)
+
+// Teams confines link sharing to the Public-root subtree (decideTeamsLinkShare,
+// BRA-1343) - stays `true` (no-op) outside the Teams edition, see
+// useProjectPublicRoot.
+const {isUnderPublicRoot} = useProjectPublicRoot(() => props.projectId)
 
 const availableViews = computed<IProjectView[]>(() => projectStore.projects[props.projectId]?.views || [])
 const copy = useCopyToClipboard()
