@@ -369,7 +369,14 @@ jobs:
           # so anchors get no exemption here on purpose.
           allowed='http://www\.w3\.org/2000/svg'
 
-          offenders="$(grep -rnE 'https?:|(src|href)=["'\'']?//' \
+          # THE `//` IS REQUIRED, and matching a bare `https?:` instead is wrong.
+          # An origin needs the authority component; without it there is nothing
+          # to be cross-origin to. A bare scheme match also hits ordinary prose:
+          # a source citation of the form `percy-http:2856` contains `http:` and
+          # names no host at all, which failed this step on the first run.
+          # Protocol-relative subresources are still caught by the second
+          # alternative below.
+          offenders="$(grep -rnE 'https?://|(src|href)=["'\'']?//' \
             --include='*.js' --include='*.html' --include='*.json' \
             "${dir}" | grep -vE "${allowed}" || true)"
           if [[ -n "${offenders}" ]]; then
