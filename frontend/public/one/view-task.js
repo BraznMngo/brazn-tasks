@@ -844,24 +844,24 @@ function taskProperties(state) {
           <input class="input" id="due" type="date" value="${esc(dateInputValue(task?.due_date))}"
             data-requires="write" aria-label="${esc(t('task.attributes.dueDate'))}"></div>
         <div><label class="label">${ic('bell')} ${esc(t('task.attributes.reminders'))}</label>
-          <!-- `inline-size:100%` fills the cell so the chevron sits at the right edge, and
-               `min-inline-size:max-content` is what stops it CLIPPING.
+          <!-- 'inline-size:100%' fills the cell so the chevron sits at the right edge, and
+               'min-inline-size:max-content' is what stops it CLIPPING.
 
                THIS IS THE HALF THAT LIVES HERE; the other half is in the stylesheet, and the
-               two must be read together. `.prop-grid.two` is `repeat(2,minmax(min-content,1fr))`
-               (task.html:369) — it was `minmax(0,1fr)`, a floor of 0, and this comment described
+               two must be read together. '.prop-grid.two' is 'repeat(2,minmax(min-content,1fr))'
+               (task.html:369) — it was 'minmax(0,1fr)', a floor of 0, and this comment described
                that older value until the stylesheet moved. A floor of 0 tied a
-               `white-space:nowrap` label to a box that can be narrower than the label itself and
+               'white-space:nowrap' label to a box that can be narrower than the label itself and
                the label then painted outside its own border box, which is the exact prototype
                defect task.html's "TRANSLATED LABELS" note claims to have fixed. German
                ("Eine Erinnerung hinzufügen…") is over the ~223px cell at the page's own desktop
                width.
 
-               The inline `min-inline-size` is kept rather than retired against that floor,
+               The inline 'min-inline-size' is kept rather than retired against that floor,
                because the floor alone is not enough: used width is max(min-width, width)
-               (task.html:370-372), so it is what keeps `inline-size:100%` from being the
+               (task.html:370-372), so it is what keeps 'inline-size:100%' from being the
                binding constraint inside the cell the track then sizes. Same treatment as
-               `.done-btn,.team-action-btn`: grow, never clip. -->
+               '.done-btn,.team-action-btn': grow, never clip. -->
           <button class="btn" style="inline-size:100%;min-inline-size:max-content;justify-content:space-between;font-weight:500"
             data-action="reminders" data-requires="write">${esc(reminders.length === 0
               ? t('task.addReminder')
@@ -979,8 +979,8 @@ function commentsSection(state, facts) {
       <div class="avatar">${esc(initials(user))}</div>
       <div class="comment-editor">
         <!-- The draft is re-emitted because a render REPLACES #app.innerHTML, and a render is
-             fired by controls the user did not touch: `refreshAfterWrite` after any other write,
-             and `syncRoleDrift`. Half a typed comment vanishing because a due date saved in the
+             fired by controls the user did not touch: 'refreshAfterWrite' after any other write,
+             and 'syncRoleDrift'. Half a typed comment vanishing because a due date saved in the
              same minute is unsaved work thrown away, which F2 forbids. The description textarea
              is protected by the capture-phase blur handler; this box had no equivalent. -->
         <textarea id="commentText" placeholder="${esc(t('one.task.comments.placeholder'))}"

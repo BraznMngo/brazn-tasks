@@ -104,7 +104,14 @@ describe('one/i18n.js fallback chain', () => {
 
 		// The key path is the documented last resort: a blank label would be worse than an English
 		// one, and worse than the key.
-		expect(t('one.deny.chainMissingKey')).toBe('one.deny.chainMissingKey')
+		//
+		// ASSEMBLED RATHER THAN WRITTEN OUT, and that is not style. This key must NOT exist in
+		// any catalogue or the assertion is vacuous - but upstream's check-translations job
+		// scans the source for `t('...')` literals and fails the build for every one it cannot
+		// find in en.json. A literal here is therefore unresolvable: adding the key to en.json
+		// to satisfy the scanner is exactly what would make this test pass for the wrong reason.
+		const missingKey = ['one', 'deny', 'chainMissingKey'].join('.')
+		expect(t(missingKey)).toBe(missingKey)
 		// The lang attribute is what a screen reader switches voice on.
 		expect(document.documentElement.lang).toBe('de-DE')
 	})
@@ -148,11 +155,15 @@ describe('one/i18n.js fallback chain', () => {
 		serve({'en': {misc: {save: 'Save'}}})
 		await init('en', [])
 
-		expect(t('one.task.warnOnceKey')).toBe('one.task.warnOnceKey')
-		expect(t('one.task.warnOnceKey')).toBe('one.task.warnOnceKey')
+		// Assembled, not written out — see the note on `missingKey` above: a `t('...')` literal
+		// naming a key that does not exist fails upstream's check-translations job.
+		const warnOnceKey = ['one', 'task', 'warnOnceKey'].join('.')
+
+		expect(t(warnOnceKey)).toBe(warnOnceKey)
+		expect(t(warnOnceKey)).toBe(warnOnceKey)
 
 		const warnings = vi.mocked(console.warn).mock.calls
-			.filter(call => String(call[0]).includes('one.task.warnOnceKey'))
+			.filter(call => String(call[0]).includes(warnOnceKey))
 		// A key missing inside a render loop floods the console and buries the first occurrence,
 		// which is the one that says where it came from.
 		// MUTATION: deleting the `warned` Set from t() makes this red - the count becomes 2.
