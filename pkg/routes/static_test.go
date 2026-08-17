@@ -55,7 +55,7 @@ import (
 //
 // Every HTTP case below was chosen so that it behaves the same way on the stub
 // dist/ and on a real build. Where that was impossible — the redirect-loop
-// guard, which by definition only fires when /one/task.html is missing — the
+// guard, which by definition only fires when the restricted page is missing — the
 // function is called directly instead of being reached through the router, and
 // that is said where it happens rather than papered over.
 const (
@@ -143,7 +143,7 @@ func TestBraznRestrictedUIOnlyDefaultsToOff(t *testing.T) {
 // info.IsDir() is true and static() calls braznServeAppShell, which today
 // delegates to serveIndexFile, then serveFile, which sets Server: Brazn Tasks at
 // 200. Without the early return the same request is answered by http.Redirect:
-// 302, a Location of /one/task.html, and no Server header, so all three
+// 302, a Location of /one/settings.html, and no Server header, so all three
 // assertions fail.
 func TestStaticServesTheSPAWhenTheLockoutIsOff(t *testing.T) {
 	config.InitDefaultConfig()
@@ -210,11 +210,11 @@ func TestStaticRestrictedUIRedirectsTheAppShell(t *testing.T) {
 		request  string
 		location string
 	}{
-		{"the root", "/", "/one/task.html"},
-		{"a Vue SPA route", "/user/settings/general", "/one/task.html"},
+		{"the root", "/", "/one/settings.html"},
+		{"a Vue SPA route", "/user/settings/general", "/one/settings.html"},
 		{"a numeric task deep link", "/tasks/123", "/one/task.html?task=123"},
-		{"the /one/ directory", "/one/", "/one/task.html"},
-		{"a missing asset under /one/", "/one/missing", "/one/task.html"},
+		{"the /one/ directory", "/one/", "/one/settings.html"},
+		{"a missing asset under /one/", "/one/missing", "/one/settings.html"},
 	}
 
 	for _, tc := range cases {
@@ -453,19 +453,19 @@ func TestBraznRestrictedUITarget(t *testing.T) {
 		path string
 		want string
 	}{
-		{"/", "/one/task.html"},
-		{"/user/settings/general", "/one/task.html"},
-		{"/one", "/one/task.html"},
-		{"/one/task.html", "/one/task.html"},
+		{"/", "/one/settings.html"},
+		{"/user/settings/general", "/one/settings.html"},
+		{"/one", "/one/settings.html"},
+		{"/one/task.html", "/one/settings.html"},
 		{"/tasks/123", "/one/task.html?task=123"},
 		{"/tasks/0", "/one/task.html?task=0"},
-		{"/tasks", "/one/task.html"},
-		{"/tasks/", "/one/task.html"},
-		{"/tasks/abc", "/one/task.html"},
-		{"/tasks/12ab", "/one/task.html"},
-		{"/tasks/-1", "/one/task.html"},
-		{"/tasks/+1", "/one/task.html"},
-		{"/tasks/123/subtask", "/one/task.html"},
+		{"/tasks", "/one/settings.html"},
+		{"/tasks/", "/one/settings.html"},
+		{"/tasks/abc", "/one/settings.html"},
+		{"/tasks/12ab", "/one/settings.html"},
+		{"/tasks/-1", "/one/settings.html"},
+		{"/tasks/+1", "/one/settings.html"},
+		{"/tasks/123/subtask", "/one/settings.html"},
 	}
 
 	for _, tc := range cases {
