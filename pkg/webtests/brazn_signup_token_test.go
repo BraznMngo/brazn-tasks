@@ -17,7 +17,6 @@
 package webtests
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -41,18 +40,7 @@ const conformanceSignupToken = "EXAMPLE_signup_token_43_chars_not_a_secret1"
 
 // signupRedemptionStub records what this build sent to Percy Cloud.
 type signupRedemptionStub struct {
-	calls  int
-	bodies []string
-}
-
-// last returns the body of the most recent redemption, decoded.
-func (s *signupRedemptionStub) last(t *testing.T) map[string]interface{} {
-	t.Helper()
-
-	require.NotEmpty(t, s.bodies, "no redemption was attempted")
-	var sent map[string]interface{}
-	require.NoError(t, json.Unmarshal([]byte(s.bodies[len(s.bodies)-1]), &sent))
-	return sent
+	calls int
 }
 
 // stubSignupRedemption points brazn.signupredemptionurl at a server that answers
@@ -70,10 +58,9 @@ func stubSignupRedemption(t *testing.T, status int, answer string) *signupRedemp
 	// on the goroutine running the test. A read failure here still fails the
 	// test - at the assertions below, which is where it is meaningful anyway.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
+		_, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		stub.calls++
-		stub.bodies = append(stub.bodies, string(body))
 
 		w.Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		w.WriteHeader(status)
