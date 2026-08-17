@@ -57,11 +57,12 @@ function pageOrigin() {
  * THE FORK'S BASE, WHICH IS NOT THE ORIGIN ROOT.
  *
  * Percy serves this application under a path prefix and strips it before the
- * request reaches the Go binary:
- *
- *   traefik…vikunja-dev.rule=Host(`…`) && PathPrefix(`/brazntasks`)
- *   traefik…vikunja-dev-stripprefix.stripprefix.prefixes=/brazntasks
- *   (Percy deploy/vikunja-development/docker-compose.yml:230, :244)
+ * request reaches the Go binary: the edge router matches on
+ * `PathPrefix(/brazntasks)` and applies a stripprefix middleware for the same
+ * value, so the browser must ask for `/brazntasks/...` while the backend sees
+ * `/...`. See the development stack's compose file at :230 and :244 in the
+ * Percy repository (deployment identifiers deliberately not quoted here — this
+ * file is customer-facing and a fork guard checks it for the upstream name).
  *
  * "This stack owns exactly one path on the host: /brazntasks (BRA-1009)" — the
  * host root belongs to the marketing site. The prefix is a hardcoded literal
