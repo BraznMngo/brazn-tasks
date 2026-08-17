@@ -167,7 +167,7 @@ func static() echo.MiddlewareFunc {
 				}
 
 				// Handle all other requests with the index file
-				return serveIndexFile(c, assetFs)
+				return braznServeAppShell(c, assetFs)
 			}
 
 			defer file.Close()
@@ -177,8 +177,8 @@ func static() echo.MiddlewareFunc {
 				return err
 			}
 
-			if info.IsDir() {
-				return serveIndexFile(c, assetFs)
+			if info.IsDir() || braznBlocksAppShell(name) {
+				return braznServeAppShell(c, assetFs)
 			}
 
 			etag, err := generateEtag(file, name)

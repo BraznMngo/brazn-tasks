@@ -255,6 +255,7 @@ const (
 	BraznAccountURL          Key = `brazn.accounturl`
 	BraznSignupRedemptionURL Key = `brazn.signupredemptionurl`
 	BraznServiceToken        Key = `brazn.servicetoken`
+	BraznRestrictedUIOnly    Key = `brazn.restricteduionly`
 
 	// LicenseKey gates optional paid features and funds Vikunja's development.
 	// See the package comment in pkg/license/license.go before removing.
@@ -563,6 +564,16 @@ func InitDefaultConfig() {
 	// not the signup token and never appears in a URL.
 	BraznSignupRedemptionURL.setDefault("")
 	BraznServiceToken.setDefault("")
+	// The restricted-UI lockout: when on, this instance serves the ONE Tasks
+	// page under /one/ and nothing else, and the Vue SPA is never delivered.
+	//
+	// Off by default, and the default is load-bearing rather than a
+	// placeholder. Every Playwright spec in this repository drives the Vue
+	// SPA, so shipping it on would fail the whole E2E suite - and far worse, a
+	// deploy that flipped it unintentionally would leave every user of that
+	// instance with no interface at all. Turning it on is a per-environment
+	// deploy decision, never a code one.
+	BraznRestrictedUIOnly.setDefault(false)
 
 	// Migrate deprecated webhook config keys to outgoingrequests.*
 	// This allows removing the old keys in a single place later.

@@ -1,0 +1,182 @@
+{
+  "misc": {
+    "loading": "Chargement…",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "default": "Par défaut",
+    "download": "Télécharger",
+    "createdBy": "Créé par {0}",
+    "cannotBeUndone": "Cette action ne peut pas être annulée !"
+  },
+  "navigation": {
+    "settings": "Paramètres"
+  },
+  "user": {
+    "auth": {
+      "email": "Adresse électronique",
+      "password": "Mot de passe",
+      "login": "Se connecter"
+    },
+    "settings": {
+      "title": "Paramètres",
+      "newPasswordTitle": "Mettre à jour votre mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "currentPassword": "Mot de passe actuel",
+      "updateEmailTitle": "Mettre à jour votre adresse électronique",
+      "updateEmailNew": "Nouvelle adresse électronique",
+      "updateEmailSuccess": "L’adresse électronique a bien été mise à jour. Nous vous avons envoyé un lien pour confirmer ce changement.",
+      "passwordUpdateSuccess": "Le mot de passe a bien été mis à jour.",
+      "general": {
+        "name": "Mon nom",
+        "newName": "Le nouveau nom",
+        "timezone": "Fuseau horaire",
+        "savedSuccess": "Paramètres mis à jour."
+      },
+      "sections": {
+        "personalInformation": "Informations personnelles"
+      },
+      "avatar": {
+        "title": "Avatar",
+        "uploadAvatar": "Téléverser l’avatar",
+        "setSuccess": "Avatar défini."
+      }
+    },
+    "deletion": {
+      "title": "Supprimer votre compte Brazn Tasks",
+      "text1": "La suppression de votre compte est définitive et ne peut pas être annulée. Nous supprimerons tous vos projets, tâches et tout ce qui y est associé.",
+      "confirm": "Supprimer mon compte",
+      "requestSuccess": "La requête a abouti. Vous recevrez un courriel avec des instructions à suivre."
+    },
+    "export": {
+      "title": "Exporter vos données Brazn Tasks",
+      "request": "Demander une copie de mes données Brazn Tasks",
+      "success": "Vous avez bien demandé vos données Brazn Tasks ! Nous vous enverrons un courriel dès qu’elles seront prêtes à être téléchargées."
+    }
+  },
+  "task": {
+    "addReminder": "Ajouter un rappel…",
+    "doneSuccess": "Tâche marquée comme terminée.",
+    "undoneSuccess": "Tâche marquée comme non terminée.",
+    "detail": {
+      "done": "Marquer la tâche comme terminée !",
+      "undone": "Marquer comme inachevé",
+      "move": "Déplacer la tâche vers un autre projet",
+      "updated": "Mis à jour {0}",
+      "updateSuccess": "Tâche enregistrée.",
+      "deleteSuccess": "Tâche supprimée.",
+      "delete": {
+        "header": "Supprimer cette tâche",
+        "text2": "Ceci supprimera également toutes les pièces jointes, les rappels et les relations associés à cette tâche et ne pourra pas être annulé !"
+      },
+      "actions": {
+        "label": "Ajouter des étiquettes",
+        "relatedTasks": "Ajouter une relation",
+        "moveProject": "Déplacer",
+        "color": "Définir la couleur",
+        "delete": "Supprimer",
+        "favorite": "Ajouter aux favoris",
+        "unfavorite": "Retirer des favoris"
+      }
+    },
+    "attributes": {
+      "title": "Nom",
+      "description": "Description",
+      "labels": "Étiquettes",
+      "assignees": "Responsables",
+      "priority": "Priorité",
+      "percentDone": "Progression",
+      "dueDate": "Date d’échéance",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "reminders": "Rappels",
+      "repeat": "Répéter",
+      "relatedTasks": "Tâches connexes"
+    },
+    "priority": {
+      "unset": "Non définie",
+      "low": "Faible",
+      "medium": "Moyenne",
+      "high": "Élevée",
+      "urgent": "Urgente",
+      "doNow": "LE FAIRE MAINTENANT"
+    },
+    "attachment": {
+      "title": "Pièces jointes",
+      "upload": "Téléverser la pièce jointe",
+      "delete": "Supprimer la pièce jointe"
+    },
+    "comment": {
+      "title": "Commentaires",
+      "comment": "Commentaire",
+      "addedSuccess": "Commentaire ajouté."
+    },
+    "label": {
+      "placeholder": "Taper pour ajouter une étiquette…",
+      "addSuccess": "Étiquette ajoutée.",
+      "removeSuccess": "Étiquette retirée."
+    },
+    "relation": {
+      "add": "Ajouter une nouvelle relation de tâche",
+      "select": "Choisir le type de relation",
+      "noneYet": "Pas encore de relations de tâches.",
+      "delete": "Supprimer la relation de tâche",
+      "searchPlaceholder": "Saisissez une tâche à ajouter comme connexe…",
+      "kinds": {
+        "subtask": "Sous-tâche | Sous-tâches",
+        "parenttask": "Tâche parente | Tâches parentes",
+        "related": "Tâche connexe | Tâches connexes",
+        "duplicateof": "Doublon de | Doublons de",
+        "duplicates": "Doublon | Doublons",
+        "blocking": "Bloque | Bloquent",
+        "blocked": "Bloqué par | Bloqués par",
+        "precedes": "Précède | Précèdent",
+        "follows": "Suit | Suivent",
+        "copiedfrom": "Copié depuis | Copiés depuis",
+        "copiedto": "Copié vers | Copiés vers"
+      }
+    },
+    "reminder": {
+      "before": "{amount} {unit} avant {type}",
+      "after": "{amount} {unit} après {type}"
+    },
+    "repeat": {
+      "everyDay": "Chaque jour",
+      "everyWeek": "Chaque semaine",
+      "every30d": "Tous les 30 jours",
+      "mode": "Mode de répétition",
+      "fromCurrentDate": "À partir de la date d'achèvement",
+      "each": "Tou(te)s les",
+      "days": "Jours",
+      "weeks": "Semaines"
+    },
+    "subscription": {
+      "subscribe": "S’abonner",
+      "unsubscribe": "Se désabonner",
+      "subscribeSuccessTask": "Vous êtes désormais abonné·e à cette tâche",
+      "unsubscribeSuccessTask": "Vous êtes désormais désabonné·e de cette tâche"
+    },
+    "assignee": {
+      "assignSuccess": "Assignation réussie.",
+      "unassignSuccess": "Désassignation réussie."
+    }
+  },
+  "team": {
+    "create": {
+      "success": "Équipe créée."
+    },
+    "edit": {
+      "members": "Membres de l’équipe",
+      "addUser": "Ajouter à l’équipe",
+      "success": "Équipe mise à jour.",
+      "userAddedSuccess": "Membre de l’équipe ajouté.",
+      "deleteUser": {
+        "success": "Utilisateur·rice retiré·e de l’équipe."
+      }
+    },
+    "attributes": {
+      "name": "Nom de l’équipe",
+      "member": "Membre"
+    }
+  }
+}

@@ -1,0 +1,233 @@
+{
+  "misc": {
+    "loading": "Wird geladen…",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "default": "Standard",
+    "download": "Herunterladen",
+    "createdBy": "Erstellt von {0}",
+    "cannotBeUndone": "Dies kann nicht rückgängig gemacht werden!",
+    "closeDialog": "Dialog schließen"
+  },
+  "navigation": {
+    "settings": "Einstellungen"
+  },
+  "user": {
+    "auth": {
+      "email": "E-Mail-Adresse",
+      "password": "Passwort",
+      "login": "Anmelden"
+    },
+    "settings": {
+      "title": "Einstellungen",
+      "newPasswordTitle": "Aktualisiere dein Passwort",
+      "newPassword": "Neues Passwort",
+      "currentPassword": "Aktuelles Passwort",
+      "updateEmailTitle": "Aktualisiere deine E-Mail-Adresse",
+      "updateEmailNew": "Neue E-Mail-Adresse",
+      "updateEmailSuccess": "Deine E-Mail-Adresse wurde erfolgreich aktualisiert. Wir haben dir einen Link zur Bestätigung geschickt.",
+      "passwordUpdateSuccess": "Das Passwort wurde erfolgreich aktualisiert.",
+      "general": {
+        "name": "Mein Name",
+        "newName": "Neuer Name",
+        "timezone": "Zeitzone",
+        "savedSuccess": "Die Einstellungen wurden erfolgreich aktualisiert."
+      },
+      "sections": {
+        "personalInformation": "Persönliche Angaben"
+      },
+      "avatar": {
+        "title": "Avatar",
+        "uploadAvatar": "Avatar hochladen",
+        "setSuccess": "Der Avatar wurde erfolgreich gesetzt!"
+      }
+    },
+    "deletion": {
+      "title": "Lösche deinen Brazn Tasks-Account",
+      "text1": "Das Löschen deines Accounts ist dauerhaft und unwiderruflich. Alle Projekte, Aufgaben und zugehörige Daten werden gelöscht.",
+      "confirm": "Meinen Account löschen",
+      "requestSuccess": "Die Anfrage war erfolgreich. Du erhältst eine E-Mail mit weiteren Anweisungen."
+    },
+    "export": {
+      "title": "Exportiere deine Brazn Tasks-Daten",
+      "request": "Eine Kopie meiner Brazn Tasks Daten anfordern",
+      "success": "Du hast deine Daten bei Brazn Tasks erfolgreich angefordert! Wir schicken dir eine E-Mail, sobald sie zum Download bereitstehen."
+    }
+  },
+  "task": {
+    "addReminder": "Eine Erinnerung hinzufügen…",
+    "doneSuccess": "Die Aufgabe wurde erfolgreich als erledigt markiert.",
+    "undoneSuccess": "Die Aufgabe wurde erfolgreich als nicht-erledigt markiert.",
+    "movedToProject": "Die Aufgabe wurde nach {project} verschoben.",
+    "detail": {
+      "title": "Aufgabendetails",
+      "done": "Als erledigt markieren!",
+      "undone": "Als nicht erledigt markieren",
+      "move": "Aufgabe in ein anderes Projekt verschieben",
+      "updated": "Aktualisiert {0}",
+      "updateSuccess": "Die Aufgabe wurde erfolgreich gespeichert.",
+      "deleteSuccess": "Die Aufgabe wurde erfolgreich gelöscht.",
+      "duplicateSuccess": "Die Aufgabe wurde erfolgreich dupliziert.",
+      "delete": {
+        "header": "Diese Aufgabe löschen",
+        "text2": "Dies wird auch alle Anhänge, Erinnerungen und Verknüpfungen, die zu dieser Aufgabe gehören löschen und kann nicht rückgängig gemacht werden!"
+      },
+      "actions": {
+        "label": "Label hinzufügen",
+        "relatedTasks": "Beziehung hinzufügen",
+        "moveProject": "Verschieben",
+        "duplicate": "Duplizieren",
+        "color": "Farbe setzen",
+        "delete": "Löschen",
+        "favorite": "Zu Favoriten hinzufügen",
+        "unfavorite": "Aus Favoriten entfernen"
+      }
+    },
+    "attributes": {
+      "title": "Titel",
+      "description": "Beschreibung",
+      "labels": "Labels",
+      "assignees": "Zugewiesene",
+      "priority": "Priorität",
+      "percentDone": "Fortschritt",
+      "dueDate": "Fälligkeitsdatum",
+      "startDate": "Anfangsdatum",
+      "endDate": "Enddatum",
+      "reminders": "Erinnerungen",
+      "repeat": "Wiederholen",
+      "relatedTasks": "Verwandte Aufgaben"
+    },
+    "priority": {
+      "unset": "Nicht eingestellt",
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "urgent": "Dringend",
+      "doNow": "JETZT ERLEDIGEN"
+    },
+    "attachment": {
+      "title": "Anhänge",
+      "upload": "Anhang hochladen",
+      "delete": "Anhang löschen"
+    },
+    "comment": {
+      "title": "Kommentare",
+      "comment": "Kommentieren",
+      "sortNewestFirst": "Neueste zuerst",
+      "sortOldestFirst": "Älteste zuerst",
+      "addedSuccess": "Der Kommentar wurde erfolgreich hinzugefügt."
+    },
+    "label": {
+      "placeholder": "Beginne zu schreiben, um ein Label hinzuzufügen…",
+      "addSuccess": "Das Label wurde erfolgreich hinzugefügt.",
+      "removeSuccess": "Das Label wurde erfolgreich entfernt."
+    },
+    "relation": {
+      "add": "Neue Aufgabenbeziehung hinzufügen",
+      "select": "Beziehungsart auswählen",
+      "noneYet": "Keine Aufgabenbeziehung vorhanden.",
+      "delete": "Aufgabenbeziehung entfernen",
+      "searchPlaceholder": "Suche nach einer Aufgabe für diese Beziehung…",
+      "kinds": {
+        "subtask": "Unteraufgabe | Unteraufgaben",
+        "parenttask": "Übergeordnete Aufgabe | Übergeordnete Aufgaben",
+        "related": "Zugehörige Aufgabe | Zugehörige Aufgaben",
+        "duplicateof": "Duplikat von | Duplikate von",
+        "duplicates": "Dupliziert | Duplizierte",
+        "blocking": "Blockiert | Blockiert",
+        "blocked": "Blockiert von | Blockiert von",
+        "precedes": "Vorgänger | Vorgänger",
+        "follows": "Folgt | Folgen",
+        "copiedfrom": "Kopiert von | Kopiert von",
+        "copiedto": "Kopiert nach | Kopiert nach"
+      }
+    },
+    "reminder": {
+      "before": "{amount} {unit} vor {type}",
+      "after": "{amount} {unit} nach {type}"
+    },
+    "repeat": {
+      "everyDay": "Jeden Tag",
+      "everyWeek": "Jede Woche",
+      "every30d": "Alle 30 Tage",
+      "mode": "Wiederholungsmodus",
+      "fromCurrentDate": "Ab Fertigstellungsdatum",
+      "each": "Alle",
+      "days": "Tage",
+      "weeks": "Wochen"
+    },
+    "subscription": {
+      "subscribe": "Abonnieren",
+      "unsubscribe": "Abbestellen",
+      "subscribeSuccessTask": "Du hast diese Aufgabe jetzt abonniert",
+      "unsubscribeSuccessTask": "Du hast diese Aufgabe jetzt nicht mehr abonniert"
+    },
+    "assignee": {
+      "assignSuccess": "Der:die Benutzer:in wurde erfolgreich zugewiesen.",
+      "unassignSuccess": "Benutzer:innenzuweisung aufgehoben."
+    }
+  },
+  "team": {
+    "create": {
+      "success": "Das Team wurde erfolgreich erstellt."
+    },
+    "edit": {
+      "members": "Teammitglieder",
+      "addUser": "Zum Team hinzufügen",
+      "success": "Das Team wurde erfolgreich aktualisiert.",
+      "userAddedSuccess": "Das Teammitglied wurde erfolgreich hinzugefügt.",
+      "deleteUser": {
+        "success": "Der:die Benutzer:in wurde erfolgreich aus dem Team gelöscht."
+      }
+    },
+    "attributes": {
+      "name": "Teamname",
+      "member": "Mitglied"
+    }
+  },
+  "organization": {
+    "title": "Organisation",
+    "retry": "Erneut versuchen",
+    "members": {
+      "title": "Mitglieder",
+      "inUse": "{used} / {limit} Sitzplätze belegt",
+      "roleAdministrator": "Organisationsadministrator",
+      "roleMember": "Mitglied"
+    },
+    "seats": {
+      "title": "Sitzplätze",
+      "add": "Sitzplätze hinzufügen",
+      "explanation": "Ein Sitzplatz wird frei, sobald jemand entfernt wird, und eine Einladung braucht einen freien Platz, bevor sie verschickt werden kann."
+    },
+    "teams": {
+      "create": "Team erstellen",
+      "namePlaceholder": "Teamname",
+      "remove": "Entfernen",
+      "capped": {
+        "title": "Ihr habt so viele Teams, wie eure Sitzplätze erlauben.",
+        "text": "Ein weiteres Team braucht {seats} gekaufte Sitzplätze. Ein Zukauf erhöht die Kapazität sofort, sonst ändert sich nichts.",
+        "unknown": "Wir können nicht lesen, wie viele Sitzplätze ihr gekauft habt, und können deshalb kein weiteres Team anlegen lassen. An eurer Organisation hat sich nichts geändert, und es kommt von selbst zurück."
+      }
+    },
+    "administration": {
+      "current": "Organisationsadministrator",
+      "transfer": {
+        "text": "Wer die Organisation verwaltet, wird von dem Dienst geführt, den ihr bezahlt. Die Übergabe passiert dort und wirkt hier. Du verlierst jede Verwaltungsmöglichkeit in dem Moment, in dem sie abgeschlossen ist, und kannst die Rolle nicht selbst zurückholen.",
+        "action": "Rolle übergeben"
+      }
+    },
+    "general": {
+      "name": "Organisation"
+    },
+    "unavailable": {
+      "title": "Wir können euer Abonnement gerade nicht lesen.",
+      "text": "Das liegt an uns und nicht an euch, und an eurer Organisation hat sich nichts geändert. Mitglieder, Teams und Aufgaben funktionieren weiter. Nur die Seiten, die davon abhängen, was ihr bezahlt habt, sind nicht verfügbar, und sie kommen von selbst zurück."
+    },
+    "stale": {
+      "title": "Diese Seite war beim Laden richtig und ist es jetzt nicht mehr.",
+      "text": "Deine Rolle oder deine Organisation hat sich in einem anderen Fenster oder auf einem anderen Gerät geändert. Die sichtbaren Bedienelemente wurden für den früheren Stand gezeichnet; sie jetzt zu benutzen würde aus Gründen fehlschlagen, die nicht deine wären. Ein Neuladen bringt dich in eine passende Ansicht zurück.",
+      "action": "Seite neu laden"
+    }
+  }
+}
