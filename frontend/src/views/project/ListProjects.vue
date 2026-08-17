@@ -20,6 +20,7 @@
 					{{ $t('filters.create.title') }}
 				</XButton>
 				<XButton
+					v-if="capabilities.projectCreate"
 					v-cy="'new-project'"
 					:to="{name: 'project.create'}"
 					icon="plus"
@@ -44,12 +45,14 @@ import FancyCheckbox from '@/components/input/FancyCheckbox.vue'
 import ProjectCardGrid from '@/components/project/partials/ProjectCardGrid.vue'
 
 import {useTitle} from '@/composables/useTitle'
+import {useManagedCapabilities} from '@/composables/useManagedCapabilities'
 import {useStorage} from '@vueuse/core'
 
 import {useProjectStore} from '@/stores/projects'
 
 const {t} = useI18n()
 const projectStore = useProjectStore()
+const {capabilities} = useManagedCapabilities()
 
 useTitle(() => t('project.title'))
 const showArchived = useStorage('showArchived', false)

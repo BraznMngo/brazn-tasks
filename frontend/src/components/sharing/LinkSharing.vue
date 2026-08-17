@@ -12,7 +12,7 @@
 
 		<div class="sharables-project">
 			<XButton
-				v-if="!showNewForm"
+				v-if="!showNewForm && canCreate && capabilities.linkShare"
 				icon="plus"
 				class="mbe-4"
 				@click="showNewForm = true"
@@ -207,6 +207,7 @@ import type {IProject} from '@/modelTypes/IProject'
 import LinkShareService from '@/services/linkShare'
 
 import {useCopyToClipboard} from '@/composables/useCopyToClipboard'
+import {useManagedCapabilities} from '@/composables/useManagedCapabilities'
 import {success} from '@/message'
 import {getDisplayName} from '@/models/user'
 import {useConfigStore} from '@/stores/config'
@@ -231,6 +232,14 @@ const linkIdToDelete = ref(0)
 const showNewForm = ref(false)
 
 const projectStore = useProjectStore()
+
+const {capabilities} = useManagedCapabilities()
+// A link share may only be created with at least write access to the project
+// (mirroring LinkSharing.CanCreate server-side, pkg/models/link_sharing_permissions.go:
+// canDoLinkShare requires CanWrite, or IsAdmin only when the share itself
+// would grant admin permission - READ_WRITE is the floor for showing the
+// button at all).
+const canCreate = computed(() => (projectStore.projects[props.projectId]?.maxPermission ?? PERMISSIONS.READ) > PERMISSIONS.READ)
 
 const availableViews = computed<IProjectView[]>(() => projectStore.projects[props.projectId]?.views || [])
 const copy = useCopyToClipboard()

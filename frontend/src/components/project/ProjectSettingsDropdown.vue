@@ -71,12 +71,14 @@
 				{{ $t('menu.setBackground') }}
 			</DropdownItem>
 			<DropdownItem
+				v-if="(forceAllActions || project.maxPermission === PERMISSIONS.ADMIN) && capabilities.projectShare"
 				:to="{ name: 'project.settings.share', params: { projectId: project.id } }"
 				icon="share-alt"
 			>
 				{{ $t('menu.share') }}
 			</DropdownItem>
 			<DropdownItem
+				v-if="(forceAllActions || project.maxPermission > PERMISSIONS.READ) && capabilities.projectDuplicate"
 				:to="{ name: 'project.settings.duplicate', params: { projectId: project.id } }"
 				icon="paste"
 			>
@@ -106,6 +108,7 @@
 				{{ $t('project.webhooks.title') }}
 			</DropdownItem>
 			<DropdownItem
+				v-if="(forceAllActions || project.maxPermission > PERMISSIONS.READ) && capabilities.projectCreate"
 				:to="{ name: 'project.createFromParent', params: { parentProjectId: project.id } }"
 				icon="layer-group"
 			>
@@ -140,6 +143,7 @@ import {isSavedFilter} from '@/services/savedFilter'
 import {useConfigStore} from '@/stores/config'
 import {useProjectStore} from '@/stores/projects'
 import {useAuthStore} from '@/stores/auth'
+import {useManagedCapabilities} from '@/composables/useManagedCapabilities'
 import {PERMISSIONS} from '@/constants/permissions'
 
 const props = withDefaults(defineProps<{
@@ -169,4 +173,6 @@ function setSubscriptionInStore(sub: ISubscription) {
 
 const authStore = useAuthStore()
 const isDefaultProject = computed(() => props.project?.id === authStore.settings.defaultProjectId)
+
+const {capabilities} = useManagedCapabilities()
 </script>
