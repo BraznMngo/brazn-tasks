@@ -908,3 +908,32 @@ string in `frontend/public/one/i18n/en.json`. A key that exists nowhere does not
 returns the key path, and the customer reads `one.settings.deleteAccount.cancel` in a button.
 That degrades only at runtime, on a page no browser-driven job ever opens, which is exactly the
 silent failure CLAUDE.md section 4 exists to stop.
+
+## Where this page's strings live, and why not in the app catalogue
+
+**The page's strings live only in `frontend/public/one/i18n/*.json`.** They are deliberately
+**not** duplicated into `frontend/src/i18n/lang/en.json`, and that file is byte-identical to
+`brazn/main` on this branch.
+
+BRA-1358 says new user-facing strings go through `frontend/src/i18n/lang/en.json`. That rule
+was written for a Vue implementation and is structurally incompatible with the shape actually
+shipped, which CI proved rather than argued:
+
+* upstream's `check-translations` job fails on **dead keys** — anything present in
+  `frontend/src/i18n/lang/en.json` but not referenced by code it scans;
+* it scans `frontend/src`, and this page's code is under `frontend/public/one/`;
+* so every key added for this page is dead by that definition. Adding them produced
+  **175 dead-key failures**, one per string.
+
+There is no configuration that satisfies both without editing an upstream script, which the
+patch surface does not permit.
+
+**The consequence, stated plainly rather than discovered later:** this page's strings do not
+flow through the Vue app's translation pipeline. The six catalogues under
+`frontend/public/one/i18n/` are committed, complete for the launch languages, and are the
+artifact a translator edits. A Crowdin sync will neither update nor overwrite them.
+
+A guard step asserting the opposite (`Every one.* string … is in the app catalogue too`) was
+written and then removed, because it enforced the incompatible half of the rule. Its intent —
+no string reaching a customer untranslated — is served instead by the guard that asserts every
+key the page calls exists in its own `en.json`.
