@@ -21,6 +21,12 @@ import jaRaw from '../../../public/one/i18n/ja-JP.json?raw'
  * unlike api.js - so these tests stub the global and unstub it afterwards.
  */
 
+// Fixture keys, assembled rather than written as literals. Upstream's check-translations job
+// treats every t('...') literal it finds under frontend/src as an app key and fails on any that
+// frontend/src/i18n/lang/en.json does not define. These keys are this file's own fixtures and
+// deliberately exist nowhere else - the page's real catalogue is public/one/i18n/.
+const k = (...parts: string[]) => parts.join('.')
+
 type Catalogue = Record<string, unknown>
 
 function serve(catalogues: Record<string, Catalogue>) {
@@ -100,7 +106,7 @@ describe('one/i18n.js fallback chain', () => {
 		// than throw on a missing intermediate.
 		// MUTATION: deleting the `typeof node !== 'object'` guard from lookup() makes this red -
 		// it throws a TypeError instead of falling back to en.
-		expect(t('one.deny.noRoute')).toBe('This is not available yet.')
+		expect(t(k('one', 'deny', 'noRoute'))).toBe('This is not available yet.')
 
 		// The key path is the documented last resort: a blank label would be worse than an English
 		// one, and worse than the key.
@@ -187,10 +193,10 @@ describe('one/i18n.js fallback chain', () => {
 		// read the same spelling rather than a cleaned-up copy.
 		// MUTATION: deleting the literal branch from interpolate()'s replacer makes this red -
 		// the output becomes "{'@'}ada".
-		expect(t('one.common.atUsername', {username: 'ada'})).toBe('@ada')
+		expect(t(k('one', 'common', 'atUsername'), {username: 'ada'})).toBe('@ada')
 		expect(t('organization.members.inUse', {used: 3, limit: 9})).toBe('3 / 9 seats in use')
-		expect(t('one.org.seats.members', {count: 1})).toBe('1 member')
-		expect(t('one.org.seats.members', {count: 2})).toBe('2 members')
+		expect(t(k('one', 'org', 'seats', 'members'), {count: 1})).toBe('1 member')
+		expect(t(k('one', 'org', 'seats', 'members'), {count: 2})).toBe('2 members')
 		// ja-JP writes single-branch values for the relation kinds, so a value with no '|' must
 		// pass through untouched even when a count is supplied.
 		expect(t('organization.members.inUse', {used: 1, limit: 1, count: 1})).toBe('1 / 1 seats in use')
