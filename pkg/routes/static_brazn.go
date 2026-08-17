@@ -33,7 +33,11 @@ import (
 // is three changed lines and nothing else: the two calls that stand in for
 // serveIndexFile, and one extra term on the condition above the second of them.
 const (
-	restrictedUIPage       = `/one/task.html`
+	// Settings is the general entry point and its own document; the task detail
+	// is a deep link and its own. A settings screen answering to a URL called
+	// task.html is a URL nobody can hand to anyone.
+	restrictedUIPage       = `/one/settings.html`
+	restrictedUITaskPage   = `/one/task.html`
 	restrictedUITaskPrefix = `/tasks/`
 	restrictedUIHTMLSuffix = `.html`
 
@@ -173,11 +177,14 @@ func braznServeAppShell(c *echo.Context, assetFs http.FileSystem) error {
 	// A missing page has to read as missing. This is the only request that can
 	// trip it: every other target either differs from the cleaned request path
 	// or carries a ?task= query, which a cleaned path never has.
-	if target == requested {
+	// Both documents, not just the settings one: /one/task.html with no query
+	// computes itself as its target too, and on a build where the page was not
+	// copied into dist/ that is the same infinite bounce.
+	if target == requested || requested == restrictedUITaskPage {
 		return echo.ErrNotFound
 	}
 
-	http.Redirect(c.Response(), c.Request(), target, http.StatusFound)
+	http.Redirect(c.Response(), c.Request(), braznRestrictedUILocation(target), http.StatusFound)
 
 	return nil
 }
@@ -199,5 +206,27 @@ func braznRestrictedUITarget(cleanedPath string) string {
 		return restrictedUIPage
 	}
 
-	return restrictedUIPage + `?task=` + id
+	return restrictedUITaskPage + `?task=` + id
+}
+
+// braznRestrictedUILocation turns an app-relative target into a Location the
+// browser can follow.
+//
+// THE BINARY DOES NOT KNOW WHERE IT IS MOUNTED. It is served at the host root,
+// so the target and the Location are the same string today. Building the
+// Location from configuration rather than assuming that keeps a redirect from
+// pointing off the product if it ever moves.
+//
+// service.publicurl is the one value configured for exactly this. static.go:111
+// already reads it the same way, for the API base it writes into index.html, and
+// the deployment sets it to the prefixed URL. Empty means "mounted at the root",
+// which is what a plain build and CI both are, and the target is already correct
+// for that.
+func braznRestrictedUILocation(target string) string {
+	publicURL := config.ServicePublicURL.GetString()
+	if publicURL == "" {
+		return target
+	}
+
+	return strings.TrimSuffix(publicURL, "/") + target
 }

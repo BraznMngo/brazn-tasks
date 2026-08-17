@@ -9,15 +9,24 @@ into the binary, so what is committed is byte-for-byte what is served.
 The canonical URLs are
 
 ```
-https://dev.tasks.brazn.one/one/task.html?task=123
-https://dev.tasks.brazn.one/one/task.html?view=settings
+https://dev.tasks.brazn.one/one/settings.html          general entry point
+https://dev.tasks.brazn.one/one/task.html?task=123     deep link to one task
 ```
 
-**always with the `task.html` filename.** `/one/` alone resolves to a directory inside the
-embed FS, and `pkg/routes/static.go:180-181` answers a directory with the app shell — the Vue
-SPA's `index.html`, at HTTP 200, whose router then renders its own 404 view. (With the
-restricted-UI lockout on it is redirected to `/one/task.html` instead, which is the same
-message by a different route: the filename is not optional.) Anything that links here —
+These paths are deliberately unlike any route the Vue application owns, so the two can never
+collide: the SPA has `/tasks/:id` and `/user/settings/general`, and this page has neither.
+
+**Always with the filename.** `/one/` alone resolves to a directory inside the embed FS and
+`pkg/routes/static.go:180-181` answers a directory with the SPA's `index.html` at HTTP 200.
+The same fallback is why `/one/task.html` answers 200 with the SPA on any build that does not
+carry this page yet — a missing file reaches `next(c)`, 404s, and is answered with the shell.
+
+Settings and the task detail are **two documents**, not one document with a `?view=` switch:
+`settings.html` is the general entry point and `task.html` is reachable only by deep link. Each
+carries `data-default-view`, and they share one stylesheet, `one.css`. `?view=` still overrides,
+but it is not what a link should carry.
+
+Anything that links here —
 Percy's `tauri_plugin_opener::open_url`, a mail template, a support article — must carry the
 filename.
 

@@ -56,22 +56,10 @@ function pageOrigin() {
 /**
  * THE FORK'S BASE, WHICH IS NOT THE ORIGIN ROOT.
  *
- * Percy serves this application under a path prefix and strips it before the
- * request reaches the Go binary: the edge router matches on
- * `PathPrefix(/brazntasks)` and applies a stripprefix middleware for the same
- * value, so the browser must ask for `/brazntasks/...` while the backend sees
- * `/...`. See the development stack's compose file at :230 and :244 in the
- * Percy repository (deployment identifiers deliberately not quoted here — this
- * file is customer-facing and a fork guard checks it for the upstream name).
- *
- * "This stack owns exactly one path on the host: /brazntasks (BRA-1009)" — the
- * host root belongs to the marketing site. The prefix is a hardcoded literal
- * there, not a variable, so it holds on every environment.
- *
- * An origin-rooted `/api/v2/...` therefore does not match the routing rule and
- * NEVER REACHES THE APPLICATION: the page would load and every call would fail.
- * Nothing catches that here, because CI and the unit tests both serve from the
- * root, where the two forms are identical.
+ * Resolved from the module's own URL rather than from `location.origin`. The two are the same
+ * string while the application is served at the host root, which it is, and they stop being the
+ * same the moment it is not — and neither CI nor the unit tests would show the difference,
+ * because both serve from the root.
  *
  * So resolve against this module's own URL — it is `<base>/one/api.js`, so `../`
  * is the application base wherever it is mounted. This also survives the page

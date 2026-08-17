@@ -1,0 +1,605 @@
+/* Vikunja design-token subset mirrored from frontend/src/styles/custom-properties/colors.scss
+   and shadows.scss. Product styles below consume these tokens directly. */
+/* Kept deliberately: CLAUDE.md §7 requires upstream attribution to stay intact, and the
+   comment is not user-facing. The fork-guards code scan must allowlist the substring
+   "mirrored from frontend/src/styles" or it red-fails this file on the first push. */
+:root {
+  --grey-50: hsl(210, 20%, 98%);
+  --grey-100-hsl: 220, 14.3%, 95.9%;
+  --grey-100: hsl(var(--grey-100-hsl));
+  --grey-200: hsl(220, 13%, 91%);
+  --grey-300: hsl(216, 12.2%, 83.9%);
+  --grey-400: hsl(217.9, 10.6%, 64.9%);
+  --grey-500-hsl: 220, 8.9%, 46.1%;
+  --grey-500: hsl(var(--grey-500-hsl));
+  --grey-600: hsl(215, 13.8%, 34.1%);
+  --grey-700: hsl(216.9, 19.1%, 26.7%);
+  --grey-800: hsl(215, 27.9%, 16.9%);
+  --grey-900: hsl(220.9, 39.3%, 11%);
+  --site-background: var(--grey-100);
+
+  --white-h: 0deg;
+  --white-s: 0%;
+  --white-l: 100%;
+  --white-a: 1;
+  --white: hsla(var(--white-h), var(--white-s), var(--white-l), var(--white-a));
+  --black-h: 0deg;
+  --black-s: 0%;
+  --black-l: 4%;
+  --black-a: 1;
+  --black: hsla(var(--black-h), var(--black-s), var(--black-l), var(--black-a));
+
+  --text: #4a4a4a;
+  --text-light: #7a7a7a;
+  --text-strong: #363636;
+  --text-invert: var(--white);
+  --text-muted: hsl(220, 8.9%, 42%);
+  --scheme-main: var(--white);
+  --scheme-main-bis: var(--grey-50);
+  --scheme-main-ter: var(--grey-100);
+  --scheme-invert: var(--black);
+
+  --primary-h: 217deg;
+  --primary-s: 98%;
+  --primary-l: 53%;
+  --primary-a: 1;
+  --primary-hsl: var(--primary-h), var(--primary-s), var(--primary-l);
+  --primary: hsla(var(--primary-h), var(--primary-s), var(--primary-l), var(--primary-a));
+  --primary-invert: var(--white);
+
+  --success-h: 146.3deg;
+  --success-s: 100%;
+  --success-l: 42.9%;
+  --success-a: 1;
+  --success: hsla(var(--success-h), var(--success-s), var(--success-l), var(--success-a));
+
+  --warning-h: 27.9deg;
+  --warning-s: 100%;
+  --warning-l: 55.3%;
+  --warning-a: 1;
+  --warning: hsla(var(--warning-h), var(--warning-s), var(--warning-l), var(--warning-a));
+
+  --danger-h: 3.3deg;
+  --danger-s: 100%;
+  --danger-l: 60.6%;
+  --danger-a: 1;
+  --danger: hsla(var(--danger-h), var(--danger-s), var(--danger-l), var(--danger-a));
+  --danger-text-l: 40%;
+  --danger-text: hsla(var(--danger-h), var(--danger-s), var(--danger-text-l), var(--danger-a));
+
+  --info-h: 207deg;
+  --info-s: 61%;
+  --info-l: 53%;
+  --info-a: 1;
+  --info: hsla(var(--info-h), var(--info-s), var(--info-l), var(--info-a));
+
+  --border: var(--grey-200);
+  --card-border-color: var(--grey-200);
+  --input-border-color: var(--grey-200);
+  --input-disabled-color: var(--text-light);
+  --input-disabled-background-color: var(--grey-100);
+  --input-disabled-border-color: var(--grey-300);
+
+  --shadow-xs: 0 1px 3px hsla(var(--grey-500-hsl), .12), 0 1px 2px hsla(var(--grey-500-hsl), .24);
+  --shadow-sm: 0 3px 6px hsla(var(--grey-500-hsl), .12), 0 2px 4px hsla(var(--grey-500-hsl), .10);
+  --shadow-md: 0 10px 20px hsla(var(--grey-500-hsl), .12), 0 3px 6px hsla(var(--grey-500-hsl), .08);
+  --shadow-lg: 0 15px 25px hsla(var(--grey-500-hsl), .12), 0 5px 10px hsla(var(--grey-500-hsl), .05);
+
+  /* The 29 tokens in the --font-size, --space and --radius families are gone: all 29 had zero
+     var() references (this stylesheet is written in pixel literals throughout, and its literals
+     do not even match the scale — 30px, 32px and 36px have no token, and --font-size-body:14px
+     names a size nothing uses). Do not re-introduce them by retro-fitting the literals; that is
+     a redesign and bar 10 forbids it. --font is the one layout token anything actually reads. */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+
+  color-scheme: light;
+}
+
+/* THEME — three states, and the class always beats the OS.
+     <html>              → the OS decides, live, with no JS and no matchMedia listener
+     <html class="dark"> → dark regardless of the OS
+     <html class="light">→ light regardless of the OS
+   app.js maps the user's snake_case `color_schema` preference onto that: 'dark'/'light' set the
+   matching class, 'auto' REMOVES BOTH and lets the media query below do the work. A media query
+   alone cannot express "explicit light wins over a dark OS", which is why the :not(.light) guard
+   is load-bearing rather than decorative.
+   @media screen keeps print on the light palette, as the prototype did.
+   The two rule bodies below are byte-identical and MUST stay that way. Plain CSS with no build
+   step (bar 2) has no mixin, so there is nothing to share them with. */
+@media screen {
+  :root.dark {
+    --grey-900-hsl: 210, 20%, 98%;
+    --grey-900: hsl(var(--grey-900-hsl));
+    --grey-800: hsl(220, 14.3%, 95.9%);
+    --grey-700: hsl(220, 13%, 91%);
+    --grey-600: hsl(216, 12.2%, 83.9%);
+    --grey-500-hsl: 217.9, 10.6%, 64.9%;
+    --grey-500: hsl(var(--grey-500-hsl));
+    --grey-400: hsl(220, 8.9%, 46.1%);
+    --grey-300: hsl(215, 13.8%, 34.1%);
+    --grey-200: hsl(216.9, 19.1%, 26.7%);
+    --grey-100-hsl: 215, 27.9%, 16.9%;
+    --grey-100: hsl(var(--grey-100-hsl));
+    --grey-50-hsl: 220.9, 39.3%, 11%;
+    --grey-50: hsl(var(--grey-50-hsl));
+    --white: var(--grey-50);
+    --black-l: 100%;
+    --text: var(--grey-800);
+    --text-invert: var(--black);
+    --text-light: var(--grey-300);
+    --text-strong: var(--grey-900);
+    --text-muted: var(--grey-500);
+    --scheme-main-bis: var(--grey-100);
+    --scheme-main-ter: var(--grey-100);
+    --scheme-invert: var(--grey-900);
+    --card-border-color: hsla(var(--grey-100-hsl), .30);
+    --primary-l: 58%;
+    --danger-text: var(--danger);
+    --shadow-xs: 0 1px 3px hsla(var(--grey-50-hsl), .40), 0 1px 2px hsla(var(--grey-50-hsl), .80);
+    --shadow-sm: 0 3px 6px hsla(var(--grey-50-hsl), .80), 0 2px 4px hsla(var(--grey-50-hsl), .60);
+    --shadow-md: 0 10px 20px hsla(var(--grey-50-hsl), .80), 0 3px 6px hsla(var(--grey-50-hsl), .60);
+    --shadow-lg: 0 15px 25px hsla(var(--grey-50-hsl), .80), 0 5px 10px hsla(var(--grey-50-hsl), .40);
+    color-scheme: dark;
+  }
+}
+@media screen and (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --grey-900-hsl: 210, 20%, 98%;
+    --grey-900: hsl(var(--grey-900-hsl));
+    --grey-800: hsl(220, 14.3%, 95.9%);
+    --grey-700: hsl(220, 13%, 91%);
+    --grey-600: hsl(216, 12.2%, 83.9%);
+    --grey-500-hsl: 217.9, 10.6%, 64.9%;
+    --grey-500: hsl(var(--grey-500-hsl));
+    --grey-400: hsl(220, 8.9%, 46.1%);
+    --grey-300: hsl(215, 13.8%, 34.1%);
+    --grey-200: hsl(216.9, 19.1%, 26.7%);
+    --grey-100-hsl: 215, 27.9%, 16.9%;
+    --grey-100: hsl(var(--grey-100-hsl));
+    --grey-50-hsl: 220.9, 39.3%, 11%;
+    --grey-50: hsl(var(--grey-50-hsl));
+    --white: var(--grey-50);
+    --black-l: 100%;
+    --text: var(--grey-800);
+    --text-invert: var(--black);
+    --text-light: var(--grey-300);
+    --text-strong: var(--grey-900);
+    --text-muted: var(--grey-500);
+    --scheme-main-bis: var(--grey-100);
+    --scheme-main-ter: var(--grey-100);
+    --scheme-invert: var(--grey-900);
+    --card-border-color: hsla(var(--grey-100-hsl), .30);
+    --primary-l: 58%;
+    --danger-text: var(--danger);
+    --shadow-xs: 0 1px 3px hsla(var(--grey-50-hsl), .40), 0 1px 2px hsla(var(--grey-50-hsl), .80);
+    --shadow-sm: 0 3px 6px hsla(var(--grey-50-hsl), .80), 0 2px 4px hsla(var(--grey-50-hsl), .60);
+    --shadow-md: 0 10px 20px hsla(var(--grey-50-hsl), .80), 0 3px 6px hsla(var(--grey-50-hsl), .60);
+    --shadow-lg: 0 15px 25px hsla(var(--grey-50-hsl), .80), 0 5px 10px hsla(var(--grey-50-hsl), .40);
+    color-scheme: dark;
+  }
+}
+*{box-sizing:border-box}
+button{white-space:nowrap}
+html,body{margin:0;min-height:100%;font-family:var(--font);color:var(--text-strong);background:var(--site-background);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.hidden{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* Focus visibility. The prototype stripped the UA ring in six places and restored something in
+   four, all of them text inputs — so not one of its 100+ buttons showed keyboard focus. One rule
+   fixes every button; SPEC-UI §7.9 rates it ship-now rather than deferred.
+   Placement is deliberate: this sits BEFORE .input/.select/.text-area, .task-title-input and
+   .editor, which are equal-specificity and therefore keep their own designed :focus treatment
+   (border tint + 4px ring) instead of doubling up on an outline. The three controls that
+   suppressed the outline and offered nothing in its place — .progress, .label-inline-input and
+   .comment-editor textarea — have had their outline:none removed so this rule reaches them. */
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+
+/* GATE + REFUSAL CONTRACT (ruling C4, ruling C14) ------------------------
+   Every gated node is ALWAYS emitted. app.js resolves the gate and then either hides it or
+   leaves it visible and refused; the markup never decides. Vocabulary:
+
+     data-requires="teams"    edition is not personal-cloud (source: the brazn_edition JWT
+                              claim, NOT the org read — the org read 403s for everyone the
+                              gate covers, which is ruling C1)
+     data-requires="admin"    GET /api/v1/brazn/organization returned 200
+     data-requires="write"    the write-restricted overlay is off (brazn_write_restricted)
+     data-requires="edition"  an edition claim is present at all (U renders no edition line)
+     data-team="{id}"         scopes the gate to one team, for the per-team roster states
+     data-deny-reason="..."   machine-readable reason app.js stamps when it refuses; also the
+                              hook a test asserts on
+     .hidden                  the H state
+     .is-refused              the D state: visible, disabled, and carrying its reason
+     .refusal-text            the sentence node. Carries the SERVER'S OWN WORDS verbatim — the
+                              409 body from PUT /api/v1/brazn/organization/teams, a managed-mode
+                              refusal, or a commercial /v1 outcome message. Every commercial
+                              control gets one; a single shared #addTeamError cannot hold six
+                              different failures at once.
+
+   Prefer aria-disabled="true" over the disabled attribute on a refused control: a disabled
+   button is not focusable, so a screen-reader user can never reach the reason we just wrote.
+   Both are styled identically here so either choice looks right.
+
+   A REFUSED GROUP REACHES ITS OWN CONTROLS, and app.js is what does it — not this stylesheet.
+   `refuseControl` recurses into every input, textarea, select and button inside the refused node
+   and marks each one properly (readOnly + aria-disabled, disabled, aria-disabled). The rule
+   below stops a mouse and app.js's isRefused() stops the click and Enter paths, but neither is
+   an accessibility API: before the recursion, an input inside a refused wrapper still ANNOUNCED
+   as editable, so a keyboard or screen-reader user could type into it and watch the typing be
+   discarded with nothing said. The group's headings, prose and .refusal-text are deliberately
+   left alone — the sentence explaining the refusal must never be marked unavailable. */
+/* .is-refused works on a single control or on a whole group (a per-team block, a card). The
+   painted-disabled treatment is scoped to controls, so a refused wrapper does not become a grey
+   slab; its children carry the refusal instead. Deliberately no `opacity` on the group: opacity
+   makes a stacking group its children cannot opt out of, and it would dim the .refusal-text —
+   the server's own sentence — along with the controls it explains. */
+.is-refused{cursor:not-allowed}
+button.is-refused,.btn.is-refused,.input.is-refused,.select.is-refused,.text-area.is-refused,button[aria-disabled="true"],.input:disabled,.select:disabled,.text-area:disabled{background:var(--input-disabled-background-color);border-color:var(--input-disabled-border-color);color:var(--input-disabled-color);box-shadow:none;filter:none;cursor:not-allowed}
+button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover{background:var(--input-disabled-background-color);border-color:var(--input-disabled-border-color)}
+/* The element selectors are load-bearing, not belt-and-braces: #inlineLabelInput carries
+   .label-inline-input and none of the three class names below, so with a class-only list a
+   personal user could type into a refused label field. Nothing was written — both the click and
+   the Enter path are blocked by isRefused() in app.js — but a field that accepts typing and
+   discards it is the worst shape a refusal can take. Matching the bare tags covers every control
+   a view can put inside a refused group without the stylesheet having to know its class. */
+.is-refused .btn,.is-refused button,.is-refused .input,.is-refused .select,.is-refused .text-area,.is-refused input,.is-refused select,.is-refused textarea{pointer-events:none;background:var(--input-disabled-background-color);border-color:var(--input-disabled-border-color);color:var(--input-disabled-color);box-shadow:none}
+/* grid-column is ignored inside a flex parent and flex-basis inside a grid parent, so this one
+   rule breaks the sentence onto its own line in .setting-row (grid) and .modal-foot (flex)
+   alike. The sentence is server copy: it must never be clipped or ellipsised. */
+.refusal-text{grid-column:1/-1;flex-basis:100%;margin-top:6px;font-size:11px;line-height:1.5;color:var(--danger-text);white-space:pre-line;overflow-wrap:anywhere;cursor:auto}
+.refusal-text:empty{display:none}
+.notice.refusal-text{margin-top:8px;padding:11px 13px;background:hsla(var(--danger-h), var(--danger-s), var(--danger-l), .06);border-color:hsla(var(--danger-h), var(--danger-s), var(--danger-l), .22)}
+
+.stage{min-height:100vh;padding:28px;display:flex;align-items:flex-start;justify-content:center}
+.window{width:min(1220px,100%);min-height:760px;background:var(--scheme-main);border:1px solid var(--card-border-color);border-radius:28px;box-shadow:var(--shadow-lg);overflow:visible;backdrop-filter:blur(24px)}
+.window.task-window{background:linear-gradient(180deg,var(--scheme-main) 0%,var(--grey-50) 100%)}
+/* Blocking load / error / no-session surface. Renamed from the prototype's .live-surface: the
+   demo-vs-live duality it belonged to is deleted, so "live" no longer distinguishes anything.
+   Same rules, and it is where data-action="retry" and data-action="signin" render. */
+.load-surface{padding:58px 34px 70px;text-align:center;max-width:680px;margin:0 auto}
+.load-surface .card{padding:30px}
+.load-surface h2{margin:0 0 8px;font-size:18px}
+.load-surface p{margin:0;color:var(--text-muted);font-size:12px;line-height:1.6}
+
+/* Shared controls */
+.btn{border:1px solid var(--grey-300);background:var(--scheme-main);border-radius:11px;padding:10px 14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:650;min-height:40px;transition:.15s ease;white-space:nowrap;line-height:1;flex-shrink:0}
+.btn:hover{background:var(--grey-100);border-color:hsla(var(--primary-hsl), .24)}
+.btn.primary{background:var(--primary);border-color:transparent;color:var(--primary-invert);box-shadow:0 8px 20px hsla(var(--primary-hsl), .18)}
+.btn.primary:hover{filter:brightness(1.04)}
+.btn.success{background:hsla(var(--success-h), var(--success-s), var(--success-l), .08);border-color:hsla(var(--success-h), var(--success-s), var(--success-l), .18);color:var(--success)}
+.btn.danger{background:transparent;border-color:transparent;color:var(--danger)}
+.btn.danger:hover{background:hsla(var(--danger-h), var(--danger-s), var(--danger-l), .08)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--text-muted)}
+.btn.small{min-height:34px;padding:7px 10px;font-size:12px}
+.icon-btn{width:38px;height:38px;padding:0;border:1px solid var(--border);border-radius:11px;background:var(--scheme-main);display:grid;place-items:center;color:var(--text-muted)}
+.icon-btn:hover{background:var(--grey-100)}
+.input,.select,.text-area{width:100%;border:1px solid var(--grey-300);background-color:var(--scheme-main);border-radius:11px;padding:10px 12px;outline:none;transition:.15s ease}
+.select{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:34px;background-image:linear-gradient(45deg,transparent 50%,var(--text-muted) 50%),linear-gradient(135deg,var(--text-muted) 50%,transparent 50%);background-position:calc(100% - 16px) calc(50% - 1px),calc(100% - 11px) calc(50% - 1px);background-size:5px 5px,5px 5px;background-repeat:no-repeat;white-space:nowrap}
+.select{position:relative;z-index:2}.select:focus{z-index:180}
+.input:focus,.select:focus,.text-area:focus{border-color:hsla(var(--primary-hsl), .48);box-shadow:0 0 0 4px hsla(var(--primary-hsl), .08)}
+/* `.text-area{min-height:110px;resize:vertical;line-height:1.55}` is DELETED. No view applies
+   the class: the description is `.editor` (which carries its own 190px box) and every other
+   multi-line field uses `.input`. The class name stays in the shared base/focus rules above and
+   in the `.is-refused` descendant lists below — defensive breadth costing nothing, and the
+   refusal lists deliberately match bare tags anyway — but a 110px floor for a box nothing has
+   was dead weight that read as a live sizing decision. */
+.label{font-size:11px;color:var(--text-muted);font-weight:650;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.help{font-size:11px;color:var(--grey-400);margin-top:5px;line-height:1.45}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--scheme-main);border-radius:999px;padding:5px 9px;font-size:11px;color:var(--text);white-space:nowrap}
+.pill.blue{color:var(--primary);background:hsla(var(--primary-hsl), .08);border-color:hsla(var(--primary-hsl), .20)}
+.card{background:var(--scheme-main);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-xs)}
+.card-title{font-size:13px;font-weight:750;display:flex;align-items:center;gap:8px}
+.card-sub{font-size:11px;color:var(--text-muted);line-height:1.45}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:140;background:var(--scheme-invert);color:var(--primary-invert);padding:11px 16px;border-radius:12px;font-size:12px;box-shadow:var(--shadow-md)}
+
+.task-topbar,.settings-hero{display:flex;align-items:center;gap:26px;padding:26px 32px 20px;background:var(--scheme-main);border-bottom:1px solid var(--border);backdrop-filter:blur(18px)}
+/* Logo. The assets are 155x72 and trimmed to the artwork bounds, so the box matches the art and
+   the prototype's object-fit/object-position letterboxing is no longer needed — one less
+   physical property on the RTL-debt list. width/height attributes on the <img> give the browser
+   the ratio before the bytes arrive, so block-size:auto costs no layout shift. */
+   The prototype's `.task-mini-logo` and `.settings-logo` are GONE from this rule and from the
+   900px one below: both headers now clone the single `#brandLogo` template, so `.brand-logo` is
+   the only class either of them applies and the other two styled nothing. */
+.brand-logo{inline-size:155px;block-size:auto;max-inline-size:100%;opacity:.96}
+/* Theme-paired logo: two <img>s, CSS picks. A <picture> with prefers-color-scheme cannot see the
+   .dark class app.js sets from color_schema, and SPEC-UI §5.2 rules out swapping src in JS, so
+   the pair must be hidden by the same three-state selectors the palette uses. Cost: the second
+   file is fetched (~10 KB, immutable-cached) and never painted. */
+.brand-logo.dark{display:none}
+@media screen {
+  :root.dark .brand-logo.light{display:none}
+  :root.dark .brand-logo.dark{display:inline-block}
+}
+@media screen and (prefers-color-scheme: dark) {
+  :root:not(.light) .brand-logo.light{display:none}
+  :root:not(.light) .brand-logo.dark{display:inline-block}
+}
+.product-label,.settings-title{font-size:36px;letter-spacing:-.035em;font-weight:820;color:var(--grey-500);line-height:1}
+
+.task-user-summary{margin-left:auto;display:flex;align-items:center;gap:11px;min-width:0}
+.task-user-avatar{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,hsla(var(--info-h),var(--info-s),var(--info-l),.16),hsla(var(--primary-hsl),.16));font-size:13px;font-weight:780;color:var(--primary);flex:0 0 44px}
+.task-user-avatar img{width:100%;height:100%;object-fit:cover}
+.task-user-meta{display:grid;gap:2px;text-align:left;min-width:0}
+.task-user-meta strong{font-size:12px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.task-user-meta span{font-size:10px;color:var(--text-muted);white-space:nowrap}
+.task-user-meta small{font-size:10px;color:var(--grey-400);white-space:nowrap}
+.member-add-tabs{display:flex;gap:4px;background:var(--grey-100);padding:4px;border-radius:11px}
+.member-add-tabs button{flex:1;min-height:34px;border:0;background:transparent;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap}
+.member-add-tabs button.on{background:var(--scheme-main);color:var(--text-strong);box-shadow:var(--shadow-xs)}
+.member-picker{display:grid;gap:8px;max-height:260px;overflow:auto;padding-right:2px}
+.member-picker-row{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--scheme-main)}
+.member-picker-row .avatar{width:36px;height:36px}
+.member-picker-meta{min-width:0}
+.member-picker-meta strong{font-size:11px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.member-picker-meta span{font-size:10px;color:var(--text-muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.member-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.info-label{display:flex;align-items:flex-start;gap:7px;padding:9px 10px;border-radius:10px;background:var(--grey-50);color:var(--text-muted);font-size:10px;line-height:1.4}
+.info-label svg{width:14px;height:14px;flex:0 0 14px;margin-top:1px}
+@media(max-width:700px){.task-user-summary{width:100%;margin-left:0}.task-topbar{flex-wrap:wrap}.product-label,.settings-title{font-size:32px}}
+
+/* TASK DETAIL --------------------------------------------------------- */
+.task-shell{padding:28px 34px 42px;max-width:1120px;margin:0 auto}
+.task-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:start;margin-bottom:24px}
+.task-kicker{display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:12px;margin-bottom:8px}
+.project-chip{border:1px solid var(--border);background:var(--grey-50);border-radius:999px;padding:5px 9px;font-size:11px;display:inline-flex;align-items:center;gap:5px}
+.task-title-row{display:flex;align-items:center;gap:12px}
+.task-id{font-size:22px;color:var(--grey-400);font-weight:700}
+.task-title-input{font-size:30px;font-weight:730;letter-spacing:-.025em;border:0;background:transparent;outline:none;width:100%;padding:0}
+.task-title-input:focus{box-shadow:inset 0 -2px 0 hsla(var(--primary-hsl), .35)}
+.task-head-actions{display:flex;align-items:center;gap:8px}
+.done-btn.done{background:var(--scheme-main);border-color:hsla(var(--success-h), var(--success-s), var(--success-l), .22);color:var(--success)}
+
+.quick-line{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.tag-chip{border:1px solid hsla(var(--primary-hsl), .20);background:hsla(var(--primary-hsl), .08);color:var(--primary);border-radius:999px;padding:5px 9px;font-size:11px;display:inline-flex;align-items:center;gap:5px}
+.tag-chip button{border:0;background:transparent;padding:0;color:hsla(var(--primary-hsl), .60);display:grid;place-items:center}
+.label-entry{background:var(--scheme-main);border-style:dashed;padding:3px 5px 3px 9px;gap:4px;min-inline-size:128px}
+.label-inline-input::placeholder{color:var(--grey-400)}
+.label-entry button{color:hsla(var(--primary-hsl), .60)}
+.label-entry button:hover{color:var(--primary)}
+.label-entry button svg{width:12px;height:12px;stroke-width:2.2}
+
+.properties{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin-bottom:18px}
+.prop-card{padding:18px}
+.prop-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
+.prop-head-left{display:grid;gap:3px}
+.prop-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+/* min-content, not 0, on the two-column grid — it is the only .prop-grid holding a BUTTON, and
+   the reminders button is stretched to its cell. A 0 floor lets the cell be narrower than a
+   label that cannot wrap (.btn is nowrap), and the German "Eine Erinnerung hinzufügen…" is ~229px
+   against a ~223px cell at the 1120px desktop width: the label paints outside its own border box,
+   which is verbatim the prototype defect the note further down claims to have fixed. A
+   min-content floor makes the cell grow instead; .properties' own tracks are `1.1fr 1fr`, whose
+   automatic minimum is already min-content, so the card takes the few pixels from its sibling
+   and the page still fits. Below 900px .prop-grid already behaves this way (`1fr 1fr`), and
+   below 600px both collapse to one column. */
+.prop-grid.two{grid-template-columns:repeat(2,minmax(min-content,1fr))}
+/* The other half of the same fix, and the half that survives an inline `width:100%` on the
+   button: used width is max(min-width, width), so a stylesheet min-inline-size still wins over
+   an inline width. The button fills its cell as designed and can never be squeezed below its
+   own label.
+   Scoped to .two deliberately. The three-column .prop-grid keeps a 0 floor (its cells hold
+   selects, whose overflow the browser handles, not nowrap button labels), and giving a button
+   there a max-content floor inside a cell that cannot grow would move the overflow rather than
+   remove it. If a button is ever added to that grid, its cells need the min-content floor at
+   the same time. */
+.prop-grid.two .btn{min-inline-size:max-content}
+.progress-wrap{display:grid;gap:7px}
+.progress-head{display:flex;justify-content:space-between;align-items:center}
+.progress{appearance:none;width:100%;height:4px;background:var(--grey-200);border-radius:99px}
+.progress::-webkit-slider-thumb{appearance:none;width:16px;height:16px;border-radius:50%;background:var(--primary);box-shadow:0 2px 6px hsla(var(--primary-hsl), .20)}
+.progress::-moz-range-thumb{width:16px;height:16px;border-radius:50%;border:0;background:var(--primary)}
+.disclosure{border:0;background:transparent;color:var(--text-muted);display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:650;padding:5px 0}
+.disclosure svg{transition:transform .15s ease}
+.disclosure.open svg{transform:rotate(180deg)}
+.schedule-advanced{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.repeat-builder{grid-column:1/-1;margin-top:2px;padding:14px;border:1px solid var(--border);border-radius:13px;background:var(--grey-50)}
+.repeat-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}
+.repeat-presets{display:flex;gap:6px;flex-wrap:wrap}
+.repeat-preset{border:1px solid var(--border);background:var(--scheme-main);border-radius:9px;padding:7px 10px;font-size:10px;font-weight:750;color:var(--text-muted);letter-spacing:.01em}
+.repeat-preset:hover{border-color:hsla(var(--primary-hsl), .25);background:hsla(var(--primary-hsl), .06);color:var(--primary)}
+.repeat-preset.on{background:hsla(var(--primary-hsl), .10);border-color:hsla(var(--primary-hsl), .20);color:var(--primary)}
+.repeat-clear{width:28px;height:28px;border:0;background:transparent;color:var(--danger-text);border-radius:8px;display:grid;place-items:center}
+.repeat-clear:hover{background:hsla(var(--danger-h), var(--danger-s), var(--danger-l), .08)}
+.repeat-fields{display:grid;grid-template-columns:1fr 1.25fr;gap:12px;align-items:end}
+.repeat-each{display:grid;grid-template-columns:auto minmax(74px,.75fr) minmax(110px,1fr);gap:8px;align-items:center}
+.repeat-each .label-inline{font-size:11px;color:var(--text-muted);font-weight:650;white-space:nowrap}
+@media(max-width:760px){.repeat-fields{grid-template-columns:1fr}.repeat-each{grid-template-columns:auto 1fr 1fr}}
+
+.content-grid{display:block}
+.stack{display:grid;gap:14px}
+.section-card{padding:18px}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;overflow:visible}.section-head>div:last-child{overflow:visible;flex-shrink:0}
+/* The description is a plain <textarea> now: the contenteditable editor carried both
+   execCommand sinks, and deleting it removes the stored-XSS sink rather than sanitising it.
+   .editor carries the taller box the description needs, in this one rule. */
+.editor{min-height:190px;border:1px solid var(--border);border-radius:12px;padding:14px;outline:none;font-size:13px;line-height:1.65;background:var(--scheme-main);width:100%;resize:vertical;font-family:inherit}
+.editor:focus{border-color:hsla(var(--primary-hsl), .38);box-shadow:0 0 0 4px hsla(var(--primary-hsl), .07)}
+
+.tabs{display:flex;gap:4px;background:var(--grey-100);padding:4px;border-radius:11px}
+.tabs button{border:0;background:transparent;border-radius:8px;padding:7px 10px;font-size:11px;color:var(--text-muted);font-weight:650}
+.tabs button.on{background:var(--scheme-main);color:var(--text-strong);box-shadow:var(--shadow-xs)}
+.file-list,.relation-list,.comment-list{display:grid;gap:8px}
+.file-row,.relation-row{display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--border);border-radius:11px;background:var(--scheme-main)}
+.file-icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:hsla(var(--primary-hsl), .08);color:var(--primary);flex:none}
+.row-grow{min-width:0;flex:1}
+.row-title{font-size:12px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-meta{font-size:10px;color:var(--grey-400);margin-top:2px}
+.row-menu{border:0;background:transparent;color:var(--grey-400);padding:5px}
+.relation-type{min-inline-size:86px;color:var(--text-muted);font-size:10px}
+.empty-state{border:1px dashed var(--grey-300);background:var(--grey-50);border-radius:12px;padding:20px;text-align:center;color:var(--text-muted);font-size:11px}
+
+.comment{display:grid;grid-template-columns:34px 1fr;gap:10px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--scheme-main)}
+.avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,hsla(var(--info-h),var(--info-s),var(--info-l),.16),hsla(var(--primary-hsl),.16));font-size:11px;font-weight:750;color:var(--primary);overflow:hidden}
+.comment-author{font-size:11px;font-weight:700}
+.comment-time{font-size:10px;color:var(--grey-400);margin-left:6px}
+.comment-text{font-size:12px;line-height:1.55;margin-top:4px;color:var(--text)}
+.comment-box{display:grid;grid-template-columns:34px 1fr;gap:10px}
+.comment-editor{border:1px solid var(--grey-300);border-radius:12px;padding:10px;background:var(--scheme-main)}
+.comment-editor textarea{width:100%;border:0;resize:vertical;min-height:72px;font:inherit;font-size:12px}
+.comment-actions{display:flex;justify-content:flex-end;margin-top:6px}
+
+.action-link{border:0;background:transparent;font-size:11px;color:var(--text-muted);padding:5px 0;display:inline-flex;align-items:center;gap:6px}
+.action-link:hover{color:var(--primary)}
+.action-link.danger{color:var(--danger)}
+.task-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 2px 0;color:var(--grey-400);font-size:10px}
+
+/* SETTINGS ------------------------------------------------------------ */
+.settings-window{background:linear-gradient(180deg,var(--grey-50),var(--grey-100))}
+.settings-role{margin-left:auto;text-align:right}
+.settings-role strong{display:block;font-size:12px}
+.settings-role span{font-size:10px;color:var(--text-muted)}
+.settings-nav{display:flex;gap:6px;padding:14px 32px 0;background:var(--scheme-main)}
+.settings-nav button{border:0;background:transparent;color:var(--text-muted);padding:10px 13px;border-radius:10px;font-size:12px;font-weight:650}
+.settings-nav button.on{background:var(--scheme-main);color:var(--text-strong);box-shadow:var(--shadow-xs)}
+.settings-body{padding:24px 32px 42px;display:grid;gap:16px}
+.settings-section{display:grid;gap:14px}
+.settings-heading{display:flex;align-items:end;justify-content:space-between}
+.settings-heading h2{font-size:20px;margin:0;letter-spacing:-.02em}
+.settings-heading p{margin:4px 0 0;font-size:11px;color:var(--text-muted)}
+.settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.settings-card{padding:18px}
+.settings-card.wide{grid-column:1/-1}
+.setting-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;padding:13px 0;border-bottom:1px solid var(--border)}
+.setting-row:first-child{padding-top:0}
+.setting-row:last-child{border-bottom:0;padding-bottom:0}
+.setting-name{font-size:12px;font-weight:700}
+.setting-desc{font-size:10px;color:var(--text-muted);line-height:1.45;margin-top:3px}
+.setting-control{min-width:190px}
+.profile-line{display:flex;align-items:center;gap:14px}
+.profile-avatar{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,hsla(var(--info-h),var(--info-s),var(--info-l),.16),hsla(var(--primary-hsl),.16));font-size:18px;font-weight:750;color:var(--primary)}
+.profile-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+/* auto-fit, not the prototype's `repeat(2, …)`. The prototype put TWO tiles in here; the Import
+   card is deleted (both of its commit steps are refused by the backend), so the fixed two-column
+   track left the single Export tile in the left half of a `.settings-card.wide` with the right
+   half empty at every width above 600px. auto-fit collapses the empty track instead of painting
+   it, and still gives two columns if a second tile is ever added. `min(240px,100%)` is what keeps
+   the tile from overflowing a narrow card — a bare 240px floor cannot shrink below itself. */
+.data-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:10px;margin-top:12px}
+.data-tile{border:1px solid var(--border);border-radius:13px;padding:14px;background:var(--scheme-main)}
+.data-tile h4{font-size:12px;margin:0 0 5px}
+.data-tile p{font-size:10px;color:var(--text-muted);line-height:1.45;min-height:30px}
+.org-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.org-tile{border:1px solid var(--border);background:var(--scheme-main);border-radius:13px;padding:14px}
+.org-tile .k{font-size:10px;color:var(--text-muted)}
+.org-tile .v{font-size:12px;font-weight:700;margin-top:4px}
+.org-tile .d{font-size:10px;color:var(--text-muted);line-height:1.45;margin-top:4px}
+.org-identity-row{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.org-identity{display:flex;gap:28px;flex-wrap:wrap}
+.org-identity-item{display:flex;align-items:center;gap:7px}
+.org-identity-item .meta{display:grid;gap:2px}
+.org-identity-item .meta span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-weight:700}
+.org-identity-item .meta strong{font-size:13px;color:var(--text-strong)}
+.mini-edit{width:26px;height:26px;border:1px solid var(--border);border-radius:8px;background:var(--scheme-main);display:grid;place-items:center;color:var(--text-muted)}
+.mini-edit:hover{background:var(--grey-100);color:var(--primary)}
+.mini-edit svg{width:13px;height:13px}
+.danger-zone{border-color:hsla(var(--danger-h),var(--danger-s),var(--danger-l),.18);background:hsla(var(--danger-h),var(--danger-s),var(--danger-l),.04)}
+.danger-zone .setting-name{color:var(--danger)}
+.member-list{display:grid;gap:8px}
+.member-row{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px;border:1px solid var(--border);border-radius:12px;background:var(--scheme-main)}
+.member-meta strong{font-size:11px;display:block}
+.member-meta span{font-size:10px;color:var(--text-muted)}
+.member-actions{display:flex;align-items:center;gap:8px}
+.role-badge{font-size:10px;border-radius:999px;padding:4px 7px;background:var(--grey-100);color:var(--text-muted)}
+.role-badge.admin{background:hsla(var(--primary-hsl), .08);color:var(--primary)}
+.seat-meter{height:7px;background:var(--grey-200);border-radius:999px;overflow:hidden;margin:10px 0 6px}
+/* width:0, not the prototype's 71% — that was demo data baked into the stylesheet, and it would
+   render a filled meter for every real organization until app.js sets #seatMeterFill inline. */
+.seat-meter span{display:block;height:100%;width:0;background:var(--primary);border-radius:inherit}
+.notice{border:1px solid var(--border);background:var(--grey-50);border-radius:13px;padding:13px;font-size:10px;color:var(--text-muted);line-height:1.5}
+.notice strong{display:block;font-size:11px;color:var(--text-strong);margin-bottom:4px}
+
+.org-team-list{display:grid;gap:8px;min-width:min(520px,100%)}
+.org-team-line{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.org-team-line:last-child{border-bottom:0}
+.org-team-line .team-meta{display:grid;gap:2px}
+.org-team-line .team-meta span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-weight:700}
+.org-team-line .team-meta strong{font-size:13px;color:var(--text-strong)}
+.btn:disabled{cursor:not-allowed;background:var(--input-disabled-background-color);border-color:var(--input-disabled-border-color);color:var(--input-disabled-color);box-shadow:none;filter:none}
+.btn:disabled:hover{background:var(--input-disabled-background-color);border-color:var(--input-disabled-border-color)}
+/* Popover + modal */
+.popover{position:absolute;z-index:70;min-width:220px;background:var(--scheme-main);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow-lg);padding:7px}
+.popover button{width:100%;border:0;background:transparent;border-radius:9px;padding:9px 10px;text-align:left;font-size:11px;color:var(--text);display:flex;align-items:center;gap:8px}
+.popover button:hover{background:var(--grey-100)}
+.popover button.danger{color:var(--danger)}
+.modal-scrim{position:fixed;inset:0;z-index:120;background:hsla(var(--black-h),var(--black-s),var(--black-l),.34);backdrop-filter:blur(3px);display:grid;place-items:center;padding:20px;overflow:auto}
+.modal{width:min(560px,100%);background:var(--scheme-main);border:1px solid var(--card-border-color);border-radius:20px;box-shadow:var(--shadow-lg);overflow:visible;position:relative}
+.modal-head{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--border)}
+.modal-head h3{margin:0;font-size:16px;flex:1}
+.modal-body{padding:18px 20px;display:grid;gap:12px;overflow:visible}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* TRANSLATED LABELS — buttons flex, labels stay on one line ---------------
+   German is the long case ("Als erledigt markieren" for "Mark done", "Mitglied hinzufügen"
+   for "Add member") and the prototype capped two of those buttons with a hard `width`, so the
+   label painted outside its own border box. The mechanism, in four parts:
+
+   1. No px `width`/`min-width` on any element whose content is a translated string. Where a
+      floor is genuinely wanted it is `min-inline-size: max-content` — the width of the longest
+      single-line label in whatever catalogue is loaded, so the button GROWS for German and
+      never shrinks below the English text. Fixed px sizes survive only on icon-only controls
+      (.icon-btn, .mini-edit, .repeat-clear, .avatar, .file-icon) whose content is an SVG.
+   2. .btn keeps `white-space:nowrap` + `flex-shrink:0`. nowrap does not clip on its own — it
+      clips only next to a hard width or an overflow:hidden, and neither is applied to a button
+      anywhere in this file. That pair is what guarantees "one line, never squeezed".
+   3. Flex items keep the DEFAULT `min-inline-size:auto`, never 0. Auto resolves to the label's
+      own min-content width, which for a nowrap label is the whole label — this is the rule that
+      makes the growth automatic. (SPEC-UI §6.3 rule 4 asks for `min-width:0` on
+      .member-add-tabs button; that is the one thing that would let a nowrap label overflow its
+      box, so it is deliberately not applied HERE. Deviation recorded. The rule is only as good
+      as the markup: an inline `style="min-width:0"` on one of those buttons beats this
+      stylesheet on specificity and reverses the decision for that button silently — which is a
+      defect in the view module that writes it, not a reason to weaken this file.)
+   4. The CONTAINER wraps, not the label: every flex row mixing prose with buttons gets
+      `flex-wrap:wrap`, and the prose block gets `min-inline-size:0` so text — which may wrap —
+      yields the space instead of the button, which may not.
+   Logical properties are used for all of the above so a future RTL pass is mechanical. The
+   .select caret (background-position/padding-right) stays physical; RTL is out of scope. */
+.done-btn,.team-action-btn{inline-size:auto;min-inline-size:max-content}
+/* 12ch ~= the 86px hard width this replaces, so English is unchanged, but the input can now grow
+   into whatever room the chip has. NO CSS LENGTH CAN MEASURE A PLACEHOLDER — a placeholder
+   contributes nothing to intrinsic sizing — so a long one is cut inside the chip and no rule
+   here can prevent it. `font:inherit` resolves against `.tag-chip{font-size:11px}`, which makes
+   12ch roughly eleven characters; the upstream `task.label.placeholder` is "Type to add a
+   label…" (20) in English and 47 in German, so even ENGLISH was clipped.
+   THE REMEDY IS THE KEY, AND IT NOW EXISTS: `one.task.labelPlaceholder` — "Add label…", ten
+   characters, the length the prototype's hardcoded English fitted into this box. The view module
+   is what wires it; this comment is here so nobody "fixes" it with a longer upstream key again.
+   Everything else on the page is sized by the mechanism documented above; this is the one string
+   that needed a shorter sentence instead. */
+.label-inline-input{inline-size:auto;min-inline-size:12ch;flex:1 1 12ch;border:0;background:transparent;color:var(--primary);font:inherit;padding:2px 0}
+.team-selector{min-inline-size:210px}
+.member-add-tabs{flex-wrap:wrap}
+.member-add-tabs button{flex:1 1 auto}
+.settings-nav{flex-wrap:wrap}
+/* .task-kicker and .task-footer carry no button, so neither can clip a label — they are here for
+   the other half of rule 4 and for one specific case: the project chip in the breadcrumb is
+   `data-requires="teams"`, and app.js inserts the refusal sentence as its next SIBLING. Without
+   wrapping, a server sentence would be laid out mid-breadcrumb between the chip and the bucket
+   name; `.refusal-text{flex-basis:100%}` then puts it on its own line underneath, which is where
+   a sentence belongs. */
+.section-head,.settings-heading,.prop-head,.member-actions,.modal-foot,.task-head-actions,.task-kicker,.task-footer{flex-wrap:wrap}
+.section-head>div:first-child,.settings-heading>div:first-child,.prop-head-left,.row-grow{min-inline-size:0}
+
+@media(max-width:900px){
+  .stage{padding:0}
+  .window{border-radius:0;min-height:100vh}
+  .task-shell,.settings-body{padding-left:18px;padding-right:18px}
+  .task-topbar,.settings-hero,.settings-nav{padding-left:18px;padding-right:18px}
+  .properties,.content-grid,.settings-grid{grid-template-columns:1fr}
+  .settings-card.wide{grid-column:auto}
+  .prop-grid{grid-template-columns:1fr 1fr}
+  .org-map{grid-template-columns:1fr}
+  .brand-logo{inline-size:125px}
+}
+@media(max-width:600px){
+  .task-head{grid-template-columns:1fr}
+  .task-head-actions{justify-content:flex-start}
+  .prop-grid,.prop-grid.two,.data-actions{grid-template-columns:1fr}
+  .settings-hero{align-items:flex-start;flex-wrap:wrap}
+  .settings-role{margin-left:0;width:100%;text-align:left}
+  .settings-nav{overflow:auto}
+  .setting-row{grid-template-columns:1fr}
+  .setting-control{min-width:0}
+}

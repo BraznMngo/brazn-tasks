@@ -313,12 +313,23 @@ export function setViewState(ns, patch) {
  * @param {string} search a `location.search`-shaped string, with or without the leading `?`
  * @returns {{taskId: number|null, view: string, tab: string}}
  */
-export function parseRoute(search) {
+export function parseRoute(search, defaultView) {
   const params = new URLSearchParams(typeof search === 'string' ? search : '');
   const taskId = parseTaskId(params.get('task'));
 
+  // THE DOCUMENT CHOOSES THE VIEW; `?view=` only overrides it.
+  //
+  // Settings is its own page, `settings.html`, and the task detail is its own, `task.html`.
+  // Each carries `data-default-view` on <body>. Serving both surfaces from one filename was
+  // the earlier shape and it read backwards: the general entry point is Settings, the task is
+  // a deep link, and a settings screen answering to a URL called `task.html` is a URL nobody
+  // can hand to anyone.
+  //
+  // `?view=` is kept because it costs one line and makes every route reachable from either
+  // document, which is what the unit tests drive. It is not what a link should carry.
+  const fallback = VIEWS.includes(defaultView) ? defaultView : (taskId !== null ? 'task' : 'settings');
   const requestedView = params.get('view');
-  const view = VIEWS.includes(requestedView) ? requestedView : (taskId !== null ? 'task' : 'settings');
+  const view = VIEWS.includes(requestedView) ? requestedView : fallback;
 
   const requestedTab = params.get('tab');
   const tab = SETTINGS_TABS.includes(requestedTab) ? requestedTab : SETTINGS_TABS[0];
@@ -1424,7 +1435,7 @@ function installListeners() {
   });
 
   window.addEventListener('popstate', () => {
-    state.route = parseRoute(location.search);
+    state.route = parseRoute(location.search, document.body?.dataset?.defaultView);
     render();
   });
 }
@@ -1847,7 +1858,7 @@ export async function boot() {
     await loadOrganization();
     await loadTeams();
 
-    state.route = parseRoute(location.search);
+    state.route = parseRoute(location.search, document.body?.dataset?.defaultView);
     await loadViews();
 
     state.ready = true;

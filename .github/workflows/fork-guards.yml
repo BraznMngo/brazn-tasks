@@ -253,7 +253,7 @@ jobs:
           # list is the locked file layout from the brief. Modules reached only
           # at runtime (view-task.js, view-settings.js) are covered by the
           # specifier check further down instead, so they are not duplicated here.
-          for f in task.html app.js api.js i18n.js \
+          for f in task.html settings.html one.css app.js api.js i18n.js \
                    i18n/en.json i18n/es-ES.json i18n/de-DE.json \
                    i18n/fr-FR.json i18n/zh-CN.json i18n/ja-JP.json \
                    logo-light.v1.png logo-dark.v1.png; do
@@ -319,10 +319,10 @@ jobs:
           # rewrites them.
           while IFS= read -r ref; do
             if [[ ! -f "${dir}/${ref}" ]]; then
-              echo "::error::${dir}/task.html references './${ref}', which does not exist."
+              echo "::error::${dir} markup references './${ref}', which does not exist."
               failed=1
             fi
-          done < <(grep -oE '(src|href)="\./[^"]+"' "${dir}/task.html" \
+          done < <(grep -ohE '(src|href)="\./[^"]+"' "${dir}"/*.html \
                    | sed -E 's/.*"\.\/(.*)"/\1/' | sort -u || true)
 
           # Every catalogue the page can negotiate to. The i18n fallback rule
