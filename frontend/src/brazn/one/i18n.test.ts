@@ -22,7 +22,7 @@ import jaRaw from '../../../public/one/i18n/ja-JP.json?raw'
  */
 
 // Fixture keys, assembled rather than written as literals. Upstream's check-translations job
-// treats every t('...') literal it finds under frontend/src as an app key and fails on any that
+// treats every t() call literal it finds under frontend/src as an app key and fails on any that
 // frontend/src/i18n/lang/en.json does not define. These keys are this file's own fixtures and
 // deliberately exist nowhere else - the page's real catalogue is public/one/i18n/.
 const k = (...parts: string[]) => parts.join('.')

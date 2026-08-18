@@ -116,7 +116,10 @@
       "comment": "コメント",
       "sortNewestFirst": "新しい順",
       "sortOldestFirst": "古い順",
-      "addedSuccess": "コメントは正常に追加されました。"
+      "addedSuccess": "コメントは正常に追加されました。",
+      "deleteText1": "このコメントを削除して本当によろしいですか？",
+      "deleteSuccess": "コメントは正常に削除されました。",
+      "delete": "コメントの削除"
     },
     "label": {
       "placeholder": "追加するラベルを入力…",
@@ -187,6 +190,12 @@
     }
   },
   "one": {
+    "deny": {
+      "dueFollowsEnd": "期限は終了日に従います。個別に設定するには終了日を消してください。"
+    },
+    "toast": {
+      "commentUpdated": "コメントを更新しました。"
+    },
     "brand": {
       "logoAlt": "ONE",
       "taskPage": "タスクの詳細",
@@ -217,6 +226,22 @@
       "emailUnavailable": "このインスタンスはメールアドレスを返さないため、ここには表示できません。"
     },
     "task": {
+      "comments": {
+        "edit": "編集",
+        "editAria": "{date} のコメントを編集",
+        "deleteAria": "{date} のコメントを削除",
+        "editing": "このコメントを編集中",
+        "sendHint": "Shift+Enter で送信",
+        "editLabel": "コメントを編集"
+      },
+      "statusOwnership": {
+        "title": "ステータスと担当",
+        "subtitle": "このタスクの担当者、優先度、進捗"
+      },
+      "schedule": {
+        "title": "スケジュール",
+        "subtitle": "タスクを計画してリマインダーを受け取れます。期間や繰り返しの設定も追加できます。"
+      },
       "relationSearchPlaceholder": "タスクを検索…",
       "relationSearchResults": "一致するタスク",
       "relationSearchScope": "{project} のタスクを表示しています。",

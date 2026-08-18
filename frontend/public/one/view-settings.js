@@ -405,12 +405,17 @@ function hero() {
  * The wire strings (`personal-cloud`, `teams-cloud`) are identifiers and are never displayed; the
  * mapping is a lookup (ruling C10).
  *
- * The line is never empty: `roleLabel()` always resolves to one of its three keys, so the span
- * always has something true in it and the gate has nothing left to hide.
+ * THE EMPTY CASE IS STILL POSSIBLE and is left empty rather than filled. A session with no
+ * organization read AND no edition claim knows neither fact, so the span renders empty — an empty
+ * inline `<span>` occupies nothing, which is what the removed node used to achieve. It is NOT the
+ * case the PM reported: the reported one is an administrator, whose role IS known.
  */
 function editionLine() {
   const role = roleLabel();
   const edition = editionLabel();
+  // Both are sourced from the same absent claim when there is no organization read, so this is
+  // "nothing is known", not "one of the two is missing".
+  if (role === null) return edition === null ? '' : edition;
   if (edition === null) return role;
   return t('one.edition.withRole', {edition, role});
 }
@@ -427,11 +432,28 @@ function editionLabel() {
   return key === 'one.edition.personal' ? t('one.edition.personal') : t('one.edition.teams');
 }
 
+/**
+ * The role, or null when this page has not established one.
+ *
+ * ADMINISTRATOR IS THE FACT THE PAGE READ FOR ITSELF: `GET /api/v1/brazn/organization` returned
+ * 200, which is the same fact the `admin` gate is derived from (ruling C1.5) and has nothing to do
+ * with the entitlement claim. It is therefore true whether or not a `brazn_edition` claim came with
+ * the session, which is exactly the round-1 finding.
+ *
+ * THE OTHER TWO ARE READ OFF THE CLAIM, so they are null when the claim is absent rather than
+ * defaulting to "Team member". For CAPABILITY purposes an absent claim is the permissive Teams
+ * shape (ruling C1) and `decideGate` implements that; for DISPLAY app.js is explicit that absence
+ * is not Teams (`editionMessageKey`, "printing 'ONE Teams' for it would be stating a subscription
+ * the page never read"). "Team member" is that same unread sentence in a different voice, so it
+ * gets the same answer — nothing.
+ *
+ * Every key is a LITERAL in its own `t()` call, for the key sweep's benefit (ruling C10).
+ */
 function roleLabel() {
   if (getOrganization() !== null) return t('one.role.administrator');
-  return editionMessageKey() === 'one.edition.personal'
-    ? t('one.role.personalUser')
-    : t('one.role.teamMember');
+  const key = editionMessageKey();
+  if (key === null) return null;
+  return key === 'one.edition.personal' ? t('one.role.personalUser') : t('one.role.teamMember');
 }
 
 /**
@@ -1139,14 +1161,16 @@ async function saveTimezone(timezone) {
     await api.saveGeneralSettings({timezone});
     // THE RE-READ IS THE FIX, and it is awaited BEFORE the toast and before the render (PM
     // finding 4). Without it the render below redrew boot's zone over the one just saved.
-    await refreshAccount();
+    //
+    // AND IT IS `reloadUser()`, NOT A LOCAL COPY, FOR THIS FIELD ABOVE ALL OTHERS: the private
+    // overlay that used to sit here could correct the select and nothing else, because the `Intl`
+    // formatters are built by app.js's `adoptAccount` from the body it holds. A zone saved through
+    // the overlay therefore left every date on the task view formatted in the OLD zone until a
+    // page reload. `reloadUser()` re-adopts the body, so the formatters are rebuilt with it and
+    // the saved zone actually takes effect.
+    await reloadUser();
     toast(t('user.settings.general.savedSuccess'));
     requestRender();
-    // NOT re-derived here, and stated rather than hidden: `buildFormatters` is app.js's and is
-    // called once in `boot()`, so every date on the task view keeps formatting in the OLD zone
-    // until the page is reloaded. The settings tab itself formats no dates, so nothing on this
-    // screen is wrong — but the page as a whole is briefly inconsistent, and app.js is where that
-    // is fixable. Requested in the report.
   } catch (err) {
     console.error('[one/settings] timezone save failed', err);
     toast(refusalText(describeForkError(err)));
@@ -1183,7 +1207,7 @@ async function saveAvatar(file) {
   // SessionLostError becomes an unhandled rejection. app.js already draws the terminal surface
   // from its own `onSessionLost` subscription, so there is nothing for this path to add.
   try {
-    await refreshAccount();
+    await reloadUser();
   } catch (err) {
     console.error('[one/settings] account re-read after avatar upload failed', err);
     return;
@@ -1316,7 +1340,10 @@ registerActions({
       // Awaited before the toast, so the card behind the closing modal already carries the new
       // name. `requestRender()` alone redrew boot's copy — the same defect as finding 4, one
       // field over, and invisible only because the modal covers the card while it happens.
-      await refreshAccount();
+      // `reloadUser()` renders by itself when the body changed; the modal lives in `#modalRoot`,
+      // which `render()` does not touch, so that render cannot pull the form out from under a
+      // failed write.
+      await reloadUser();
     } catch (err) {
       reportModalFailure(err);
       return;
@@ -1389,7 +1416,7 @@ registerActions({
       // The address will NOT come back changed today — no route returns it (see `accountEmail`) —
       // but `status` moves to email-confirmation-required when the mailer is on
       // (pkg/user/update_email.go:82), so the account is re-read rather than assumed unchanged.
-      await refreshAccount();
+      await reloadUser();
     } catch (err) {
       reportModalFailure(err);
       return;

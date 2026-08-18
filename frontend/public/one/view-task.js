@@ -552,6 +552,16 @@ function ensureLoaded(ctx) {
     // Reset with the task, not merged forward: `setViewState` is a shallow merge, so a draft
     // typed against task 12 would otherwise reappear in task 13's comment box.
     commentDraft: '',
+    // The comment being edited, and its own separate draft. TWO DRAFTS, NOT ONE: entering edit
+    // mode must not eat a half-typed new comment, and cancelling has to hand it back. Both reset
+    // with the task for the same reason `commentDraft` does — comment 91 does not exist on task 13.
+    editingCommentId: null,
+    commentEditDraft: '',
+    // The due date as it stood BEFORE the end date locked it, so clearing the end date can put it
+    // back rather than leaving the copied value behind as if the user had typed it (PM item 6).
+    // `null` means nothing was recorded — the task arrived already locked — which is the case the
+    // PM's own instruction calls "otherwise leave the value and re-enable it".
+    dueBeforeLock: null,
     commentOrder: state.commentOrder ?? 'asc',
     resourceTab: state.resourceTab ?? 'attachments',
     scheduleOpen: state.scheduleOpen === true,
@@ -923,6 +933,57 @@ function repeatPanel() {
   return document.querySelector('.repeat-builder');
 }
 
+/**
+ * The machine-readable reason on a due date the end date has locked (PM item 6).
+ *
+ * `data-deny-reason` is app.js's vocabulary and every value in `DENY` is one the GATING engine
+ * writes. This refusal is not a gate: it comes from one field's value, not from the edition, the
+ * write claim or a route, so there is no `DENY` member for it and adding one would be an app.js
+ * change. A view-authored token is the same shape ruling C8.1 already established for controls a
+ * view refuses in its own markup, and it is never rendered and never translated — the sentence
+ * the user reads is `one.deny.dueFollowsEnd`.
+ */
+const DUE_LOCKED_REASON = 'due-follows-end';
+
+/**
+ * The due date, and the end date's lock on it. PM item 6.
+ *
+ * THE LOCK IS THE PAGE'S EXISTING REFUSAL, NOT A SECOND DISABLED STYLE. `.is-refused` +
+ * `readonly` + `aria-disabled="true"` is exactly what `refuseOne` writes for an INPUT (app.js),
+ * `.input.is-refused` is what paints it grey (one.css:239), and the reason travels in a
+ * `.refusal-text` sibling — the same node `renderRefusal` would have written into. So the field is
+ * greyed, is still focusable, and still announces why it cannot be edited.
+ *
+ * `data-requires="write"` IS DROPPED WHILE LOCKED, and that is deliberate rather than an
+ * oversight: `applyGates` calls `releaseControl` on a passing gate, which would strip a
+ * markup-applied refusal straight back off (the same trap `moveModal` documents for its confirm
+ * button). A locked field is refused for everyone, so nothing is lost — a write-restricted account
+ * sees the field disabled either way, and reads the lock's sentence rather than the write
+ * restriction's. Both are true; the lock is the more specific one.
+ *
+ * AND THE VALUE IS STILL SENT. `changeEndDate` PATCHes `due_date` in the SAME request as
+ * `end_date`, so the date on screen is the date the task carries. Greying a control out and
+ * quietly dropping it from the payload is the failure this control has to be incapable of, and it
+ * is not prevented by anything in the markup — only by that handler.
+ *
+ * Note what this does NOT do: it issues no write on load. A task that arrives from the server with
+ * an end date and a DIFFERENT stored due date shows the end date here, and the two are reconciled
+ * by the first end-date edit. Rewriting a user's stored date because they opened a page would be a
+ * write nobody asked for; reported rather than smuggled either way.
+ */
+function dueDateField(task) {
+  const endValue = dateInputValue(task?.end_date);
+  const locked = endValue !== '';
+  const value = locked ? endValue : dateInputValue(task?.due_date);
+  const lockAttributes = locked
+    ? `readonly aria-disabled="true" data-deny-reason="${DUE_LOCKED_REASON}"`
+    : 'data-requires="write"';
+  return `<div><label class="label">${ic('calendar')} ${esc(t('task.attributes.dueDate'))}</label>
+    <input class="input${locked ? ' is-refused' : ''}" id="due" type="date" value="${esc(value)}"
+      ${lockAttributes} aria-label="${esc(t('task.attributes.dueDate'))}">
+    <p class="refusal-text" data-refusal-source="gate">${locked ? esc(t('one.deny.dueFollowsEnd')) : ''}</p></div>`;
+}
+
 /** Prototype `taskProperties()` (1028-1040). */
 function taskProperties(state) {
   const task = state.task;
@@ -944,9 +1005,7 @@ function taskProperties(state) {
       <button class="disclosure${scheduleOpen ? ' open' : ''}" data-action="toggle-schedule"
         >${esc(t('one.common.more'))} ${ic('chevron')}</button></div>
       <div class="prop-grid two">
-        <div><label class="label">${ic('calendar')} ${esc(t('task.attributes.dueDate'))}</label>
-          <input class="input" id="due" type="date" value="${esc(dateInputValue(task?.due_date))}"
-            data-requires="write" aria-label="${esc(t('task.attributes.dueDate'))}"></div>
+        ${dueDateField(task)}
         <div><label class="label">${ic('bell')} ${esc(t('task.attributes.reminders'))}</label>
           <!-- 'inline-size:100%' fills the cell so the chevron sits at the right edge, and
                'min-inline-size:max-content' is what stops it CLIPPING.
@@ -1062,17 +1121,147 @@ function resourcesSection(state) {
     </div></div>${resourcesPanel(state)}</section>`;
 }
 
-/** Prototype `commentsPanel()` (1060-1063). */
+/**
+ * Was this comment written by the signed-in user? PM item 2.
+ *
+ * THE AUTHOR IS THE ONLY THING THIS MAY BE DECIDED ON. `max_permission` comes back on the comment
+ * read but reports the PARENT TASK's permission, so it over-states what may be done to a comment
+ * — a project administrator has write on the task and none on someone else's comment
+ * (pkg/routes/api/v2/task_comments.go:120-125, recorded on `api.deleteComment`). The PM's own
+ * wording is the same rule: compare the comment author against the current user, and do not assume
+ * the first comment is theirs.
+ *
+ * The numeric id is preferred and the username is the fallback, because `personName` may legally
+ * be blank or repeated across accounts and an id cannot. Two undefineds are NOT a match: a
+ * malformed author row must not hand the controls to whoever is reading.
+ *
+ * This is a HINT, not a policy layer — the same sentence `useManagedCapabilities.ts:49-57` puts on
+ * its own checks. The server enforces authorship regardless, so a refusal from it still renders
+ * through `reportWriteFailure` rather than being treated as impossible.
+ */
+function isOwnComment(comment, user) {
+  const author = comment?.author;
+  if (author === null || author === undefined || user === null || user === undefined) return false;
+  if (typeof author.id === 'number' && typeof user.id === 'number') return author.id === user.id;
+  const authorName = String(author.username ?? '');
+  return authorName !== '' && authorName === String(user.username ?? '');
+}
+
+/**
+ * One comment's own controls, on the user's own comments only (PM item 2).
+ *
+ * `.comment-actions` and `.action-link` are both already in the stylesheet — the first is the
+ * composer's button row, the second is the footer's delete link — so this needs no new class and
+ * no change to one.css, which is another agent's file this round. The only inline style is the
+ * gap, because `.comment-actions` is a flex row authored for a single button.
+ *
+ * The visible labels are short and the accessible names are not: "Edit" repeated down a thread is
+ * an ambiguous accessible name, so each button carries the comment's own timestamp in its label.
+ *
+ * The comment currently OPEN IN THE COMPOSER shows a line instead of its buttons. Pressing Edit on
+ * it again would be a no-op (the handler refuses to re-seed a draft that is already open, which
+ * would silently discard whatever had been typed into it), and a button that does nothing is worse
+ * than a line saying where the comment went.
+ *
+ * THE GATE IS ON THE WRAPPER AND THE SENTENCE NODE IS PRE-PLACED, WHICH IS PM FINDING 1's LESSON
+ * APPLIED BEFORE IT BITES AGAIN. `renderRefusal` puts its sentence in the control's next SIBLING
+ * when the view has not placed one, so `data-requires="write"` on the two buttons would have
+ * inserted a full sentence BETWEEN them, inside `.comment-actions` — a `display:flex` row that is
+ * NOT in one.css's `flex-wrap:wrap` list (one.css:462, :603). That is the same shape as the repeat
+ * row the PM saw break on "Every day". Hanging the one gate on a block wrapper instead means
+ * `refuseControl` still recurses into both buttons and announces both, while the sentence lands in
+ * a full-width paragraph in normal flow. It is `:empty` and therefore `display:none` until
+ * something is written into it (one.css:252).
+ */
+function commentControls(comment, beingEdited) {
+  const when = formatDateTime(comment?.created);
+  if (beingEdited) {
+    return `<div class="comment-actions"><span class="help" style="margin:0"
+      >${esc(t('one.task.comments.editing'))}</span></div>`;
+  }
+  return `<div data-requires="write">
+    <div class="comment-actions" style="gap:14px">
+      <button class="action-link" data-action="edit-comment" data-comment-id="${esc(comment?.id)}"
+        aria-label="${esc(t('one.task.comments.editAria', {date: when}))}"
+        >${esc(t('one.task.comments.edit'))}</button>
+      <button class="action-link danger" data-action="delete-comment" data-comment-id="${esc(comment?.id)}"
+        aria-label="${esc(t('one.task.comments.deleteAria', {date: when}))}"
+        >${esc(t('task.detail.actions.delete'))}</button>
+    </div>
+    <p class="refusal-text"></p>
+  </div>`;
+}
+
+/**
+ * Where every comment refusal goes: the block wrapper around the composer's button row, so
+ * `renderRefusal` finds the pre-placed `.refusal-text` inside it instead of inserting one into a
+ * non-wrapping flex row. Same role as `repeatPanel()`, for the same reason.
+ */
+function commentActionsPanel() {
+  return document.getElementById('commentActions');
+}
+
+/**
+ * Prototype `commentsPanel()` (1060-1063), plus the edit and delete controls of PM item 2.
+ *
+ * THE COMPOSER IS THE EDITOR. The PM asked for the existing box to be reused rather than a second
+ * one introduced, so `#commentText` is either the new-comment field or the editor for one existing
+ * comment, and `state.editingCommentId` is which. That is one textarea, one set of listeners and
+ * one Shift+Enter path — a second editor would have needed all three duplicated, and the two would
+ * have drifted the first time one of them changed.
+ */
 function commentsSection(state, facts) {
   const user = getUser();
-  const comments = state.comments.map((comment) => `<div class="comment">
-    <div class="avatar">${esc(initials(comment?.author))}</div>
-    <div><div>
-      <span class="comment-author">${esc(personName(comment?.author))}</span>
-      <span class="comment-time">${esc(formatDateTime(comment?.created))}</span>
-    </div>
-    <div class="comment-text">${esc(comment?.comment ?? '')}</div></div>
-  </div>`).join('');
+  const editingId = state.editingCommentId ?? null;
+  const editing = editingId !== null;
+
+  const comments = state.comments.map((comment) => {
+    const beingEdited = editing && String(comment?.id) === String(editingId);
+    const controls = isOwnComment(comment, user) ? commentControls(comment, beingEdited) : '';
+    return `<div class="comment">
+      <div class="avatar">${esc(initials(comment?.author))}</div>
+      <div><div>
+        <span class="comment-author">${esc(personName(comment?.author))}</span>
+        <span class="comment-time">${esc(formatDateTime(comment?.created))}</span>
+      </div>
+      <div class="comment-text">${esc(comment?.comment ?? '')}</div>${controls}</div>
+    </div>`;
+  }).join('');
+
+  /*
+   * The draft is re-emitted because a render REPLACES #app.innerHTML, and a render is fired by
+   * controls the user did not touch: `refreshAfterWrite` after any other write, and
+   * `syncRoleDrift`. Half a typed comment vanishing because a due date saved in the same minute is
+   * unsaved work thrown away, which F2 forbids. The description textarea is protected by the
+   * capture-phase blur handler; this box had no equivalent.
+   *
+   * `commentEditDraft` is the second of the two, and it exists so that entering edit mode does not
+   * consume the half-written new comment sitting in `commentDraft`. Cancelling gives it straight
+   * back, because it was never overwritten.
+   *
+   * `#commentActions` is the same wrapper trick `commentControls` uses and it is here for the same
+   * two reasons: ONE gate covering the row rather than one per button, so `renderRefusal` cannot
+   * insert a sentence between two buttons inside the non-wrapping `.comment-actions` flex row; and
+   * ONE pre-placed `.refusal-text` in normal flow, which is where BOTH the gate path and every
+   * failed comment write now put their sentence.
+   */
+  const draft = editing ? (state.commentEditDraft ?? '') : (state.commentDraft ?? '');
+  const editorNotice = editing
+    ? `<div class="help" style="margin:0 0 6px">${esc(t('one.task.comments.editing'))}</div>`
+    : '';
+  /*
+   * `aria-keyshortcuts` is the standards-defined way to announce Shift+Enter and costs no string;
+   * the `title` is the sighted half of the same fact. Both name the SEND key only — plain Enter
+   * still inserts a newline, which is what the PM asked for and is the browser's own default here.
+   */
+  const sendHint = `aria-keyshortcuts="Shift+Enter" title="${esc(t('one.task.comments.sendHint'))}"`;
+  const editorActions = editing
+    ? `<button class="btn small" data-action="cancel-comment-edit">${esc(t('misc.cancel'))}</button>
+       <button class="btn small primary" data-action="save-comment-edit"
+         ${sendHint}>${esc(t('misc.save'))}</button>`
+    : `<button class="btn small primary" data-action="comment"
+         ${sendHint}>${esc(t('task.comment.comment'))}</button>`;
+
   return `<section class="card section-card">
     <div class="section-head"><div>
       <div class="card-title">${esc(t('task.comment.title'))}</div>
@@ -1087,15 +1276,14 @@ function commentsSection(state, facts) {
     <div class="comment-box" style="margin-top:10px">
       <div class="avatar">${esc(initials(user))}</div>
       <div class="comment-editor">
-        <!-- The draft is re-emitted because a render REPLACES #app.innerHTML, and a render is
-             fired by controls the user did not touch: 'refreshAfterWrite' after any other write,
-             and 'syncRoleDrift'. Half a typed comment vanishing because a due date saved in the
-             same minute is unsaved work thrown away, which F2 forbids. The description textarea
-             is protected by the capture-phase blur handler; this box had no equivalent. -->
+        ${editorNotice}
         <textarea id="commentText" placeholder="${esc(t('one.task.comments.placeholder'))}"
-          aria-label="${esc(t('task.comment.comment'))}">${esc(state.commentDraft ?? '')}</textarea>
-        <div class="comment-actions"><button class="btn small primary" data-action="comment"
-          data-requires="write">${esc(t('task.comment.comment'))}</button></div>
+          aria-label="${esc(t(editing ? 'one.task.comments.editLabel' : 'task.comment.comment'))}"
+          >${esc(draft)}</textarea>
+        <div id="commentActions" data-requires="write">
+          <div class="comment-actions" style="gap:8px">${editorActions}</div>
+          <p class="refusal-text"></p>
+        </div>
       </div>
     </div>
   </section>`;
@@ -1291,12 +1479,32 @@ function relationModal(state) {
  * registration site is therefore the verification, and the route exists, so this control is wired
  * rather than left disabled.
  *
- * SCOPING TO THE CURRENT PROJECT is done on the rows that come back, not in the query. A truly
- * server-side scope exists — `GET /api/v2/projects/{project}/tasks`, operation
- * `project-tasks-list` at pkg/routes/api/v2/task_collection.go:141-149, which takes the same `q`
- * — but `api.js` exports no wrapper for it and `api.js` is not this agent's file to edit. The
- * filter below is the same rule applied one hop later; it is reported as a follow-up rather than
- * papered over, because it spends part of the page budget on rows it then discards.
+ * SCOPING TO THE CURRENT PROJECT IS STILL DONE ON THE ROWS THAT COME BACK, NOT IN THE QUERY, AND
+ * THAT IS A KNOWN DEFECT — reported, not papered over (PM round 1b, item 4).
+ *
+ * The failure it causes is exact: the search asks `GET /api/v2/tasks?q=` for the first 50 rows
+ * ACROSS EVERY PROJECT the user can see, and only then keeps the ones in this project. A task
+ * whose title matches but which ranks 51st globally never reaches the filter, so the picker says
+ * "no matches" about a task that exists in the very project it claims to be searching. The larger
+ * the account, the more often the answer is wrong, and raising `perPage` moves the cliff without
+ * removing it — the scope has to be in the request.
+ *
+ * The server-side scope exists and needs no backend work: `GET /api/v2/projects/{project}/tasks`,
+ * operation `project-tasks-list`, registered at pkg/routes/api/v2/task_collection.go:141-149 and
+ * taking the same `q`, `page` and `per_page` as `tasks-list`. It is not wired here because `api.js`
+ * exports no wrapper for it and `api.js` is not this agent's file this round; adding a bare fetch
+ * in this file would put a second API surface next to the one every other call uses, which is
+ * worse than the defect. THE WRAPPER THIS FILE NEEDS, and the only change required to close it:
+ *
+ *   export function searchProjectTasks(projectId, q, {page, perPage} = {}) {
+ *     return forkGet(withQuery(
+ *       forkV2Url(`projects/${encodeURIComponent(projectId)}/tasks`), {q, page, per_page: perPage},
+ *     ));
+ *   }
+ *
+ * Once it exists, `runRelationSearch` calls it with `state.task.project_id`, the `project_id`
+ * comparison in the filter below goes (the self-exclusion stays), and `perPage` drops to
+ * `RELATION_RESULT_LIMIT + 1` because the server is doing the narrowing.
  */
 let relationPick = null;
 let relationSearchToken = 0;
@@ -1383,6 +1591,24 @@ function paintRelationHelp(state) {
   help.textContent = project === ''
     ? t('one.task.relationSearchScopeUnknown')
     : t('one.task.relationSearchScope', {project});
+}
+
+/**
+ * Delete one comment. PM item 2: "Deleting is destructive: confirm first, in the same modal style
+ * the page already uses."
+ *
+ * So it is `deleteModal()`'s shape exactly — the same `.notice` block, the same
+ * `misc.cannotBeUndone` lead, the same cancel-then-danger foot — rather than a `confirm()` or a
+ * second modal vocabulary. The comment id rides on the confirm button rather than in a module
+ * variable: the modal is the only thing that knows which comment this is, and a module variable
+ * outlives it and would still be holding the last one after a close.
+ */
+function deleteCommentModal(commentId) {
+  modal('task.comment.delete', `<div class="notice">
+    <strong>${esc(t('misc.cannotBeUndone'))}</strong>${esc(t('task.comment.deleteText1'))}</div>`,
+  `${cancelButton()}<button class="btn danger" data-action="confirm-delete-comment"
+    data-comment-id="${esc(commentId)}" data-requires="write"
+    >${esc(t('task.detail.actions.delete'))}</button>`);
 }
 
 /** Delete this task. Prototype `deleteModal()` (1146). */
@@ -1691,12 +1917,101 @@ registerActions({
       await api.createComment(getViewState(NS).taskId, text);
     } catch (err) {
       // The draft is deliberately NOT cleared here: the comment was not accepted, so the text is
-      // still the user's only copy of it.
-      reportWriteFailure(el, err);
+      // still the user's only copy of it. The sentence goes on the composer's button WRAPPER, not
+      // on the button — `.comment-actions` does not wrap, so a sentence placed as the button's
+      // sibling would blow the row out (PM finding 1's shape).
+      reportWriteFailure(commentActionsPanel() ?? el, err);
       return;
     }
     setViewState(NS, {commentDraft: ''});
     toast(t('task.comment.addedSuccess'));
+    await refreshAfterWrite();
+  },
+
+  /*
+   * EDIT AND DELETE, ON THE USER'S OWN COMMENTS ONLY (PM item 2). The controls are emitted only
+   * where `isOwnComment` holds, and each pair sits inside a `data-requires="write"` wrapper on top
+   * of that, so `app.js` refuses to dispatch here for a read-only account exactly as it does for
+   * the rest of the page. Neither is a policy layer: the server enforces authorship itself, and a
+   * refusal from it renders through `reportWriteFailure` / `reportModalFailure` like any other.
+   */
+
+  /** Seed the composer from an existing comment. Reuses the box; opens no second editor. */
+  'edit-comment': (event, el) => {
+    const id = el.getAttribute('data-comment-id');
+    const state = getViewState(NS);
+    // Re-seeding a draft that is ALREADY open would silently throw away whatever has been typed
+    // into it since. The comment's own row shows a line rather than these buttons while it is
+    // open, so this is the belt to that braces rather than the only guard.
+    if (String(state.editingCommentId ?? '') === String(id)) return;
+    const comment = state.comments.find((row) => String(row?.id) === String(id));
+    if (comment === undefined) return;
+    setViewState(NS, {editingCommentId: comment.id, commentEditDraft: String(comment.comment ?? '')});
+    requestRender();
+    focusComposer();
+  },
+
+  /**
+   * Leave edit mode and restore the unposted new comment, which was never overwritten.
+   *
+   * It sits inside `#commentActions` and is therefore covered by that one gate along with Save.
+   * That is reachable only in theory — entering edit mode needs the Edit button, which the same
+   * gate refuses — and if a write restriction lands mid-edit, `syncRoleDrift` marks the page stale
+   * and `app.js` owns the surface from there. Recorded rather than special-cased, because the
+   * alternative is a second gate on one button and an extra sentence node to place it in.
+   */
+  'cancel-comment-edit': () => {
+    setViewState(NS, {editingCommentId: null, commentEditDraft: ''});
+    requestRender();
+    focusComposer();
+  },
+
+  /**
+   * PUT /api/v2/tasks/{task}/comments/{id}?format=markdown, through `api.updateComment`.
+   *
+   * PUT AND NOT PATCH, DELIBERATELY, and it is not this file's choice to revisit: the comment
+   * PATCH is AutoPatch's synthesis and carries the same BRA-1363 read-shape defect the task PATCH
+   * does, so `api.js` goes straight to the one registered update operation, which is a PUT
+   * (pkg/routes/api/v2/task_comments.go:76-80). `comment` is the only writable field, so a full
+   * replace loses nothing.
+   */
+  'save-comment-edit': async (event, el) => {
+    const state = getViewState(NS);
+    const id = state.editingCommentId;
+    if (id === null || id === undefined) return;
+    const text = String(document.getElementById('commentText')?.value ?? '').trim();
+    // An empty comment is rejected by the server, and sending it to be refused would be a refusal
+    // the user cannot act on. The editor stays open with the text still in it.
+    if (text === '') return;
+    try {
+      await api.updateComment(state.taskId, id, text);
+    } catch (err) {
+      // Edit mode is NOT left here: the write was refused, so this box holds the only copy of what
+      // was typed, and the sentence lands under the buttons next to it.
+      reportWriteFailure(commentActionsPanel() ?? el, err);
+      return;
+    }
+    setViewState(NS, {editingCommentId: null, commentEditDraft: ''});
+    toast(t('one.toast.commentUpdated'));
+    await refreshAfterWrite();
+  },
+
+  'delete-comment': (event, el) => deleteCommentModal(el.getAttribute('data-comment-id')),
+  'confirm-delete-comment': async (event, el) => {
+    const id = el.getAttribute('data-comment-id');
+    try {
+      await api.deleteComment(getViewState(NS).taskId, id);
+    } catch (err) {
+      reportModalFailure(err);
+      return;
+    }
+    closeModal();
+    // Deleting the comment that is open in the composer has to close the composer too: an editor
+    // pointed at a comment the server no longer has can only ever produce a 404 on save.
+    if (String(getViewState(NS).editingCommentId ?? '') === String(id)) {
+      setViewState(NS, {editingCommentId: null, commentEditDraft: ''});
+    }
+    toast(t('task.comment.deleteSuccess'));
     await refreshAfterWrite();
   },
 
@@ -1809,7 +2124,7 @@ function installListeners() {
       case 'start':
         return void patchField(el, {start_date: dateInputToIso(el.value)}, 'task.detail.updateSuccess');
       case 'end':
-        return void patchField(el, {end_date: dateInputToIso(el.value)}, 'task.detail.updateSuccess');
+        return void changeEndDate(el);
       case 'repeatMode':
       case 'repeatEvery':
       case 'repeatUnit':
@@ -1832,7 +2147,12 @@ function installListeners() {
     // render (app.js), so this costs one assignment per keystroke and nothing else; the value is
     // read back by `commentsSection` on the next render and cleared once the comment is posted.
     if (event.target?.id === 'commentText') {
-      setViewState(NS, {commentDraft: String(event.target.value ?? '')});
+      // Which of the two drafts this keystroke belongs to depends on what the box currently IS.
+      // Writing an edit into `commentDraft` would destroy the unposted new comment it holds, and
+      // cancelling the edit would then hand back the edit instead of the comment.
+      const value = String(event.target.value ?? '');
+      const editingId = getViewState(NS).editingCommentId ?? null;
+      setViewState(NS, editingId === null ? {commentDraft: value} : {commentEditDraft: value});
       return;
     }
 
@@ -1891,12 +2211,49 @@ function installListeners() {
     }
   }, true);
 
-  // Enter in the inline label chip commits it, prototype 1563.
+  /*
+   * The two Enter keys on this view.
+   *
+   *   #inlineLabelInput  Enter commits the label chip (prototype 1563).
+   *   #commentText       SHIFT+ENTER SENDS. Plain Enter still inserts a newline — that is the
+   *                      PM's explicit instruction and it is also the browser's own default in a
+   *                      textarea, so the plain case is served by NOT calling preventDefault on it
+   *                      rather than by any code below. They are not swapped.
+   *
+   * THE KEY PATH IS GATED BY THE SAME CHECK AS THE CLICK PATH, and that is the whole point of
+   * resolving the button before acting: `isRefused` is what `app.js`'s delegated click listener
+   * consults before it dispatches, so consulting it here means a refused Send cannot be fired from
+   * the keyboard either. Without it the keyboard is a way past the gate — a control that is
+   * disabled to a mouse and live to a key is worse than one that is neither.
+   *
+   * `button.click()` rather than calling the handler: that IS the click path, so the send goes
+   * through `app.js`'s own `isRefused` check a second time and through `dispatch`, which re-reads
+   * the role afterwards. Calling the handler directly would skip both. `pointer-events:none` on a
+   * refused control does not stop a programmatic click, which is exactly why the explicit check
+   * above it is not redundant.
+   *
+   * Nothing is prevented when the send is refused: the keystroke is left to do whatever it would
+   * have done, which in a readonly textarea is nothing.
+   */
   document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' || event.target?.id !== 'inlineLabelInput') return;
-    if (!isTaskReady() || isRefused(event.target)) return;
+    if (event.key !== 'Enter') return;
+    const el = event.target;
+
+    if (el?.id === 'inlineLabelInput') {
+      if (!isTaskReady() || isRefused(el)) return;
+      event.preventDefault();
+      void saveInlineLabel(el);
+      return;
+    }
+
+    if (el?.id !== 'commentText' || event.shiftKey !== true) return;
+    if (!isTaskReady()) return;
+    const send = el.closest('.comment-editor')
+      ?.querySelector('[data-action="save-comment-edit"], [data-action="comment"]');
+    if (send === null || send === undefined) return;
+    if (isRefused(el) || isRefused(send)) return;
     event.preventDefault();
-    void saveInlineLabel(event.target);
+    send.click();
   });
 
   // The shell's file picker (task.html). It is created once and never replaced, so this binds
@@ -1938,6 +2295,66 @@ function paintRepeatModeHelp() {
   const help = document.getElementById('repeatModeHelp');
   if (help === null) return;
   help.textContent = t(repeatModeEntry(document.getElementById('repeatMode')?.value)[3]);
+}
+
+/**
+ * Put the caret in the composer and keep it in view. Called after `requestRender`, which is
+ * synchronous (app.js `requestRender` -> `render`), so the textarea below is the new one.
+ */
+function focusComposer() {
+  const box = document.getElementById('commentText');
+  if (box === null) return;
+  box.focus();
+  const end = box.value.length;
+  box.setSelectionRange?.(end, end);
+  box.scrollIntoView?.({block: 'nearest'});
+}
+
+/**
+ * THE END DATE'S WRITE, AND THE DUE DATE IT CARRIES WITH IT. PM item 6.
+ *
+ * THE DISABLED FIELD IS STILL SUBMITTED, and this function is the only reason that is true.
+ * `dueDateField` greys the due input and drops it out of the `change` path; if the payload here
+ * did not carry `due_date`, the task would end up without the date the page is showing, which is
+ * precisely the failure the instruction names. So a lock sends BOTH fields in ONE PATCH — one
+ * request, so the two dates cannot half-apply.
+ *
+ * CLEARING RESTORES rather than keeping the copy. The PM's wording: do not silently keep the
+ * copied value as if the user had typed it; restore what it was before the lock if that is
+ * knowable, otherwise leave the value and re-enable it. `dueBeforeLock` is what makes it knowable,
+ * and it is recorded only on the transition INTO the lock — changing an end date that was already
+ * set must not overwrite the memory with the copy it already installed. When the task arrived from
+ * the server already locked there is nothing recorded, and the clear then sends `end_date` alone,
+ * which is the "leave the value and re-enable it" arm.
+ *
+ * It is deliberately not cleared afterwards. A failed clear keeps its memory for the retry, and a
+ * later lock overwrites it anyway, so nulling it could only ever lose the value early.
+ *
+ * `patchField` keeps the BRA-1363 excision (`{reactions: null, subscription: null}`) because every
+ * task write on this page goes through `api.patchTask`, which prepends it.
+ */
+async function changeEndDate(el) {
+  const state = getViewState(NS);
+  const task = state.task;
+  const wasLocked = dateInputValue(task?.end_date) !== '';
+  const iso = dateInputToIso(el.value);
+
+  if (iso !== null) {
+    if (!wasLocked) {
+      // The Go zero time means UNSET, not the year 1, so it is normalised to null here rather
+      // than remembered and sent back verbatim on the restore.
+      const stored = task?.due_date;
+      setViewState(NS, {dueBeforeLock: {due: dateInputValue(stored) === '' ? null : stored}});
+    }
+    await patchField(el, {end_date: iso, due_date: iso}, 'task.detail.updateSuccess');
+    return;
+  }
+
+  const remembered = state.dueBeforeLock;
+  const patch = remembered === null || remembered === undefined
+    ? {end_date: null}
+    : {end_date: null, due_date: remembered.due};
+  await patchField(el, patch, 'task.detail.updateSuccess');
 }
 
 async function saveDescription(el, description) {

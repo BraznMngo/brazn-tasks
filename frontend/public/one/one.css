@@ -334,6 +334,36 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 .task-user-meta strong{font-size:12px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
 .task-user-meta span{font-size:10px;color:var(--text-muted);white-space:nowrap}
 .task-user-meta small{font-size:10px;color:var(--grey-400);white-space:nowrap}
+
+/* THE HEADER IDENTITY BLOCK — one circle beside one stack of lines, on BOTH documents.
+   Rendered by app.js section 13b and adopted into whichever header the view drew, which is why
+   it has its own class rather than reusing either of the two above: it REPLACES .task-user-summary
+   on the task page and .settings-role on the settings page, and inheriting either would carry that
+   page's differences straight back in. The two rule blocks above stay because both view modules
+   still emit those nodes on the blocking surfaces app.js does not reach.
+
+   align-items:center is the whole of "vertically centred with them, as one block" — the circle and
+   the three lines are the two flex children and neither stretches. text-align is NOT set here: the
+   settings header used to right-align its name, and the block must read the same on both.
+
+   margin-inline-start:auto pushes it to the end of the header flex line, replacing the
+   margin-left:auto that .task-user-summary and .settings-role each carried. Logical, so a future
+   RTL pass is mechanical (the RTL-debt note on .brand-logo above).
+
+   min-inline-size:0 on the block AND on the meta stack: without it the nowrap name cannot ellipsis
+   inside a flex item, and a long display name pushes the block off the end of the header instead. */
+.one-identity{margin-inline-start:auto;display:flex;align-items:center;gap:11px;min-inline-size:0}
+.one-identity-avatar{inline-size:44px;block-size:44px;flex:0 0 44px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,hsla(var(--info-h),var(--info-s),var(--info-l),.16),hsla(var(--primary-hsl),.16));font-size:13px;font-weight:780;color:var(--primary)}
+/* object-fit:cover, so a non-square upload is cropped to the circle rather than squashed. The
+   server renders the requested size but does not promise a square. */
+.one-identity-avatar img{inline-size:100%;block-size:100%;object-fit:cover;display:block}
+.one-identity-meta{display:grid;gap:2px;text-align:start;min-inline-size:0}
+/* The name may ellipsis; the two lines under it may not, because a truncated edition would read as
+   a different subscription. Both are short in all six launch languages — the longest is
+   "Utilisateur personnel" — and the block is the last thing on the header line, so they have room. */
+.one-identity-meta strong{font-size:12px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-inline-size:220px}
+.one-identity-meta span{font-size:10px;color:var(--text-muted);white-space:nowrap}
+.one-identity-meta small{font-size:10px;color:var(--grey-400);white-space:nowrap}
 .member-add-tabs{display:flex;gap:4px;background:var(--grey-100);padding:4px;border-radius:11px}
 .member-add-tabs button{flex:1;min-height:34px;border:0;background:transparent;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap}
 .member-add-tabs button.on{background:var(--scheme-main);color:var(--text-strong);box-shadow:var(--shadow-xs)}
@@ -346,7 +376,11 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 .member-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
 .info-label{display:flex;align-items:flex-start;gap:7px;padding:9px 10px;border-radius:10px;background:var(--grey-50);color:var(--text-muted);font-size:10px;line-height:1.4}
 .info-label svg{width:14px;height:14px;flex:0 0 14px;margin-top:1px}
-@media(max-width:700px){.task-user-summary{width:100%;margin-left:0}.task-topbar{flex-wrap:wrap}.product-label,.settings-title{font-size:32px}}
+/* .settings-hero JOINS .task-topbar AT THIS BREAKPOINT, where it used to wrap only at 600px. Both
+   headers now carry the same identity block, and "identical on Settings and Task Details" has to
+   mean at every width or it is not identical — a block that dropped to its own line on one page
+   and squeezed on the other at 640px would be the same finding again, one breakpoint down. */
+@media(max-width:700px){.task-user-summary,.one-identity{width:100%;margin-left:0;margin-inline-start:0}.task-topbar,.settings-hero{flex-wrap:wrap}.product-label,.settings-title{font-size:32px}}
 
 /* TASK DETAIL --------------------------------------------------------- */
 .task-shell{padding:28px 34px 42px;max-width:1120px;margin:0 auto}

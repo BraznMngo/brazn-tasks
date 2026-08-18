@@ -98,7 +98,10 @@
     "comment": {
       "title": "Comentarios",
       "comment": "Comentar",
-      "addedSuccess": "El comentario fue añadido con éxito."
+      "addedSuccess": "El comentario fue añadido con éxito.",
+      "deleteText1": "¿Está seguro que desea eliminar este comentario?",
+      "deleteSuccess": "El comentario fue eliminado con éxito.",
+      "delete": "Eliminar este comentario"
     },
     "label": {
       "addSuccess": "La etiqueta ha sido añadida con éxito.",
@@ -165,6 +168,12 @@
     }
   },
   "one": {
+    "deny": {
+      "dueFollowsEnd": "La fecha de vencimiento sigue a la fecha de fin. Borra la fecha de fin para establecerla por separado."
+    },
+    "toast": {
+      "commentUpdated": "El comentario se ha actualizado."
+    },
     "brand": {
       "logoAlt": "ONE",
       "taskPage": "Detalles de la tarea",
@@ -192,6 +201,22 @@
       "emailUnavailable": "Esta instancia no devuelve tu dirección de correo electrónico, por lo que no se puede mostrar aquí."
     },
     "task": {
+      "comments": {
+        "edit": "Editar",
+        "editAria": "Editar tu comentario del {date}",
+        "deleteAria": "Eliminar tu comentario del {date}",
+        "editing": "Editando este comentario",
+        "sendHint": "Mayús+Intro envía",
+        "editLabel": "Editar comentario"
+      },
+      "statusOwnership": {
+        "title": "Estado y responsabilidad",
+        "subtitle": "Quién se encarga de esta tarea, con qué prioridad y con qué progreso"
+      },
+      "schedule": {
+        "title": "Planificación",
+        "subtitle": "Planifica la tarea y recibe recordatorios; también puedes añadir intervalos de fechas y repeticiones."
+      },
       "relationSearchPlaceholder": "Buscar tareas…",
       "relationSearchResults": "Tareas coincidentes",
       "relationSearchScope": "Mostrando tareas de {project}.",

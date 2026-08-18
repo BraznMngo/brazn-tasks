@@ -277,8 +277,38 @@ export function applyColorScheme(schema: string | null | undefined): void
 /** Replaces `data-i18n`, `-aria`, `-placeholder`, `-alt` and `-title` under `root`. */
 export function hydrateI18n(root: ParentNode | null | undefined): void
 
+/* --- the header identity block (PM round 1b, item 3) --------------- */
+
+/** A user's display name, falling back to the username the fork always sends. */
+export function personName(person: any): string
+/** Two letters at most, from the display name. The avatar circle's fallback face. */
+export function initials(person: any): string
+
+/**
+ * Avatar circle + name + role + subscription line, as ONE block, identical on both documents.
+ * `render()` adopts it into whichever header the view drew — see app.js section 13b. Exported so
+ * a test can assert the markup without a DOM, and so the two view modules can drop their own
+ * copies once they are free to edit.
+ */
+export function identityBlock(facts?: GateFacts): string
+
+/**
+ * The object URL for this user's avatar, or null for "paint the initials". Synchronous: the
+ * read is kicked off by the render that needs it and this answers from what has landed.
+ *
+ * The bytes come from `api.getAvatarBlob` and the cache key from `api.getAvatarGeneration()`,
+ * which `api.saveAvatar` bumps — so no surface keeps a private notion of "current" and no
+ * circle can show a stale face after an upload made anywhere on the page.
+ */
+export function headerAvatarUrl(user: any): string | null
+
 /* --- chrome the views share --------------------------------------- */
 
+/**
+ * Replaces `#modalRoot`'s contents, hydrates, gates, and MOVES FOCUS into the dialog — the first
+ * non-refused field, else the dialog itself. A caller that focuses its own field afterwards wins.
+ * Focus landing inside is also what makes Enter-to-commit reachable (see app.js `commitOnEnter`).
+ */
 export function openModal(html: string): Element | null
 export function closeModal(): void
 /** Mirrored into `#a11yLive`: bar 8 makes failure reporting perceivable, not just visible. */

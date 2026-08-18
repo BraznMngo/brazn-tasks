@@ -96,9 +96,7 @@ describe('one/api.js request shaping', () => {
 		expect(JSON.parse(String(calls[0].init.body))).toEqual({
 			reactions: null,
 			subscription: null,
-			description: '# Heading
-
-- item',
+			description: '# Heading\n\n- item',
 		})
 	})
 

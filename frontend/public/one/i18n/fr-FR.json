@@ -109,7 +109,10 @@
     "comment": {
       "title": "Commentaires",
       "comment": "Commentaire",
-      "addedSuccess": "Commentaire ajouté."
+      "addedSuccess": "Commentaire ajouté.",
+      "deleteText1": "Supprimer ce commentaire ?",
+      "deleteSuccess": "Le commentaire a bien été supprimé.",
+      "delete": "Supprimer ce commentaire"
     },
     "label": {
       "placeholder": "Taper pour ajouter une étiquette…",
@@ -180,6 +183,12 @@
     }
   },
   "one": {
+    "deny": {
+      "dueFollowsEnd": "La date d’échéance suit la date de fin. Effacez la date de fin pour la définir séparément."
+    },
+    "toast": {
+      "commentUpdated": "Le commentaire a bien été modifié."
+    },
     "brand": {
       "logoAlt": "ONE",
       "taskPage": "Détails de la tâche",
@@ -207,6 +216,22 @@
       "emailUnavailable": "Cette instance ne renvoie pas votre adresse e-mail, elle ne peut donc pas être affichée ici."
     },
     "task": {
+      "comments": {
+        "edit": "Modifier",
+        "editAria": "Modifier votre commentaire du {date}",
+        "deleteAria": "Supprimer votre commentaire du {date}",
+        "editing": "Modification de ce commentaire",
+        "sendHint": "Maj+Entrée envoie",
+        "editLabel": "Modifier le commentaire"
+      },
+      "statusOwnership": {
+        "title": "Statut et responsabilité",
+        "subtitle": "Qui prend en charge cette tâche, avec quelle priorité et quelle progression"
+      },
+      "schedule": {
+        "title": "Planification",
+        "subtitle": "Planifiez la tâche et recevez des rappels ; vous pouvez aussi ajouter des plages de dates et une répétition."
+      },
       "relationSearchPlaceholder": "Rechercher des tâches…",
       "relationSearchResults": "Tâches correspondantes",
       "relationSearchScope": "Affichage des tâches de {project}.",

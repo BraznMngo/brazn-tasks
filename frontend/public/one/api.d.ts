@@ -238,6 +238,19 @@ export function uploadAvatar(file: Blob): Promise<any>
 export function setAvatarProvider(provider: string): Promise<any>
 export function saveAvatar(file: Blob): Promise<{uploaded: any, provider: any}>
 
+/**
+ * The upload generation, bumped by `saveAvatar` after BOTH of its calls and
+ * nowhere else. Key any avatar cache on `username + this` so a fresh upload
+ * cannot be answered with the picture already on screen.
+ */
+export function getAvatarGeneration(): number
+/**
+ * GET /api/v2/avatar/{username}?size= — image bytes, or null for every failure
+ * (no username, non-2xx, empty body, lost session, network error). Never
+ * throws, and never marks the session lost: an avatar must not sign anyone out.
+ */
+export function getAvatarBlob(username: string, size?: number): Promise<Blob | null>
+
 export function changeEmail(newEmail: string, password: string): Promise<any>
 export function changePassword(oldPassword: string, newPassword: string): Promise<any>
 export function requestExport(password: string): Promise<any>

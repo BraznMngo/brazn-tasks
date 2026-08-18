@@ -130,7 +130,7 @@ describe('one/app.js DOM applier', () => {
 		// returned. This is the only place the whole chain is visible at once.
 		// MUTATION: changing DENY_MESSAGE_KEY[DENY.PERSONAL] to a key en.json does not carry makes
 		// this red - the node would render the raw key path.
-		expect(refusalAfter('inviteBtn')?.textContent).toBe('This is part of ONE Team Edition.')
+		expect(refusalAfter('inviteBtn')?.textContent).toBe('This is part of ONE Teams.')
 
 		expect(byId('teamName').getAttribute('data-deny-reason')).toBe(DENY.TEAM_NOT_ADMIN)
 		expect(byId('teamCard').getAttribute('data-deny-reason')).toBe(DENY.TEAM_UNREADABLE)

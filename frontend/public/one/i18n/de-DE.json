@@ -116,7 +116,10 @@
       "comment": "Kommentieren",
       "sortNewestFirst": "Neueste zuerst",
       "sortOldestFirst": "Älteste zuerst",
-      "addedSuccess": "Der Kommentar wurde erfolgreich hinzugefügt."
+      "addedSuccess": "Der Kommentar wurde erfolgreich hinzugefügt.",
+      "deleteText1": "Bist du sicher, dass du diesen Kommentar löschen willst?",
+      "deleteSuccess": "Der Kommentar wurde erfolgreich gelöscht.",
+      "delete": "Diesen Kommentar löschen"
     },
     "label": {
       "placeholder": "Beginne zu schreiben, um ein Label hinzuzufügen…",
@@ -231,6 +234,12 @@
     }
   },
   "one": {
+    "deny": {
+      "dueFollowsEnd": "Das Fälligkeitsdatum folgt dem Enddatum. Lösche das Enddatum, um es separat zu setzen."
+    },
+    "toast": {
+      "commentUpdated": "Der Kommentar wurde aktualisiert."
+    },
     "brand": {
       "logoAlt": "ONE",
       "taskPage": "Aufgabendetails",
@@ -258,6 +267,22 @@
       "emailUnavailable": "Diese Instanz gibt deine E-Mail-Adresse nicht zurück, deshalb kann sie hier nicht angezeigt werden."
     },
     "task": {
+      "comments": {
+        "edit": "Bearbeiten",
+        "editAria": "Deinen Kommentar vom {date} bearbeiten",
+        "deleteAria": "Deinen Kommentar vom {date} löschen",
+        "editing": "Dieser Kommentar wird bearbeitet",
+        "sendHint": "Umschalt+Eingabe sendet",
+        "editLabel": "Kommentar bearbeiten"
+      },
+      "statusOwnership": {
+        "title": "Status & Zuständigkeit",
+        "subtitle": "Wer für diese Aufgabe zuständig ist, mit welcher Priorität und welchem Fortschritt"
+      },
+      "schedule": {
+        "title": "Zeitplan",
+        "subtitle": "Plane die Aufgabe und lass dich erinnern; du kannst auch Zeiträume und Wiederholungen hinzufügen."
+      },
       "relationSearchPlaceholder": "Aufgaben suchen…",
       "relationSearchResults": "Passende Aufgaben",
       "relationSearchScope": "Zeigt Aufgaben in {project}.",

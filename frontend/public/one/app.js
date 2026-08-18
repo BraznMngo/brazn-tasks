@@ -11,6 +11,14 @@
  * `view-settings.js` own that, and they import from here — never the other way round as a
  * static import (see `loadViews`).
  *
+ * ONE EXCEPTION, ADDED IN ROUND 1B AND WRITTEN DOWN RATHER THAN SLIPPED IN: section 13b renders
+ * the header identity block — the avatar circle, the name, the role and the subscription line.
+ * The PM finding is "in settings just like in tasks", and identical-on-both is a property no
+ * single view module can hold: the two headers were drawing two different blocks, and whichever
+ * moved first the other would drift. It is page chrome rather than view content, it is
+ * byte-identical on both documents, and it is adopted INTO the header each view already draws
+ * rather than replacing that header. Section 13b carries the full reasoning.
+ *
  * LAYOUT CHANGE, SAID LOUDLY (BRIEF.md, "Locked file layout — do not change without saying so
  * loudly"): this file adds TWO files to the locked layout, `frontend/public/one/view-task.js`
  * and `frontend/public/one/view-settings.js`. The locked layout names only `app.js` for
@@ -1331,7 +1339,46 @@ export function openModal(html) {
   root.innerHTML = html;
   hydrateI18n(root);
   applyGates(root, renderedFacts ?? readGateFacts());
+  focusModal(root);
   return root.firstElementChild;
+}
+
+/**
+ * Move focus into the dialog that was just opened.
+ *
+ * This closes a gap that predates round 1b: nothing focused a modal, so a keyboard or
+ * screen-reader user was left with focus on the button behind the scrim, tabbing through a page
+ * they could no longer see. Two modals focus their own field afterwards (view-task.js:1686,
+ * :1702) and both still win — they run after this returns.
+ *
+ * It is also what makes PM item 1 reachable at all: `commitOnEnter` only fires for a press whose
+ * target is inside `#modalRoot`, and that is the deliberate bound on it. Without focus landing
+ * here, Enter in a modal would keep doing nothing.
+ *
+ * A FIELD, NEVER THE PRIMARY BUTTON. Focusing the confirm button would put the caret on the
+ * commit the instant the dialog appeared; `commitOnEnter` already refuses auto-repeat, but
+ * landing on "Send invitation" is still the wrong place to start reading a form. `.modal` itself
+ * is the fallback, made focusable with `tabindex="-1"` — focusable programmatically, still out of
+ * the tab order.
+ *
+ * Refused fields are skipped: a `readOnly` input is how `applyGates` renders a refused text field
+ * (see `applyDecision`), and starting there would offer the user a box that ignores typing.
+ * `preventScroll` because a modal is already in view and the page behind it must not jump.
+ */
+function focusModal(root) {
+  const dialog = root.querySelector('.modal');
+  if (dialog === null || typeof dialog.focus !== 'function') return;
+
+  const field = [...dialog.querySelectorAll('input, textarea, select')]
+    .find((el) => el.type !== 'hidden' && !el.disabled && !isRefused(el));
+
+  const target = field ?? dialog;
+  if (target === dialog && !dialog.hasAttribute('tabindex')) dialog.setAttribute('tabindex', '-1');
+  try {
+    target.focus({preventScroll: true});
+  } catch {
+    // A detached or unfocusable node is not worth a broken modal.
+  }
 }
 
 export function closeModal() {
@@ -1409,6 +1456,91 @@ export function isRefused(el) {
   return el.closest('.is-refused, [aria-disabled="true"], :disabled') !== null;
 }
 
+/**
+ * Elements where Enter ALREADY means something, and where a second meaning would either destroy
+ * the first or fire two actions from one press:
+ *   TEXTAREA  Enter inserts a newline. The comment box's Shift+Enter rule is `view-task.js`'s and
+ *             is deliberately untouched here.
+ *   SELECT    Enter commits the highlighted option to the native picker.
+ *   BUTTON    Enter activates THAT button natively. Committing the primary as well would run two
+ *             handlers from one keypress — including Cancel, which would then also confirm.
+ *   A         Enter follows the link.
+ */
+const ENTER_INERT_TAGS = Object.freeze(['TEXTAREA', 'SELECT', 'BUTTON', 'A']);
+
+/**
+ * PM ROUND 1B, ITEM 1 — the modal / single-line half. "In modals and single-line inputs, Enter
+ * commits the primary action, exactly as clicking the primary button does."
+ *
+ * IT COMMITS BY CLICKING. `primary.click()` re-enters the one delegated click listener above, so
+ * the keyboard and the mouse run the SAME `isRefused` check, the same handler, the same
+ * `dispatch` and the same role-drift resync. Calling the handler directly would have been a
+ * second path that could drift from the first, which is exactly what the finding is about.
+ *
+ * SCOPE: MODALS ONLY, and that is a decision rather than an omission.
+ *   - Inside a modal there is one unambiguous primary action, so "the primary action" has a
+ *     referent. On the page body there is none — the task view has a dozen controls and no
+ *     primary — so a page-wide rule would have to guess which one Enter meant.
+ *   - The single-line inputs on the body already commit on Enter and need nothing here: an
+ *     `<input type=text>` fires `change` when the user commits with Enter as well as on blur,
+ *     and both view modules bind `change` (view-task.js:1798, view-settings.js:1115). The one
+ *     input with a non-`change` commit, the inline label chip, has carried its own Enter binding
+ *     since round 1 (view-task.js:1895) and is left alone — this handler returns before reaching
+ *     it, because it is not inside `#modalRoot`.
+ *
+ * `.btn.primary` IN `.modal-foot` ONLY, AND EXACTLY ONE OF THEM.
+ *   - `.modal-foot`, because the modal BODY also holds `.btn.small.primary` — the per-row "Add"
+ *     buttons in the member picker (view-settings.js:2088). A body-wide search would let Enter
+ *     add whichever person happened to be first in the list.
+ *   - Exactly one, or nothing happens. Two primaries in one foot is an ambiguity, and this file
+ *     resolves ambiguity by refusing (see `decideGate`'s unknown-token branch).
+ *   - `.btn.danger` IS DELIBERATELY NOT A PRIMARY HERE. Delete task, delete account and remove
+ *     member all put a destructive confirm in that slot. A stray Enter — dismissing an
+ *     autocomplete, or a keyboard that repeats — must not be able to delete a task, and those
+ *     modals lose nothing: Enter simply does what it does today, which is nothing. Reported so
+ *     the PM can overrule it; it is not a limitation that was missed.
+ *
+ * THE REFUSAL CHECK GUARDS THE KEY PATH, which is the explicit half of the finding: "the refusal
+ * check that guards the click path must guard the key path too, or the keyboard becomes a way
+ * past a gate." A refused primary returns WITHOUT `preventDefault`, so Enter is left exactly as
+ * inert as it was, and silently — a click on a refused control is silent too, and the refusal
+ * sentence is already rendered beside it by `renderRefusal`.
+ *
+ * THE FOUR EARLY GUARDS, each for a real case:
+ *   isComposing / keyCode 229  Enter confirms an IME candidate. Two of the six launch languages
+ *                              (zh-CN, ja-JP) type through one, and without this the first Enter
+ *                              of every Chinese or Japanese word would submit the dialog.
+ *   repeat                     a held Enter would otherwise open a modal and confirm it in one
+ *                              press, since focus lands inside the modal (see `focusModal`).
+ *   any modifier               Shift/Ctrl/Cmd/Alt+Enter are other gestures, not this one.
+ *   defaultPrevented           a view module's own Enter binding has already claimed this press.
+ */
+function commitOnEnter(event) {
+  if (event.defaultPrevented) return;
+  if (event.isComposing === true || event.keyCode === 229) return;
+  if (event.repeat === true) return;
+  if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+
+  const target = event.target;
+  if (typeof target?.closest !== 'function') return;
+  if (ENTER_INERT_TAGS.includes(target.tagName)) return;
+  if (target.isContentEditable === true) return;
+
+  // Only one modal is ever open — `openModal` replaces `#modalRoot`'s contents wholesale — so a
+  // single query inside it is unambiguous without needing to find the `.modal` wrapper first.
+  const root = target.closest('#modalRoot');
+  if (root === null) return;
+  const foot = root.querySelector('.modal-foot');
+  if (foot === null) return;
+
+  const primaries = [...foot.querySelectorAll('.btn.primary')];
+  if (primaries.length !== 1) return;
+  if (isRefused(primaries[0])) return;
+
+  event.preventDefault();
+  primaries[0].click();
+}
+
 function installListeners() {
   if (listenersInstalled || typeof document === 'undefined') return;
   listenersInstalled = true;
@@ -1449,9 +1581,12 @@ function installListeners() {
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
-    closeModal();
-    document.getElementById('morePopover')?.remove();
+    if (event.key === 'Escape') {
+      closeModal();
+      document.getElementById('morePopover')?.remove();
+      return;
+    }
+    if (event.key === 'Enter') commitOnEnter(event);
   });
 
   window.addEventListener('resize', () => {
@@ -1546,6 +1681,202 @@ async function loadViews() {
 }
 
 /* ------------------------------------------------------------------ *
+ * 13b. The header identity block — avatar, name, subscription
+ *
+ * PM ROUND 1B, ITEM 3, AND THE ONE DELIBERATE EXCEPTION TO THIS FILE'S
+ * "IT RENDERS NO VIEW MARKUP" RULE AT THE TOP.
+ *
+ * The finding: "the avatar circle sits next to the name and the subscription
+ * line, vertically centred, as one block", and "in settings just like in
+ * tasks". Two headers were drawing two different answers — `view-task.js` had
+ * avatar + name + role + edition, `view-settings.js` had name + a combined
+ * "{edition} · {role}" line and NO avatar at all — so "identical on both" is
+ * not something either view module can deliver alone. Whichever one moved
+ * first, the other would drift on the next edit.
+ *
+ * So the block is built ONCE here and ADOPTED into whichever header the view
+ * drew (`mountIdentity`). This is chrome, not view content: it belongs to the
+ * page, it is byte-identical on both documents, and neither view has anything
+ * to say about it. The view modules keep rendering their own identity node as
+ * a placeholder and this replaces it; once they are free to edit, each should
+ * emit a bare `<div data-identity></div>` and delete its own copy — that is
+ * the slot this looks for FIRST, precisely so that change needs nothing here.
+ *
+ * WHAT IS NOT CHANGED, because round 1 settled it: the subscription line is
+ * the edition and it is ABSENT — not "ONE Teams", not blank — when the
+ * `brazn_edition` claim is absent. `editionMessageKey` returns null there,
+ * `data-requires="edition"` is in `GATES_THAT_HIDE`, and `applyGates` removes
+ * the node. Printing an edition for a claimless session would state a
+ * subscription the page never read (bar 7). See `editionMessageKey`.
+ * ------------------------------------------------------------------ */
+
+/** A user's display name, falling back to the username the fork always sends. */
+export function personName(person) {
+  const name = typeof person?.name === 'string' && person.name.trim() !== '' ? person.name.trim() : null;
+  return name ?? person?.username ?? '';
+}
+
+/** Two letters at most, from the display name. The circle's fallback face. */
+export function initials(person) {
+  const words = String(personName(person)).trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  const letters = words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0];
+  return letters.toUpperCase();
+}
+
+/**
+ * EVERY KEY BELOW IS A LITERAL INSIDE ITS OWN `t()` CALL, and the two functions
+ * exist only to make that true. Ruling C10 has the fork-guards step prove each
+ * key exists by grepping `t('…')` literals out of this directory, and a key
+ * reached through a variable — or interpolated into `data-i18n="${key}"` — is
+ * invisible to it. `loadSurface()` below carries the same note for the same
+ * reason: that was the one place on the page that used to disobey.
+ */
+function roleText(facts) {
+  if (facts.orgAdmin) return t('one.role.administrator');
+  return facts.personalEdition ? t('one.role.personalUser') : t('one.role.teamMember');
+}
+
+function editionText(facts) {
+  const key = editionMessageKey(facts);
+  if (key === null) return '';
+  return key === 'one.edition.personal' ? t('one.edition.personal') : t('one.edition.teams');
+}
+
+/**
+ * The block itself. Three lines beside one circle, vertically centred by
+ * `.one-identity` (one.css) rather than by anything here.
+ *
+ * The image is `alt=""` and `aria-hidden` ON PURPOSE and it costs no catalogue
+ * key: the name it depicts is the very next node, so a described avatar would
+ * make a screen reader read the same person twice. The initials underneath are
+ * the same decoration and are hidden the same way.
+ */
+export function identityBlock(facts = readGateFacts()) {
+  const user = getUser();
+  const edition = editionText(facts);
+  return `<div class="one-identity" data-identity>
+    <div class="one-identity-avatar" aria-hidden="true">${avatarFace(user)}</div>
+    <div class="one-identity-meta">
+      <strong>${escapeHtml(personName(user))}</strong>
+      <span>${escapeHtml(roleText(facts))}</span>
+      <small data-requires="edition">${escapeHtml(edition)}</small>
+    </div>
+  </div>`;
+}
+
+function avatarFace(user) {
+  const url = headerAvatarUrl(user);
+  if (url === null) return escapeHtml(initials(user));
+  return `<img src="${escapeHtml(url)}" alt="">`;
+}
+
+/**
+ * Put the block into the header the view just drew.
+ *
+ * The slot is looked for in this order, and the order is the migration path:
+ *   [data-identity]        what a view SHOULD emit once it may be edited;
+ *   .task-user-summary     what `view-task.js` emits today;
+ *   .settings-role         what `view-settings.js` emits today.
+ * If a header exists but holds none of them, the block is appended to it — so
+ * a view that simply deletes its identity node still gets one. If there is no
+ * header at all, nothing happens: this must never invent a header on the
+ * blocking surfaces, which deliberately have none.
+ *
+ * `outerHTML` replacement rather than filling the existing node, because the
+ * two nodes it replaces carry different classes with different CSS, and
+ * inheriting either would reintroduce exactly the difference this removes.
+ */
+function mountIdentity(root, facts) {
+  if (root === null || typeof root.querySelector !== 'function') return;
+  const header = root.querySelector('.task-topbar, .settings-hero') ?? root.querySelector('header');
+  if (header === null) return;
+
+  // Kicked off here rather than in `boot()`: this is the only place that knows
+  // a header is actually on screen, and it is a no-op once the bytes are in.
+  ensureAvatar();
+
+  const html = identityBlock(facts);
+  const slot = header.querySelector('[data-identity], .task-user-summary, .settings-role');
+  if (slot === null) header.insertAdjacentHTML('beforeend', html);
+  else slot.outerHTML = html;
+}
+
+/* --- the avatar bytes, once, for both circles --------------------- *
+ *
+ * 44 px circle at 2x, so it is not soft on a retina display. The settings
+ * card's own circle is 58 px (`.profile-avatar`) and asks for 116; the two
+ * sizes are the only thing that differ between the two reads, which is why
+ * `api.getAvatarBlob` takes the size rather than owning one.
+ *
+ * ONE HELPER, NOT TWO (PM item 2). `api.getAvatarBlob` is the shared request
+ * and `api.getAvatarGeneration()` is the shared cache key, bumped inside
+ * `api.saveAvatar` after both of its calls. That is what makes a stale face
+ * impossible after an upload no matter which surface performed it: neither
+ * circle keeps a private notion of "current". `view-settings.js` still has its
+ * round-1 private copy of this logic and should be reduced to these two calls
+ * — reported, not edited, because another agent holds that file.
+ *
+ * The OBJECT URL lifecycle stays here and out of api.js: only a renderer knows
+ * when a URL has stopped being an `<img src>`, and revoking one that is still
+ * on screen blanks the picture.
+ */
+
+const AVATAR_PIXEL_SIZE = 88;
+
+/** The key currently CLAIMED — in flight or settled. Never two reads at once. */
+let avatarKeyWanted = null;
+/** The object URL last successfully produced for that key, or null. */
+let avatarUrl = null;
+
+function avatarCacheKey(user) {
+  return `${user?.username ?? ''}|${api.getAvatarGeneration()}`;
+}
+
+/** The URL to paint, or null for "use the initials". Synchronous, for render. */
+export function headerAvatarUrl(user) {
+  return avatarKeyWanted === avatarCacheKey(user) ? avatarUrl : null;
+}
+
+/**
+ * Read the avatar once per key. Re-entrant by design — `mountIdentity` runs on
+ * every render and this is what makes it a no-op after the first.
+ *
+ * Fire-and-forget on purpose: the picture is decorative, render is synchronous,
+ * and a slow or refused avatar must never delay or fail the page around it.
+ * `api.getAvatarBlob` resolves to null for every failure and never throws, so
+ * there is no rejection path to handle here.
+ *
+ * `render()`, not `requestRender()`: the bytes landing say nothing about the
+ * account, and `requestRender` would schedule an account re-read for it.
+ */
+function ensureAvatar() {
+  const user = getUser();
+  const username = user?.username ?? '';
+  if (username === '') return;
+
+  const key = avatarCacheKey(user);
+  if (avatarKeyWanted === key) return;
+  // Claimed BEFORE the await. A second render during the read must not start a
+  // second one. The PREVIOUS url is deliberately left in place until the new
+  // bytes land, so an upload cross-fades instead of flashing the initials.
+  avatarKeyWanted = key;
+
+  void api.getAvatarBlob(username, AVATAR_PIXEL_SIZE).then((blob) => {
+    // The key moved while this was in flight — another upload, or another
+    // account. Nothing is created, so nothing leaks.
+    if (avatarKeyWanted !== key) return;
+    const next = blob === null ? null : URL.createObjectURL(blob);
+    const previous = avatarUrl;
+    if (previous === next) return;
+    avatarUrl = next;
+    // Revoked only after nothing points at it any more, and only once.
+    if (typeof previous === 'string') URL.revokeObjectURL(previous);
+    render();
+  });
+}
+
+/* ------------------------------------------------------------------ *
  * 14. Render
  * ------------------------------------------------------------------ */
 
@@ -1611,6 +1942,12 @@ function render() {
   const ctx = {route, facts};
   app.innerHTML = pageNotices(route) + view.render(ctx);
   view.mount?.(app, ctx);
+  // AFTER the view's mount and BEFORE hydration and gates, and all three positions matter.
+  // After mount, so a view that rebuilds its own header cannot drop the block again. Before
+  // hydrateI18n, so the logo `<img>`s the view cloned out of the shell template still get their
+  // alt. Before applyGates, because the block's own subscription line carries
+  // `data-requires="edition"` and must be removed by the same pass as everything else.
+  mountIdentity(app, facts);
   hydrateI18n(app);
   // Gates last: a view's `mount` may have inserted per-team rows, and those carry the
   // `data-team` scope that only exists once the roster is on the page.

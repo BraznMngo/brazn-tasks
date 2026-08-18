@@ -1527,7 +1527,104 @@ export function setAvatarProvider(provider) {
 export async function saveAvatar(file) {
   const uploaded = await uploadAvatar(file);
   const provider = await setAvatarProvider('upload');
+  // BUMPED HERE, AFTER BOTH CALLS, AND NOWHERE ELSE. See `getAvatarGeneration`.
+  avatarGeneration += 1;
   return {uploaded, provider};
+}
+
+/* --- reading the avatar back (round 1b, PM item 3) ----------------- */
+
+/**
+ * THE STALE-AVATAR COUNTER, AND WHY IT LIVES IN THIS FILE.
+ *
+ * Round 1 fixed the settings circle by keeping a private `avatarVersion` inside
+ * `view-settings.js` and bumping it in that file's own save handler. That works
+ * for exactly one renderer. The header block `app.js` now draws shows the SAME
+ * image, so a second private counter would be a second thing to remember to
+ * bump — and the first upload made through any future third surface would leave
+ * one of them behind, showing the old face next to the new one on the same
+ * screen. `saveAvatar` above is the ONE place an upload completes, so the
+ * counter belongs beside it and every reader keys its cache on this number.
+ *
+ * It is a generation, not a URL and not a cache: this module holds no blob and
+ * revokes no object URL. Whoever renders owns that lifecycle (app.js
+ * `ensureAvatar` does it for the header), because only the renderer knows when
+ * a URL has stopped being an `<img src>`.
+ *
+ * Starts at 0 and only ever increases. A reader that has never seen an upload
+ * therefore has a stable key and issues exactly one request.
+ */
+let avatarGeneration = 0;
+
+/** The current generation. Key any avatar cache on `username + this`. */
+export function getAvatarGeneration() {
+  return avatarGeneration;
+}
+
+/**
+ * GET /api/v2/avatar/{username}?size= — the image BYTES, as a Blob, or null.
+ *
+ * This is the export `view-settings.js` asked for in round 1 ("Requested in the
+ * report as `getAvatarBlob()`, after which this function becomes a one-line
+ * call"). Its private `readAvatarObjectUrl` / `avatarFetch` pair is reproduced
+ * here verbatim in behaviour so that adopting it is a deletion, not a change.
+ *
+ * `size` IS THE ONLY QUERY PARAMETER THE ROUTE DECLARES, alongside `username`
+ * (pkg/routes/api/v2/avatar.go:37-40). A `?v=` cache-buster is therefore NOT
+ * used: hanging an undeclared parameter off a Huma-validated route bets the fix
+ * on a validator's leniency. `cache: 'reload'` is the cache-buster instead — it
+ * bypasses the HTTP cache for this one request, needs nothing from the server,
+ * and cannot be rejected by it.
+ *
+ * NOT `authedFetch`, AND THE DIFFERENCE IS DELIBERATE. `authedFetch` calls
+ * `markSessionLost()` on a second 401, which puts the whole page on its
+ * terminal sign-in surface. An avatar is decorative; it must never be the
+ * request that ends someone's session. So the 401 path is spelled out here:
+ * `refreshSession()` — api.js's SINGLE IN-FLIGHT promise, so this waits on the
+ * same refresh every other call waits on and cannot start a second one — then
+ * ONE retry, then give up quietly.
+ *
+ * NO `outcome` CHECK AND NO JSON CHECK. This is a fork route returning image
+ * bytes; bar 8 is about the commercial `/v1` service. A non-2xx here means "no
+ * picture", and every caller already has initials on screen behind it.
+ *
+ * Returns null — never throws — for: no username, a non-2xx, a zero-byte body,
+ * a lost refresh, or a network failure. One falsy answer, one fallback path.
+ *
+ * @param {string} username
+ * @param {number} size  the pixel size to ask the server to render
+ * @returns {Promise<Blob|null>}
+ */
+export async function getAvatarBlob(username, size) {
+  const name = String(username ?? '');
+  if (name === '') return null;
+  const pixels = Number.isFinite(Number(size)) && Number(size) > 0 ? Math.round(Number(size)) : 0;
+  const url = forkV2Url(`avatar/${encodeURIComponent(name)}${pixels > 0 ? `?size=${pixels}` : ''}`);
+  try {
+    let res = await avatarFetch(url, getToken());
+    if (res.status === 401) {
+      const token = await refreshSession();
+      if (token === null) return null;
+      res = await avatarFetch(url, token);
+    }
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return blob.size === 0 ? null : blob;
+  } catch (err) {
+    console.error('[one/api] avatar read failed', err);
+    return null;
+  }
+}
+
+/**
+ * `rawFetch` is not used: it is the instrumented path every AUTHED call shares,
+ * and this request deliberately opts out of the shared 401 handling above it.
+ * `credentials: 'same-origin'` is still non-negotiable (BRIEF, "Session").
+ */
+function avatarFetch(url, token) {
+  const headers = {Accept: 'image/*'};
+  if (typeof token === 'string' && token !== '') headers.Authorization = `Bearer ${token}`;
+  return fetch(url, {method: 'GET', headers, credentials: 'same-origin', cache: 'reload'});
 }
 
 /* --- credentials, export and deletion (ruling C3) ----------------- */

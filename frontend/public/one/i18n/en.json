@@ -118,7 +118,10 @@
       "comment": "Comment",
       "sortNewestFirst": "Newest first",
       "sortOldestFirst": "Oldest first",
-      "addedSuccess": "The comment was added successfully."
+      "addedSuccess": "The comment was added successfully.",
+      "deleteText1": "Are you sure you want to delete this comment?",
+      "deleteSuccess": "The comment was deleted successfully.",
+      "delete": "Delete this comment"
     },
     "label": {
       "placeholder": "Type to add a label…",
@@ -337,7 +340,13 @@
       "comments": {
         "subtitleTeams": "Use {'@'}username to mention someone in a team task.",
         "subtitlePersonal": "Comments stay with this task.",
-        "placeholder": "Write a comment…"
+        "placeholder": "Write a comment…",
+        "edit": "Edit",
+        "editAria": "Edit your comment from {date}",
+        "deleteAria": "Delete your comment from {date}",
+        "editing": "Editing this comment",
+        "sendHint": "Shift+Enter sends",
+        "editLabel": "Edit comment"
       },
       "reminders": {
         "empty": "No reminders set.",
@@ -464,6 +473,7 @@
       "noRoute": "This is not available yet.",
       "rosterUnavailable": "We cannot read this team's members right now.",
       "noTeams": "This organization has no teams yet. Create one first.",
+      "dueFollowsEnd": "The due date follows the end date. Clear the end date to set it on its own.",
       "commercial": "We could not reach the subscription service, so nothing was changed.",
       "taskMove": "Moving tasks between projects is part of ONE Teams.",
       "forkForbidden": "You are not allowed to do that here. Nothing was changed.",
@@ -508,7 +518,8 @@
       "alreadyMember": "That person is already in your organization. Nothing was sent and no seat was used.",
       "invitationRevoked": "The invitation was revoked.",
       "adminTransferSubmitted": "The administrator transfer was submitted.",
-      "exportDownloaded": "The export was downloaded."
+      "exportDownloaded": "The export was downloaded.",
+      "commentUpdated": "The comment was updated."
     }
   }
 }

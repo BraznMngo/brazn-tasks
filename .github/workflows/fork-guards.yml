@@ -439,6 +439,21 @@ jobs:
             --include='*.js' --include='*.html' "${dir}" \
             | sed -E 's/^.(.*).$/\1/' | sort -u || true)"
 
+          # The sweep is deliberately broad, so it needs two exclusions or it
+          # reports things that are not keys. Both are properties of the key
+          # vocabulary rather than a list of offenders, so neither needs
+          # maintaining as the page grows:
+          #   - a trailing file extension: "task.html" and "settings.html" are
+          #     filenames the page references, and they match the `task`
+          #     namespace without being keys.
+          #   - a capitalised segment: every key in en.json is lowerCamelCase
+          #     throughout, so "user.User" and "user.GetUserByID" -- Go type and
+          #     method names quoted in comments and error paths -- match the
+          #     `user` namespace without being keys either.
+          keys="$(echo "${keys}" \
+            | grep -vE '\.(html|js|json|css|png|ico|svg|webmanifest)$' \
+            | grep -vE '(^|\.)[A-Z]' || true)"
+
           while IFS= read -r key; do
             # A here-string over an empty variable still yields one empty line.
             if [[ -z "${key}" ]]; then continue; fi

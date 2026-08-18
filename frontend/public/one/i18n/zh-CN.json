@@ -109,7 +109,10 @@
     "comment": {
       "title": "评论",
       "comment": "评论",
-      "addedSuccess": "评论已添加。"
+      "addedSuccess": "评论已添加。",
+      "deleteText1": "确实要删除此评论吗？",
+      "deleteSuccess": "评论已删除。",
+      "delete": "删除此评论"
     },
     "label": {
       "placeholder": "输入以添加标签...",
@@ -180,6 +183,12 @@
     }
   },
   "one": {
+    "deny": {
+      "dueFollowsEnd": "截止日期跟随结束日期。请先清除结束日期，才能单独设置。"
+    },
+    "toast": {
+      "commentUpdated": "评论已更新。"
+    },
     "brand": {
       "logoAlt": "ONE",
       "taskPage": "任务详情",
@@ -207,6 +216,22 @@
       "emailUnavailable": "此实例不会返回你的邮箱地址，因此无法在此显示。"
     },
     "task": {
+      "comments": {
+        "edit": "编辑",
+        "editAria": "编辑你在 {date} 发表的评论",
+        "deleteAria": "删除你在 {date} 发表的评论",
+        "editing": "正在编辑此评论",
+        "sendHint": "按 Shift+Enter 发送",
+        "editLabel": "编辑评论"
+      },
+      "statusOwnership": {
+        "title": "状态与归属",
+        "subtitle": "谁负责这项任务，优先级和进度如何"
+      },
+      "schedule": {
+        "title": "日程安排",
+        "subtitle": "规划任务并接收提醒，还可以添加日期范围和重复设置。"
+      },
       "relationSearchPlaceholder": "搜索任务…",
       "relationSearchResults": "匹配的任务",
       "relationSearchScope": "正在显示 {project} 中的任务。",
