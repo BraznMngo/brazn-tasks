@@ -36,12 +36,30 @@ export function commercialV1Url(path: string): string
 
 /* --- errors ------------------------------------------------------- */
 
+/** One entry of an RFC 9457 `errors[]` array, as Huma and this fork emit them. */
+export interface ForkErrorDetail {
+	/** e.g. "body.reactions". Null when the server named no location. */
+	readonly location: string | null
+	/** e.g. "expected object". Null when the server sent only a location. */
+	readonly message: string | null
+}
+
 export class ForkError extends Error {
 	readonly status: number
 	readonly body: any
 	readonly url: string
-	/** `message ?? detail ?? title` from the body. Render verbatim (ruling C4). */
+	/**
+	 * `message ?? detail ?? title` from the body, with the body's own
+	 * `errors[]` sentences appended in parentheses when it carried any.
+	 * Render verbatim (ruling C4) — every word of it came off the wire.
+	 */
 	readonly serverMessage: string | null
+	/**
+	 * The body's `errors[]`, uncapped and unformatted, for a caller that wants
+	 * to render the failing fields as a list rather than as one sentence.
+	 * Always an array; empty when the body carried none.
+	 */
+	readonly details: readonly ForkErrorDetail[]
 	/** The upstream numeric error code, present only on v2 problem+json bodies. */
 	readonly code: number | null
 }
@@ -236,7 +254,15 @@ export const TASK_EXPAND: readonly string[]
 export function getTask(taskId: number | string, options?: {expand?: string[]}): Promise<any>
 /** The only call that sends `X-Vikunja-Format`. */
 export function updateTaskDescription(taskId: number | string, descriptionMarkdown: string): Promise<any>
-/** Throws if `patch` carries `description` — that must go through updateTaskDescription. */
+/**
+ * Throws if `patch` carries `description` — that must go through updateTaskDescription.
+ *
+ * Sends `application/merge-patch+json` and always carries `reactions: null` and
+ * `subscription: null`, which RFC 7386 removes from AutoPatch's merged PUT body.
+ * Without that removal the merged body fails schema validation and every task
+ * write answers "validation failed". See the block comment on
+ * `PATCH_EXCISED_TASK_FIELDS` in api.js.
+ */
 export function patchTask(taskId: number | string, patch: Record<string, any>): Promise<any>
 export function deleteTask(taskId: number | string): Promise<any>
 export function duplicateTask(taskId: number | string): Promise<any>

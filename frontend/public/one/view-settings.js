@@ -14,6 +14,14 @@
  * from an api.js export, which is what keeps the /api/v1, /api/v2 and /v1 prefixes in one place
  * (bar 6, ruling C16).
  *
+ * ONE DECLARED EXCEPTION, and it is declared rather than quiet: `readAvatarObjectUrl` (§1c) issues
+ * its own `fetch` for `GET /api/v2/avatar/{username}`, because api.js exports the avatar UPLOAD and
+ * the provider set but nothing that returns the image bytes, and this file may not add one to it.
+ * The BASE still comes from api.js (`forkV2Url`), so the prefix decision bar 6 is about is still
+ * made in one place, and the 401 path defers to api.js's own `refreshSession()` rather than
+ * carrying a second copy of the refresh policy. The report asks for `api.getAvatarBlob()`, after
+ * which the exception disappears.
+ *
  * GATES ARE DECLARED, NEVER DECIDED HERE (ruling C4). Every gated node is emitted unconditionally
  * with `data-requires`; app.js resolves it and either hides it or leaves it visible, disabled and
  * carrying a reason. The one exception is a control refused by a fact no gate token can express —
@@ -138,6 +146,189 @@ function scratch() {
 }
 
 /* ------------------------------------------------------------------ *
+ * 1b. The account overlay — "the section must reflect the new value"
+ *
+ * `app.js` reads `GET /api/v2/user` ONCE, in `boot()` (app.js:1838), and exports no way to re-read
+ * it: `reloadOrganization()` exists, `reloadUser()` does not. `requestRender()` therefore redraws
+ * the account tab from the SAME `state.user` it was drawn from before the write, which is why the
+ * timezone select "jumps back" — the value reached the server, the page then re-rendered the stale
+ * one over it and `fillTimezones` re-`selected` that (PM finding 4). Display name behaved the same
+ * way; nobody noticed because the modal closes over it.
+ *
+ * Until app.js grows that reload (requested in the report — this file may not edit it), the view
+ * keeps its OWN fresh copy in its scratch state and every account-tab read goes through the two
+ * accessors below, which prefer it and fall back to app.js's boot copy. Nothing else on the page
+ * reads them, so nothing else can drift: the overlay is per-view scratch, exactly what
+ * `getViewState` is for.
+ * ------------------------------------------------------------------ */
+
+/** The user the account tab draws: the post-write re-read when there is one, else boot's copy. */
+function accountUser() {
+  const fresh = scratch().user;
+  return fresh === undefined || fresh === null ? getUser() : fresh;
+}
+
+/** `settings` from the same body, with the same preference. Keys are snake_case on the wire. */
+function accountSettings() {
+  const fresh = scratch().settings;
+  return fresh === undefined || fresh === null ? getSettings() : fresh;
+}
+
+/**
+ * Re-read the user after a successful account write. AWAIT IT BEFORE THE TOAST: a success message
+ * that lands ahead of the value it describes is the shape that made finding 4 look like a failed
+ * save rather than a stale render.
+ *
+ * A failed re-read is NOT reported as a failed write — the write succeeded, and saying otherwise
+ * would invite the user to repeat an edit that already landed. It is logged, the overlay keeps the
+ * value it had, and the next render is simply as stale as it was before. A lost session is the one
+ * exception and is rethrown, because app.js owns the terminal surface for it.
+ */
+async function refreshAccount() {
+  try {
+    const user = await api.getCurrentUser();
+    setViewState(NS, {user: user ?? null, settings: user?.settings ?? null});
+  } catch (err) {
+    if (err instanceof api.SessionLostError) throw err;
+    console.error('[one/settings] account re-read failed', err);
+  }
+}
+
+/**
+ * S5. THE ADDRESS IS NOT ON THE WIRE, and that is a server fact rather than a bug in this file.
+ *
+ * `GET /api/v2/user` embeds `user.User`, whose `Email` is `json:"email,omitempty"`
+ * (pkg/user/user.go:96) — but the handler reads the row through
+ * `models.GetUserOrLinkShareUser` → `user.GetUserByID` → `getUser(s, u, false)`, and that last
+ * argument is what blanks it: `if !withEmail { userOut.Email = "" }` (pkg/user/user.go:332-334).
+ * `omitempty` then drops the key entirely. The v1 `/user` handler is the same code
+ * (pkg/routes/api/v1/user_show.go:64) and the JWT carries no address either
+ * (pkg/modules/auth/auth.go:244-249), so NO endpoint this page may call answers with it.
+ *
+ * This reads the field anyway rather than hard-coding the absence: `GetUserWithEmail` is one
+ * argument away in the same function, so the day the fork passes `true` there this line starts
+ * showing the address with no change here. Until then the sentence beside it says why it is blank,
+ * which is the honest render — an empty row is what the PM reported as "does not show the current
+ * email address", and it looked broken because nothing on screen said it was not.
+ */
+function accountEmail() {
+  const email = accountUser()?.email;
+  return typeof email === 'string' ? email.trim() : '';
+}
+
+/* ------------------------------------------------------------------ *
+ * 1c. The avatar image
+ *
+ * `GET /api/v2/avatar/{username}?size=` is a real route (pkg/routes/api/v2/avatar.go:52) and is
+ * AUTHENTICATED like every other one (its own Description says so, :50) — it is not in
+ * `unauthenticatedAPIPaths` (pkg/routes/routes.go:349-379). So a bare `<img src>` cannot load it:
+ * an `<img>` sends no `Authorization` header and the page's bearer lives in a module variable, not
+ * a cookie. It has to be fetched and turned into an object URL, which is what the Vue app does for
+ * the same route (frontend/src/models/user.ts:29, `avatarService.getBlobUrl`).
+ *
+ * That is why both views drew initials and said so. The initials fallback stays — it is what shows
+ * before the bytes arrive and whenever they do not — but the circle now shows the real avatar,
+ * which is what makes an upload visible (PM finding 1).
+ * ------------------------------------------------------------------ */
+
+/** 58 px circle (one.css `.profile-avatar`) at 2×, so it is not soft on a retina display. */
+const AVATAR_SIZE = 116;
+
+/**
+ * Identity of the image currently wanted: whose it is, and which upload generation.
+ * `avatarVersion` is bumped by `saveAvatar` AFTER BOTH CALLS, and that bump is the whole
+ * cache-busting mechanism — a new key forces a re-read, and the re-read produces a new object URL,
+ * so the `<img src>` changes and the browser cannot paint the old bytes.
+ */
+function avatarKey(user) {
+  return `${user?.username ?? ''}|${scratch().avatarVersion ?? 0}`;
+}
+
+/**
+ * Read the avatar once per key. Re-entrant by design: `mount` runs on every render and this is
+ * what makes it a no-op after the first.
+ *
+ * The read is fire-and-forget on purpose. It is decorative, `mount` is synchronous, and a slow or
+ * refused avatar must never delay or fail the tab around it.
+ */
+function ensureAvatar() {
+  const user = accountUser();
+  const username = user?.username ?? '';
+  if (username === '') return;
+
+  const key = avatarKey(user);
+  if (scratch().avatarKey === key) return;
+  // Written BEFORE the await: a second render during the fetch must not start a second one.
+  setViewState(NS, {avatarKey: key});
+
+  readAvatarObjectUrl(username).then((url) => {
+    // The key moved while this was in flight — another upload, or another account. The bytes are
+    // for a picture nobody is asking for any more, so the URL is released rather than shown.
+    if (scratch().avatarKey !== key) {
+      if (url !== null) URL.revokeObjectURL(url);
+      return;
+    }
+    const previous = scratch().avatarUrl ?? null;
+    if (previous === url) return;
+    setViewState(NS, {avatarUrl: url});
+    // Revoked only after the state no longer points at it, and only once: revoking a URL that is
+    // still an `<img src>` blanks the picture that is currently on screen.
+    if (typeof previous === 'string') URL.revokeObjectURL(previous);
+    requestRender();
+  });
+}
+
+/**
+ * The one request this view issues itself, and the deviation is recorded rather than quiet.
+ *
+ * The PREFIX still comes from `api.js` (`forkV2Url`), which is the whole point of the file
+ * header's "never builds a URL itself" rule — bar 6 and ruling C16 are about which of the three
+ * bases a path is hung off, and that decision is still made in one place. What is NOT in api.js is
+ * a binary avatar read; it exports the upload and the provider set but nothing that returns the
+ * image, and this file may not add one to it. Requested in the report as `getAvatarBlob()`, after
+ * which this function becomes a one-line call.
+ *
+ * `cache: 'reload'` IS THE CACHE-BUSTER, in place of a `?v=` parameter. The parameter would be the
+ * usual trick, but `avatarGet`'s input declares `username` and `size` and nothing else
+ * (pkg/routes/api/v2/avatar.go:37-40) — hanging an undeclared parameter off a Huma-validated route
+ * to defeat a browser cache is betting the fix on a validator's leniency. `cache: 'reload'`
+ * bypasses the HTTP cache for this request outright, needs nothing from the server, and cannot be
+ * rejected by it.
+ *
+ * The 401 path mirrors `api.js`'s own `authedFetch` (api.js:337-352) rather than reinventing it:
+ * `refreshSession()` is api.js's SINGLE IN-FLIGHT refresh promise, so a stale token here waits on
+ * the same refresh every other call waits on and cannot start a second one. One retry, then give
+ * up — a second 401 on a token minted seconds ago is not a token problem. Nothing here marks the
+ * session lost: an avatar is not the request that should end someone's session.
+ */
+async function readAvatarObjectUrl(username) {
+  const url = api.forkV2Url(`avatar/${encodeURIComponent(username)}?size=${AVATAR_SIZE}`);
+  try {
+    let res = await avatarFetch(url, api.getToken());
+    if (res.status === 401) {
+      const token = await api.refreshSession();
+      if (token === null) return null;
+      res = await avatarFetch(url, token);
+    }
+    // No `outcome` check and no JSON check: this is a fork route returning image bytes, not a
+    // commercial one (bar 8 is about `/v1`). A non-2xx simply means "no picture", and the
+    // initials fallback is already on screen.
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return blob.size === 0 ? null : URL.createObjectURL(blob);
+  } catch (err) {
+    console.error('[one/settings] avatar read failed', err);
+    return null;
+  }
+}
+
+function avatarFetch(url, token) {
+  const headers = {Accept: 'image/*'};
+  if (typeof token === 'string' && token !== '') headers.Authorization = `Bearer ${token}`;
+  return fetch(url, {method: 'GET', headers, credentials: 'same-origin', cache: 'reload'});
+}
+
+/* ------------------------------------------------------------------ *
  * 2. Organization-shaped reads
  *
  * All of these read the FORK organization payload that app.js already loaded. The commercial
@@ -207,7 +398,7 @@ function render(ctx) {
  * app.js hydrates their `data-i18n-alt` once they are ordinary nodes inside `#app`.
  */
 function hero() {
-  const user = getUser();
+  const user = accountUser();
   const logo = document.getElementById('brandLogo')?.innerHTML ?? '';
   return `<header class="settings-hero">${logo}<div>
     <div class="settings-title">${tx('one.brand.settingsPage')}</div>
@@ -282,6 +473,7 @@ function accountTab() {
     <div class="settings-grid">
       ${profileCard()}
       ${otherCard()}
+      ${subscriptionCard()}
       ${dataCard()}
       ${dangerZone()}
     </div>
@@ -293,16 +485,28 @@ function accountTab() {
  * survive the write-restricted overlay because their routes are marked `write:"credentials"` —
  * so neither carries the `write` gate that avatar and display name do.
  *
- * The avatar renders as initials. api.js exposes no avatar READ (the upload is
- * `PUT /api/v2/user/settings/avatar` and the provider is `json:"-"`), and bar 7 forbids inventing
- * one, so the prototype's own fallback is what ships. Reported as a gap, not papered over.
+ * THE AVATAR CIRCLE SHOWS THE REAL AVATAR (PM finding 1). `§1c` reads
+ * `GET /api/v2/avatar/{username}` authenticated and hands back an object URL; the initials are the
+ * fallback for before it arrives and for whenever it does not. The `<img>` is sized inline because
+ * one.css gives `.profile-avatar` no `img` rule and this file may not edit that stylesheet —
+ * `.task-user-avatar img` (one.css:323) is the shape being reproduced. `border-radius:50%` on the
+ * image itself rather than `overflow:hidden` on the circle, for the same reason.
+ *
+ * The email row renders `accountEmail()`, which is empty on every instance today for a reason that
+ * is not this file's (see `accountEmail`), so the row says why instead of rendering nothing.
  */
 function profileCard() {
-  const user = getUser();
+  const user = accountUser();
+  const email = accountEmail();
+  const avatarUrl = scratch().avatarKey === avatarKey(user) ? scratch().avatarUrl ?? null : null;
+  const face = typeof avatarUrl === 'string' && avatarUrl !== ''
+    ? `<img src="${esc(avatarUrl)}" alt="" aria-hidden="true"
+        style="inline-size:100%;block-size:100%;object-fit:cover;border-radius:50%;display:block">`
+    : esc(initials(user));
   return `<div class="card settings-card">
     <div class="card-title">${tx('user.settings.sections.personalInformation')}</div>
     <div class="profile-line" style="margin-top:16px">
-      <div class="profile-avatar">${esc(initials(user))}</div>
+      <div class="profile-avatar" id="profileAvatar">${face}</div>
       <div>
         <strong style="font-size:13px">${esc(displayName(user))}</strong>
         <div class="help">${tx('one.common.atUsername', {username: user?.username ?? ''})}</div>
@@ -317,7 +521,8 @@ function profileCard() {
     <div class="setting-row">
       <div>
         <div class="setting-name">${tx('user.auth.email')}</div>
-        <div class="setting-desc">${esc(user?.email ?? '')}</div>
+        <div class="setting-desc" id="accountEmailValue">${
+          email === '' ? tx('one.settings.emailUnavailable') : esc(email)}</div>
       </div>
       <button class="btn small" data-action="change-email">${tx('one.common.change')}</button>
     </div>
@@ -332,10 +537,18 @@ function profileCard() {
  * S8/S9. The timezone list is fetched once and sorted in api.js (the route documents itself as
  * unsorted). Until it arrives the select holds the stored zone alone, so it never shows a value
  * the account does not have.
+ *
+ * THE ZONE IS READ FROM THE OVERLAY, NOT FROM BOOT (PM finding 4). `getSettings()` is the copy
+ * `boot()` took and never refreshes, so after a successful save this markup re-emitted the OLD
+ * zone as the only `selected` option and `fillTimezones` then re-`selected` it in the rebuilt
+ * list — the value the user chose was gone from the screen while being correct on the server. §1b
+ * has the mechanism; `saveTimezone` awaits the re-read before it toasts.
+ *
+ * The subscription row that used to sit here has moved to `subscriptionCard()` (PM finding 6): the
+ * PM asked for a subscription SECTION, and a badge in the "Other" card is not one.
  */
 function otherCard() {
-  const timezone = getSettings()?.timezone ?? '';
-  const edition = editionLabel();
+  const timezone = accountSettings()?.timezone ?? '';
   return `<div class="card settings-card">
     <div class="card-title">${tx('one.settings.other')}</div>
     <div class="setting-row">
@@ -347,11 +560,57 @@ function otherCard() {
         <option selected>${esc(timezone)}</option>
       </select>
     </div>
-    <div class="setting-row" data-requires="edition">
-      <div><div class="setting-name">${tx('one.settings.subscription')}</div></div>
-      <span class="role-badge">${esc(edition ?? '')}</span>
+  </div>`;
+}
+
+/**
+ * PM FINDING 6 — the subscription section, and it is deliberately one fact wide.
+ *
+ * The edition comes from the `brazn_edition` JWT claim through app.js's `editionMessageKey()`
+ * (ruling C1): `personal-cloud` is the only defined constant and anything else, INCLUDING ABSENT,
+ * is the Teams shape. The wire strings are identifiers and are never displayed — the mapping is a
+ * lookup, and both branches are written as `t()` LITERALS so the fork-guards key sweep can see
+ * them (ruling C10), exactly as `editionLabel()` does.
+ *
+ * NO GATE ON THIS CARD. `data-requires="edition"` is one of `GATES_THAT_HIDE` (app.js:93), so
+ * gating it would delete the section the PM asked to exist for every session with no claim — which
+ * is every CI run and every unentitled account. The card is emitted unconditionally and the
+ * no-claim case states itself; that is the same choice `membersCard` makes for an organization
+ * with no team, and for the same reason (an absent fact and an unreadable one are different).
+ *
+ * NOTHING ELSE IS SHOWN, and the omissions are omissions rather than gaps to fill. A renewal date,
+ * a seat total, a price or an auto-renewal state would each have to come from a `/v1` body whose
+ * shape is not among the extracted commercial sources — `GET /v1/entitlements` exists and api.js
+ * exports it, but no field of its response is documented at the verified commit, and bar 7's
+ * discipline covers response fields as much as routes. They are listed in the report instead. A
+ * restricted view showing the edition truthfully beats a billing dashboard showing a guess.
+ */
+function subscriptionCard() {
+  const edition = subscriptionLabel();
+  return `<div class="card settings-card wide">
+    <div class="card-title">${tx('one.settings.subscription')}</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-name" id="subscriptionEdition">${
+          edition === null ? tx('one.subscription.unknown') : esc(edition)}</div>
+        <div class="setting-desc">${tx('one.subscription.help')}</div>
+      </div>
     </div>
   </div>`;
+}
+
+/**
+ * The subscription wording, which is NOT the header line's wording: the hero says what edition the
+ * session is running under ("ONE Team Edition · Administrator") and this says what the account is
+ * subscribed to ("ONE Teams Subscription", the PM's own example). Two sentences about one claim,
+ * so they get two keys rather than one key used in two voices.
+ */
+function subscriptionLabel() {
+  const key = editionMessageKey();
+  if (key === null) return null;
+  return key === 'one.edition.personal'
+    ? t('one.subscription.personal')
+    : t('one.subscription.teams');
 }
 
 /**
@@ -374,11 +633,21 @@ function dataCard() {
 }
 
 /**
- * S12/S14. Both survive the write-restricted overlay (`write:"deletion"`).
+ * S12. Survives the write-restricted overlay (`write:"deletion"`).
  *
- * Cancel scheduled deletion is UNCONDITIONAL: `DeletionScheduledAt` is `json:"-"`
- * (pkg/user/user.go:122), so the browser cannot learn whether a deletion is pending and cannot
- * honestly condition the control on it. Its result is reported from the server's own words.
+ * PM FINDING 5 — "Cancel scheduled deletion" IS GONE, control, modal and handler. What it did, for
+ * the record and for whoever reinstates it: it opened a one-field modal asking for the current
+ * password and posted it to `POST /api/v2/user/deletion/cancel`, which clears a deletion that had
+ * already been scheduled against the account and re-enables it; the server's own message was
+ * toasted verbatim because `DeletionScheduledAt` is `json:"-"` (pkg/user/user.go:122) and the
+ * browser therefore cannot know whether a deletion was pending, which is exactly why the control
+ * was unconditional and why the PM did not recognise it — it was offered to every account,
+ * including the overwhelming majority with nothing scheduled.
+ *
+ * `api.cancelAccountDeletion()` is UNTOUCHED in api.js and the route still works, so reinstating
+ * this is a markup row plus the two handlers and nothing more. If billing turns out to need it,
+ * the honest shape is to render it only when a scheduled deletion is readable — which needs
+ * `DeletionScheduledAt` on the user body, a fork change, not a change here.
  */
 function dangerZone() {
   return `<div class="card settings-card wide danger-zone">
@@ -389,11 +658,6 @@ function dangerZone() {
       </div>
       <button class="btn small danger" data-action="delete-account">
         ${tx('one.settings.deleteAccount.title')}</button>
-    </div>
-    <div class="setting-row">
-      <div><div class="setting-name">${tx('one.settings.deleteAccount.cancel')}</div></div>
-      <button class="btn small" data-action="cancel-deletion">
-        ${tx('one.settings.deleteAccount.cancel')}</button>
     </div>
   </div>`;
 }
@@ -771,6 +1035,9 @@ function mount(root, ctx) {
   if (ctx.route.tab === 'account') {
     ensureTimezones();
     fillTimezones(root);
+    // After the select, not before: `ensureAvatar` may call `requestRender()` when the bytes land,
+    // and the render it triggers re-enters this function from the top.
+    ensureAvatar();
     return;
   }
 
@@ -797,11 +1064,17 @@ function ensureTimezones() {
   });
 }
 
+/**
+ * `accountSettings()`, NOT `getSettings()` — this is the second half of PM finding 4. The list is
+ * rebuilt on every render, so whichever zone this function calls `current` is the one the select
+ * ends up showing; reading boot's copy is what put the pre-save value back under the user's cursor
+ * every time and made a saved zone look like a rejected one.
+ */
 function fillTimezones(root) {
   const select = root.querySelector('#timezone');
   const zones = scratch().timezones;
   if (select === null || !Array.isArray(zones) || zones.length === 0) return;
-  const current = getSettings()?.timezone ?? '';
+  const current = accountSettings()?.timezone ?? '';
   // A stored zone the server no longer lists is kept as an option rather than dropped: without it
   // the select would silently display someone else's first zone as if it were this account's.
   const options = current !== '' && !zones.includes(current) ? [current, ...zones] : zones;
@@ -868,9 +1141,16 @@ async function saveTimezone(timezone) {
   // `dispatch`, so nothing else would catch the rejection or report the refusal.
   try {
     await api.saveGeneralSettings({timezone});
+    // THE RE-READ IS THE FIX, and it is awaited BEFORE the toast and before the render (PM
+    // finding 4). Without it the render below redrew boot's zone over the one just saved.
+    await refreshAccount();
     toast(t('user.settings.general.savedSuccess'));
-    // The formatters were built on boot from this preference; a reload is what re-derives them.
     requestRender();
+    // NOT re-derived here, and stated rather than hidden: `buildFormatters` is app.js's and is
+    // called once in `boot()`, so every date on the task view keeps formatting in the OLD zone
+    // until the page is reloaded. The settings tab itself formats no dates, so nothing on this
+    // screen is wrong — but the page as a whole is briefly inconsistent, and app.js is where that
+    // is fixable. Requested in the report.
   } catch (err) {
     console.error('[one/settings] timezone save failed', err);
     toast(refusalText(describeForkError(err)));
@@ -878,20 +1158,42 @@ async function saveTimezone(timezone) {
 }
 
 /**
- * S4. Two calls — upload, then set the provider — kept per the brief. Ruling C12 forbids a test
- * asserting the second is REQUIRED (the upload alone already persists the provider today); it is
- * idempotent, costs one request on a rare action, and keeps this page correct if
+ * S4 / PM FINDING 1. Two calls — upload, then set the provider — kept per the brief. Ruling C12
+ * forbids a test asserting the second is REQUIRED (the upload alone already persists the provider
+ * today); it is idempotent, costs one request on a rare action, and keeps this page correct if
  * `baseUserUpdateColumns` ever changes upstream.
+ *
+ * THE SEQUENCE WAS ALREADY CORRECT AND IS VERIFIED HERE: `api.saveAvatar` awaits
+ * `PUT /api/v2/user/settings/avatar` and only then `PUT /api/v2/user/settings/avatar/provider`
+ * (api.js:1470-1474), and this `await` covers BOTH — so everything below runs after the second
+ * call, never after the first. What was missing was anything to refresh: the circle drew initials
+ * and no avatar was ever read, so there was nothing for a successful upload to change.
+ *
+ * `avatarVersion` is bumped FIRST. It is the identity of the image wanted (`avatarKey`), so the
+ * bump is what makes the next `ensureAvatar` treat the picture on screen as the wrong one and
+ * re-read it — and the re-read goes out with `cache: 'reload'`, so the browser cannot answer it
+ * with the bytes it already has for that URL, which is the cache the PM identified.
  */
 async function saveAvatar(file) {
   try {
     await api.saveAvatar(file);
-    toast(t('user.settings.avatar.setSuccess'));
-    requestRender();
   } catch (err) {
     console.error('[one/settings] avatar save failed', err);
     toast(refusalText(describeForkError(err)));
+    return;
   }
+  setViewState(NS, {avatarVersion: (scratch().avatarVersion ?? 0) + 1});
+  // Caught rather than propagated: this runs from the raw `change` listener, so a rethrown
+  // SessionLostError becomes an unhandled rejection. app.js already draws the terminal surface
+  // from its own `onSessionLost` subscription, so there is nothing for this path to add.
+  try {
+    await refreshAccount();
+  } catch (err) {
+    console.error('[one/settings] account re-read after avatar upload failed', err);
+    return;
+  }
+  toast(t('user.settings.avatar.setSuccess'));
+  requestRender();
 }
 
 /* ------------------------------------------------------------------ *
@@ -1008,13 +1310,17 @@ registerActions({
 
   'edit-profile': () => {
     modal(t('one.settings.editProfile'), `<label class="label">${tx('user.settings.general.newName')}</label>
-      <input class="input" id="profileName" value="${esc(displayName(getUser()))}">`,
+      <input class="input" id="profileName" value="${esc(displayName(accountUser()))}">`,
       `${footCancel()}<button class="btn primary" data-action="save-profile">${tx('misc.save')}</button>`);
   },
 
   'save-profile': async () => {
     try {
       await api.saveGeneralSettings({name: fieldValue('profileName')});
+      // Awaited before the toast, so the card behind the closing modal already carries the new
+      // name. `requestRender()` alone redrew boot's copy — the same defect as finding 4, one
+      // field over, and invisible only because the modal covers the card while it happens.
+      await refreshAccount();
     } catch (err) {
       reportModalFailure(err);
       return;
@@ -1024,11 +1330,40 @@ registerActions({
     requestRender();
   },
 
+  /**
+   * PM FINDING 3 — the modal was wrong in three ways and is rebuilt.
+   *
+   * WAS: one field labelled "New email address", PREFILLED, and a current-password field.
+   * NOW: the old address, read-only, above an EMPTY new-address field, and the password field
+   * kept — because the route requires it (see `save-email`).
+   *
+   * WHY THE OLD FIELD PREFILLED WITH THE USER'S NAME. Nothing in this file put it there:
+   * `getUser()?.email` is `undefined` on every instance (see `accountEmail`), so the value
+   * attribute rendered empty. What filled it was the BROWSER. A bare `<input type="email">`
+   * immediately above `<input type="password" autocomplete="current-password">` is the exact
+   * shape of a sign-in form, so password managers and Chrome's own autofill treated it as the
+   * username slot and wrote the stored account identity into it. Two attributes break that, and
+   * they work as a pair: the read-only field now claims `autocomplete="username"`, which gives the
+   * manager the designated slot it was looking for AND one it will not write to (browsers do not
+   * autofill a readonly input), while the new address claims `autocomplete="off"` so it is no
+   * longer the best candidate for that role. The password field keeps `current-password`, which is
+   * correct and is what lets a manager offer the right secret.
+   *
+   * The read-only field is a real, focusable `<input>` rather than static text on purpose: the
+   * PM's requirement is that the user can SEE what they are changing, and an input is what a
+   * screen reader announces alongside its label. `readonly` (not `disabled`) keeps it in the
+   * accessibility tree and selectable, so the address can still be copied.
+   */
   'change-email': () => {
+    const current = accountEmail();
     modal(t('user.settings.updateEmailTitle'), `
-      <label class="label">${tx('user.settings.updateEmailNew')}</label>
-      <input class="input" id="newEmail" type="email" value="${esc(getUser()?.email ?? '')}">
-      <label class="label">${tx('user.settings.currentPassword')}</label>
+      <label class="label" for="currentEmail">${tx('one.settings.currentEmail')}</label>
+      <input class="input" id="currentEmail" type="email" readonly aria-readonly="true"
+        autocomplete="username" value="${esc(current)}">
+      ${current === '' ? `<div class="help">${tx('one.settings.emailUnavailable')}</div>` : ''}
+      <label class="label" for="newEmail">${tx('user.settings.updateEmailNew')}</label>
+      <input class="input" id="newEmail" type="email" autocomplete="off">
+      <label class="label" for="emailPassword">${tx('user.settings.currentPassword')}</label>
       <input class="input" id="emailPassword" type="password" autocomplete="current-password">`,
       `${footCancel()}<button class="btn primary" data-action="save-email">${tx('one.settings.updateEmail')}</button>`);
   },
@@ -1037,16 +1372,35 @@ registerActions({
    * A WRONG CURRENT PASSWORD IS A 412 HERE, and it is the single most likely failure on this tab.
    * It must land next to the field that caused it, not in a toast that fades off a modal the user
    * is still looking at.
+   *
+   * THE PASSWORD FIELD STAYS BECAUSE THE ROUTE REQUIRES IT, checked rather than assumed:
+   * `PUT /api/v2/user/settings/email` binds `{new_email, password}`
+   * (pkg/routes/api/v2/user_settings.go:191-195) and hands both to
+   * `user.ChangeUserEmail(ctx, s, doer, in.Body.Password, in.Body.NewEmail)` (:209), whose first
+   * act is `CheckPasswordForOwnAccount(ctx, s, u, password)` (pkg/user/update_email.go:43). An
+   * empty password is a refusal, not an omission. `new_email` additionally carries
+   * `valid:"email,length(0|250),required"`, which v2 answers as a 422 (see
+   * pkg/webtests/huma_user_settings_test.go:103-104) — which is why an empty new address is
+   * stopped here rather than sent.
    */
   'save-email': async () => {
+    const next = fieldValue('newEmail');
+    // Not sent empty: the server would answer 422 for a field the user simply has not filled in,
+    // and `required` is a validator message, not an explanation.
+    if (next === '') return;
     try {
-      await api.changeEmail(fieldValue('newEmail'), secretValue('emailPassword'));
+      await api.changeEmail(next, secretValue('emailPassword'));
+      // The address will NOT come back changed today — no route returns it (see `accountEmail`) —
+      // but `status` moves to email-confirmation-required when the mailer is on
+      // (pkg/user/update_email.go:82), so the account is re-read rather than assumed unchanged.
+      await refreshAccount();
     } catch (err) {
       reportModalFailure(err);
       return;
     }
     closeModal();
     toast(t('user.settings.updateEmailSuccess'));
+    requestRender();
   },
 
   'change-password': () => {
@@ -1236,39 +1590,13 @@ registerActions({
     toast(t('user.deletion.requestSuccess'));
   },
 
-  /**
-   * S14. The fork route (`POST /api/v2/user/deletion/cancel`, `write:"deletion"`) genuinely works
-   * locally, which is why this stays a fork call while the deletion itself links out.
+  /*
+   * S14 IS DELETED — `cancel-deletion` and `confirm-cancel-deletion` are both gone (PM finding 5).
+   * `dangerZone()` records what they did and what reinstating them would take; the route and
+   * `api.cancelAccountDeletion()` are both untouched. No handler is registered, so the delegated
+   * listener has nothing to dispatch even if a stale `data-action="cancel-deletion"` survived a
+   * cache — which is the same "true by construction" shape `rename-org` relies on below.
    */
-  'cancel-deletion': () => {
-    modal(t('one.settings.deleteAccount.cancel'), `
-      <label class="label">${tx('user.settings.currentPassword')}</label>
-      <input class="input" id="cancelDeletionPassword" type="password" autocomplete="current-password">`,
-      `${footCancel()}<button class="btn primary" data-action="confirm-cancel-deletion">${
-        tx('one.settings.deleteAccount.cancel')}</button>`);
-  },
-
-  /**
-   * A WRONG CURRENT PASSWORD IS A 412 HERE TOO, and this handler used to be the one modal write
-   * on the tab that did not obey `reportModalFailure`'s convention: with no try/catch the
-   * rejection fell through to app.js's `dispatch`, which toasts and nothing more — the exact
-   * scenario that header names at its own :901-904, on the exact field it names.
-   */
-  'confirm-cancel-deletion': async () => {
-    let body;
-    try {
-      body = await api.cancelAccountDeletion(secretValue('cancelDeletionPassword'));
-    } catch (err) {
-      reportModalFailure(err);
-      return;
-    }
-    closeModal();
-    // REPORTED HONESTLY. The browser cannot know whether a deletion was pending, so the server's
-    // own sentence is the only true thing to say; with no sentence, nothing is said. A success
-    // toast here would be the page claiming an outcome it never read (S14).
-    const message = typeof body?.message === 'string' ? body.message : '';
-    if (message !== '') toast(message);
-  },
 
   /* --- organization ------------------------------------------------ */
 

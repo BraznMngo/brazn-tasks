@@ -298,10 +298,19 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 /* Logo. The assets are 155x72 and trimmed to the artwork bounds, so the box matches the art and
    the prototype's object-fit/object-position letterboxing is no longer needed — one less
    physical property on the RTL-debt list. width/height attributes on the <img> give the browser
-   the ratio before the bytes arrive, so block-size:auto costs no layout shift. */
+   the ratio before the bytes arrive, so block-size:auto costs no layout shift.
    The prototype's `.task-mini-logo` and `.settings-logo` are GONE from this rule and from the
    900px one below: both headers now clone the single `#brandLogo` template, so `.brand-logo` is
-   the only class either of them applies and the other two styled nothing. */
+   the only class either of them applies and the other two styled nothing.
+
+   FIXED: this comment used to CLOSE after "layout shift", leaving the three lines above as bare
+   text in the stylesheet with a second comment-close after them. CSS error recovery then consumed
+   that text as the start of a qualified rule and swallowed tokens up to the next open brace —
+   which was the `.brand-logo` block below, so the whole rule was dropped. The images kept their
+   155x72 from the width/height attributes, which is why nothing looked obviously broken, but
+   `max-inline-size` and the opacity were never applied and the logo could overflow its header on
+   a narrow viewport. (A comment-close sequence is never written literally in this file for
+   exactly that reason.) */
 .brand-logo{inline-size:155px;block-size:auto;max-inline-size:100%;opacity:.96}
 /* Theme-paired logo: two <img>s, CSS picks. A <picture> with prefers-color-scheme cannot see the
    .dark class app.js sets from color_schema, and SPEC-UI §5.2 rules out swapping src in JS, so
@@ -395,7 +404,15 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 .disclosure.open svg{transform:rotate(180deg)}
 .schedule-advanced{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
 .repeat-builder{grid-column:1/-1;margin-top:2px;padding:14px;border:1px solid var(--border);border-radius:13px;background:var(--grey-50)}
-.repeat-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}
+/* `flex-wrap` and the `min-inline-size:0` floor are the ROOT CAUSE of the repeat panel breaking
+   its layout, and they are fixed here rather than only worked around in the view. A flex row with
+   no wrap and children at the default `min-inline-size:auto` cannot shrink below its content's
+   max-content width, so anything long arriving in the second item — the refusal sentence the
+   server sends when a repeat write is refused, or four German preset labels
+   (Täglich/Wöchentlich/Monatlich/Jährlich) — pushed the row wider than the card and crushed the
+   "Repeat" label against the edge. Wrapping puts the presets on their own line instead. */
+.repeat-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px;flex-wrap:wrap}
+.repeat-top>*{min-inline-size:0}
 .repeat-presets{display:flex;gap:6px;flex-wrap:wrap}
 .repeat-preset{border:1px solid var(--border);background:var(--scheme-main);border-radius:9px;padding:7px 10px;font-size:10px;font-weight:750;color:var(--text-muted);letter-spacing:.01em}
 .repeat-preset:hover{border-color:hsla(var(--primary-hsl), .25);background:hsla(var(--primary-hsl), .06);color:var(--primary)}
@@ -403,6 +420,10 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 .repeat-clear{width:28px;height:28px;border:0;background:transparent;color:var(--danger-text);border-radius:8px;display:grid;place-items:center}
 .repeat-clear:hover{background:hsla(var(--danger-h), var(--danger-s), var(--danger-l), .08)}
 .repeat-fields{display:grid;grid-template-columns:1fr 1.25fr;gap:12px;align-items:end}
+/* An `fr` track has an AUTO minimum, and `.select` is `white-space:nowrap`, so the repeat-mode
+   select blows its own column out as soon as an option is long — which every German mode label is
+   ("Ab dem vorherigen Fälligkeitsdatum"). The floor lets the track do what `1.25fr` says. */
+.repeat-fields>*{min-inline-size:0}
 .repeat-each{display:grid;grid-template-columns:auto minmax(74px,.75fr) minmax(110px,1fr);gap:8px;align-items:center}
 .repeat-each .label-inline{font-size:11px;color:var(--text-muted);font-weight:650;white-space:nowrap}
 @media(max-width:760px){.repeat-fields{grid-template-columns:1fr}.repeat-each{grid-template-columns:auto 1fr 1fr}}

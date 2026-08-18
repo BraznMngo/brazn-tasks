@@ -178,5 +178,59 @@
       "name": "团队名称",
       "member": "成员"
     }
+  },
+  "one": {
+    "brand": {
+      "logoAlt": "ONE",
+      "taskPage": "任务详情",
+      "settingsPage": "订阅设置"
+    },
+    "edition": {
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
+      "withRole": "{edition} · {role}"
+    },
+    "role": {
+      "personalUser": "个人用户",
+      "teamMember": "团队成员",
+      "administrator": "管理员"
+    },
+    "subscription": {
+      "personal": "ONE Personal 订阅",
+      "teams": "ONE Teams 订阅",
+      "unknown": "此实例上没有为该账户记录任何订阅。",
+      "help": "该账户登录时所属的版本。"
+    },
+    "settings": {
+      "subscription": "你的订阅",
+      "currentEmail": "当前邮箱地址",
+      "emailUnavailable": "此实例不会返回你的邮箱地址，因此无法在此显示。"
+    },
+    "task": {
+      "relationSearchPlaceholder": "搜索任务…",
+      "relationSearchResults": "匹配的任务",
+      "relationSearchScope": "正在显示 {project} 中的任务。",
+      "relationSearchScopeUnknown": "正在显示该任务所属项目中的任务。",
+      "relationSearchNoMatches": "此项目中没有匹配的任务。",
+      "relationChosen": "已选择：{task}",
+      "relationPickRequired": "请先从列表中选择一个任务。未做任何更改。",
+      "repeat": {
+        "presetDaily": "每天",
+        "presetWeekly": "每周",
+        "presetMonthly": "每月",
+        "presetAnnually": "每年",
+        "unitOptionDays": "天",
+        "unitOptionWeeks": "周",
+        "unitOptionMonths": "个月",
+        "unitOptionYears": "年",
+        "modeDefault": "从上一个截止日期开始",
+        "modeDefaultHelp": "把间隔加到任务已有的日期上，因此原本周一到期的任务，即使你延后完成，仍然在周一到期。",
+        "modeMonthly": "每月同一日期",
+        "modeMonthlyHelp": "把所有日期向后推一个自然月，并保留当月的日号。下方的间隔会被忽略。",
+        "modeCurrent": "从完成日期开始",
+        "modeCurrentHelp": "把间隔加到你勾选完成的那一天，因此下一个截止日期从今天算起。",
+        "summaryMonthly": "在每个自然月的同一日期重复。"
+      }
+    }
   }
 }

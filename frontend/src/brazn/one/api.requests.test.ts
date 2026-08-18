@@ -84,7 +84,22 @@ describe('one/api.js request shaping', () => {
 		// MUTATION: deleting the third argument to patchTaskInternal in updateTaskDescription makes
 		// this red - and the server would then store the user's Markdown as literal text.
 		expect(headersOf(calls[0].init)[MARKDOWN_HEADER]).toBe('markdown')
-		expect(JSON.parse(String(calls[0].init.body))).toEqual({description: '# Heading\n\n- item'})
+		// reactions and subscription are excised on EVERY task PATCH, and that is not decoration.
+		// AutoPatch is GET -> RFC 7386 merge -> PUT inside one request, so the server validates our
+		// patch merged over its OWN read shape - and that shape carries `reactions: null` (its schema
+		// says object) and `subscription.entity` as a string (its schema says integer). Both fail the
+		// server's own PUT schema, so every task write 422d with Huma's constant detail, the words the
+		// PM saw: "validation failed". A null member REMOVES the property from the merged document,
+		// which is what makes the write legal at all.
+		// MUTATION: dropping either key from patchTaskInternal makes this red - and makes every task
+		// edit fail against a real server, which is exactly what shipped.
+		expect(JSON.parse(String(calls[0].init.body))).toEqual({
+			reactions: null,
+			subscription: null,
+			description: '# Heading
+
+- item',
+		})
 	})
 
 	it('puts it on NO other write, PATCHes included', async () => {

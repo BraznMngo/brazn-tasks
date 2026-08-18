@@ -185,5 +185,62 @@
       "name": "チーム名",
       "member": "メンバー"
     }
+  },
+  "one": {
+    "brand": {
+      "logoAlt": "ONE",
+      "taskPage": "タスクの詳細",
+      "settingsPage": "サブスクリプション設定"
+    },
+    "edition": {
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
+      "withRole": "{edition}・{role}"
+    },
+    "role": {
+      "personalUser": "個人ユーザー",
+      "teamMember": "チームメンバー",
+      "administrator": "管理者"
+    },
+    "common": {
+      "separator": "・"
+    },
+    "subscription": {
+      "personal": "ONE Personal サブスクリプション",
+      "teams": "ONE Teams サブスクリプション",
+      "unknown": "このインスタンスでは、このアカウントのサブスクリプションは登録されていません。",
+      "help": "このアカウントがサインインしているエディションです。"
+    },
+    "settings": {
+      "subscription": "あなたのサブスクリプション",
+      "currentEmail": "現在のメールアドレス",
+      "emailUnavailable": "このインスタンスはメールアドレスを返さないため、ここには表示できません。"
+    },
+    "task": {
+      "relationSearchPlaceholder": "タスクを検索…",
+      "relationSearchResults": "一致するタスク",
+      "relationSearchScope": "{project} のタスクを表示しています。",
+      "relationSearchScopeUnknown": "このタスクのプロジェクト内のタスクを表示しています。",
+      "relationSearchNoMatches": "このプロジェクトに一致するタスクはありません。",
+      "relationChosen": "選択中: {task}",
+      "relationPickRequired": "先にリストからタスクを選んでください。何も変更されていません。",
+      "repeat": {
+        "presetDaily": "毎日",
+        "presetWeekly": "毎週",
+        "presetMonthly": "毎月",
+        "presetAnnually": "毎年",
+        "unitOptionDays": "日",
+        "unitOptionWeeks": "週",
+        "unitOptionMonths": "か月",
+        "unitOptionYears": "年",
+        "modeDefault": "前回の期限日から",
+        "modeDefaultHelp": "タスクがすでに持っている日付に間隔を加算します。月曜が期限のタスクは、完了が遅れても期限は月曜のままです。",
+        "modeMonthly": "毎月、同じ日付に",
+        "modeMonthlyHelp": "すべての日付を暦の1か月分進め、日にちはそのまま保ちます。下の間隔は無視されます。",
+        "modeCurrent": "完了した日から",
+        "modeCurrentHelp": "タスクにチェックを入れた日に間隔を加算するため、次の期限は今日から数えます。",
+        "summaryMonthly": "暦上の毎月同じ日付に繰り返します。"
+      }
+    }
   }
 }

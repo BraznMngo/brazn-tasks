@@ -163,5 +163,59 @@
       "name": "Nombre del Equipo",
       "member": "Miembro"
     }
+  },
+  "one": {
+    "brand": {
+      "logoAlt": "ONE",
+      "taskPage": "Detalles de la tarea",
+      "settingsPage": "Ajustes de suscripción"
+    },
+    "edition": {
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
+      "withRole": "{edition} · {role}"
+    },
+    "role": {
+      "personalUser": "Usuario personal",
+      "teamMember": "Miembro del equipo",
+      "administrator": "Administrador"
+    },
+    "subscription": {
+      "personal": "Suscripción ONE Personal",
+      "teams": "Suscripción ONE Teams",
+      "unknown": "No hay ninguna suscripción registrada para esta cuenta en esta instancia.",
+      "help": "La edición con la que ha iniciado sesión esta cuenta."
+    },
+    "settings": {
+      "subscription": "Tu suscripción",
+      "currentEmail": "Dirección de correo electrónico actual",
+      "emailUnavailable": "Esta instancia no devuelve tu dirección de correo electrónico, por lo que no se puede mostrar aquí."
+    },
+    "task": {
+      "relationSearchPlaceholder": "Buscar tareas…",
+      "relationSearchResults": "Tareas coincidentes",
+      "relationSearchScope": "Mostrando tareas de {project}.",
+      "relationSearchScopeUnknown": "Mostrando tareas del proyecto de esta tarea.",
+      "relationSearchNoMatches": "No hay tareas coincidentes en este proyecto.",
+      "relationChosen": "Seleccionada: {task}",
+      "relationPickRequired": "Elige primero una tarea de la lista. No se ha cambiado nada.",
+      "repeat": {
+        "presetDaily": "Diariamente",
+        "presetWeekly": "Semanalmente",
+        "presetMonthly": "Mensualmente",
+        "presetAnnually": "Anualmente",
+        "unitOptionDays": "Día(s)",
+        "unitOptionWeeks": "Semana(s)",
+        "unitOptionMonths": "Mes(es)",
+        "unitOptionYears": "Año(s)",
+        "modeDefault": "Desde la fecha de vencimiento anterior",
+        "modeDefaultHelp": "Suma el intervalo a las fechas que la tarea ya tiene, así que una tarea que vence un lunes sigue venciendo un lunes aunque la termines tarde.",
+        "modeMonthly": "Cada mes, el mismo día",
+        "modeMonthlyHelp": "Adelanta todas las fechas un mes natural y mantiene el día del mes. El intervalo de abajo se ignora.",
+        "modeCurrent": "Desde la fecha de finalización",
+        "modeCurrentHelp": "Suma el intervalo al día en que marcas la tarea como hecha, así que el próximo vencimiento se cuenta desde hoy.",
+        "summaryMonthly": "Se repite el mismo día de cada mes natural."
+      }
+    }
   }
 }

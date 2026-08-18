@@ -36,7 +36,11 @@
      by the backend. -->
 <input class="sr-only" id="attachmentInput" type="file" multiple tabindex="-1"
   aria-label="Upload attachment" data-i18n-aria="task.attachment.upload">
-<input class="sr-only" id="avatarInput" type="file" accept="image/*" tabindex="-1"
+<!-- `accept` is NARROWED to the five formats the server can actually decode, not `image/*` — see
+     settings.html for the citation. The two shells are kept byte-identical below the <body> tag
+     apart from `data-default-view`, so the change is made in both. -->
+<input class="sr-only" id="avatarInput" type="file"
+  accept="image/png,image/jpeg,image/gif,image/tiff,image/bmp" tabindex="-1"
   aria-label="Upload Avatar" data-i18n-aria="user.settings.avatar.uploadAvatar">
 
 <!-- The logo pair lives in the shell but paints inside the header app.js renders, so it ships as

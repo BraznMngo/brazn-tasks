@@ -173,7 +173,8 @@ export class ForkError extends Error {
     this.status = status;
     this.body = body ?? null;
     this.url = url;
-    this.serverMessage = readServerMessage(body);
+    this.details = readServerErrorDetails(body);
+    this.serverMessage = composeServerMessage(readServerMessage(body), this.details);
     this.code = body && typeof body.code === 'number' ? body.code : null;
   }
 }
@@ -192,6 +193,62 @@ function readServerMessage(body) {
     if (typeof body[key] === 'string' && body[key] !== '') return body[key];
   }
   return null;
+}
+
+/**
+ * THE HALF OF AN RFC 9457 BODY THAT USED TO BE THROWN AWAY.
+ *
+ * Huma answers a request-schema failure with HTTP 422 and the CONSTANT string
+ * `"validation failed"` in `detail`; everything that says WHICH field and WHY
+ * lives in a sibling `errors` array of `{message, location, value}`
+ * (huma v2.39.0 `huma.ErrorDetail`, surfaced by this fork through
+ * `invalidFieldDetails` at pkg/routes/api/v2/errors.go:100-113, which builds the
+ * same shape for a govalidator failure with `location` = "body.<field>").
+ *
+ * Reading only `detail` therefore renders one unactionable sentence for every
+ * possible bad field — which is exactly what the Task Details page showed for
+ * every write, with the one word naming the cause sitting unread in the body.
+ * Nothing outside this file could see it: `ForkError` exposed `body`, but
+ * `app.js`'s `describeForkError` reads `serverMessage` and nothing else.
+ *
+ * Returns [] rather than null so callers can iterate without a guard.
+ */
+function readServerErrorDetails(body) {
+  if (body === null || typeof body !== 'object' || !Array.isArray(body.errors)) return [];
+  const details = [];
+  for (const entry of body.errors) {
+    if (entry === null || typeof entry !== 'object') continue;
+    const message = typeof entry.message === 'string' && entry.message !== '' ? entry.message : null;
+    const location = typeof entry.location === 'string' && entry.location !== '' ? entry.location : null;
+    if (message === null && location === null) continue;
+    details.push({location, message});
+  }
+  return details;
+}
+
+/**
+ * The server's sentence, plus the server's own per-field sentences after it.
+ *
+ * THIS IS NOT A PARAPHRASE AND RULING C4 STILL HOLDS. Every word here came off
+ * the wire; the only thing this function contributes is punctuation. It exists
+ * because `serverMessage` is the ONLY channel `app.js` renders (app.js:1086-1088),
+ * so a detail that is not folded into it cannot reach a person today. `details`
+ * is also exposed on the error untouched, so a caller that wants to render the
+ * fields as their own list — the better surface, and the one described in the
+ * report accompanying this change — can do that without re-parsing the body.
+ *
+ * Capped at four entries: a merged-resource PATCH can fail on many fields at
+ * once and a toast is not a log. The full array is always on `err.details`.
+ */
+function composeServerMessage(message, details) {
+  if (details.length === 0) return message;
+  const parts = details.slice(0, 4).map((detail) => {
+    if (detail.location === null) return detail.message;
+    if (detail.message === null) return detail.location;
+    return `${detail.location}: ${detail.message}`;
+  });
+  const suffix = parts.join('; ');
+  return message === null ? suffix : `${message} (${suffix})`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1569,12 +1626,98 @@ export function getTask(taskId, {expand} = {}) {
  */
 const MARKDOWN_HEADER = 'X-Vikunja-Format';
 
+/**
+ * THE TWO PROPERTIES EVERY TASK PATCH MUST EXCISE, AND WHY THIS IS NOT US BEING
+ * CLEVER. THIS IS THE FIX FOR "validation failed" ON EVERY CONTROL.
+ *
+ * `PATCH /api/v2/tasks/{id}` is not a hand-written handler. It is synthesised by
+ * Huma's AutoPatch, which does GET -> RFC 7386 merge -> PUT inside the one
+ * request (pkg/routes/api/v2/huma.go:163-181). So the body the server validates
+ * is NOT the body we send: it is OUR PATCH MERGED OVER THE WHOLE TASK AS THE GET
+ * RETURNED IT, and every property of that merged document is validated against
+ * the PUT's schema. AutoPatch's internal GET is issued against the bare path with
+ * the query string dropped (which is the whole reason
+ * pkg/routes/api/v2/richtext.go:71-89 exists), so no `expand` reaches it and the
+ * read shape it produces is the same one every time.
+ *
+ * TWO PROPERTIES OF THAT READ SHAPE CANNOT PASS THE WRITE SCHEMA. Both are
+ * `readOnly`, which does NOT exempt them: Huma's read-only exemption applies only
+ * to the *required* check, and a present read-only property has its VALUE
+ * validated like any other (huma v2.39.0 validate.go, `handleMapString`).
+ *
+ *   1. `reactions` is ALWAYS `null` and the schema forbids null.
+ *      `Reactions ReactionMap` carries `json:"reactions"` with NO `omitempty`
+ *      (pkg/models/tasks.go:160) and is only populated for `?expand=reactions`
+ *      (pkg/models/tasks.go:805-810) — which the internal GET cannot ask for.
+ *      `ReactionMap` is `map[string][]*user.User` (pkg/models/reaction.go:64);
+ *      Huma marks Go SLICES nullable by default (`DefaultArrayNullable = true`)
+ *      and MAPS not at all. Verified on the running instance's own
+ *      `/api/v2/schemas/TaskReadOneBody.json` — the exact schema this request is
+ *      validated against — where `reminders`, `assignees`, `labels` and
+ *      `attachments` all read `"type":["array","null"]` and `reactions` reads a
+ *      bare `"type":"object"`. `null` against that hits
+ *      `default: res.Add(path, v, MsgExpectedObject)`.
+ *
+ *   2. `subscription` is a string on the wire and an integer in the schema.
+ *      `Subscription.EntityType` is a Go `int` whose `MarshalJSON` emits
+ *      `"task"` / `"project"` (pkg/models/subscription.go:60-68), but no
+ *      `huma.SchemaProvider` overrides the generated schema, so
+ *      `/api/v2/schemas/Subscription.json` publishes
+ *      `"entity":{"format":"int64","type":"integer"}`. The property is
+ *      `omitempty`, so this only fires when the task read carries a subscription
+ *      — which is not rare: `ReadOne` fills it from `GetSubscriptionForUser`
+ *      (pkg/models/tasks.go:2101-2106) and that INHERITS the project's
+ *      subscription when the task has none of its own
+ *      (pkg/models/subscription.go:224-227). The page's own subscribe toggle
+ *      guarantees it for any task the user has ever subscribed to.
+ *
+ * The inner PUT's 422 is copied out to the client verbatim, and Huma's `detail`
+ * for a schema failure is the CONSTANT string "validation failed" — which is
+ * exactly what appeared on the title, the done box, priority, the three dates,
+ * the repeat builder, percent done, the favourite star, reminders, the move
+ * picker and the description: every control that writes through this function.
+ *
+ * DELETING THEM FROM THE MERGED DOCUMENT IS THE WHOLE FIX. Under RFC 7386 a
+ * `null` in the patch REMOVES the member from the target, and an absent property
+ * is not validated at all (nothing on this schema is required —
+ * `cfg.FieldsOptionalByDefault` at pkg/routes/api/v2/huma.go:79, and the live
+ * schema carries no `required` array). Removal is exact here because this fork
+ * does not enable Huma's opt-in merge-patch nullability extension — no
+ * `MergePatchNullabilityExtension` is registered anywhere in pkg/ — so nulls keep
+ * their plain RFC 7386 meaning.
+ *
+ * Deleting is also the honest operation. Both fields are read-only and neither is
+ * ours to write: `Reactions` and `Subscription` are both `xorm:"-"` and neither
+ * appears in the columns `updateSingleTask` writes
+ * (pkg/models/tasks.go:1159-1174), so removing them changes nothing but whether
+ * the request is accepted. Sending `{}` instead would work for `reactions` (the
+ * stored value is null, so the merge replaces it) but NOT for `subscription`:
+ * RFC 7386 RECURSES when both sides are objects, so an empty object would leave
+ * the offending `"entity":"task"` exactly where it was.
+ *
+ * THIS IS A WORKAROUND FOR TWO SERVER DEFECTS AND SHOULD BE DELETED WHEN THEY ARE
+ * FIXED. The repairs are one tag each — `omitempty` or `nullable:"true"` on
+ * `Task.Reactions` (and `TaskComment.Reactions`, which has the same shape), and a
+ * schema override or string type for `Subscription.EntityType`. Both are model
+ * changes, which bar 1 puts outside this page's remit. Until they land,
+ * `PATCH /api/v2/tasks/{id}` is unusable for EVERY client, not just this one.
+ */
+const PATCH_EXCISED_TASK_FIELDS = Object.freeze({reactions: null, subscription: null});
+
 async function patchTaskInternal(taskId, patch, extraHeaders) {
   const url = forkV2Url(`tasks/${encodeURIComponent(taskId)}`);
   const res = await authedFetch(url, {
     method: 'PATCH',
-    headers: {'Content-Type': 'application/json', ...extraHeaders},
-    body: JSON.stringify(patch),
+    // `application/merge-patch+json` rather than `application/json`. Both reach
+    // AutoPatch's merge branch, but only this one is a declared media type of
+    // the synthesised operation, so it is the one that stays correct if the
+    // undeclared `application/json` alias is ever dropped. It is also what the
+    // fork's own second client sends (veans/internal/client/client.go:54) and
+    // what every AutoPatch test in pkg/webtests/ exercises.
+    headers: {'Content-Type': 'application/merge-patch+json', ...extraHeaders},
+    // Caller last: a patch may one day legitimately restate an excised field, and
+    // it must win. Nothing today does.
+    body: JSON.stringify({...PATCH_EXCISED_TASK_FIELDS, ...patch}),
   });
   return expectOk(res, url);
 }

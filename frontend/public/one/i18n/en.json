@@ -243,9 +243,15 @@
       "settingsPage": "Subscription Settings"
     },
     "edition": {
-      "personal": "ONE Personal Edition",
-      "teams": "ONE Team Edition",
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
       "withRole": "{edition} · {role}"
+    },
+    "subscription": {
+      "personal": "ONE Personal Subscription",
+      "teams": "ONE Teams Subscription",
+      "unknown": "No subscription is recorded for this account on this instance.",
+      "help": "The edition this account is signed in under."
     },
     "role": {
       "personalUser": "Personal user",
@@ -272,27 +278,49 @@
       "percent": "{percent}%",
       "deleteTask": "Delete task",
       "relationTarget": "Task",
+      "relationSearchPlaceholder": "Search tasks…",
+      "relationSearchResults": "Matching tasks",
+      "relationSearchScope": "Showing tasks in {project}.",
+      "relationSearchScopeUnknown": "Showing tasks in this task's project.",
+      "relationSearchNoMatches": "No matching tasks in this project.",
+      "relationChosen": "Selected: {task}",
+      "relationPickRequired": "Choose a task from the list first. Nothing was changed.",
       "labelExample": "e.g. Launch",
       "labelPlaceholder": "Add label…",
       "reminderCount": "{count} reminder | {count} reminders",
       "statusOwnership": {
         "title": "Status & ownership",
-        "subtitle": "The properties you change most often."
+        "subtitle": "Who owns this task at what priority and progress"
       },
       "schedule": {
         "title": "Schedule",
-        "subtitle": "Due date stays visible. Planning details open only when needed."
+        "subtitle": "Plan the task and get reminded, also add date ranges and recurring."
       },
       "repeat": {
         "interval": "Interval",
         "months": "Months",
         "years": "Years",
+        "presetDaily": "Daily",
+        "presetWeekly": "Weekly",
+        "presetMonthly": "Monthly",
+        "presetAnnually": "Annually",
+        "unitOptionDays": "Day(s)",
+        "unitOptionWeeks": "Week(s)",
+        "unitOptionMonths": "Month(s)",
+        "unitOptionYears": "Year(s)",
         "unitDays": "{count} day | {count} days",
         "unitWeeks": "{count} week | {count} weeks",
         "unitMonths": "{count} month | {count} months",
         "unitYears": "{count} year | {count} years",
+        "modeDefault": "From the previous due date",
+        "modeDefaultHelp": "Adds the interval to the dates the task already has, so a task due on a Monday stays due on a Monday even if you finish it late.",
+        "modeMonthly": "Monthly, on the same date",
+        "modeMonthlyHelp": "Moves every date forward one calendar month and keeps the day of the month. The interval below is ignored.",
+        "modeCurrent": "From the completion date",
+        "modeCurrentHelp": "Adds the interval to the day you tick the task off, so the next due date is measured from today.",
         "value": "Every {interval}",
         "summary": "Repeats every {interval}.",
+        "summaryMonthly": "Repeats on the same date every calendar month.",
         "hint": "Set an interval or use a quick preset to make this task repeat."
       },
       "description": {
@@ -346,6 +374,8 @@
       "timezoneHelp": "Used for due dates, reminders and repeating tasks.",
       "subscription": "Your subscription",
       "dataTitle": "Your task data",
+      "currentEmail": "Current email address",
+      "emailUnavailable": "This instance does not return your email address, so it cannot be shown here.",
       "updateEmail": "Update email",
       "updatePassword": "Update password",
       "export": {
@@ -427,7 +457,7 @@
       }
     },
     "deny": {
-      "personalEdition": "This is part of ONE Team Edition.",
+      "personalEdition": "This is part of ONE Teams.",
       "writeRestricted": "Your account is read-only right now.",
       "notAdministrator": "Only the organization administrator can change this.",
       "renameOrg": "Renaming the organization is not available yet.",
@@ -435,7 +465,7 @@
       "rosterUnavailable": "We cannot read this team's members right now.",
       "noTeams": "This organization has no teams yet. Create one first.",
       "commercial": "We could not reach the subscription service, so nothing was changed.",
-      "taskMove": "Moving tasks between projects is part of ONE Team Edition.",
+      "taskMove": "Moving tasks between projects is part of ONE Teams.",
       "forkForbidden": "You are not allowed to do that here. Nothing was changed.",
       "forkNotFound": "We could not find that. Nothing was changed.",
       "forkConflict": "That does not fit the current state, so nothing was changed."

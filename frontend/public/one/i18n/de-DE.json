@@ -229,5 +229,59 @@
       "text": "Deine Rolle oder deine Organisation hat sich in einem anderen Fenster oder auf einem anderen Gerät geändert. Die sichtbaren Bedienelemente wurden für den früheren Stand gezeichnet; sie jetzt zu benutzen würde aus Gründen fehlschlagen, die nicht deine wären. Ein Neuladen bringt dich in eine passende Ansicht zurück.",
       "action": "Seite neu laden"
     }
+  },
+  "one": {
+    "brand": {
+      "logoAlt": "ONE",
+      "taskPage": "Aufgabendetails",
+      "settingsPage": "Abo-Einstellungen"
+    },
+    "edition": {
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
+      "withRole": "{edition} · {role}"
+    },
+    "role": {
+      "personalUser": "Privatnutzer:in",
+      "teamMember": "Teammitglied",
+      "administrator": "Administrator"
+    },
+    "subscription": {
+      "personal": "ONE Personal-Abonnement",
+      "teams": "ONE Teams-Abonnement",
+      "unknown": "Für dieses Konto ist auf dieser Instanz kein Abonnement hinterlegt.",
+      "help": "Die Edition, mit der dieses Konto angemeldet ist."
+    },
+    "settings": {
+      "subscription": "Dein Abonnement",
+      "currentEmail": "Aktuelle E-Mail-Adresse",
+      "emailUnavailable": "Diese Instanz gibt deine E-Mail-Adresse nicht zurück, deshalb kann sie hier nicht angezeigt werden."
+    },
+    "task": {
+      "relationSearchPlaceholder": "Aufgaben suchen…",
+      "relationSearchResults": "Passende Aufgaben",
+      "relationSearchScope": "Zeigt Aufgaben in {project}.",
+      "relationSearchScopeUnknown": "Zeigt Aufgaben aus dem Projekt dieser Aufgabe.",
+      "relationSearchNoMatches": "Keine passenden Aufgaben in diesem Projekt.",
+      "relationChosen": "Ausgewählt: {task}",
+      "relationPickRequired": "Wähle zuerst eine Aufgabe aus der Liste. Es wurde nichts geändert.",
+      "repeat": {
+        "presetDaily": "Täglich",
+        "presetWeekly": "Wöchentlich",
+        "presetMonthly": "Monatlich",
+        "presetAnnually": "Jährlich",
+        "unitOptionDays": "Tag(e)",
+        "unitOptionWeeks": "Woche(n)",
+        "unitOptionMonths": "Monat(e)",
+        "unitOptionYears": "Jahr(e)",
+        "modeDefault": "Ab dem vorherigen Fälligkeitsdatum",
+        "modeDefaultHelp": "Addiert das Intervall auf die Daten, die die Aufgabe bereits hat. Eine Aufgabe, die montags fällig ist, bleibt montags fällig, auch wenn du sie verspätet erledigst.",
+        "modeMonthly": "Monatlich, am selben Datum",
+        "modeMonthlyHelp": "Verschiebt alle Daten um einen Kalendermonat nach vorn und behält den Tag im Monat bei. Das Intervall unten wird ignoriert.",
+        "modeCurrent": "Ab dem Erledigungsdatum",
+        "modeCurrentHelp": "Addiert das Intervall auf den Tag, an dem du die Aufgabe abhakst. Das nächste Fälligkeitsdatum zählt also ab heute.",
+        "summaryMonthly": "Wiederholt sich in jedem Kalendermonat am selben Datum."
+      }
+    }
   }
 }

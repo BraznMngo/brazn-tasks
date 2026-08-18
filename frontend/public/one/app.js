@@ -440,12 +440,36 @@ export function readGateFacts() {
 }
 
 /**
- * The edition to print on the header line and the subscription badge, as a `t()` key, or null
- * when there is nothing true to print.
+ * THE HEADER'S SUBSCRIPTION LINE — the line under the name, top right, on both documents. Returns
+ * the `t()` key that names the edition, or null when there is nothing true to print.
  *
- * `personal-cloud` is the ONLY defined constant (api.js `PERSONAL_EDITION`); every other
- * non-null value is Teams. The wire strings are never displayed — `personal-cloud` is an
- * identifier, not copy.
+ * Both headers route through this one function and neither may be edited from here, so this is
+ * where the contract is written down. `view-settings.js` renders it as
+ * `one.edition.withRole` — "{edition} · {role}" — inside `.settings-role`; `view-task.js` renders
+ * the edition alone as the `<small>` of `.task-user-meta`. Both nodes carry
+ * `data-requires="edition"`, and `edition` is in `GATES_THAT_HIDE`, so a null here does not draw
+ * an empty line: the node is removed.
+ *
+ * THE LOOKUP, and it is a lookup rather than string-matching (ruling C10). `personal-cloud` is the
+ * ONLY defined constant (api.js `PERSONAL_EDITION`, itself the sibling copy of
+ * `useManagedCapabilities.ts`'s `PERSONAL_EDITION`); every other non-null value is Teams. The wire
+ * strings are NEVER displayed — `personal-cloud` is an identifier, not copy, and the two keys
+ * below are the only text a person ever sees for it.
+ *
+ * ABSENT IS NOT TEAMS *HERE*, AND THE DISTINCTION IS DELIBERATE. For CAPABILITY purposes absence
+ * is the permissive case and behaves exactly like Teams — that is ruling C1 and `decideGate`'s
+ * `teams` token implements it. For DISPLAY it is not: an account whose token carries no
+ * `brazn_edition` claim has no edition we have been told about, and printing "ONE Teams" for it
+ * would be stating a subscription the page never read. So the line is absent rather than wrong.
+ *
+ * PM FINDING, RECORDED RATHER THAN PAPERED OVER: "the header shows the name but is missing the
+ * line under it that names the subscription". The line is present in both headers and correct;
+ * what is missing on that session is the CLAIM. Every session without an entitlement projection —
+ * which includes every CI run and every instance with managed mode off — takes the null branch
+ * here and gets no line. If the product decides a claimless account should read as Teams anyway,
+ * the entire change is `if (!facts.hasEdition) return 'one.edition.teams';` on the next line and
+ * dropping `edition` from `GATES_THAT_HIDE`; it is not made here because it would print an
+ * edition nobody sent (bar 7).
  */
 export function editionMessageKey(facts = readGateFacts()) {
   if (!facts.hasEdition) return null;
@@ -1525,9 +1549,34 @@ async function loadViews() {
  * 14. Render
  * ------------------------------------------------------------------ */
 
-/** Re-render the current view. Views call this after they change their own scratch state. */
+/**
+ * Re-render the current view. Views call this after they change their own scratch state, and —
+ * this is the part that matters — after every successful write.
+ *
+ * THE PARTIAL REFRESH AFTER AN EDIT, AND WHY IT WAS BROKEN. `render()` replaces `#app` wholesale,
+ * so the redraw was never the problem: the DATA behind it was. `GET /api/v2/user` was read ONCE,
+ * in `boot()`, and nothing re-read it — `reloadOrganization()` existed, `reloadUser()` did not. So
+ * a view could save a display name, get a 200, call this function, and watch the page redraw the
+ * SAME pre-write body it was drawn from before. The timezone select "jumping back" was the same
+ * defect one field over, and it is why both view modules grew private copies of the account.
+ *
+ * `reloadUser()` below is the repair. This function is where it is TRIGGERED, because it is the
+ * one signal both views already emit after a write and it costs neither of them a line:
+ *
+ *   - only on the settings view. Nothing on the task view can change the account, so the task
+ *     page issues no extra request at all;
+ *   - coalesced and throttled (`ACCOUNT_RESYNC_MIN_INTERVAL_MS`), so a burst of renders — the
+ *     timezone list landing, the avatar bytes landing — is at most one read;
+ *   - and it re-renders ONLY when the payload actually differs from the one on screen. That
+ *     guard is not an optimisation: an unconditional second render would replace `#app` under a
+ *     user who is mid-sentence in the comment box for no reason at all.
+ *
+ * A view that wants the refresh to be part of its own await chain — so its toast lands AFTER the
+ * value it describes — calls `reloadUser()` directly and gets the same single in-flight promise.
+ */
 export function requestRender() {
   render();
+  scheduleAccountResync();
 }
 
 function render() {
@@ -1834,21 +1883,14 @@ export async function boot() {
     // redirect: a redirect mid-edit throws away whatever the user had typed with no warning.
     api.onSessionLost(() => {showSignInSurface();});
 
-    // 2. The user and every preference, in one call.
-    const user = await api.getCurrentUser();
-    state.user = user ?? null;
-    state.settings = user?.settings ?? {};
-    // `frontend_settings` is declared `any` and stored VERBATIM (pkg/models/user_settings.go:45),
-    // so an account written by anything other than the Vue app can legitimately hold a string,
-    // an array or null. Anything that is not a plain object reads as "no preferences", which
-    // lands on auto / 24-hour rather than throwing on a property access.
-    const frontend = state.settings.frontend_settings;
-    state.frontendSettings = frontend !== null && typeof frontend === 'object' && !Array.isArray(frontend)
-      ? frontend
-      : {};
-
-    // 3. The palette before anything paints, so there is no light flash on a dark account.
-    applyColorScheme(state.frontendSettings.color_schema);
+    // 2. The user and every preference, in one call — and 3. the palette before anything paints,
+    //    so there is no light flash on a dark account. Both are `adoptAccount`, which is the SAME
+    //    function every later re-read goes through (§15b): boot used to be the only place that
+    //    turned this body into page state, which is precisely why nothing could refresh it.
+    //
+    //    The formatters are the one part boot still builds itself, and only because of ordering:
+    //    they need the negotiated locale, and the preference that negotiates it is in this body.
+    adoptAccount(await api.getCurrentUser(), {deriveFormatters: false});
 
     // 4. The language. Everything after this may call t().
     const locale = await initI18n(state.settings.language, navigatorLanguages());
@@ -1946,6 +1988,153 @@ export async function reloadOrganization() {
   await loadOrganization();
   await loadTeams();
   render();
+}
+
+/* ------------------------------------------------------------------ *
+ * 15b. The account read — the one thing that was loaded once and never again
+ * ------------------------------------------------------------------ */
+
+/**
+ * A cheap stand-in for "is this the same account body we are already showing". `GET /api/v2/user`
+ * is a Go struct marshalled by `encoding/json`, so its key order is stable across responses and a
+ * string compare is a sound equality test for it. If two identical bodies ever did compare
+ * different the only cost is one extra render, which is the safe direction: the guard exists to
+ * suppress a pointless redraw, not to be authoritative about anything.
+ */
+let accountFingerprint = null;
+/** The single in-flight read, in the same shape as api.js's refresh promise. */
+let accountReloadInFlight = null;
+let accountReadAt = 0;
+/**
+ * The floor between two account reads. Long enough that a burst of renders costs one request,
+ * short enough that a save followed immediately by a render never waits for it — a save is
+ * always more than this apart from the render that preceded it, because a round trip happened in
+ * between.
+ */
+const ACCOUNT_RESYNC_MIN_INTERVAL_MS = 1500;
+
+/**
+ * Adopt a `GET /api/v2/user` body as the page's account state and RE-DERIVE EVERYTHING THAT HANGS
+ * OFF IT. One function for the boot read and for every re-read, so the two cannot drift — which
+ * they did: boot applied the colour scheme and built the formatters, and there was no other path,
+ * so a timezone saved after boot left every date on the page formatted in the old zone until a
+ * full reload.
+ *
+ * `deriveFormatters:false` is for the boot call ALONE, and only because of ordering: boot reads
+ * the user BEFORE it negotiates the language (the preference it negotiates from is in this very
+ * body), and `buildFormatters` takes the resolved locale. Boot therefore builds them itself one
+ * step later. Every other caller gets them here.
+ *
+ * WHAT IT DELIBERATELY DOES NOT DO: re-negotiate the language. `initI18n` loads catalogues and
+ * hydrates the shell once (ruling C10's boot ordering), and swapping catalogues under a rendered
+ * page is a second hydration pass rather than a refresh. Nothing on either page writes
+ * `settings.language`, so no control can reach that state; if one is ever added it needs a full
+ * reload, not this function.
+ *
+ * @returns {boolean} whether the body differs from the one already on screen. False on the first
+ *   adoption — there was nothing on screen to differ from.
+ */
+function adoptAccount(user, {deriveFormatters = true} = {}) {
+  const settings = user?.settings ?? {};
+  // `frontend_settings` is declared `any` and stored VERBATIM (pkg/models/user_settings.go:45),
+  // so an account written by anything other than the Vue app can legitimately hold a string, an
+  // array or null. Anything that is not a plain object reads as "no preferences", which lands on
+  // auto / 24-hour rather than throwing on a property access.
+  const frontend = settings.frontend_settings;
+  const frontendSettings = frontend !== null && typeof frontend === 'object' && !Array.isArray(frontend)
+    ? frontend
+    : {};
+
+  const fingerprint = fingerprintAccount(user);
+  const changed = accountFingerprint !== null && accountFingerprint !== fingerprint;
+  accountFingerprint = fingerprint;
+  accountReadAt = Date.now();
+
+  state.user = user ?? null;
+  state.settings = settings;
+  state.frontendSettings = frontendSettings;
+
+  applyColorScheme(frontendSettings.color_schema);
+  if (deriveFormatters) {
+    buildFormatters(currentLocale(), settings.timezone, frontendSettings.time_format);
+  }
+  return changed;
+}
+
+function fingerprintAccount(user) {
+  try {
+    return JSON.stringify(user ?? null);
+  } catch {
+    // Unstringifiable is not "unchanged": a unique value makes the next comparison report a
+    // change, which costs one render and never suppresses a real one.
+    return `unstringifiable:${Date.now()}:${Math.random()}`;
+  }
+}
+
+/**
+ * RE-READ THE ACCOUNT. This is the missing half of "the section must reflect the new value" — the
+ * counterpart of `reloadOrganization()` for the user half of `boot()`.
+ *
+ * Both views may call it directly and AWAIT it before they toast, which is the ordering that
+ * matters: a success message that lands ahead of the value it describes is what made a stale
+ * render look like a failed save. Concurrent callers share ONE request — the same single
+ * in-flight promise shape api.js uses for the token refresh — so the view's own await and the
+ * render-triggered resync can never become two reads.
+ *
+ * It renders only when the body actually changed (see `requestRender`).
+ *
+ * FAILURE POLICY. A failed re-read is NOT a failed write and must never be reported as one: the
+ * write already landed, and saying otherwise invites the user to repeat an edit the server has
+ * already taken. It is logged, the previous copy stands, and the page is exactly as stale as it
+ * was a moment ago. `SessionLostError` is the one exception and is rethrown, because app.js owns
+ * the terminal surface for it and swallowing it here would leave a dead page with no explanation.
+ *
+ * @returns {Promise<boolean>} whether anything changed.
+ */
+export function reloadUser() {
+  if (accountReloadInFlight !== null) return accountReloadInFlight;
+  // The chain is started from a microtask, and the release is on the OUTER promise, so the field
+  // is always assigned before anything can clear it. Clearing it inside `readAccount`'s own
+  // `finally` looked equivalent and is not: `api.getCurrentUser` is a plain function, so a throw
+  // before its first await would run that `finally` synchronously — nulling the field a moment
+  // BEFORE the line below set it — and the settled promise would stay pinned here for the life of
+  // the page, with every later re-read resolving instantly against a body nobody re-fetched.
+  accountReloadInFlight = Promise.resolve()
+    .then(readAccount)
+    .finally(() => {accountReloadInFlight = null;});
+  return accountReloadInFlight;
+}
+
+async function readAccount() {
+  try {
+    const changed = adoptAccount(await api.getCurrentUser());
+    if (changed) render();
+    return changed;
+  } catch (err) {
+    if (err instanceof api.SessionLostError) throw err;
+    console.error('[one/app] the account re-read failed', err);
+    return false;
+  }
+}
+
+/**
+ * The render-driven trigger. Deliberately fire-and-forget and deliberately silent about a
+ * `SessionLostError`: `api.onSessionLost` already draws the terminal surface for that, and a
+ * background refresh must not be the thing that reports it twice.
+ */
+function scheduleAccountResync() {
+  if (!state.ready || state.failed || state.sessionEnded) return;
+  // Nothing on the task view can change the account, so it pays nothing for this.
+  if (state.route.view !== 'settings') return;
+  if (accountReloadInFlight !== null) return;
+  const now = Date.now();
+  if (now - accountReadAt < ACCOUNT_RESYNC_MIN_INTERVAL_MS) return;
+  // The slot is claimed BEFORE the await, so a failed read cannot be retried on every render.
+  accountReadAt = now;
+  reloadUser().catch((err) => {
+    if (err instanceof api.SessionLostError) return;
+    console.error('[one/app] the account resync failed', err);
+  });
 }
 
 /* ------------------------------------------------------------------ *

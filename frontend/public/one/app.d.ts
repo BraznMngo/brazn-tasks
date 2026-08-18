@@ -232,12 +232,31 @@ export function setViewState(ns: string, patch: Record<string, any>): void
 
 /** Re-read `GET /api/v1/brazn/organization` and every roster, then render. */
 export function reloadOrganization(): Promise<void>
-/** Re-render the current view. */
+/**
+ * Re-read `GET /api/v2/user`, adopt it as the page's account state, re-derive the colour scheme
+ * and the date/time formatters from it, and render when the body actually changed.
+ *
+ * The user half of `reloadOrganization()`, and the supported way to make a section reflect a value
+ * that was just written. AWAIT IT BEFORE TOASTING so the success message never lands ahead of the
+ * value it describes. Concurrent callers share one in-flight request.
+ *
+ * Resolves `false` and logs when the re-read itself fails — a failed re-read is not a failed
+ * write. Rejects only with `SessionLostError`, which app.js's terminal surface owns.
+ */
+export function reloadUser(): Promise<boolean>
+/**
+ * Re-render the current view, and — on the settings view only — schedule a coalesced, throttled
+ * `reloadUser()` so a section redrawn after a write is redrawn from the server's copy rather than
+ * from boot's.
+ */
 export function requestRender(): void
 
 /* --- formatters --------------------------------------------------- */
 
-/** Built once on boot from the negotiated locale, `timezone` and `frontend_settings.time_format`. */
+/**
+ * Built from the negotiated locale, `timezone` and `frontend_settings.time_format` — on boot, and
+ * again on every `reloadUser()`, so a saved timezone takes effect without a page reload.
+ */
 export function buildFormatters(
 	locale: string,
 	timezone: string | null | undefined,

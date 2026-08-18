@@ -12,8 +12,17 @@
  * PORTED FROM THE PROTOTYPE, which is the authority on design, layout and scope (bar 10):
  * `taskHeader()` 1002-1011, `repeatBuilder()` 1019-1026, `taskProperties()` 1028-1040,
  * `taskContent()` 1045-1052, `resourcesPanel()` 1053-1059, `commentsPanel()` 1060-1063,
- * `morePopover()` 1078-1084, and the five task modals 1143-1146 / 1216. Every `isLive()` branch
+ * `morePopover()` 1078-1084, and four of the five task modals, 1143-1146. Every `isLive()` branch
  * collapses to the live arm; the demo arm, the role switcher and the editor toolbar are gone.
+ *
+ * WHERE THE PM OVERRODE THE PROTOTYPE (round 2, reviewing the running product on dev). Bar 10
+ * makes the prototype the scope bar, but a PM instruction outranks it, and these five places are
+ * the ones where this file now deliberately differs from `prototype-pristine.html`:
+ *   - the repeat presets are Daily / Weekly / Monthly / Annually, not the prototype's three;
+ *   - the repeat MODE select offers all three modes the backend has, not two;
+ *   - the resource tab labels carry no count badge;
+ *   - the task-colour modal (prototype 1216) is not ported and its menu row is gone;
+ *   - the relation modal's free-text task box is a search field with a results list.
  * `taskSummary()` (1064-1074) is NOT ported: it is dead in the pristine file — defined, never
  * called — and dead code renders nothing, so bar 10 covers it (SPEC-UI DISPUTES 4).
  *
@@ -84,22 +93,68 @@ const PRIORITIES = Object.freeze([
  * Repeat units. `seconds` is what `repeat_after` takes (pkg/models/tasks.go:82).
  *
  * Months and years are the prototype's approximations (30 and 365 days, lines 716-722) and are
- * kept rather than corrected: the server has no calendar-month interval except `repeat_mode: 1`,
- * which `repeatPayload` below emits for the one case that maps onto it exactly (every 1 month,
- * default mode). Inventing a truer encoding would be inventing a field.
+ * kept rather than corrected: `repeat_after` is a flat second count and the server owns no
+ * calendar arithmetic for it. The one calendar interval the server DOES own is the monthly repeat
+ * mode, which is now its own entry in the mode select rather than something this file synthesises
+ * from a unit — see `REPEAT_MODES`. Inventing a truer encoding would be inventing a field.
+ *
+ * Index 2 is the label the unit DROPDOWN shows and index 3 is the "{count} days" sentence
+ * fragment the summary line interpolates. They are two different strings for a reason: PM round
+ * 2 asked the dropdown to read "Day(s)" — a bare unit next to a number field — while the summary
+ * still needs a counted phrase.
  */
 const REPEAT_UNITS = Object.freeze([
-  ['days', 86400, 'task.repeat.days', 'one.task.repeat.unitDays'],
-  ['weeks', 7 * 86400, 'task.repeat.weeks', 'one.task.repeat.unitWeeks'],
-  ['months', 30 * 86400, 'one.task.repeat.months', 'one.task.repeat.unitMonths'],
-  ['years', 365 * 86400, 'one.task.repeat.years', 'one.task.repeat.unitYears'],
+  ['days', 86400, 'one.task.repeat.unitOptionDays', 'one.task.repeat.unitDays'],
+  ['weeks', 7 * 86400, 'one.task.repeat.unitOptionWeeks', 'one.task.repeat.unitWeeks'],
+  ['months', 30 * 86400, 'one.task.repeat.unitOptionMonths', 'one.task.repeat.unitMonths'],
+  ['years', 365 * 86400, 'one.task.repeat.unitOptionYears', 'one.task.repeat.unitYears'],
 ]);
 
-/** The three quick presets the prototype offers (1022). Values, not labels. */
+/**
+ * THE THREE REPEAT MODES THE BACKEND ACTUALLY SUPPORTS — the whole set, and no more.
+ *
+ * `TaskRepeatMode` is an `iota` block of exactly three values (pkg/models/tasks.go:43-49) and the
+ * generated contract enumerates the same three and nothing else (pkg/swagger/swagger.json:
+ * 10360-10371). `updateDone` switches over all three when a task is marked done
+ * (pkg/models/tasks.go:1769-1777); each arm is a different date helper:
+ *
+ *   0 `TaskRepeatModeDefault`        (:46) -> `setTaskDatesDefault`          (:1613-1647)
+ *   1 `TaskRepeatModeMonth`          (:47) -> `setTaskDatesMonthRepeat`      (:1649-1676)
+ *   2 `TaskRepeatModeFromCurrentDate`(:48) -> `setTaskDatesFromCurrentDateRepeat` (:1678-1744)
+ *
+ * Index 0 is the value this file's own repeat object carries, index 1 the wire integer, index 2
+ * the option label and index 3 the short explanation shown as the option's tooltip AND on the
+ * help line under the select — a `title` is invisible to a keyboard user, so it is not the only
+ * copy of the sentence.
+ *
+ * The mode select previously offered two of the three (default and from-current-date) and reached
+ * the third only by accident, when the unit happened to be "months" and the count happened to be
+ * 1. That is the PM's finding 3 and it is fixed by making the mode explicit.
+ */
+const REPEAT_MODES = Object.freeze([
+  ['default', 0, 'one.task.repeat.modeDefault', 'one.task.repeat.modeDefaultHelp'],
+  ['monthly', 1, 'one.task.repeat.modeMonthly', 'one.task.repeat.modeMonthlyHelp'],
+  ['current', 2, 'one.task.repeat.modeCurrent', 'one.task.repeat.modeCurrentHelp'],
+]);
+
+/** A mode token -> its row, falling back to the default mode for anything unrecognised. */
+function repeatModeEntry(mode) {
+  return REPEAT_MODES.find((entry) => entry[0] === mode) ?? REPEAT_MODES[0];
+}
+
+/**
+ * The four quick presets. Values, not labels: `[every, unit, mode, labelKey]`.
+ *
+ * PM round 2, finding 2: the labels are "Daily" / "Weekly" / "Monthly" / "Annually", and
+ * "Annually" is new. Monthly is the CALENDAR month — repeat mode 1 — not thirty days, because
+ * that mode is what the server offers for it and a preset called "Monthly" that drifts a day or
+ * two every month is the wrong answer to the label.
+ */
 const REPEAT_PRESETS = Object.freeze([
-  [1, 'days', 'task.repeat.everyDay'],
-  [1, 'weeks', 'task.repeat.everyWeek'],
-  [30, 'days', 'task.repeat.every30d'],
+  [1, 'days', 'default', 'one.task.repeat.presetDaily'],
+  [1, 'weeks', 'default', 'one.task.repeat.presetWeekly'],
+  [1, 'months', 'monthly', 'one.task.repeat.presetMonthly'],
+  [1, 'years', 'default', 'one.task.repeat.presetAnnually'],
 ]);
 
 /**
@@ -125,18 +180,6 @@ const REMINDER_RELATION_KEY = Object.freeze({
 });
 
 /**
- * The task colours, prototype `TASK_COLOR_HEX` (570). The hex is the wire value of `hex_color`,
- * WITHOUT the leading '#' (pkg/models/tasks.go:96).
- */
-const TASK_COLORS = Object.freeze([
-  ['', 'one.common.none'],
-  ['3a7afe', 'one.task.color.blue'],
-  ['6c5ce7', 'one.task.color.purple'],
-  ['ff4d4f', 'one.task.color.red'],
-  ['23c16b', 'one.task.color.green'],
-]);
-
-/**
  * The prototype's icon set, trimmed to the fourteen the task view actually draws (ICON, 510-540).
  * `ICON.back` is gone with the `back` stub — the host app draws its own chrome.
  */
@@ -160,12 +203,12 @@ const ICON = Object.freeze({
 const ic = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[name] ?? ''}</svg>`;
 
 /**
- * The three popover glyphs the prototype uses in place of icons (1082): favourite, duplicate and
- * task colour. They are DECORATIVE and `aria-hidden`, exactly as `ic()` marks its SVGs, so they
- * carry no meaning a screen reader loses and nothing to translate. Kept rather than replaced with
- * new artwork, which would be a redesign (bar 10).
+ * The popover glyphs the prototype uses in place of icons (1082): favourite and duplicate. They
+ * are DECORATIVE and `aria-hidden`, exactly as `ic()` marks its SVGs, so they carry no meaning a
+ * screen reader loses and nothing to translate. Kept rather than replaced with new artwork, which
+ * would be a redesign (bar 10). The third, `◉` for the task colour, went with that control.
  */
-const GLYPH = Object.freeze({favorite: '☆', duplicate: '⧉', color: '◉'});
+const GLYPH = Object.freeze({favorite: '☆', duplicate: '⧉'});
 
 const glyph = (name) => `<span aria-hidden="true">${GLYPH[name] ?? ''}</span>`;
 
@@ -307,17 +350,25 @@ function taskIdentifier(task) {
  * `repeat_after` seconds + `repeat_mode` -> the builder's three controls. Prototype `loadRepeat`
  * (729-738), with its state mutation replaced by a returned value.
  *
- * `repeat_mode: 1` is the calendar-month mode and ignores `repeat_after` entirely
- * (pkg/models/tasks.go:84), so it reads back as "every 1 month" and nothing else.
+ * MODE 1 IGNORES `repeat_after` ENTIRELY. `setTaskDatesMonthRepeat` never reads the field
+ * (pkg/models/tasks.go:1649-1676) and `isRepeating()` counts mode 1 as repeating even when
+ * `repeat_after` is zero (:204-207) — so a monthly task reads back as monthly and the interval
+ * controls carry no information about it.
+ *
+ * The years and months branches are new in PM round 2: with "Annually" now a preset, a 365-day
+ * interval would otherwise have read back as "365 days" and no preset would have looked selected.
+ * Order matters — years before months before weeks — because 365 days is not a whole number of
+ * weeks and 360 days is twelve of these months.
  */
 function readRepeat(task) {
   const mode = Number(task?.repeat_mode) || 0;
   const seconds = Number(task?.repeat_after) || 0;
-  if (mode === 1) return {active: true, mode: 'default', every: 1, unit: 'months'};
+  if (mode === 1) return {active: true, mode: 'monthly', every: 1, unit: 'months'};
   if (seconds <= 0) return {active: false, mode: 'default', every: 1, unit: 'days'};
   const named = mode === 2 ? 'current' : 'default';
-  if (seconds % (7 * 86400) === 0) return {active: true, mode: named, every: seconds / (7 * 86400), unit: 'weeks'};
-  if (seconds % 86400 === 0) return {active: true, mode: named, every: seconds / 86400, unit: 'days'};
+  for (const [unit, unitSeconds] of [...REPEAT_UNITS].reverse()) {
+    if (seconds % unitSeconds === 0) return {active: true, mode: named, every: seconds / unitSeconds, unit};
+  }
   return {active: true, mode: named, every: Math.max(1, Math.round(seconds / 86400)), unit: 'days'};
 }
 
@@ -326,13 +377,21 @@ function repeatSeconds(repeat) {
   return Math.max(1, Number(repeat.every) || 1) * unit[1];
 }
 
-/** The builder's three controls -> the two wire fields. Prototype `repeatPayload` (724-728). */
+/**
+ * The builder's three controls -> the two wire fields. Prototype `repeatPayload` (724-728).
+ *
+ * CHANGED IN PM ROUND 2, and the change is worth naming: the monthly mode used to be reached only
+ * implicitly, by picking the "months" unit with a count of 1, and picking two months quietly sent
+ * a sixty-day interval under the default mode instead. The mode is now what the user chose, so
+ * "months" as a UNIT is an ordinary 30-day interval and the calendar month is the MODE.
+ */
 function repeatPayload(repeat) {
   if (!repeat.active) return {repeat_after: 0, repeat_mode: 0};
-  if (repeat.unit === 'months' && Number(repeat.every) === 1 && repeat.mode === 'default') {
-    return {repeat_after: 0, repeat_mode: 1};
-  }
-  return {repeat_after: repeatSeconds(repeat), repeat_mode: repeat.mode === 'current' ? 2 : 0};
+  const [, wireMode] = repeatModeEntry(repeat.mode);
+  // Mode 1 ignores repeat_after, so sending a stale interval alongside it would store a number
+  // the server never reads and this file would then read back as the interval it is not using.
+  if (wireMode === 1) return {repeat_after: 0, repeat_mode: 1};
+  return {repeat_after: repeatSeconds(repeat), repeat_mode: wireMode};
 }
 
 /** The interval as a sentence fragment: "2 days", "1 month". */
@@ -782,41 +841,86 @@ function progressField(task) {
       aria-label="${esc(t('task.attributes.percentDone'))}"></div></div>`;
 }
 
-/** The repeat builder. Prototype `repeatBuilder()` (1019-1026). */
+/**
+ * The repeat builder. Prototype `repeatBuilder()` (1019-1026).
+ *
+ * THE GATE MOVED TO THE WRAPPER, AND THAT IS PM FINDING 1's FIX. It used to sit on each of the
+ * seven controls inside, which meant a refusal — from the gate on a write-restricted account, or
+ * from a failed write on any account — inserted a `.refusal-text` next to the control that
+ * carried it. `renderRefusal` places that sentence as the control's next SIBLING (app.js), so for
+ * a preset button the sentence landed inside `.repeat-presets`, a flex row nested in
+ * `.repeat-top`. `.repeat-top` is `display:flex` with `justify-content:space-between` and NO
+ * `flex-wrap` (one.css:398) and its first child has no `min-inline-size:0`, so a full sentence
+ * arriving inside the second flex item blew the row's max-content width out and squeezed the
+ * "Repeat" label to nothing. That is the design break the PM saw on "Every day".
+ *
+ * The stylesheet is not this agent's file to change, so the fix is structural and lives here:
+ *
+ *   1. ONE gate, on `.repeat-builder`, which is a block box (`grid-column:1/-1`, one.css:397).
+ *      `refuseControl` recurses into every form control inside a gated group (app.js), so all
+ *      seven are still refused and still announced — nothing is lost by hanging the gate higher.
+ *   2. ONE pre-placed `.refusal-text` as a direct child of that block. `renderRefusal` prefers a
+ *      `:scope > .refusal-text` the view already placed over creating one, so BOTH the gate path
+ *      and every failed repeat write now write into a full-width paragraph in normal flow. It is
+ *      `:empty` and therefore `display:none` until something is written into it (one.css:252).
+ *
+ * The panel survives a refusal intact either way; the sentence simply appears underneath it.
+ */
 function repeatBuilder(task) {
   const repeat = readRepeat(task);
-  const presets = REPEAT_PRESETS.map(([every, unit, key]) => {
-    const on = repeat.active && repeat.every === every && repeat.unit === unit;
+  const presets = REPEAT_PRESETS.map(([every, unit, mode, key]) => {
+    const on = repeat.active && repeat.mode === mode && repeat.every === every && repeat.unit === unit;
     return `<button class="repeat-preset${on ? ' on' : ''}" data-action="repeat-preset"
-      data-every="${every}" data-unit="${unit}" data-requires="write">${esc(t(key))}</button>`;
+      data-every="${every}" data-unit="${unit}" data-mode="${mode}">${esc(t(key))}</button>`;
   }).join('');
-  return `<div class="repeat-builder"><div class="repeat-top">
+  const modeEntry = repeatModeEntry(repeat.mode);
+  return `<div class="repeat-builder" data-requires="write"><div class="repeat-top">
     <div><label class="label" style="margin:0">${ic('repeat')} ${esc(t('task.attributes.repeat'))}</label></div>
     <div class="repeat-presets">${presets}</div>
-    ${repeat.active ? `<button class="repeat-clear" data-action="repeat-clear" data-requires="write"
+    ${repeat.active ? `<button class="repeat-clear" data-action="repeat-clear"
       aria-label="${esc(t('task.detail.removeRepeat'))}">${ic('close')}</button>` : ''}
   </div>
   <div class="repeat-fields">
     <div><label class="label">${esc(t('task.repeat.mode'))}</label>
-      <select class="select" id="repeatMode" data-requires="write">
-        <option value="default"${repeat.mode === 'default' ? ' selected' : ''}>${esc(t('misc.default'))}</option>
-        <option value="current"${repeat.mode === 'current' ? ' selected' : ''}>${esc(t('task.repeat.fromCurrentDate'))}</option>
+      <select class="select" id="repeatMode">
+        ${REPEAT_MODES.map(([name, , labelKey, helpKey]) => `<option value="${name}"${
+          repeat.mode === name ? ' selected' : ''} title="${esc(t(helpKey))}"
+          >${esc(t(labelKey))}</option>`).join('')}
       </select></div>
     <div><label class="label">${esc(t('one.task.repeat.interval'))}</label>
       <div class="repeat-each">
         <span class="label-inline">${esc(t('task.repeat.each'))}</span>
         <input class="input" id="repeatEvery" type="number" min="1" step="1" value="${repeat.every}"
-          data-requires="write" aria-label="${esc(t('one.task.repeat.interval'))}">
-        <select class="select" id="repeatUnit" data-requires="write"
           aria-label="${esc(t('one.task.repeat.interval'))}">
+        <select class="select" id="repeatUnit" aria-label="${esc(t('one.task.repeat.interval'))}">
           ${REPEAT_UNITS.map(([name, , key]) => `<option value="${name}"${repeat.unit === name ? ' selected' : ''}
             >${esc(t(key))}</option>`).join('')}
         </select>
       </div></div>
   </div>
-  <div class="help">${esc(repeat.active
-    ? t('one.task.repeat.summary', {interval: repeatIntervalText(repeat)})
-    : t('one.task.repeat.hint'))}</div></div>`;
+  <!-- The mode explanation is rendered as TEXT and not left to the option's 'title': a tooltip
+       needs a pointer, and the difference between the three modes is the one thing a user cannot
+       guess from the labels. The change handler rewrites this node the instant the select moves,
+       so it is right before the PATCH answers rather than only after the re-read. -->
+  <div class="help" id="repeatModeHelp">${esc(t(modeEntry[3]))}</div>
+  <div class="help">${esc(repeatSummary(repeat))}</div>
+  <p class="refusal-text"></p></div>`;
+}
+
+/** The line under the builder: what this task's repeat currently does, in one sentence. */
+function repeatSummary(repeat) {
+  if (!repeat.active) return t('one.task.repeat.hint');
+  // The monthly mode has no interval to name — it is one calendar month, always.
+  if (repeat.mode === 'monthly') return t('one.task.repeat.summaryMonthly');
+  return t('one.task.repeat.summary', {interval: repeatIntervalText(repeat)});
+}
+
+/**
+ * Where every repeat refusal goes: the panel itself, so `renderRefusal` finds the pre-placed
+ * `.refusal-text` inside it instead of inserting one next to a pill in a non-wrapping flex row.
+ */
+function repeatPanel() {
+  return document.querySelector('.repeat-builder');
 }
 
 /** Prototype `taskProperties()` (1028-1040). */
@@ -936,10 +1040,15 @@ function resourcesPanel(state) {
   </div>`;
 }
 
+/**
+ * PM ROUND 2, FINDING 5: THE TAB LABELS CARRY NO COUNT. They read "Attachments" and "Related
+ * Tasks" and nothing else — the prototype's trailing `<span>` badge rendered as "Attachments 1",
+ * which reads as a label with a stray number welded to it rather than as a count.
+ *
+ * The counts are not recomputed anywhere else, so both derivations are gone with the badges
+ * rather than left behind unused.
+ */
 function resourcesSection(state) {
-  const task = state.task;
-  const attachments = Array.isArray(task?.attachments) ? task.attachments.length : 0;
-  const relations = relationRows(task).length;
   const tab = state.resourceTab === 'relations' ? 'relations' : 'attachments';
   return `<section class="card section-card">
     <div class="section-head"><div>
@@ -947,9 +1056,9 @@ function resourcesSection(state) {
       <div class="card-sub">${esc(t('one.task.resources.subtitle'))}</div>
     </div><div class="tabs">
       <button data-resource="attachments" class="${tab === 'attachments' ? 'on' : ''}"
-        >${esc(t('task.attachment.title'))} <span>${esc(formatNumber(attachments))}</span></button>
+        >${esc(t('task.attachment.title'))}</button>
       <button data-resource="relations" class="${tab === 'relations' ? 'on' : ''}"
-        >${esc(t('task.attributes.relatedTasks'))} <span>${esc(formatNumber(relations))}</span></button>
+        >${esc(t('task.attributes.relatedTasks'))}</button>
     </div></div>${resourcesPanel(state)}</section>`;
 }
 
@@ -1124,22 +1233,156 @@ function remindersModal(state) {
 }
 
 /**
- * Add relation. Prototype `relationModal()` (1144).
+ * Add relation. Prototype `relationModal()` (1144), with the prototype's free-text task box
+ * replaced by a search field and a short results list (PM round 2, finding 7). Section 7b below
+ * carries the route verification, the project scoping and the picker's whole behaviour.
  *
- * The task picker's data source is `GET /api/v2/tasks?q=` — verified the same way as the project
- * picker, at the registration site `tasks-list` (pkg/routes/api/v2/task_collection.go:135). The
- * free-text field is the prototype's; `save-relation` resolves it below.
+ * Opening the modal CLEARS the previous pick and invalidates any search still in flight. Without
+ * the reset, closing the modal with a task highlighted and reopening it would present an empty
+ * box that was silently still holding the old target, and the next save would relate that one.
  */
-function relationModal() {
-  modal('task.relation.add', `<label class="label">${esc(t('task.relation.select'))}</label>
+function relationModal(state) {
+  relationPick = null;
+  relationSearchToken += 1;
+  const project = projectLabel(state);
+  modal('task.relation.add', `<div><label class="label">${esc(t('task.relation.select'))}</label>
     <select class="select" id="relationType" aria-label="${esc(t('task.relation.select'))}">
       ${api.RELATION_KINDS.map((kind) => `<option value="${esc(kind)}">${esc(relationKindLabel(kind))}</option>`).join('')}
-    </select>
-    <label class="label">${esc(t('one.task.relationTarget'))}</label>
-    <input class="input" id="relationTask" placeholder="${esc(t('task.relation.searchPlaceholder'))}"
-      aria-label="${esc(t('one.task.relationTarget'))}">`,
+    </select></div>
+    <div>
+      <label class="label" for="relationSearch">${esc(t('one.task.relationTarget'))}</label>
+      <input class="input" id="relationSearch" type="search" autocomplete="off"
+        placeholder="${esc(t('one.task.relationSearchPlaceholder'))}"
+        aria-label="${esc(t('one.task.relationTarget'))}" aria-controls="relationResults"
+        aria-autocomplete="list" aria-expanded="false">
+      <div class="relation-list" id="relationResults" role="listbox"
+        aria-label="${esc(t('one.task.relationSearchResults'))}"
+        style="margin-top:8px;max-block-size:188px;overflow-y:auto"></div>
+      <div class="help" id="relationSearchHelp">${esc(project === ''
+        ? t('one.task.relationSearchScopeUnknown')
+        : t('one.task.relationSearchScope', {project}))}</div>
+    </div>`,
   `${cancelButton()}<button class="btn primary" data-action="save-relation" data-requires="write"
     >${esc(t('task.detail.actions.relatedTasks'))}</button>`);
+}
+
+/* ------------------------------------------------------------------ *
+ * 7b. The relation task picker (PM round 2, finding 7)
+ * ------------------------------------------------------------------ */
+
+/**
+ * THE FREE-TEXT FIELD IS GONE. It took whatever the user typed and `resolveRelationTask` then
+ * guessed what they meant — a bare number was read as a task id, anything else was searched, and
+ * an ambiguous answer silently produced nothing. Guessing is the wrong shape for this control:
+ * `POST /api/v2/tasks/{task}/relations` creates the INVERSE relation server-side, so a wrong
+ * guess writes to a task the user never named. The user now picks a row and the id comes off
+ * that row.
+ *
+ * THE ROUTE, verified before wiring exactly as ruling C3 requires:
+ *
+ *   `GET /api/v2/tasks?q=` — operation `tasks-list`, registered at
+ *   pkg/routes/api/v2/task_collection.go:129-139. Already wrapped by `api.searchTasks`, which
+ *   this file may call; nothing new is invented and no route is added (bar 1, bar 7).
+ *
+ * `pkg/routes/route-classification.json` CANNOT answer a GET, and that is a property of the file
+ * rather than a gap in this check: it holds 265 rows and every one is a mutating method (ANY 11,
+ * DELETE 54, PATCH 18, POST 120, PUT 62 — zero GET), because it classifies only routes the
+ * managed gate can refuse. `api.listProjects` records the same finding for the move picker. The
+ * registration site is therefore the verification, and the route exists, so this control is wired
+ * rather than left disabled.
+ *
+ * SCOPING TO THE CURRENT PROJECT is done on the rows that come back, not in the query. A truly
+ * server-side scope exists — `GET /api/v2/projects/{project}/tasks`, operation
+ * `project-tasks-list` at pkg/routes/api/v2/task_collection.go:141-149, which takes the same `q`
+ * — but `api.js` exports no wrapper for it and `api.js` is not this agent's file to edit. The
+ * filter below is the same rule applied one hop later; it is reported as a follow-up rather than
+ * papered over, because it spends part of the page budget on rows it then discards.
+ */
+let relationPick = null;
+let relationSearchToken = 0;
+let relationSearchTimer = null;
+
+/** How many rows the dropdown shows. A picker is a shortlist; a long one is a second search. */
+const RELATION_RESULT_LIMIT = 8;
+
+/** Long enough to swallow a burst of typing, short enough that the list feels attached to it. */
+const RELATION_SEARCH_DEBOUNCE_MS = 250;
+
+/**
+ * Run the search for what is currently typed.
+ *
+ * `relationSearchToken` is the ordering guard: keystrokes race, and an earlier, slower answer
+ * arriving after a later one would repaint the list with results for a query the box no longer
+ * holds. Only the newest token may paint.
+ */
+async function runRelationSearch(query) {
+  const raw = String(query ?? '').trim();
+  const token = ++relationSearchToken;
+  if (raw === '') {
+    paintRelationResults('');
+    return;
+  }
+  paintRelationResults(`<div class="empty-state">${esc(t('misc.loading'))}</div>`);
+
+  let found;
+  try {
+    found = items(await api.searchTasks(raw, {perPage: 50}));
+  } catch (err) {
+    if (token !== relationSearchToken) return;
+    if (err instanceof api.SessionLostError) return; // app.js owns the terminal surface.
+    console.error('[one/view-task] relation search failed', err);
+    paintRelationResults(`<div class="empty-state">${esc(refusalSentence(describeForkError(err)))}</div>`);
+    return;
+  }
+  if (token !== relationSearchToken) return;
+
+  const state = getViewState(NS);
+  const projectId = state.task?.project_id;
+  const rows = found.filter((task) =>
+    // The task cannot be related to itself, and offering the row the user is standing on is a
+    // trap the server would answer with a refusal.
+    String(task?.id) !== String(state.taskId)
+    && String(task?.project_id) === String(projectId)).slice(0, RELATION_RESULT_LIMIT);
+
+  if (rows.length === 0) {
+    paintRelationResults(`<div class="empty-state">${esc(t('one.task.relationSearchNoMatches'))}</div>`);
+    return;
+  }
+  paintRelationResults(rows.map((task) => `<button type="button" class="file-row" role="option"
+    aria-selected="false" data-action="pick-relation-task" data-task-id="${esc(task?.id)}"
+    data-task-title="${esc(task?.title ?? '')}" style="inline-size:100%;text-align:start">
+    <div class="row-grow">
+      <div class="row-title">${esc(task?.title ?? '')}</div>
+      <div class="row-meta">${esc(taskIdentifier(task))}</div>
+    </div></button>`).join(''));
+}
+
+/**
+ * Write the dropdown's contents and keep `aria-expanded` honest.
+ *
+ * `innerHTML` is safe here for the same reason it is everywhere else in this file and for no
+ * other: every interpolation above went through `esc()`. Task titles are user-authored content
+ * from another codebase's database.
+ */
+function paintRelationResults(html) {
+  const list = document.getElementById('relationResults');
+  if (list === null) return;
+  list.innerHTML = html;
+  document.getElementById('relationSearch')?.setAttribute('aria-expanded', html === '' ? 'false' : 'true');
+}
+
+/** The help line under the box: the scope sentence, or which task is currently chosen. */
+function paintRelationHelp(state) {
+  const help = document.getElementById('relationSearchHelp');
+  if (help === null) return;
+  if (relationPick !== null) {
+    help.textContent = t('one.task.relationChosen', {task: relationPick.title});
+    return;
+  }
+  const project = projectLabel(state);
+  help.textContent = project === ''
+    ? t('one.task.relationSearchScopeUnknown')
+    : t('one.task.relationSearchScope', {project});
 }
 
 /** Delete this task. Prototype `deleteModal()` (1146). */
@@ -1150,17 +1393,16 @@ function deleteModal() {
     >${esc(t('one.task.deleteTask'))}</button>`);
 }
 
-/** Task colour. Prototype `taskColorModal()` (1216). */
-function colorModal(state) {
-  const current = String(state.task?.hex_color ?? '').replace('#', '').toLowerCase();
-  modal('task.detail.actions.color', `<label class="label">${esc(t('task.detail.actions.color'))}</label>
-    <select class="select" id="taskColor" aria-label="${esc(t('task.detail.actions.color'))}">
-      ${TASK_COLORS.map(([hex, key]) => `<option value="${esc(hex)}"${hex === current ? ' selected' : ''}
-        >${esc(t(key))}</option>`).join('')}
-    </select>`,
-  `${cancelButton()}<button class="btn primary" data-action="save-color" data-requires="write"
-    >${esc(t('misc.save'))}</button>`);
-}
+/*
+ * PM ROUND 2, FINDING 6: THE TASK-COLOUR CONTROL IS GONE. "Not needed" — so the whole path is
+ * removed rather than only the menu row that opened it: the modal, its `save-color` action, the
+ * `TASK_COLORS` table and the `◉` glyph had exactly one entry point between them, and an
+ * unreachable modal with a registered write action reads to the next person as an affordance
+ * that lost its button. Nothing else on this page writes `hex_color`.
+ *
+ * The prototype's `taskColorModal()` (1216) is therefore NOT ported. A deliberate reduction on a
+ * PM instruction, which outranks the prototype as the scope bar (bar 10).
+ */
 
 /**
  * The more-menu. Prototype `morePopover()` (1078-1084).
@@ -1196,8 +1438,6 @@ function morePopover() {
       : 'task.detail.actions.favorite'))}</button>
     <button data-action="duplicate" data-requires="write"
       >${glyph('duplicate')} ${esc(t('task.detail.actions.duplicate'))}</button>
-    <button data-action="task-color" data-requires="write"
-      >${glyph('color')} ${esc(t('task.detail.actions.color'))}</button>
     <button class="danger" data-action="delete" data-requires="write"
       >${ic('trash')} ${esc(t('one.task.deleteTask'))}</button>`;
   document.body.appendChild(popover);
@@ -1237,32 +1477,13 @@ async function saveInlineLabel(el) {
   await refreshAfterWrite();
 }
 
-/**
- * Resolve what the user typed in the relation modal to one task.
- *
- * Prototype `resolveRelationTask` (964-977). A bare number is read as a task id; anything else is
- * searched, and an exact match on id, index, identifier or title wins over a single result.
- *
- * RETURNS NULL RATHER THAN GUESSING when nothing matches or several do. The two sentences that
- * case wants — "no task matches" and "more than one task matches" — have no key in this page's
- * catalogue and this file may not add one, so the caller falls back to the generic
- * `one.error.requestFailed`, whose "nothing was changed" is at least true. Reported as a gap.
+/*
+ * `resolveRelationTask` (prototype 964-977) IS DELETED with the free-text field it served. It
+ * parsed a bare number as a task id and otherwise searched, took an exact match on id, index,
+ * identifier or title, and returned null when nothing or several matched — at which point the
+ * user got a generic "nothing was changed" and no way to tell which of the two had happened.
+ * The user picks a row now, so there is nothing left to resolve.
  */
-async function resolveRelationTask(query) {
-  const raw = String(query ?? '').trim();
-  if (raw === '') return null;
-  if (/^[1-9][0-9]*$/.test(raw)) return api.getTask(raw);
-
-  const needle = raw.toLowerCase();
-  const bare = needle.replace(/^#/, '');
-  const found = items(await api.searchTasks(raw.replace(/^#/, ''), {perPage: 50}));
-  const exact = found.find((task) => String(task?.id) === bare
-    || String(task?.index) === bare
-    || String(task?.identifier ?? '').toLowerCase() === needle
-    || String(task?.title ?? '').toLowerCase() === needle);
-  if (exact !== undefined) return exact;
-  return found.length === 1 ? found[0] : null;
-}
 
 /* ------------------------------------------------------------------ *
  * 9. The actions
@@ -1310,13 +1531,17 @@ registerActions({
   },
 
   /* --- repeat ----------------------------------------------------- */
-  'repeat-preset': (event, el) => patchField(el, repeatPayload({
+  // BOTH HANG THEIR REFUSAL ON THE PANEL, NOT ON THE PILL THAT WAS PRESSED (PM finding 1). The
+  // `?? el` is the fallback for the case that cannot happen from a click — the panel is the
+  // button's own ancestor — and exists so neither call can pass null into `renderRefusal`.
+  'repeat-preset': (event, el) => patchField(repeatPanel() ?? el, repeatPayload({
     active: true,
-    mode: 'default',
+    mode: el.getAttribute('data-mode') ?? 'default',
     every: Math.max(1, parseInt(el.getAttribute('data-every') ?? '1', 10) || 1),
     unit: el.getAttribute('data-unit') ?? 'days',
   }), 'task.detail.updateSuccess'),
-  'repeat-clear': (event, el) => patchField(el, repeatPayload({active: false}), 'task.detail.updateSuccess'),
+  'repeat-clear': (event, el) => patchField(repeatPanel() ?? el, repeatPayload({active: false}),
+    'task.detail.updateSuccess'),
 
   /* --- reminders -------------------------------------------------- */
   reminders: () => remindersModal(getViewState(NS)),
@@ -1390,28 +1615,42 @@ registerActions({
   },
 
   /* --- relations -------------------------------------------------- */
-  'add-relation': () => relationModal(),
+  'add-relation': () => relationModal(getViewState(NS)),
+  /** One row of the search dropdown. The id comes off the row; nothing is parsed. */
+  'pick-relation-task': (event, el) => {
+    const id = Number(el.getAttribute('data-task-id'));
+    if (!Number.isInteger(id) || id <= 0) return;
+    relationPick = {id, title: el.getAttribute('data-task-title') ?? ''};
+    const input = document.getElementById('relationSearch');
+    if (input !== null) {
+      input.value = relationPick.title;
+      input.focus();
+    }
+    // The list closes on a pick: it has served its purpose, and leaving eight rows open under a
+    // box that now names one of them is ambiguous about which is chosen.
+    paintRelationResults('');
+    paintRelationHelp(getViewState(NS));
+  },
   'save-relation': async () => {
-    const query = document.getElementById('relationTask')?.value ?? '';
     const kind = document.getElementById('relationType')?.value ?? '';
-    if (String(query).trim() === '' || !api.RELATION_KINDS.includes(kind)) return;
+    if (!api.RELATION_KINDS.includes(kind)) return;
+    if (relationPick === null) {
+      // Nothing was picked. This is THE PAGE refusing, not the server, so the sentence is written
+      // with `source: 'gate'` — nothing was sent and calling it a server refusal would be a
+      // second dishonesty of the same family bar 8 forbids.
+      const foot = document.querySelector('#modalRoot .modal-foot');
+      if (foot !== null) renderRefusal(foot, {messageKey: 'one.task.relationPickRequired', source: 'gate'});
+      document.getElementById('relationSearch')?.focus();
+      return;
+    }
     try {
-      const target = await resolveRelationTask(query);
-      if (target === null || typeof target?.id !== 'number') {
-        // Nothing matched, or several did. Do not pick one: an inverse relation is created
-        // server-side, so guessing wrong writes to a task the user never named.
-        const foot = document.querySelector('#modalRoot .modal-foot');
-        if (foot !== null) {
-          renderRefusal(foot, {messageKey: 'one.error.requestFailed', reason: DENY.SERVER, source: 'server'});
-        }
-        return;
-      }
-      await api.addRelation(getViewState(NS).taskId, target.id, kind);
+      await api.addRelation(getViewState(NS).taskId, relationPick.id, kind);
     } catch (err) {
       reportModalFailure(err);
       return;
     }
     closeModal();
+    relationPick = null;
     toast(t('one.toast.relationAdded'));
     await refreshAfterWrite();
   },
@@ -1495,23 +1734,6 @@ registerActions({
     // the duplicate did not change.
     toast(t('task.detail.duplicateSuccess'));
   },
-  'task-color': () => {
-    closePopover();
-    colorModal(getViewState(NS));
-  },
-  'save-color': async () => {
-    const hex = document.getElementById('taskColor')?.value ?? '';
-    try {
-      await api.patchTask(getViewState(NS).taskId, {hex_color: hex});
-    } catch (err) {
-      reportModalFailure(err);
-      return;
-    }
-    closeModal();
-    toast(t('one.toast.colorUpdated'));
-    await refreshAfterWrite();
-  },
-
   /* --- delete ----------------------------------------------------- */
   delete: () => {
     closePopover();
@@ -1591,7 +1813,12 @@ function installListeners() {
       case 'repeatMode':
       case 'repeatEvery':
       case 'repeatUnit':
-        return void patchField(el, repeatPayload(repeatFromControls()), 'task.detail.updateSuccess');
+        // The explanation is rewritten BEFORE the write, so the sentence under the select
+        // describes what the user just chose even while the PATCH is still in flight — and even
+        // if it is refused, where no re-render follows to correct it.
+        paintRepeatModeHelp();
+        return void patchField(repeatPanel() ?? el, repeatPayload(repeatFromControls()),
+          'task.detail.updateSuccess');
       case 'progress':
         return void patchField(el, {percent_done: (Number(el.value) || 0) / 100}, 'task.detail.updateSuccess');
       default:
@@ -1606,6 +1833,24 @@ function installListeners() {
     // read back by `commentsSection` on the next render and cleared once the comment is posted.
     if (event.target?.id === 'commentText') {
       setViewState(NS, {commentDraft: String(event.target.value ?? '')});
+      return;
+    }
+
+    // The relation picker's search box. DEBOUNCED, because this fires once per keystroke and
+    // `GET /api/v2/tasks?q=` is a real query against every project the user can see; a request
+    // per character would be a self-inflicted load test. Typing again ALSO drops whatever row was
+    // picked before — the box no longer names it, so the button must not still be holding it.
+    if (event.target?.id === 'relationSearch') {
+      const query = String(event.target.value ?? '');
+      if (relationPick !== null && query !== relationPick.title) {
+        relationPick = null;
+        paintRelationHelp(getViewState(NS));
+      }
+      if (relationSearchTimer !== null) clearTimeout(relationSearchTimer);
+      relationSearchTimer = setTimeout(() => {
+        relationSearchTimer = null;
+        void runRelationSearch(query);
+      }, RELATION_SEARCH_DEBOUNCE_MS);
       return;
     }
     if (event.target?.id !== 'progress' || isRefused(event.target)) return;
@@ -1671,14 +1916,28 @@ function isTaskReady() {
   return state.status === 'ready' && state.task !== null && state.task !== undefined;
 }
 
-/** The repeat builder's three controls, read at the moment of the change. */
+/**
+ * The repeat builder's three controls, read at the moment of the change.
+ *
+ * The mode is validated against `REPEAT_MODES` rather than tested for one string: with three
+ * modes on screen, an `=== 'current' ? … : 'default'` would silently turn the monthly mode into
+ * the default one and store a 30-day interval the user never asked for.
+ */
 function repeatFromControls() {
+  const chosen = document.getElementById('repeatMode')?.value;
   return {
     active: true,
-    mode: document.getElementById('repeatMode')?.value === 'current' ? 'current' : 'default',
+    mode: repeatModeEntry(chosen)[0],
     every: Math.max(1, parseInt(document.getElementById('repeatEvery')?.value ?? '1', 10) || 1),
     unit: document.getElementById('repeatUnit')?.value ?? 'days',
   };
+}
+
+/** Rewrite the mode explanation from the select's current value. */
+function paintRepeatModeHelp() {
+  const help = document.getElementById('repeatModeHelp');
+  if (help === null) return;
+  help.textContent = t(repeatModeEntry(document.getElementById('repeatMode')?.value)[3]);
 }
 
 async function saveDescription(el, description) {

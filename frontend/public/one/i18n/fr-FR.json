@@ -178,5 +178,59 @@
       "name": "Nom de l’équipe",
       "member": "Membre"
     }
+  },
+  "one": {
+    "brand": {
+      "logoAlt": "ONE",
+      "taskPage": "Détails de la tâche",
+      "settingsPage": "Paramètres d’abonnement"
+    },
+    "edition": {
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
+      "withRole": "{edition} · {role}"
+    },
+    "role": {
+      "personalUser": "Utilisateur personnel",
+      "teamMember": "Membre de l’équipe",
+      "administrator": "Administrateur"
+    },
+    "subscription": {
+      "personal": "Abonnement ONE Personal",
+      "teams": "Abonnement ONE Teams",
+      "unknown": "Aucun abonnement n’est enregistré pour ce compte sur cette instance.",
+      "help": "L’édition sous laquelle ce compte est connecté."
+    },
+    "settings": {
+      "subscription": "Votre abonnement",
+      "currentEmail": "Adresse e-mail actuelle",
+      "emailUnavailable": "Cette instance ne renvoie pas votre adresse e-mail, elle ne peut donc pas être affichée ici."
+    },
+    "task": {
+      "relationSearchPlaceholder": "Rechercher des tâches…",
+      "relationSearchResults": "Tâches correspondantes",
+      "relationSearchScope": "Affichage des tâches de {project}.",
+      "relationSearchScopeUnknown": "Affichage des tâches du projet de cette tâche.",
+      "relationSearchNoMatches": "Aucune tâche correspondante dans ce projet.",
+      "relationChosen": "Sélectionnée : {task}",
+      "relationPickRequired": "Choisissez d’abord une tâche dans la liste. Rien n’a été modifié.",
+      "repeat": {
+        "presetDaily": "Quotidien",
+        "presetWeekly": "Hebdomadaire",
+        "presetMonthly": "Mensuel",
+        "presetAnnually": "Annuel",
+        "unitOptionDays": "Jour(s)",
+        "unitOptionWeeks": "Semaine(s)",
+        "unitOptionMonths": "Mois",
+        "unitOptionYears": "Année(s)",
+        "modeDefault": "À partir de l’échéance précédente",
+        "modeDefaultHelp": "Ajoute l’intervalle aux dates que la tâche possède déjà : une tâche due un lundi reste due un lundi, même si vous la terminez en retard.",
+        "modeMonthly": "Tous les mois, à la même date",
+        "modeMonthlyHelp": "Avance toutes les dates d’un mois calendaire en conservant le jour du mois. L’intervalle ci-dessous est ignoré.",
+        "modeCurrent": "À partir de la date d’achèvement",
+        "modeCurrentHelp": "Ajoute l’intervalle au jour où vous cochez la tâche : la prochaine échéance est comptée à partir d’aujourd’hui.",
+        "summaryMonthly": "Se répète à la même date chaque mois calendaire."
+      }
+    }
   }
 }
