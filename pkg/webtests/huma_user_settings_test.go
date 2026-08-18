@@ -40,9 +40,15 @@ func TestHumaUserShow(t *testing.T) {
 	body := rec.Body.String()
 	assert.Contains(t, body, `"id":1`)
 	assert.Contains(t, body, `"username":"user1"`)
-	// Like v1, /user does not disclose the email (GetUserByID strips it); the
-	// json:"email,omitempty" tag then drops the field entirely.
-	assert.NotContains(t, body, `"email":""`)
+	// The account screen shows people their own address, so this route returns it.
+	// userShow re-reads the row through GetUserWithEmail because GetUserOrLinkShareUser
+	// blanks Email at pkg/user/user.go:332-334. Deleting that re-read leaves Email empty,
+	// json:"email,omitempty" then drops the key, and this assertion fails against "".
+	var shown struct {
+		Email string `json:"email"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &shown))
+	assert.Equal(t, "user1@example.com", shown.Email)
 	// Computed account facts v1 returned alongside the user object.
 	assert.Contains(t, body, `"auth_provider":"local"`)
 	assert.Contains(t, body, `"is_local_user":true`)
@@ -51,6 +57,23 @@ func TestHumaUserShow(t *testing.T) {
 	assert.Contains(t, body, `"settings":`)
 	assert.Contains(t, body, `"frontend_settings":`)
 	assert.Contains(t, body, `"extra_settings_links":`)
+
+	t.Run("Discloses the caller's own address and no one else's", func(t *testing.T) {
+		// Same route, different caller. The address has to follow whoever holds the token,
+		// which is what makes this "your own account" rather than a lookup of somebody.
+		// The operation takes no path, query or body parameter, so there is nothing a
+		// caller could name; if the re-read were ever keyed on anything other than the
+		// authenticated id, one of these two assertions fails.
+		rec := humaRequest(t, e, http.MethodGet, "/api/v2/user", "", humaTokenFor(t, &testuser2), "")
+		require.Equal(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
+
+		var other struct {
+			Email string `json:"email"`
+		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &other))
+		assert.Equal(t, "user2@example.com", other.Email)
+		assert.NotContains(t, rec.Body.String(), "user1@example.com")
+	})
 
 	t.Run("Unauthenticated", func(t *testing.T) {
 		rec := humaRequest(t, e, http.MethodGet, "/api/v2/user", "", "", "")
