@@ -730,6 +730,11 @@
 			"noTasks": "没有待办事项 —— 祝你一天好心情！"
 		},
 		"detail": {
+			"noAccess": {
+				"title": "您无权访问此任务",
+				"text": "此任务位于尚未与您共享的项目中。请向该项目的所有者申请访问权限，之后即可通过此链接打开它。",
+				"action": "返回"
+			},
 			"chooseDueDate": "点击设定截止日期",
 			"chooseStartDate": "点击设置开始日期",
 			"chooseEndDate": "点击设定结束日期",

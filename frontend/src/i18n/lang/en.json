@@ -1118,6 +1118,11 @@
       "savedFilterIgnored": "Your saved homepage filter is not applied while viewing tasks by label."
     },
     "detail": {
+      "noAccess": {
+        "title": "You have no access to this task",
+        "text": "This task sits in a project that has not been shared with you. Ask whoever owns it to give you access, and this link will open it.",
+        "action": "Go back"
+      },
       "chooseDueDate": "Click here to set a due date",
       "chooseStartDate": "Click here to set a start date",
       "chooseEndDate": "Click here to set an end date",

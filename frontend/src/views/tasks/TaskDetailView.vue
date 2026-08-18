@@ -7,9 +7,34 @@
 			'is-modal': isModal,
 		}"
 	>
+		<!--
+			The server refused this task, so there is nothing of it to draw and the
+			frame around it would be a lie: an empty title, an empty description and
+			a back link to a project the person cannot open. A heading, a reason and
+			one action, in the product's own voice, the same shape every other
+			refusal in this product takes.
+		-->
+		<Message
+			v-if="noAccess"
+			variant="danger"
+			class="task-no-access"
+		>
+			<p class="is-size-5 has-text-weight-bold">
+				{{ $t('task.detail.noAccess.title') }}
+			</p>
+			<p>{{ $t('task.detail.noAccess.text') }}</p>
+			<XButton
+				class="mbs-2"
+				variant="secondary"
+				:to="{name: 'home'}"
+			>
+				{{ $t('task.detail.noAccess.action') }}
+			</XButton>
+		</Message>
+
 		<!-- Removing everything until the task is loaded to prevent empty initialization of other components -->
 		<div
-			v-if="visible"
+			v-else-if="visible"
 			class="task-view"
 		>
 			<BaseButton
@@ -691,6 +716,7 @@ import Reminders from '@/components/tasks/partials/Reminders.vue'
 import RepeatAfter from '@/components/tasks/partials/RepeatAfter.vue'
 import TaskSubscription from '@/components/misc/Subscription.vue'
 import CustomTransition from '@/components/misc/CustomTransition.vue'
+import Message from '@/components/misc/Message.vue'
 import AssigneeList from '@/components/tasks/partials/AssigneeList.vue'
 import BucketSelect from '@/components/tasks/partials/BucketSelect.vue'
 import Reactions from '@/components/input/Reactions.vue'
@@ -752,6 +778,9 @@ const remindersDefaultRelativeTo = computed(() => {
 	return null
 })
 const taskNotFound = ref(false)
+// The server said this person may not read this task. It is an answer, not a
+// failure, so it is drawn as a screen rather than thrown at the error handler.
+const noAccess = ref(false)
 const taskTitle = computed(() => task.value.title)
 useTitle(taskTitle)
 
@@ -781,7 +810,9 @@ const reminderShortcut = computed(() => isAppleDevice() ? 'Shift+KeyR' : 'Alt+Ke
 const deleteShortcut = isAppleDevice() ? 'Backspace' : 'Delete'
 
 onBeforeRouteLeave(async () => {
-	if (taskNotFound.value) {
+	// No task was loaded in either case, so there is no project to wait for and
+	// waiting would hold the person on the refusal for five seconds.
+	if (taskNotFound.value || noAccess.value) {
 		return
 	}
 
@@ -971,9 +1002,19 @@ watch(
 				await baseStore.handleSetCurrentProjectIfNotSet(lastProject.value)
 			}
 		} catch (e) {
-			if (e?.response?.status === 404) {
+			const status = e?.response?.status
+
+			if (status === 404) {
 				taskNotFound.value = true
 				router.replace({name: 'not-found'})
+				return
+			}
+
+			// A task that exists and is not shared with this person comes back as
+			// 403 (pkg/web/handler/core.go, DoReadOne). Rethrowing it would put the
+			// server's own sentence in a red box over an empty task.
+			if (status === 403) {
+				noAccess.value = true
 				return
 			}
 
@@ -1242,6 +1283,17 @@ function setRelatedTasksActive() {
 
 	@media screen and (min-width: $desktop) {
 		padding: 1rem;
+	}
+}
+
+// The same insets the task itself gets, so the refusal is not flush against the
+// edge of a phone screen.
+.task-no-access {
+	margin-block-start: 1rem;
+	margin-inline: .5rem;
+
+	@media screen and (min-width: $desktop) {
+		margin-inline: 1rem;
 	}
 }
 

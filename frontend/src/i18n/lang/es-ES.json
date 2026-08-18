@@ -479,6 +479,11 @@
 			"noTasks": "Nada que hacer — ¡Que tenga un buen día!"
 		},
 		"detail": {
+			"noAccess": {
+				"title": "No tienes acceso a esta tarea",
+				"text": "Esta tarea está en un proyecto que no se ha compartido contigo. Pide acceso a la persona propietaria y este enlace la abrirá.",
+				"action": "Volver"
+			},
 			"chooseDueDate": "Clic aquí para establecer fecha de vencimiento",
 			"chooseStartDate": "Clic aquí para establecer fecha de inicio",
 			"chooseEndDate": "Clic aquí para establecer fecha de fin",

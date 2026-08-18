@@ -1096,6 +1096,11 @@
 			"savedFilterIgnored": "Dein gespeicherter Homepage-Filter wird während der Anzeige von Aufgaben per Label nicht angewendet."
 		},
 		"detail": {
+			"noAccess": {
+				"title": "Du hast keinen Zugriff auf diese Aufgabe",
+				"text": "Diese Aufgabe liegt in einem Projekt, das nicht mit dir geteilt wurde. Bitte die Person, der es gehört, dir Zugriff zu geben – dann öffnet dieser Link sie.",
+				"action": "Zurück"
+			},
 			"chooseDueDate": "Klicke hier, um ein Fälligkeitsdatum zu setzen",
 			"chooseStartDate": "Klicke hier, um ein Startdatum zu setzen",
 			"chooseEndDate": "Klicke hier, um ein Enddatum zu setzen",

@@ -749,6 +749,11 @@
 			"noTasks": "Rien à faire — Passez une bonne journée !"
 		},
 		"detail": {
+			"noAccess": {
+				"title": "Vous n’avez pas accès à cette tâche",
+				"text": "Cette tâche se trouve dans un projet qui n’a pas été partagé avec vous. Demandez l’accès à la personne qui en est propriétaire et ce lien l’ouvrira.",
+				"action": "Retour"
+			},
 			"chooseDueDate": "Cliquez ici pour définir une date d’échéance",
 			"chooseStartDate": "Cliquez ici pour fixer une date de début",
 			"chooseEndDate": "Cliquez ici pour fixer une date de fin",
