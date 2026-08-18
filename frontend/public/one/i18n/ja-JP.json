@@ -212,6 +212,9 @@
       "administrator": "管理者"
     },
     "common": {
+      "change": "変更",
+      "continue": "続ける",
+      "add": "追加",
       "separator": "・"
     },
     "subscription": {
@@ -225,7 +228,11 @@
       "currentEmail": "現在のメールアドレス",
       "emailUnavailable": "このインスタンスはメールアドレスを返さないため、ここには表示できません。"
     },
+    "org": {
+      "teamLabel": "チーム"
+    },
     "task": {
+      "progressManual": "手動",
       "comments": {
         "edit": "編集",
         "editAria": "{date} のコメントを編集",
@@ -233,6 +240,11 @@
         "editing": "このコメントを編集中",
         "sendHint": "Shift+Enter で送信",
         "editLabel": "コメントを編集"
+      },
+      "reminders": {
+        "typeDue": "期日",
+        "typeStart": "開始日",
+        "typeEnd": "終了日"
       },
       "statusOwnership": {
         "title": "ステータスと担当",
@@ -250,6 +262,8 @@
       "relationChosen": "選択中: {task}",
       "relationPickRequired": "先にリストからタスクを選んでください。何も変更されていません。",
       "repeat": {
+        "months": "月",
+        "years": "年",
         "presetDaily": "毎日",
         "presetWeekly": "毎週",
         "presetMonthly": "毎月",

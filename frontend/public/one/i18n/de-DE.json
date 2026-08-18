@@ -237,6 +237,9 @@
     "deny": {
       "dueFollowsEnd": "Das Fälligkeitsdatum folgt dem Enddatum. Lösche das Enddatum, um es separat zu setzen."
     },
+    "error": {
+      "loadFailed": "Diese Seite wurde nicht geladen."
+    },
     "toast": {
       "commentUpdated": "Der Kommentar wurde aktualisiert."
     },
@@ -255,6 +258,10 @@
       "teamMember": "Teammitglied",
       "administrator": "Administrator"
     },
+    "common": {
+      "continue": "Weiter",
+      "add": "Hinzufügen"
+    },
     "subscription": {
       "personal": "ONE Personal-Abonnement",
       "teams": "ONE Teams-Abonnement",
@@ -266,7 +273,12 @@
       "currentEmail": "Aktuelle E-Mail-Adresse",
       "emailUnavailable": "Diese Instanz gibt deine E-Mail-Adresse nicht zurück, deshalb kann sie hier nicht angezeigt werden."
     },
+    "org": {
+      "teamLabel": "Team"
+    },
     "task": {
+      "progressManual": "Manuell",
+      "relationTarget": "Aufgabe",
       "comments": {
         "edit": "Bearbeiten",
         "editAria": "Deinen Kommentar vom {date} bearbeiten",
@@ -274,6 +286,11 @@
         "editing": "Dieser Kommentar wird bearbeitet",
         "sendHint": "Umschalt+Eingabe sendet",
         "editLabel": "Kommentar bearbeiten"
+      },
+      "reminders": {
+        "typeDue": "Fälligkeitsdatum",
+        "typeStart": "Anfangsdatum",
+        "typeEnd": "Enddatum"
       },
       "statusOwnership": {
         "title": "Status & Zuständigkeit",
@@ -291,6 +308,8 @@
       "relationChosen": "Ausgewählt: {task}",
       "relationPickRequired": "Wähle zuerst eine Aufgabe aus der Liste. Es wurde nichts geändert.",
       "repeat": {
+        "months": "Monate",
+        "years": "Jahre",
         "presetDaily": "Täglich",
         "presetWeekly": "Wöchentlich",
         "presetMonthly": "Monatlich",
