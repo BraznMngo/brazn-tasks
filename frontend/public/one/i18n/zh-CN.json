@@ -248,8 +248,6 @@
       "relationChosen": "已选择：{task}",
       "relationPickRequired": "请先从列表中选择一个任务。未做任何更改。",
       "repeat": {
-        "months": "月",
-        "years": "年",
         "presetDaily": "每天",
         "presetWeekly": "每周",
         "presetMonthly": "每月",

@@ -274,7 +274,6 @@
       "emailUnavailable": "Diese Instanz gibt deine E-Mail-Adresse nicht zurück, deshalb kann sie hier nicht angezeigt werden."
     },
     "org": {
-      "teamLabel": "Team"
     },
     "task": {
       "progressManual": "Manuell",
@@ -308,8 +307,6 @@
       "relationChosen": "Ausgewählt: {task}",
       "relationPickRequired": "Wähle zuerst eine Aufgabe aus der Liste. Es wurde nichts geändert.",
       "repeat": {
-        "months": "Monate",
-        "years": "Jahre",
         "presetDaily": "Täglich",
         "presetWeekly": "Wöchentlich",
         "presetMonthly": "Monatlich",

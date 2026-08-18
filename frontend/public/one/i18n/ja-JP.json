@@ -262,8 +262,6 @@
       "relationChosen": "選択中: {task}",
       "relationPickRequired": "先にリストからタスクを選んでください。何も変更されていません。",
       "repeat": {
-        "months": "月",
-        "years": "年",
         "presetDaily": "毎日",
         "presetWeekly": "毎週",
         "presetMonthly": "毎月",

@@ -233,8 +233,6 @@
       "relationChosen": "Seleccionada: {task}",
       "relationPickRequired": "Elige primero una tarea de la lista. No se ha cambiado nada.",
       "repeat": {
-        "months": "Meses",
-        "years": "Años",
         "presetDaily": "Diariamente",
         "presetWeekly": "Semanalmente",
         "presetMonthly": "Mensualmente",
