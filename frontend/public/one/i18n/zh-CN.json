@@ -204,6 +204,9 @@
       "teamMember": "团队成员",
       "administrator": "管理员"
     },
+    "common": {
+      "add": "添加"
+    },
     "subscription": {
       "personal": "ONE Personal 订阅",
       "teams": "ONE Teams 订阅",
@@ -223,6 +226,11 @@
         "editing": "正在编辑此评论",
         "sendHint": "按 Shift+Enter 发送",
         "editLabel": "编辑评论"
+      },
+      "reminders": {
+        "typeDue": "到期日",
+        "typeStart": "开始日期",
+        "typeEnd": "结束日期"
       },
       "statusOwnership": {
         "title": "状态与归属",

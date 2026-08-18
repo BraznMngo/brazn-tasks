@@ -243,6 +243,39 @@ describe('one/app.js DOM applier', () => {
 		expect(isRefused(byId('ownRefusal'))).toBe(true)
 	})
 
+	it('leaves a markup refusal alone when the gate AROUND it passes', () => {
+		// THE SHIPPED SHAPE, AND IT IS NOT THE ONE ABOVE. `refusedGroup()` in the views puts
+		// `.is-refused` and `data-deny-reason` on a WRAPPER and leaves the control inside carrying
+		// `aria-disabled` and nothing else - this is `organizationIdentityBlock` in view-settings.js
+		// verbatim, and all five markup refusals on these pages are that shape. The fixture above
+		// puts both markers on the button, which no view does, so it agreed with a release loop that
+		// read only the child's own attributes and stripped every real one.
+		const section = document.createElement('section')
+		section.id = 'orgSection'
+		section.setAttribute('data-requires', 'admin')
+		// The control the gate IS entitled to release, in the same section: without it a skip that
+		// swallowed everything would read as a pass here.
+		section.innerHTML = '<button id="orgPlainBtn" class="btn" aria-disabled="true">Add</button>'
+			+ '<div class="org-identity-item is-refused" data-deny-reason="' + DENY.NO_ROUTE + '">'
+			+ '<button id="renameOrgBtn" class="mini-edit" aria-disabled="true"'
+			+ ' aria-label="Edit organization name"></button>'
+			+ '<p class="refusal-text" data-refusal-source="server">Renaming is not available yet.</p>'
+			+ '</div>'
+		app().appendChild(section)
+
+		// An organization administrator, so `admin` passes and the section is released on EVERY
+		// render - which is why this is the state a real session settles into rather than an edge.
+		applyGates(app(), TEAMS_ADMIN)
+
+		// MUTATION: narrowing releaseControl's skip back to the child's OWN `is-refused` /
+		// `data-deny-reason` makes this red. That is what shipped: the pencil beside the
+		// organization name kept its refusal styling and its sentence, and announced as an
+		// ordinary available button to anyone who could not see either.
+		expect(byId('renameOrgBtn').getAttribute('aria-disabled')).toBe('true')
+		expect(isRefused(byId('renameOrgBtn'))).toBe(true)
+		expect(byId('orgPlainBtn').hasAttribute('aria-disabled')).toBe(false)
+	})
+
 	it('keeps a control refused when its OWN gate passes but its group\'s does not', () => {
 		// applyGates walks in document order, so the group is decided first and an inner node whose
 		// own gate passes is released afterwards - which would strip the announcement the group

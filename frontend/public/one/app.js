@@ -737,18 +737,28 @@ function refuseOne(el) {
  * children would leave every control inside it `readOnly` after the subscription that unlocked
  * it, with nothing on screen saying why.
  *
- * A DESCENDANT THAT OWNS ITS OWN REFUSAL IS LEFT ALONE. Views emit some controls refused in the
+ * A DESCENDANT UNDER A REFUSAL OF ITS OWN IS LEFT ALONE. Views emit some controls refused in the
  * MARKUP — `rename-org` is the documented one (ruling C8.1), and the contract-only commercial
- * controls are the same shape — with `.is-refused` and a `data-deny-reason` already on them.
- * Those are not this gate's to undo: releasing a group must not re-enable a control that was
- * never refused by the group in the first place. The gated node itself is always released in
- * full, which is the behaviour that was there before the recursion existed.
+ * controls are the same shape. Those are not this gate's to undo: releasing a group must not
+ * re-enable a control that was never refused by the group in the first place. The gated node
+ * itself is always released in full, which is the behaviour that was there before the recursion
+ * existed.
+ *
+ * THE MARKER IS ON THE WRAPPER, NOT ON THE CONTROL, which is why this walks ancestors instead of
+ * reading the child's own attributes. `refusedGroup()` in the views puts `.is-refused` and
+ * `data-deny-reason` on a `<div>` and leaves the button inside carrying `aria-disabled` alone,
+ * and every markup refusal on these pages is that shape — so a check that read only the child
+ * matched none of them. For an organization administrator the Organization section's `admin`
+ * gate passes on every render, this loop reached the pencil beside the organization name, and
+ * stripped the one attribute telling a screen-reader user it cannot be used. The refusal styling
+ * and the sentence beside it both survived, so the page looked right and announced wrong.
+ * `data-deny-reason` is still read off the child, for a control that does carry its own.
  */
 function releaseControl(el) {
   releaseOne(el);
   if (typeof el.querySelectorAll !== 'function') return;
   for (const child of el.querySelectorAll(REFUSABLE_DESCENDANTS)) {
-    if (child.classList.contains('is-refused') || child.hasAttribute('data-deny-reason')) continue;
+    if (child.closest('.is-refused') !== null || child.hasAttribute('data-deny-reason')) continue;
     releaseOne(child);
   }
 }
@@ -1481,12 +1491,14 @@ const ENTER_INERT_TAGS = Object.freeze(['TEXTAREA', 'SELECT', 'BUTTON', 'A']);
  *   - Inside a modal there is one unambiguous primary action, so "the primary action" has a
  *     referent. On the page body there is none — the task view has a dozen controls and no
  *     primary — so a page-wide rule would have to guess which one Enter meant.
- *   - The single-line inputs on the body already commit on Enter and need nothing here: an
- *     `<input type=text>` fires `change` when the user commits with Enter as well as on blur,
- *     and both view modules bind `change` (view-task.js:1798, view-settings.js:1115). The one
- *     input with a non-`change` commit, the inline label chip, has carried its own Enter binding
- *     since round 1 (view-task.js:1895) and is left alone — this handler returns before reaching
- *     it, because it is not inside `#modalRoot`.
+ *   - The single-line inputs on the body commit on Enter and need nothing here, but not all of
+ *     them do it through `change`, and this note used to claim they did. An `<input type=text>`
+ *     fires `change` when the user commits with Enter as well as on blur, and both view modules
+ *     bind `change` (view-task.js `installListeners`, view-settings.js `installChangeListeners`),
+ *     which covers most of them. The two whose commit is somewhere else — the inline label chip,
+ *     and the task title, whose only writer is a capture-phase `blur` handler — carry their own
+ *     Enter bindings in view-task.js's `keydown` and are left alone; this handler returns before
+ *     reaching either, because neither is inside `#modalRoot`.
  *
  * `.btn.primary` IN `.modal-foot` ONLY, AND EXACTLY ONE OF THEM.
  *   - `.modal-foot`, because the modal BODY also holds `.btn.small.primary` — the per-row "Add"

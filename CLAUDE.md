@@ -13,42 +13,20 @@ conflict, this file wins. It is adapted from the Percy repository's `CLAUDE.md`.
 > Note: upstream ships `CLAUDE.md` as a symlink to `AGENTS.md`. This fork replaces it with a
 > real file. Keep both.
 
-## 1. Mandatory host-execution safety rule
+## 1. Running this project locally
 
-The Windows development host is **not** a build or test environment. A development build was
-followed by a host blue screen on 2026-07-22 (`SYSTEM_THREAD_EXCEPTION_NOT_HANDLED`,
-`dxgmms2.sys`). Causation was never proven and does not need to be: the isolation policy is
-strict regardless.
+Building, running and testing this project on the development host is **permitted**. Sebastian
+lifted the previous prohibition on 2026-08-18: run whatever the work needs, locally, including
+the application itself, the frontend toolchain, the Go toolchain and the browser test runner.
 
-On the host, agents may only:
+Two earlier claims in this file were wrong and have been removed with the rule. Node **is**
+installed on this host. A host blue screen on 2026-07-22 was never shown to have been caused by
+a development build, and the isolation policy built on that assumption no longer applies.
 
-- read files;
-- edit files with patch-based tools;
-- inspect Git metadata and textual diffs (`git`, `gh`);
-- perform other operations explicitly documented as non-executing static inspection.
-
-On the host, agents must **never** run this project's code or development tooling, including:
-
-- `go`, `gofmt`, `golangci-lint`, `mage`, the `vikunja` binary, or any compiled artefact;
-- `node`, `npm`, `npx`, `pnpm`, Vite, TypeScript, ESLint, Stylelint, Playwright, Cypress,
-  Vitest, or any other frontend tool or test runner;
-- `docker`, `docker compose`, database servers, or any container/VM runtime;
-- repository scripts, generated executables, dependency installers, or packaging tools;
-- the application itself, in any form, including "just to check something".
-
-`node --check` (parse-only, executes no program) is the single approved exception — but note
-that **Node is not installed on the development host at all**, so in practice there is no local
-check of any kind, for any language. Do not plan on one. Verified 2026-08-01: not on `PATH`,
-not in `C:\Program Files\nodejs`, not under `%LOCALAPPDATA%\Programs`, no nvm. An agent
-reporting that it could not run this is telling the truth, not making an excuse.
-
-Builds and tests run **only** on GitHub-hosted runners via the workflows in
-`.github/workflows/`. Self-hosted runners, Windows Sandbox, Hyper-V, WSL, Docker, local
-containers and local VMs are forbidden fallbacks. If GitHub-hosted CI is unavailable,
-executable verification stops — it does not move to the host.
-
-Before claiming anything was verified, identify the exact commit SHA and the GitHub-hosted
-run that verified it. If the run is absent or uncertain, **stop** and say so.
+What did not change is what counts as *verified*. A local run tells you the change works on this
+machine. It is not evidence that it works on a GitHub-hosted runner, and it never substitutes for
+the required checks on the exact commit being merged. Before claiming anything was verified for a
+merge, identify the commit and the run that verified it.
 
 ## 2. Mandatory branch and integration rule
 
@@ -188,9 +166,9 @@ and test the **wire form** rather than a round trip through our own encoder.
 
 ## 5. Mandatory pre-push correctness rule
 
-Local compilation is forbidden, so every push is verified only by remote CI and each wrong
-guess costs a full CI round-trip. Reason a change through completely before pushing it;
-never use CI as a substitute for thinking.
+A wrong guess pushed to CI costs a full round-trip, so reason a change through completely
+before pushing it, and run locally what can be run locally. Never use CI as a substitute for
+thinking.
 
 - Go code must be `gofmt`-clean and satisfy `golangci-lint` as configured in
   `.golangci.yml`. Match the surrounding file's existing style exactly rather than

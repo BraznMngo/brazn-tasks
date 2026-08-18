@@ -32,6 +32,18 @@ export interface ConfigState {
 	 * value renders no link rather than a dead one.
 	 */
 	braznAccountUrl: string,
+	/**
+	 * Whether account lifecycle on this instance belongs to the commercial
+	 * service. When true, this product must not draw password, address,
+	 * second-factor or account-deletion controls: the managed gate refuses those
+	 * routes for everyone on the instance, including its administrator, so a
+	 * form drawn here is one nobody can submit successfully.
+	 *
+	 * It is read from the server rather than inferred, because a provisioned
+	 * account is created with the local issuer and is therefore indistinguishable
+	 * from an ordinary local one by any check a browser can make.
+	 */
+	braznManagedMode: boolean,
 	userDeletionEnabled: boolean,
 	taskCommentsEnabled: boolean,
 	demoModeEnabled: boolean,
@@ -75,6 +87,7 @@ export const useConfigStore = defineStore('config', () => {
 		},
 		caldavEnabled: false,
 		braznAccountUrl: '',
+		braznManagedMode: false,
 		userDeletionEnabled: true,
 		taskCommentsEnabled: true,
 		demoModeEnabled: false,

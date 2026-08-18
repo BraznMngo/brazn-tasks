@@ -189,6 +189,9 @@
       "teamMember": "Miembro del equipo",
       "administrator": "Administrador"
     },
+    "common": {
+      "add": "Añadir"
+    },
     "subscription": {
       "personal": "Suscripción ONE Personal",
       "teams": "Suscripción ONE Teams",
@@ -208,6 +211,11 @@
         "editing": "Editando este comentario",
         "sendHint": "Mayús+Intro envía",
         "editLabel": "Editar comentario"
+      },
+      "reminders": {
+        "typeDue": "Fecha Límite",
+        "typeStart": "Fecha de Inicio",
+        "typeEnd": "Fecha de Fin"
       },
       "statusOwnership": {
         "title": "Estado y responsabilidad",
