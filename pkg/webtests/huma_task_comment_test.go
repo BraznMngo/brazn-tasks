@@ -17,6 +17,7 @@
 package webtests
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"testing"
@@ -389,4 +390,49 @@ func TestHumaTaskComment_ETagReflectsPermission(t *testing.T) {
 	assert.NotEmpty(t, owner.Header().Get("ETag"))
 	assert.NotEqual(t, owner.Header().Get("ETag"), reader.Header().Get("ETag"),
 		"same comment, different caller permission must produce different ETags")
+}
+
+// TestHumaTaskComment_PATCHMergePatch is the comment half of the gap described
+// at length on TestHumaTask_PATCHMergePatch. Task comments are the only other
+// model carrying a ReactionMap, and they had no merge-patch test either.
+//
+// TaskComment.Reactions has the same shape as Task.Reactions — a Go map emitted
+// unconditionally and populated only on expansion — so the AutoPatch merge sends
+// "reactions": null into a schema that publishes a bare "type":"object", and the
+// PUT half of the synthesised PATCH refuses it. Same cause, same 422, same
+// constant detail "validation failed".
+//
+// Comment 1 is author_id 1 on task 1 (pkg/db/fixtures/task_comments.yml), so
+// testuser1 is the author and the author-only rule this file exists to prove is
+// satisfied — a 403 here would mean the permission matrix changed, not that the
+// schema defect was fixed, which is why the assertion below is on 200 and on the
+// body rather than on "not 422".
+//
+// EXPECTED TO FAIL ON TODAY'S CODE. Passes once TaskComment.Reactions is tagged
+// omitempty or nullable:"true" (BRA-1363).
+//
+// Note for anyone tempted to "fix" this by switching the client to PUT: that is
+// what the ONE Tasks page does to stay usable, and it is a workaround, not a
+// resolution. PUT sends the whole comment and so cannot express a partial edit.
+func TestHumaTaskComment_PATCHMergePatch(t *testing.T) {
+	e, err := setupTestEnv()
+	require.NoError(t, err)
+	token := humaTokenFor(t, &testuser1)
+
+	rec := humaRequest(t, e, http.MethodPatch, "/api/v2/tasks/1/comments/1",
+		`{"comment":"patched comment"}`, token, "application/merge-patch+json")
+	require.Equal(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
+
+	rec = humaRequest(t, e, http.MethodGet, "/api/v2/tasks/1/comments/1", "", token, "")
+	require.Equal(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
+
+	var after struct {
+		Comment string `json:"comment"`
+		Author  struct {
+			ID int64 `json:"id"`
+		} `json:"author"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &after))
+	assert.Equal(t, "patched comment", after.Comment)
+	assert.Equal(t, int64(1), after.Author.ID, "the author must survive the PATCH")
 }

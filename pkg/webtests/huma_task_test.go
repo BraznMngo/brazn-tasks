@@ -299,3 +299,107 @@ func TestHumaTask_ETagReturns304(t *testing.T) {
 	e.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusNotModified, rec.Code, "body: %s", rec.Body.String())
 }
+
+// TestHumaTask_PATCHMergePatch is the merge-patch test tasks never had, and its
+// absence is why PATCH /api/v2/tasks/{projecttask} shipped broken for every
+// client. Every other AutoPatch resource carries one — huma_label_test.go:368,
+// huma_project_test.go:574, huma_project_view_test.go:377,
+// huma_saved_filter_test.go:175, huma_bot_user_test.go:253 — and tasks and task
+// comments, the only two models carrying a ReactionMap, carried none.
+//
+// AutoPatch does not run a handler of ours. Huma synthesises PATCH as
+// GET -> RFC 7386 merge -> PUT inside one request (pkg/routes/api/v2/huma.go:163-181),
+// so what the server validates is OUR PATCH MERGED OVER ITS OWN READ SHAPE. A
+// property that the read emits but the write schema rejects therefore fails
+// every PATCH, whatever the caller sent, and no client can avoid it except by
+// deleting the server's own field.
+//
+// Task.Reactions is that property. It carries `json:"reactions"` with no
+// omitempty (pkg/models/tasks.go:160) so it is always emitted, and it is only
+// populated for ?expand=reactions (pkg/models/tasks.go:805-810) — which
+// AutoPatch's internal GET cannot ask for — so it is always null. ReactionMap is
+// a Go map (pkg/models/reaction.go:64), and Huma marks slices nullable by
+// default but not maps, so the generated schema is a bare "type":"object" that
+// null cannot satisfy. Huma validates the VALUE of a present read-only property;
+// read-only exempts it from the required check only.
+//
+// THIS TEST IS EXPECTED TO FAIL ON TODAY'S CODE with 422 and Huma's constant
+// detail "validation failed", naming body.reactions. That is the point of
+// writing it. It passes once Task.Reactions is tagged omitempty or
+// nullable:"true" — the one-tag model fix tracked in BRA-1363, deliberately not
+// applied here.
+func TestHumaTask_PATCHMergePatch(t *testing.T) {
+	e, err := setupTestEnv()
+	require.NoError(t, err)
+	token := humaTokenFor(t, &testuser1)
+
+	// Task 1: created_by_id 1 in project 1, so testuser1 is admin on it, and it
+	// has a description in the fixture that the merge must leave alone.
+	rec := humaRequest(t, e, http.MethodPatch, "/api/v2/tasks/1",
+		`{"title":"patched title"}`, token, "application/merge-patch+json")
+	require.Equal(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
+
+	rec = humaRequest(t, e, http.MethodGet, "/api/v2/tasks/1", "", token, "")
+	require.Equal(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
+
+	var after struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Done        bool   `json:"done"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &after))
+	assert.Equal(t, "patched title", after.Title)
+	assert.Equal(t, "Lorem Ipsum", after.Description, "description must survive the PATCH")
+	assert.False(t, after.Done, "done must survive the PATCH")
+}
+
+// TestHumaTask_PATCHMergePatchWithSubscription covers the SECOND read-shape
+// property that cannot pass the write schema, which the test above does not
+// reach because task 1 carries no subscription.
+//
+// Subscription.EntityType is a Go int whose MarshalJSON emits the string "task"
+// (pkg/models/subscription.go:60-68), with no huma.SchemaProvider override, so
+// the generated schema publishes "entity" as "type":"integer". Task.ReadOne
+// populates task.Subscription (pkg/models/tasks.go:2101-2106), and
+// GetSubscriptionForUser INHERITS the project's subscription when the task has
+// none (pkg/models/subscription.go:224-227) — so this fires for a large share of
+// real tasks, not an exotic few.
+//
+// Task 2 is created_by_id 1 in project 1, and subscriptions.yml fixture id 1 is
+// entity_type 3 (task), entity_id 2, user_id 1 — so reading it as testuser1
+// populates the field. Failing here and passing above would isolate the
+// subscription defect from the reactions one; on today's code both fail, and
+// reactions fails first.
+//
+// EXPECTED TO FAIL ON TODAY'S CODE. Passes once Subscription.EntityType gets a
+// schema override or a string type (BRA-1363).
+func TestHumaTask_PATCHMergePatchWithSubscription(t *testing.T) {
+	e, err := setupTestEnv()
+	require.NoError(t, err)
+	token := humaTokenFor(t, &testuser1)
+
+	// Prove the premise rather than assuming the fixture: if this task carries no
+	// subscription the test below would pass for the wrong reason, asserting
+	// nothing about entity-type marshalling at all.
+	rec := humaRequest(t, e, http.MethodGet, "/api/v2/tasks/2", "", token, "")
+	require.Equal(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
+	require.Contains(t, rec.Body.String(), `"subscription"`,
+		"task 2 must carry a subscription or this test proves nothing")
+	require.Contains(t, rec.Body.String(), `"entity":"task"`,
+		"the wire form must be the STRING the schema rejects, or the defect has moved")
+
+	rec = humaRequest(t, e, http.MethodPatch, "/api/v2/tasks/2",
+		`{"title":"patched subscribed task"}`, token, "application/merge-patch+json")
+	require.Equal(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
+
+	rec = humaRequest(t, e, http.MethodGet, "/api/v2/tasks/2", "", token, "")
+	require.Equal(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
+
+	var after struct {
+		Title string `json:"title"`
+		Done  bool   `json:"done"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &after))
+	assert.Equal(t, "patched subscribed task", after.Title)
+	assert.True(t, after.Done, "done must survive the PATCH — task 2 is done in the fixture")
+}
