@@ -232,3 +232,170 @@ The dominant cost is context re-derivation, not writing code.
   a way that implies endorsement by, or affiliation with, the Vikunja project.
 - Do not remove or weaken attribution to make the fork look original. The obligation is to
   re-brand, not to conceal.
+
+## 8. Managed mode — read this before reasoning about any restriction
+
+**One sentence:** managed mode is the single global switch that decides whether this instance
+behaves as a **managed** product — where an account with no entitlement can still do ordinary
+task work but creating a project, sharing, teams, link shares, API tokens, CalDAV and bots are
+all refused — or as **plain, unrestricted upstream Vikunja**.
+
+This section exists because the flag has caused the same confusion repeatedly: an agent
+reasons about a restriction, tests it, or reads a refusal, without first establishing whether
+managed mode is even on for the thing they're looking at. Establish that first, every time —
+it changes what "correct behavior" means for a large fraction of this codebase.
+
+### The mechanism, so "on" and "off" are not black boxes
+
+- **Config key:** `brazn.managedmode` / env var `VIKUNJA_BRAZN_MANAGEDMODE`. **Defaults `false`**
+  (`pkg/config/config.go`).
+- **It is a single kill switch, not a per-rule setting.** `RequireManagedPolicy()`
+  (`pkg/routes/managed_gate.go`) is the one middleware every classified route passes through,
+  and its first line is `if !config.BraznManagedMode.GetBool() { return next(c) }` — off means
+  the entire Brazn access-control layer (topology protection, edition rules, write-lockouts,
+  everything `route-classification.json` describes) is **bypassed entirely**, not partially.
+  With it off, this fork behaves exactly like vanilla upstream Vikunja for every one of those
+  routes. With it on, every classified route is evaluated against the policy table.
+- **It is not exposed anywhere a client can read it.** `/info` does not advertise it. There is
+  no way to ask a running instance "are you managed?" without already knowing a credential and
+  provoking a managed-gated route to see how it answers.
+- **It lives in a deploy host's untracked `.env`, not in git.** The value in this repository is
+  only ever the compiled-in default (`false`). What a given deployed instance actually runs is
+  set on that host and can drift from what you'd guess by reading this repo.
+
+### Current known state, and why "current" is doing a lot of work in that sentence
+
+| Where | State | Source |
+| -- | -- | -- |
+| Compiled default / this repo | **off** | `pkg/config/config.go` |
+| CI (`ci.yml`, all test jobs) | **off**, always | no job sets the env var; nothing here ever exercises the gate end-to-end except the dedicated managed-mode test files below |
+| Dev instance (`dev.brazn.one` / `dev.tasks.brazn.one`) | **on** | switched by a one-time migration, BRA-1021, documented in the Percy repo's `docs/OPERATIONS.md` §7 |
+| Production (`brazn.one`) | **not documented as switched** as of this writing | no equivalent migration record found; do not assume it matches dev |
+
+**Treat that table as perishable, not authoritative** — it is a snapshot, the value is a live
+host setting that changes outside this repo, and the whole point of this section is that
+nobody should be trusting a stale memory of it (including this one, eventually). If the
+current state actually matters for what you're doing, either check the deploy host directly (the
+toggle procedure is in the Percy repo's `docs/OPERATIONS.md` §7, "Turning it off" and the
+migration section above it) or ask, rather than assuming today's table still holds.
+
+### What this means in practice
+
+- **A green CI run proves nothing about managed-mode-gated behavior**, because CI never turns
+  the gate on. Do not cite a passing test suite as evidence a restriction works — cite the
+  specific test that flips `brazn.managedmode` deliberately (`pkg/webtests/brazn_managed_mode_test.go`
+  and the `managed_rules_*.go` test files), or nothing.
+- **The same route can answer differently on every environment**, correctly, by design. A
+  route that behaves one way against your local build or CI and a different way on
+  `dev.brazn.one` is not necessarily a bug — check which environment you're actually looking at
+  before concluding one is wrong.
+- **State which environment's behavior you're describing, explicitly, in any handoff or PR
+  description that touches this.** "It refuses" or "it works" is an incomplete sentence without
+  saying where — this file's own patch-surface area 2 (§3) exists because of exactly this class
+  of restriction, and area 4 (entitlement sync) is what feeds it its data.
+- If a task depends on managed-mode-specific behavior and you cannot determine the target
+  environment's actual state, say so and ask rather than picking one silently.
+
+## 9. UI change safety classification
+
+This section exists because a UI change can be locally correct and still cause two kinds of
+knock-on break that are specific to being a fork: it can inflate the diff on an upstream file
+(making every future upstream merge harder), or it can present an action the server was never
+going to allow (managed mode, protected topology, or an entitlement write-block refuse it,
+and the button just looked like it worked). Classify every UI change against **both** the
+patch-surface ADR (§3) and the two lists below before writing it.
+
+**Upstream gives frontend UI no extension point at all.** Vikunja's plugin system
+(`pkg/modules/plugins` upstream, Yaegi/native Go loaders) is backend-only — new API routes,
+migrations, event listeners. It has no mechanism for a plugin to add a Vue component, a menu
+item, or any other frontend surface. So there is no upstream-sanctioned way to add frontend
+behavior without patching `frontend/` directly, which is exactly why the diff-discipline below
+is the only lever we have — there's no config escape hatch for *behavior*. There is one for
+*branding*, below.
+
+### Safest — config only, no patch at all
+
+Try this tier first for anything branding-shaped. These are live upstream config keys
+(confirmed present in this fork's pinned `config-raw.json`) — setting them costs no patch
+surface and survives every upstream upgrade automatically:
+
+- `service.customlogourl` / `service.customlogourldark` — swap the logo via an external URL,
+  with a separate dark-mode variant. Prefer this over editing `src/assets/logo*.svg` /
+  `Logo.vue` when a URL-hosted asset is acceptable — it's zero-diff.
+- `service.allowiconchanges` — allow seasonal/occasion icon variants (on by default).
+- `legal.imprinturl` / `legal.privacyurl` — point the frontend's legal links at hosted pages
+  instead of building them into the app.
+- `service.motd` — a custom announcement string surfaced via `/info`, no frontend change
+  needed at all.
+
+Reach for `src/assets/logo*.svg` / `Logo.vue` (still ADR-sanctioned, see below) only when the
+config-level swap can't do what's needed — e.g. the mark itself must ship inside the bundle
+rather than be fetched from a URL, as is already the case for the transactional-email logo
+(`docs/brand/README.md`).
+
+### Safe — write these without asking
+
+- **Component-scoped style changes** (`<style scoped>` in the `.vue` file). This is the
+  lowest-risk surface by design — see `frontend/src/styles/README.md`'s own priority order.
+- **New design tokens** added to `custom-properties/colors.scss` / `shadows.scss`, following
+  the existing HSL-component pattern (`--x-h/-s/-l/-a` plus a composed value) with a dark-mode
+  override inside `&.dark { @media screen { … } }`. Never hardcode a color in a component;
+  consume the token with `var(--token-name)`.
+- **New, additive components/views** in edition- or organization-specific areas (e.g. an
+  admin approval screen, a new settings panel) rather than edits to an existing upstream
+  file. A new file carries none of upstream's merge history, so it can't conflict with it.
+- **Copy/label/text changes**, provided the string is added to `frontend/src/i18n/lang/en.json`
+  and referenced by key, never hardcoded. (Per §6, a pure wording change is fixed by the
+  reviewer inline, not dispatched as a task on its own.)
+- **Branding/logo swaps** (`src/assets/logo*.svg`, `Logo.vue`) when the config-only tier above
+  doesn't cover it — this is explicitly one of the five ADR-sanctioned patch categories.
+- **Reusing an existing `src/components/base/` primitive** instead of hand-rolling a new one.
+- **One-off inline layout fixes** using Tailwind's `tw-`-prefixed utilities, scoped to new
+  markup. Do not use a Tailwind utility for anything reusable or dark-mode-aware — that
+  belongs in a CSS custom property instead (see the styles README's "Tailwind's limited role").
+
+### Needs a specific check first — do not assume the server will save you
+
+- **Any new UI action that writes something.** Cross-check it against the four things that
+  stay writable during an entitlement write-block (billing details, the person's own
+  credentials, data export, account deletion — `Identity-and-Access-Rules.md` §11, Case 11).
+  Anything else must be disabled/hidden client-side when `write_access` is restricted, not
+  left for the server to 403 — a control that silently fails is a UX regression even when it
+  is not a security hole.
+- **Any UI touching a protected-topology entity** (personal Inbox, organization Public root,
+  Team root, Percy Feedback — BRA-914). The server hard-refuses these; showing an action that
+  will always be refused is the bug to avoid. Gate visibility on the same managed-mode/edition
+  signal the store already exposes (`stores/organization.ts`, `stores/config.ts`) rather than
+  inventing a new client-side check. **This is a managed-mode-gated restriction — see §8 before
+  assuming it's live on whatever you're testing against.**
+- **Edits to an existing upstream file.** Keep the diff to exactly the lines that must change
+  — do not reformat untouched lines (already required by §5). A large diff on a file upstream
+  still maintains is the single most direct way a "safe-looking" UI change turns into a
+  standing merge-conflict cost.
+- **Global theme files** (`styles/theme/*.scss`) and the Bulma `--scheme-*` compatibility
+  block at the top of `colors.scss`. These are cross-cutting by construction; prefer a scoped
+  component style first, and don't touch the `--scheme-*` block at all except to update Bulma
+  itself.
+
+### Out of scope without a recorded decision first
+
+- Anything outside the five ADR-approved patch categories in §3 — a UI idea that isn't
+  branding/edition-UX, managed-mode enforcement, branded email, entitlement projection, or
+  topology protection needs an explicit decision recorded in the ticket before it's written,
+  however small it looks.
+- Weakening or removing upstream attribution, the Vikunja name/logo, or AGPL notices (§7).
+- Treating a hidden/disabled button as the actual enforcement of anything security- or
+  entitlement-relevant — the check belongs server-side; the UI only reflects it.
+- Creating a new i18n locale or translating strings yourself (already forbidden in the
+  Translations section above) — redirect to the translation workflow.
+- Verifying any visual change by running the dev server or build locally — §1 forbids
+  executing `node`/`pnpm`/`vite`/any frontend tool on this host. Reason the change through
+  statically, extend the Vitest/Playwright coverage for it, and let CI (Gate 1) be the only
+  verifier — per §4, a test that would pass whether or not the change is correct is worse than
+  no test, so state what the test would catch, don't just add one.
+
+Upstream's own `CONTRIBUTING.md` requires an after-screenshot on any UI-affecting PR, precisely
+because a diff doesn't show what changed visually. Since the host-execution rule means no agent
+here can produce that screenshot by running the app, ask the human reviewer (Gate 2/4) to attach
+one before merging any change that alters layout or appearance — don't let CI-green stand in for
+"looks right."
