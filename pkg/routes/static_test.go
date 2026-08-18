@@ -526,7 +526,7 @@ func TestBraznBlocksAppShell(t *testing.T) {
 		{"the favicon", `dist/favicon.ico`, false},
 		{"robots.txt", `dist/robots.txt`, false},
 		{"a hashed SPA chunk, inert on its own", `dist/assets/index-a1b2c3d4.js`, false},
-		{"the service worker", `dist/sw.js`, false},
+		{"the service worker", `dist/sw.js`, true},
 		{"a stray .html at the root of dist", `dist/stats.html`, true},
 		{"a stray .html in a subdirectory of dist", `dist/legal/imprint.html`, true},
 		{"the /one directory itself, which the IsDir branch already has", `dist/one`, false},
@@ -672,4 +672,73 @@ func TestStaticServesTheRealServiceWorkerWhenTheLockoutIsOff(t *testing.T) {
 
 	assert.NotContains(t, rec.Body.String(), "registration.unregister()",
 		"the eviction script must never be served while the lockout is off")
+}
+
+// TestStaticRestrictedUIDeliversConfirmationTokens is the launch blocker this
+// file did not previously catch, and the reason a path allowlist is not enough.
+//
+// The backend mails confirmation links to the SITE ROOT with the token in a
+// query — `ServicePublicURL + "?userEmailConfirm=" + token`
+// (pkg/user/notifications.go:52, and :206 for account deletion). "/" is a
+// directory, so it reaches braznServeAppShell and is redirected; http.Redirect
+// carries only the target string, so THE TOKEN IS DISCARDED. The user can then
+// never confirm, and pkg/user/user.go:413-415 refuses every later sign-in with
+// ErrEmailNotConfirmed. Changing an email address from the shipped settings page
+// is enough to trigger it (frontend/public/one/view-settings.js:544).
+//
+// THE ASSERTION IS THAT THE SHELL IS SERVED, NOT THAT THE PATH IS ALLOWLISTED.
+// A path-only assertion passes while the token is still destroyed, which is
+// exactly the shape of test that would have shipped this bug. Serving the shell
+// keeps the ORIGINAL request intact — query included — for the SPA's router
+// guard at frontend/src/router/index.ts:582-584 to read.
+//
+// MUTATION, traced: deleting the braznCarriesConfirmationToken term from the
+// condition in braznServeAppShell makes the two root subtests fail. Traced: "/"
+// is not in restrictedUIAuthPaths and matches neither the /auth/ nor the /share/
+// prefix, so without that term it falls through to http.Redirect — 302, a
+// Location, and no Server header. The /confirm subtest fails instead if the
+// allowlist entry is removed, which is a different mutation and is why it is a
+// separate case.
+func TestStaticRestrictedUIDeliversConfirmationTokens(t *testing.T) {
+	config.InitDefaultConfig()
+	config.BraznRestrictedUIOnly.Set(true)
+	t.Cleanup(func() { config.InitDefaultConfig() })
+
+	e := newStaticTestEcho()
+
+	for _, target := range []string{
+		"/?userEmailConfirm=sometoken",
+		"/?accountDeletionConfirm=sometoken",
+		"/confirm?userEmailConfirm=sometoken",
+		"/oauth/authorize?client_id=x",
+		"/share/abc123/auth",
+	} {
+		t.Run(target, func(t *testing.T) {
+			rec := doStaticRequest(t, e, target)
+
+			assert.Equal(t, http.StatusOK, rec.Code,
+				"a confirmation link must reach the application, not be redirected")
+			assert.Empty(t, rec.Header().Get("Location"),
+				"a redirect drops the query, and the query IS the token")
+			assert.Equal(t, "Brazn Tasks", rec.Header().Get("Server"),
+				"the shell must actually be served — serveFile is what sets this")
+		})
+	}
+}
+
+// TestStaticRestrictedUIStillRedirectsThePlainRoot guards the guard above. The
+// root must keep redirecting: it is the main way in, and the whole point of the
+// lockout. Without this, widening the confirmation exemption to every root
+// request would pass every assertion in the test above while quietly serving the
+// Vue application to everyone who types the hostname.
+func TestStaticRestrictedUIStillRedirectsThePlainRoot(t *testing.T) {
+	config.InitDefaultConfig()
+	config.BraznRestrictedUIOnly.Set(true)
+	t.Cleanup(func() { config.InitDefaultConfig() })
+
+	rec := doStaticRequest(t, newStaticTestEcho(), "/?utm_source=newsletter")
+
+	assert.Equal(t, http.StatusFound, rec.Code,
+		"an ordinary root request, query or not, must still be redirected")
+	assert.Equal(t, restrictedUIPage, rec.Header().Get("Location"))
 }

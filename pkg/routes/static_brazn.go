@@ -50,6 +50,10 @@ const (
 	// prefix rather than an exact path.
 	restrictedUIAuthPrefix = `/auth/`
 
+	// A link-share recipient authenticates at /share/{hash}/auth
+	// (frontend/src/router/index.ts:276). The hash varies, so this is a prefix.
+	restrictedUIShareAuthPrefix = `/share/`
+
 	// The application's service worker, which the lockout has to replace rather
 	// than merely stop serving. See braznEvictingServiceWorker.
 	restrictedUIServiceWorkerPath = `/sw.js`
@@ -125,6 +129,36 @@ var restrictedUIAuthPaths = map[string]bool{
 	"/register":           true,
 	"/password-reset":     true,
 	"/get-password-reset": true,
+	// Where the email-confirmation link lands after the router guard moves it
+	// (frontend/src/router/index.ts:96, :582-584).
+	"/confirm": true,
+	// The native client's OAuth consent screen. Note the prefix below is
+	// "/auth/", which does NOT cover "/oauth/" — they are different routes
+	// (router/index.ts:502).
+	"/oauth/authorize": true,
+}
+
+// restrictedUIConfirmationQueries are the tokens the backend mails to a user AT
+// THE SITE ROOT, and they are the reason an allowlist of paths is not enough.
+//
+// pkg/user/notifications.go:52 and :206 build their links as
+// `ServicePublicURL + "?userEmailConfirm=" + token` — the ROOT with a query, not
+// a path anybody could allowlist. The SPA picks them up in a global router guard
+// (frontend/src/router/index.ts:582-584) and forwards them to /confirm.
+//
+// WITHOUT THIS THE LOCKOUT PERMANENTLY LOCKS PEOPLE OUT, and silently. "/" is a
+// directory, so it reaches braznServeAppShell and is redirected to the restricted
+// page — and http.Redirect carries only the target string, so THE TOKEN IS
+// DISCARDED. The user never confirms, and pkg/user/user.go:413-415 then refuses
+// every subsequent sign-in with ErrEmailNotConfirmed. Changing an email address
+// from the shipped settings page is enough to trigger it
+// (frontend/public/one/view-settings.js:544).
+//
+// So the root keeps redirecting — it must, it is the main entry point — but a
+// root request CARRYING ONE OF THESE reaches the application instead.
+var restrictedUIConfirmationQueries = []string{
+	"userEmailConfirm",
+	"accountDeletionConfirm",
 }
 
 // braznBlocksAppShell reports whether a request that resolved to a REAL FILE in
@@ -287,7 +321,10 @@ func braznServeAppShell(c *echo.Context, assetFs http.FileSystem) error {
 
 	// Authentication has to stay reachable, or the lockout is a lockout on
 	// everyone — see restrictedUIAuthPaths for why, and for what it costs.
-	if restrictedUIAuthPaths[requested] || strings.HasPrefix(requested, restrictedUIAuthPrefix) {
+	if restrictedUIAuthPaths[requested] ||
+		strings.HasPrefix(requested, restrictedUIAuthPrefix) ||
+		strings.HasPrefix(requested, restrictedUIShareAuthPrefix) ||
+		braznCarriesConfirmationToken(c) {
 		return serveIndexFile(c, assetFs)
 	}
 
@@ -336,4 +373,24 @@ func braznRestrictedUILocation(target string) string {
 	}
 
 	return strings.TrimSuffix(publicURL, "/") + target
+}
+
+// braznCarriesConfirmationToken reports whether this request is one of the
+// mailed confirmation links, which arrive at the ROOT with the token in a query
+// rather than on any path an allowlist could name.
+//
+// Reading the RAW query rather than ParseQuery: a malformed query would make
+// ParseQuery return an error and, handled carelessly, drop a real token on the
+// floor. The presence of the parameter name is the whole question here — the SPA
+// owns validating the value — so a substring match on the key is both sufficient
+// and impossible to fail closed by accident.
+func braznCarriesConfirmationToken(c *echo.Context) bool {
+	query := c.Request().URL.Query()
+	for _, name := range restrictedUIConfirmationQueries {
+		if query.Has(name) {
+			return true
+		}
+	}
+
+	return false
 }
