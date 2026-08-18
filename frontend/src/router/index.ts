@@ -617,10 +617,93 @@ export async function getAuthForRoute(to: RouteLocation, authStore) {
 	}
 }
 
+/**
+ * Where a person who is entitled to something lands when they ask for a screen
+ * this product does not give them. It is the account screen, which is where the
+ * subscription each of the three paid kinds of person sees is drawn.
+ */
+const ONE_TASKS_HOME = {name: 'user.settings.general'}
+
+/**
+ * Whether somebody's plan entitles them to a screen here at all.
+ *
+ * Written as the two answers that are refused rather than as a list of the plans
+ * that are allowed, and that is deliberate: a list of paid plans signs out every
+ * customer of the next plan we sell, on the day we sell it. The community
+ * edition is a self-hosted installation, which buys none of this, and a session
+ * carrying no plan at all has bought nothing either.
+ *
+ * This is the one place where the absence of the plan claim is read as
+ * restrictive. Everywhere else absence is the permissive reading, and taking
+ * that reading here would hand every screen to anybody holding any session.
+ */
+function isEntitledToOneTasks(edition: string | null): boolean {
+	return edition !== null && edition !== 'community'
+}
+
+/**
+ * Whether an address is one of the screens this product gives a paying person:
+ * their account, the organisation they run, and a task somebody sent them a
+ * link to.
+ *
+ * The organisation screens are named here because they are part of the surface,
+ * not because everybody may open them. The guard below is what refuses them,
+ * and it deliberately answers a member and a former administrator differently -
+ * so this must not turn either of those two answers into a third one.
+ *
+ * Both names of the address-matches-nothing screen are here for the same
+ * reason: it is the answer that guard gives a member who guessed the
+ * organisation address, and sending it somewhere else would tell them the area
+ * exists.
+ */
+function isOneTasksScreen(name: string): boolean {
+	return name.startsWith('user.settings')
+		|| name.startsWith('organization')
+		|| name === 'task.detail'
+		|| name === 'user.export.download'
+		|| name === 'not-found'
+		|| name === 'bad-not-found'
+}
+
 router.beforeEach(async (to, from) => {
 	const authStore = useAuthStore()
 
 	await authStore.checkAuth()
+
+	// Every person is sent to the screen their plan and their role entitle them
+	// to, and is let no further. This is asked on every move between screens
+	// rather than once at sign-in, so a tab that has been open since before a
+	// subscription ended is refused the same as a fresh one, and typing an
+	// address is refused the same as following a link.
+	//
+	// Somebody who is not signed in is dealt with further down, by
+	// getAuthForRoute. Somebody holding a link share is not one of these people
+	// at all: they were given one project by somebody who has a plan, and they
+	// have none of their own to read.
+	//
+	// The server can already refuse to serve anything but these screens
+	// (brazn.restricteduionly), and that is off. It works on documents and
+	// cannot see who is asking, so it can never tell these four kinds of person
+	// apart; the plan is only readable here.
+	if (authStore.authUser) {
+		const name = to.name as string
+		// Sign-in, registering, resetting a password, confirming an address and
+		// the consent screen a desktop app opens. Turning any of these away
+		// leaves somebody with no way back to their account.
+		const isAuthScreen = AUTH_ROUTE_NAMES.has(name) || name === 'oauth.authorize'
+
+		if (!isEntitledToOneTasks(authStore.managedEdition)) {
+			// The sign-in screen, and nothing else. They are not signed out:
+			// the session is real and it is theirs, it simply buys no screen
+			// here, and destroying it would take away the one place they can
+			// still act.
+			if (!isAuthScreen) {
+				return {name: 'user.login'}
+			}
+		} else if (!isAuthScreen && !isOneTasksScreen(name)) {
+			return ONE_TASKS_HOME
+		}
+	}
 
 	if (to.meta?.requiresAdminPanel) {
 		// Await config/auth hydration so the license check doesn't race the empty default
