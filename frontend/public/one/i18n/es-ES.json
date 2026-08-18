@@ -189,6 +189,9 @@
       "teamMember": "Miembro del equipo",
       "administrator": "Administrador"
     },
+    "common": {
+      "add": "Añadir"
+    },
     "subscription": {
       "personal": "Suscripción ONE Personal",
       "teams": "Suscripción ONE Teams",
@@ -209,6 +212,11 @@
         "sendHint": "Mayús+Intro envía",
         "editLabel": "Editar comentario"
       },
+      "reminders": {
+        "typeDue": "Fecha Límite",
+        "typeStart": "Fecha de Inicio",
+        "typeEnd": "Fecha de Fin"
+      },
       "statusOwnership": {
         "title": "Estado y responsabilidad",
         "subtitle": "Quién se encarga de esta tarea, con qué prioridad y con qué progreso"
@@ -225,6 +233,8 @@
       "relationChosen": "Seleccionada: {task}",
       "relationPickRequired": "Elige primero una tarea de la lista. No se ha cambiado nada.",
       "repeat": {
+        "months": "Meses",
+        "years": "Años",
         "presetDaily": "Diariamente",
         "presetWeekly": "Semanalmente",
         "presetMonthly": "Mensualmente",

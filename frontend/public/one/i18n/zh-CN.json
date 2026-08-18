@@ -204,6 +204,9 @@
       "teamMember": "团队成员",
       "administrator": "管理员"
     },
+    "common": {
+      "add": "添加"
+    },
     "subscription": {
       "personal": "ONE Personal 订阅",
       "teams": "ONE Teams 订阅",
@@ -224,6 +227,11 @@
         "sendHint": "按 Shift+Enter 发送",
         "editLabel": "编辑评论"
       },
+      "reminders": {
+        "typeDue": "到期日",
+        "typeStart": "开始日期",
+        "typeEnd": "结束日期"
+      },
       "statusOwnership": {
         "title": "状态与归属",
         "subtitle": "谁负责这项任务，优先级和进度如何"
@@ -240,6 +248,8 @@
       "relationChosen": "已选择：{task}",
       "relationPickRequired": "请先从列表中选择一个任务。未做任何更改。",
       "repeat": {
+        "months": "月",
+        "years": "年",
         "presetDaily": "每天",
         "presetWeekly": "每周",
         "presetMonthly": "每月",

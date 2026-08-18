@@ -204,6 +204,9 @@
       "teamMember": "Membre de l’équipe",
       "administrator": "Administrateur"
     },
+    "common": {
+      "add": "Ajouter"
+    },
     "subscription": {
       "personal": "Abonnement ONE Personal",
       "teams": "Abonnement ONE Teams",
@@ -216,6 +219,7 @@
       "emailUnavailable": "Cette instance ne renvoie pas votre adresse e-mail, elle ne peut donc pas être affichée ici."
     },
     "task": {
+      "progressManual": "Manuel",
       "comments": {
         "edit": "Modifier",
         "editAria": "Modifier votre commentaire du {date}",
@@ -223,6 +227,11 @@
         "editing": "Modification de ce commentaire",
         "sendHint": "Maj+Entrée envoie",
         "editLabel": "Modifier le commentaire"
+      },
+      "reminders": {
+        "typeDue": "Date d’échéance",
+        "typeStart": "Date de début",
+        "typeEnd": "Date de fin"
       },
       "statusOwnership": {
         "title": "Statut et responsabilité",
@@ -240,6 +249,8 @@
       "relationChosen": "Sélectionnée : {task}",
       "relationPickRequired": "Choisissez d’abord une tâche dans la liste. Rien n’a été modifié.",
       "repeat": {
+        "months": "Mois",
+        "years": "Années",
         "presetDaily": "Quotidien",
         "presetWeekly": "Hebdomadaire",
         "presetMonthly": "Mensuel",
