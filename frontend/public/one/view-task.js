@@ -2212,8 +2212,9 @@ function installListeners() {
   }, true);
 
   /*
-   * The two Enter keys on this view.
+   * The three Enter keys on this view.
    *
+   *   #taskTitle         Enter commits the title, by blurring it. See the branch itself.
    *   #inlineLabelInput  Enter commits the label chip (prototype 1563).
    *   #commentText       SHIFT+ENTER SENDS. Plain Enter still inserts a newline — that is the
    *                      PM's explicit instruction and it is also the browser's own default in a
@@ -2238,6 +2239,36 @@ function installListeners() {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
     const el = event.target;
+
+    /*
+     * The title is the one single-line field on this page whose commit is NOT on `change` — the
+     * capture-phase `blur` handler above is its only writer — so it was the one single-line field
+     * Enter did not confirm. `app.js`'s `commitOnEnter` never reaches it either, because that
+     * handler is scoped to `#modalRoot` and the title is in the page body.
+     *
+     * `el.blur()` RATHER THAN A SECOND CALL TO THE SAVE, and that is the whole reason this branch
+     * is three lines instead of a copy of the blur handler. Committing through `blur` keeps one
+     * writer for one field, so Enter and clicking away are the same path and one edit sends
+     * exactly one PATCH. Calling `patchField` here as well would send two, because the state this
+     * view compares against is only replaced once the first write's re-read has landed.
+     *
+     * The four guards are `commitOnEnter`'s, for its reasons: an Enter that confirms an IME
+     * candidate must not commit a half-typed title (two of the six launch languages type through
+     * one), a held Enter must not repeat, and a modified Enter is a different gesture.
+     *
+     * The refusal check guards the key path exactly as it does for the Send button below: a title
+     * the user may not write is `readOnly`, and returning WITHOUT `preventDefault` leaves the
+     * keystroke as inert as it already was rather than making the keyboard a way past the gate.
+     */
+    if (el?.id === 'taskTitle') {
+      if (event.isComposing === true || event.keyCode === 229) return;
+      if (event.repeat === true) return;
+      if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (!isTaskReady() || isRefused(el)) return;
+      event.preventDefault();
+      el.blur();
+      return;
+    }
 
     if (el?.id === 'inlineLabelInput') {
       if (!isTaskReady() || isRefused(el)) return;

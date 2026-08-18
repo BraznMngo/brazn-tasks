@@ -1481,12 +1481,14 @@ const ENTER_INERT_TAGS = Object.freeze(['TEXTAREA', 'SELECT', 'BUTTON', 'A']);
  *   - Inside a modal there is one unambiguous primary action, so "the primary action" has a
  *     referent. On the page body there is none — the task view has a dozen controls and no
  *     primary — so a page-wide rule would have to guess which one Enter meant.
- *   - The single-line inputs on the body already commit on Enter and need nothing here: an
- *     `<input type=text>` fires `change` when the user commits with Enter as well as on blur,
- *     and both view modules bind `change` (view-task.js:1798, view-settings.js:1115). The one
- *     input with a non-`change` commit, the inline label chip, has carried its own Enter binding
- *     since round 1 (view-task.js:1895) and is left alone — this handler returns before reaching
- *     it, because it is not inside `#modalRoot`.
+ *   - The single-line inputs on the body commit on Enter and need nothing here, but not all of
+ *     them do it through `change`, and this note used to claim they did. An `<input type=text>`
+ *     fires `change` when the user commits with Enter as well as on blur, and both view modules
+ *     bind `change` (view-task.js `installListeners`, view-settings.js `installChangeListeners`),
+ *     which covers most of them. The two whose commit is somewhere else — the inline label chip,
+ *     and the task title, whose only writer is a capture-phase `blur` handler — carry their own
+ *     Enter bindings in view-task.js's `keydown` and are left alone; this handler returns before
+ *     reaching either, because neither is inside `#modalRoot`.
  *
  * `.btn.primary` IN `.modal-foot` ONLY, AND EXACTLY ONE OF THEM.
  *   - `.modal-foot`, because the modal BODY also holds `.btn.small.primary` — the per-row "Add"
