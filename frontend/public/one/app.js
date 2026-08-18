@@ -737,18 +737,28 @@ function refuseOne(el) {
  * children would leave every control inside it `readOnly` after the subscription that unlocked
  * it, with nothing on screen saying why.
  *
- * A DESCENDANT THAT OWNS ITS OWN REFUSAL IS LEFT ALONE. Views emit some controls refused in the
+ * A DESCENDANT UNDER A REFUSAL OF ITS OWN IS LEFT ALONE. Views emit some controls refused in the
  * MARKUP — `rename-org` is the documented one (ruling C8.1), and the contract-only commercial
- * controls are the same shape — with `.is-refused` and a `data-deny-reason` already on them.
- * Those are not this gate's to undo: releasing a group must not re-enable a control that was
- * never refused by the group in the first place. The gated node itself is always released in
- * full, which is the behaviour that was there before the recursion existed.
+ * controls are the same shape. Those are not this gate's to undo: releasing a group must not
+ * re-enable a control that was never refused by the group in the first place. The gated node
+ * itself is always released in full, which is the behaviour that was there before the recursion
+ * existed.
+ *
+ * THE MARKER IS ON THE WRAPPER, NOT ON THE CONTROL, which is why this walks ancestors instead of
+ * reading the child's own attributes. `refusedGroup()` in the views puts `.is-refused` and
+ * `data-deny-reason` on a `<div>` and leaves the button inside carrying `aria-disabled` alone,
+ * and every markup refusal on these pages is that shape — so a check that read only the child
+ * matched none of them. For an organization administrator the Organization section's `admin`
+ * gate passes on every render, this loop reached the pencil beside the organization name, and
+ * stripped the one attribute telling a screen-reader user it cannot be used. The refusal styling
+ * and the sentence beside it both survived, so the page looked right and announced wrong.
+ * `data-deny-reason` is still read off the child, for a control that does carry its own.
  */
 function releaseControl(el) {
   releaseOne(el);
   if (typeof el.querySelectorAll !== 'function') return;
   for (const child of el.querySelectorAll(REFUSABLE_DESCENDANTS)) {
-    if (child.classList.contains('is-refused') || child.hasAttribute('data-deny-reason')) continue;
+    if (child.closest('.is-refused') !== null || child.hasAttribute('data-deny-reason')) continue;
     releaseOne(child);
   }
 }
