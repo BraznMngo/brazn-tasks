@@ -140,6 +140,20 @@ func userShow(ctx context.Context, _ *struct{}) (*singleBody[userInfoBody], erro
 		return nil, translateDomainError(err)
 	}
 
+	// This route is the account screen, so it shows people their own address. The read
+	// above goes through getUser(…, false), which blanks Email, and json:"email,omitempty"
+	// then drops the key — hence the deliberate second read. It is keyed on the id the
+	// token middleware established and nothing else: this operation takes no path, query
+	// or body parameter, so it can only ever return the caller's own row. A link share is
+	// not a person, has no address, and is excluded by the type assertion.
+	if doer, isUser := a.(*user.User); isUser {
+		withEmail, err := user.GetUserWithEmail(s, &user.User{ID: doer.ID})
+		if err != nil {
+			return nil, translateDomainError(err)
+		}
+		u.Email = withEmail.Email
+	}
+
 	info := &userInfoBody{
 		User:                *u,
 		Settings:            models.NewUserGeneralSettings(u),
