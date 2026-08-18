@@ -1,0 +1,261 @@
+{
+  "misc": {
+    "loading": "Chargement…",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "default": "Par défaut",
+    "download": "Télécharger",
+    "createdBy": "Créé par {0}",
+    "cannotBeUndone": "Cette action ne peut pas être annulée !"
+  },
+  "navigation": {
+    "settings": "Paramètres"
+  },
+  "user": {
+    "auth": {
+      "email": "Adresse électronique",
+      "password": "Mot de passe",
+      "login": "Se connecter"
+    },
+    "settings": {
+      "title": "Paramètres",
+      "newPasswordTitle": "Mettre à jour votre mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "currentPassword": "Mot de passe actuel",
+      "updateEmailTitle": "Mettre à jour votre adresse électronique",
+      "updateEmailNew": "Nouvelle adresse électronique",
+      "updateEmailSuccess": "L’adresse électronique a bien été mise à jour. Nous vous avons envoyé un lien pour confirmer ce changement.",
+      "passwordUpdateSuccess": "Le mot de passe a bien été mis à jour.",
+      "general": {
+        "name": "Mon nom",
+        "newName": "Le nouveau nom",
+        "timezone": "Fuseau horaire",
+        "savedSuccess": "Paramètres mis à jour."
+      },
+      "sections": {
+        "personalInformation": "Informations personnelles"
+      },
+      "avatar": {
+        "title": "Avatar",
+        "uploadAvatar": "Téléverser l’avatar",
+        "setSuccess": "Avatar défini."
+      }
+    },
+    "deletion": {
+      "title": "Supprimer votre compte Brazn Tasks",
+      "text1": "La suppression de votre compte est définitive et ne peut pas être annulée. Nous supprimerons tous vos projets, tâches et tout ce qui y est associé.",
+      "confirm": "Supprimer mon compte",
+      "requestSuccess": "La requête a abouti. Vous recevrez un courriel avec des instructions à suivre."
+    },
+    "export": {
+      "title": "Exporter vos données Brazn Tasks",
+      "request": "Demander une copie de mes données Brazn Tasks",
+      "success": "Vous avez bien demandé vos données Brazn Tasks ! Nous vous enverrons un courriel dès qu’elles seront prêtes à être téléchargées."
+    }
+  },
+  "task": {
+    "addReminder": "Ajouter un rappel…",
+    "doneSuccess": "Tâche marquée comme terminée.",
+    "undoneSuccess": "Tâche marquée comme non terminée.",
+    "detail": {
+      "done": "Marquer la tâche comme terminée !",
+      "undone": "Marquer comme inachevé",
+      "move": "Déplacer la tâche vers un autre projet",
+      "updated": "Mis à jour {0}",
+      "updateSuccess": "Tâche enregistrée.",
+      "deleteSuccess": "Tâche supprimée.",
+      "delete": {
+        "header": "Supprimer cette tâche",
+        "text2": "Ceci supprimera également toutes les pièces jointes, les rappels et les relations associés à cette tâche et ne pourra pas être annulé !"
+      },
+      "actions": {
+        "label": "Ajouter des étiquettes",
+        "relatedTasks": "Ajouter une relation",
+        "moveProject": "Déplacer",
+        "color": "Définir la couleur",
+        "delete": "Supprimer",
+        "favorite": "Ajouter aux favoris",
+        "unfavorite": "Retirer des favoris"
+      }
+    },
+    "attributes": {
+      "title": "Nom",
+      "description": "Description",
+      "labels": "Étiquettes",
+      "assignees": "Responsables",
+      "priority": "Priorité",
+      "percentDone": "Progression",
+      "dueDate": "Date d’échéance",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "reminders": "Rappels",
+      "repeat": "Répéter",
+      "relatedTasks": "Tâches connexes"
+    },
+    "priority": {
+      "unset": "Non définie",
+      "low": "Faible",
+      "medium": "Moyenne",
+      "high": "Élevée",
+      "urgent": "Urgente",
+      "doNow": "LE FAIRE MAINTENANT"
+    },
+    "attachment": {
+      "title": "Pièces jointes",
+      "upload": "Téléverser la pièce jointe",
+      "delete": "Supprimer la pièce jointe"
+    },
+    "comment": {
+      "title": "Commentaires",
+      "comment": "Commentaire",
+      "addedSuccess": "Commentaire ajouté.",
+      "deleteText1": "Supprimer ce commentaire ?",
+      "deleteSuccess": "Le commentaire a bien été supprimé.",
+      "delete": "Supprimer ce commentaire"
+    },
+    "label": {
+      "placeholder": "Taper pour ajouter une étiquette…",
+      "addSuccess": "Étiquette ajoutée.",
+      "removeSuccess": "Étiquette retirée."
+    },
+    "relation": {
+      "add": "Ajouter une nouvelle relation de tâche",
+      "select": "Choisir le type de relation",
+      "noneYet": "Pas encore de relations de tâches.",
+      "delete": "Supprimer la relation de tâche",
+      "searchPlaceholder": "Saisissez une tâche à ajouter comme connexe…",
+      "kinds": {
+        "subtask": "Sous-tâche | Sous-tâches",
+        "parenttask": "Tâche parente | Tâches parentes",
+        "related": "Tâche connexe | Tâches connexes",
+        "duplicateof": "Doublon de | Doublons de",
+        "duplicates": "Doublon | Doublons",
+        "blocking": "Bloque | Bloquent",
+        "blocked": "Bloqué par | Bloqués par",
+        "precedes": "Précède | Précèdent",
+        "follows": "Suit | Suivent",
+        "copiedfrom": "Copié depuis | Copiés depuis",
+        "copiedto": "Copié vers | Copiés vers"
+      }
+    },
+    "reminder": {
+      "before": "{amount} {unit} avant {type}",
+      "after": "{amount} {unit} après {type}"
+    },
+    "repeat": {
+      "everyDay": "Chaque jour",
+      "everyWeek": "Chaque semaine",
+      "every30d": "Tous les 30 jours",
+      "mode": "Mode de répétition",
+      "fromCurrentDate": "À partir de la date d'achèvement",
+      "each": "Tou(te)s les",
+      "days": "Jours",
+      "weeks": "Semaines"
+    },
+    "subscription": {
+      "subscribe": "S’abonner",
+      "unsubscribe": "Se désabonner",
+      "subscribeSuccessTask": "Vous êtes désormais abonné·e à cette tâche",
+      "unsubscribeSuccessTask": "Vous êtes désormais désabonné·e de cette tâche"
+    },
+    "assignee": {
+      "assignSuccess": "Assignation réussie.",
+      "unassignSuccess": "Désassignation réussie."
+    }
+  },
+  "team": {
+    "create": {
+      "success": "Équipe créée."
+    },
+    "edit": {
+      "members": "Membres de l’équipe",
+      "addUser": "Ajouter à l’équipe",
+      "success": "Équipe mise à jour.",
+      "userAddedSuccess": "Membre de l’équipe ajouté.",
+      "deleteUser": {
+        "success": "Utilisateur·rice retiré·e de l’équipe."
+      }
+    },
+    "attributes": {
+      "name": "Nom de l’équipe",
+      "member": "Membre"
+    }
+  },
+  "one": {
+    "deny": {
+      "dueFollowsEnd": "La date d’échéance suit la date de fin. Effacez la date de fin pour la définir séparément."
+    },
+    "toast": {
+      "commentUpdated": "Le commentaire a bien été modifié."
+    },
+    "brand": {
+      "logoAlt": "ONE",
+      "taskPage": "Détails de la tâche",
+      "settingsPage": "Paramètres d’abonnement"
+    },
+    "edition": {
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
+      "withRole": "{edition} · {role}"
+    },
+    "role": {
+      "personalUser": "Utilisateur personnel",
+      "teamMember": "Membre de l’équipe",
+      "administrator": "Administrateur"
+    },
+    "subscription": {
+      "personal": "Abonnement ONE Personal",
+      "teams": "Abonnement ONE Teams",
+      "unknown": "Aucun abonnement n’est enregistré pour ce compte sur cette instance.",
+      "help": "L’édition sous laquelle ce compte est connecté."
+    },
+    "settings": {
+      "subscription": "Votre abonnement",
+      "currentEmail": "Adresse e-mail actuelle",
+      "emailUnavailable": "Cette instance ne renvoie pas votre adresse e-mail, elle ne peut donc pas être affichée ici."
+    },
+    "task": {
+      "comments": {
+        "edit": "Modifier",
+        "editAria": "Modifier votre commentaire du {date}",
+        "deleteAria": "Supprimer votre commentaire du {date}",
+        "editing": "Modification de ce commentaire",
+        "sendHint": "Maj+Entrée envoie",
+        "editLabel": "Modifier le commentaire"
+      },
+      "statusOwnership": {
+        "title": "Statut et responsabilité",
+        "subtitle": "Qui prend en charge cette tâche, avec quelle priorité et quelle progression"
+      },
+      "schedule": {
+        "title": "Planification",
+        "subtitle": "Planifiez la tâche et recevez des rappels ; vous pouvez aussi ajouter des plages de dates et une répétition."
+      },
+      "relationSearchPlaceholder": "Rechercher des tâches…",
+      "relationSearchResults": "Tâches correspondantes",
+      "relationSearchScope": "Affichage des tâches de {project}.",
+      "relationSearchScopeUnknown": "Affichage des tâches du projet de cette tâche.",
+      "relationSearchNoMatches": "Aucune tâche correspondante dans ce projet.",
+      "relationChosen": "Sélectionnée : {task}",
+      "relationPickRequired": "Choisissez d’abord une tâche dans la liste. Rien n’a été modifié.",
+      "repeat": {
+        "presetDaily": "Quotidien",
+        "presetWeekly": "Hebdomadaire",
+        "presetMonthly": "Mensuel",
+        "presetAnnually": "Annuel",
+        "unitOptionDays": "Jour(s)",
+        "unitOptionWeeks": "Semaine(s)",
+        "unitOptionMonths": "Mois",
+        "unitOptionYears": "Année(s)",
+        "modeDefault": "À partir de l’échéance précédente",
+        "modeDefaultHelp": "Ajoute l’intervalle aux dates que la tâche possède déjà : une tâche due un lundi reste due un lundi, même si vous la terminez en retard.",
+        "modeMonthly": "Tous les mois, à la même date",
+        "modeMonthlyHelp": "Avance toutes les dates d’un mois calendaire en conservant le jour du mois. L’intervalle ci-dessous est ignoré.",
+        "modeCurrent": "À partir de la date d’achèvement",
+        "modeCurrentHelp": "Ajoute l’intervalle au jour où vous cochez la tâche : la prochaine échéance est comptée à partir d’aujourd’hui.",
+        "summaryMonthly": "Se répète à la même date chaque mois calendaire."
+      }
+    }
+  }
+}

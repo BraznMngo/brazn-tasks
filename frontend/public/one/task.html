@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Brand name, not translated copy. data-i18n lets a catalogue override it anyway; the
+     literal is what the tab shows before i18n.js hydrates. -->
+<title data-i18n="one.page.title">ONE Tasks</title>
+<link rel="stylesheet" href="./one.css">
+</head>
+<body data-default-view="task">
+<!-- Shell only. app.js owns everything inside #app, #modalRoot, #toastRoot and the #morePopover
+     it appends to <body>; these nodes are created once and never replaced. All click behaviour
+     is delegated from document and keyed on data-action, so the shell emits no data-action of
+     its own — ids here exist to be read or written after a render, never to bind a listener. -->
+<!-- `hidden` IS IN THE MARKUP, not left to JavaScript. Ruling C10 requires the shell to stay
+     hidden until the negotiated catalogue has loaded and the page has rendered ONCE, and
+     app.js's `setShellVisible(false)` is the first statement of boot() — but a deferred module
+     that 404s, or throws while evaluating, never reaches it. The user was then left looking at
+     an empty 760px bordered card forever with no error surface, because render() is what draws
+     one. Starting hidden makes the failure invisible instead of wrong, and setShellVisible(true)
+     is the only thing that reveals it. -->
+<div class="stage hidden"><main class="window task-window" id="app"></main></div>
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+<!-- Toasts are the only report of every write result AND every failure. Bar 8 makes failure
+     reporting load-bearing, so app.js mirrors each toast here. One node, polite. -->
+<div id="a11yLive" class="sr-only" role="status" aria-live="polite"></div>
+
+<!-- Hidden pickers, opened by the visible buttons that name them. tabindex="-1" keeps them out of
+     the tab order — the visible button is the control a keyboard user reaches — but sr-only is
+     NOT display:none, so both are still in the accessibility tree and are announced. Each
+     therefore carries a name, from the same catalogue key as the button that opens it: an
+     announced input with no accessible name is a control a screen-reader user is told about and
+     cannot identify. #importInput is gone with the Import cards — both commit steps are refused
+     by the backend. -->
+<input class="sr-only" id="attachmentInput" type="file" multiple tabindex="-1"
+  aria-label="Upload attachment" data-i18n-aria="task.attachment.upload">
+<!-- `accept` is NARROWED to the five formats the server can actually decode, not `image/*` — see
+     settings.html for the citation. The two shells are kept byte-identical below the <body> tag
+     apart from `data-default-view`, so the change is made in both. -->
+<input class="sr-only" id="avatarInput" type="file"
+  accept="image/png,image/jpeg,image/gif,image/tiff,image/bmp" tabindex="-1"
+  aria-label="Upload Avatar" data-i18n-aria="user.settings.avatar.uploadAvatar">
+
+<!-- The logo pair lives in the shell but paints inside the header app.js renders, so it ships as
+     a template app.js clones (or reads .innerHTML from) into either header. Both files are
+     referenced; CSS picks by theme. Same-origin, immutable-cached, 155x72.
+     GOTCHA for i18n.js: template content is a separate DocumentFragment, so a page-wide
+     document.querySelectorAll('[data-i18n-alt]') will NOT see these two nodes. Hydrate the alt
+     after cloning, or reach in via getElementById('brandLogo').content — otherwise the alt
+     silently stays English and nothing reports it. -->
+<template id="brandLogo">
+  <img class="brand-logo light" src="./logo-light.v1.png" width="155" height="72" alt="ONE Tasks" data-i18n-alt="one.brand.logoAlt">
+  <img class="brand-logo dark" src="./logo-dark.v1.png" width="155" height="72" alt="ONE Tasks" data-i18n-alt="one.brand.logoAlt">
+</template>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+{
+  "misc": {
+    "loading": "読み込み中…",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "default": "デフォルト",
+    "download": "ダウンロード",
+    "createdBy": "{0} によって作成",
+    "cannotBeUndone": "この操作は元に戻せません！",
+    "closeDialog": "ダイアログを閉じる"
+  },
+  "navigation": {
+    "settings": "設定"
+  },
+  "user": {
+    "auth": {
+      "email": "メールアドレス",
+      "password": "パスワード",
+      "login": "ログイン"
+    },
+    "settings": {
+      "title": "設定",
+      "newPasswordTitle": "パスワードの更新",
+      "newPassword": "新しいパスワード",
+      "currentPassword": "現在のパスワード",
+      "updateEmailTitle": "メールアドレスの更新",
+      "updateEmailNew": "新しいメールアドレス",
+      "updateEmailSuccess": "メールアドレスは正常に更新されました。確認のためのリンクを送信しました。",
+      "passwordUpdateSuccess": "パスワードは正常に更新されました。",
+      "general": {
+        "name": "名前",
+        "newName": "新しい名前",
+        "timezone": "タイムゾーン",
+        "savedSuccess": "設定の更新に成功しました。"
+      },
+      "sections": {
+        "personalInformation": "あなたの情報"
+      },
+      "avatar": {
+        "title": "プロフィール画像",
+        "uploadAvatar": "画像のアップロード",
+        "setSuccess": "プロフィール画像を設定しました。"
+      }
+    },
+    "deletion": {
+      "title": "Brazn Tasksアカウントの削除",
+      "text1": "アカウント削除は恒久的なものであり、元に戻すことはできません。あなたのプロジェクト、タスク、それらに関連するすべてを削除します。",
+      "confirm": "アカウントの削除",
+      "requestSuccess": "リクエストは成功しました。詳しい案内はメールでお知らせします。"
+    },
+    "export": {
+      "title": "Brazn Tasksデータのエクスポート",
+      "request": "Brazn Tasksデータのリクエスト",
+      "success": "Brazn Tasksデータのリクエストに成功しました！ダウンロードの準備が整い次第、メールでお知らせします。"
+    }
+  },
+  "task": {
+    "addReminder": "リマイダーを作成…",
+    "doneSuccess": "タスクを完了にしました。",
+    "undoneSuccess": "タスクを未完了に戻しました。",
+    "movedToProject": "タスクは {project} に移動しました。",
+    "detail": {
+      "title": "タスクの詳細",
+      "done": "タスクを完了",
+      "undone": "未完了に戻す",
+      "move": "別のプロジェクトにタスクを移動",
+      "updated": "{0}に更新",
+      "updateSuccess": "タスクは正常に保存されました。",
+      "deleteSuccess": "タスクは正常に削除されました。",
+      "duplicateSuccess": "タスクは正常に複製されました。",
+      "delete": {
+        "header": "タスクの削除",
+        "text2": "このタスクに含まれるすべての添付ファイル、リマインダー、関連付けは削除されます。この操作は元に戻せません。"
+      },
+      "actions": {
+        "label": "ラベルの追加",
+        "relatedTasks": "関連タスクの追加",
+        "moveProject": "移動",
+        "duplicate": "複製",
+        "color": "色の設定",
+        "delete": "削除",
+        "favorite": "お気に入りに追加",
+        "unfavorite": "お気に入りから削除"
+      }
+    },
+    "attributes": {
+      "title": "タスク名",
+      "description": "説明",
+      "labels": "ラベル",
+      "assignees": "担当",
+      "priority": "優先度",
+      "percentDone": "進捗状況",
+      "dueDate": "期日",
+      "startDate": "開始日",
+      "endDate": "終了日",
+      "reminders": "リマインダー",
+      "repeat": "繰り返し間隔",
+      "relatedTasks": "関連タスク"
+    },
+    "priority": {
+      "unset": "未設定",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "至急",
+      "doNow": "大至急"
+    },
+    "attachment": {
+      "title": "添付ファイル",
+      "upload": "添付ファイルのアップロード",
+      "delete": "添付ファイルの削除"
+    },
+    "comment": {
+      "title": "コメント",
+      "comment": "コメント",
+      "sortNewestFirst": "新しい順",
+      "sortOldestFirst": "古い順",
+      "addedSuccess": "コメントは正常に追加されました。",
+      "deleteText1": "このコメントを削除して本当によろしいですか？",
+      "deleteSuccess": "コメントは正常に削除されました。",
+      "delete": "コメントの削除"
+    },
+    "label": {
+      "placeholder": "追加するラベルを入力…",
+      "addSuccess": "ラベルは正常に追加されました。",
+      "removeSuccess": "ラベルは正常に削除されました。"
+    },
+    "relation": {
+      "add": "新しい関連タスクの追加",
+      "select": "関連の種類を選択してください",
+      "noneYet": "関連タスクはまだありません。",
+      "delete": "関連タスクの削除",
+      "searchPlaceholder": "追加する関連タスクのキーワードを入力…",
+      "kinds": {
+        "subtask": "サブタスク",
+        "parenttask": "親タスク",
+        "related": "関連タスク",
+        "duplicateof": "重複元",
+        "duplicates": "重複",
+        "blocking": "ブロック中",
+        "blocked": "ブロッカー",
+        "precedes": "先行",
+        "follows": "後続",
+        "copiedfrom": "コピー元",
+        "copiedto": "コピー先"
+      }
+    },
+    "reminder": {
+      "before": "{type}の{amount}{unit}前",
+      "after": "{type}の{amount}{unit}後"
+    },
+    "repeat": {
+      "everyDay": "毎日",
+      "everyWeek": "毎週",
+      "every30d": "30日ごと",
+      "mode": "繰り返しモード",
+      "fromCurrentDate": "完了からの間隔",
+      "each": "毎",
+      "days": "日ごと",
+      "weeks": "週間ごと"
+    },
+    "subscription": {
+      "subscribe": "購読",
+      "unsubscribe": "購読解除",
+      "subscribeSuccessTask": "このタスクを購読しています",
+      "unsubscribeSuccessTask": "このタスクの購読を解除しました"
+    },
+    "assignee": {
+      "assignSuccess": "担当者が正常に割り当てられました。",
+      "unassignSuccess": "担当者から正常に解除されました。"
+    }
+  },
+  "team": {
+    "create": {
+      "success": "チームは正常に作成されました。"
+    },
+    "edit": {
+      "members": "チームメンバー",
+      "addUser": "チームに追加",
+      "success": "チームは正常に更新されました。",
+      "userAddedSuccess": "チームメンバーは正常に追加されました。",
+      "deleteUser": {
+        "success": "ユーザーは正常にチームから削除されました。"
+      }
+    },
+    "attributes": {
+      "name": "チーム名",
+      "member": "メンバー"
+    }
+  },
+  "one": {
+    "deny": {
+      "dueFollowsEnd": "期限は終了日に従います。個別に設定するには終了日を消してください。"
+    },
+    "toast": {
+      "commentUpdated": "コメントを更新しました。"
+    },
+    "brand": {
+      "logoAlt": "ONE",
+      "taskPage": "タスクの詳細",
+      "settingsPage": "サブスクリプション設定"
+    },
+    "edition": {
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
+      "withRole": "{edition}・{role}"
+    },
+    "role": {
+      "personalUser": "個人ユーザー",
+      "teamMember": "チームメンバー",
+      "administrator": "管理者"
+    },
+    "common": {
+      "separator": "・"
+    },
+    "subscription": {
+      "personal": "ONE Personal サブスクリプション",
+      "teams": "ONE Teams サブスクリプション",
+      "unknown": "このインスタンスでは、このアカウントのサブスクリプションは登録されていません。",
+      "help": "このアカウントがサインインしているエディションです。"
+    },
+    "settings": {
+      "subscription": "あなたのサブスクリプション",
+      "currentEmail": "現在のメールアドレス",
+      "emailUnavailable": "このインスタンスはメールアドレスを返さないため、ここには表示できません。"
+    },
+    "task": {
+      "comments": {
+        "edit": "編集",
+        "editAria": "{date} のコメントを編集",
+        "deleteAria": "{date} のコメントを削除",
+        "editing": "このコメントを編集中",
+        "sendHint": "Shift+Enter で送信",
+        "editLabel": "コメントを編集"
+      },
+      "statusOwnership": {
+        "title": "ステータスと担当",
+        "subtitle": "このタスクの担当者、優先度、進捗"
+      },
+      "schedule": {
+        "title": "スケジュール",
+        "subtitle": "タスクを計画してリマインダーを受け取れます。期間や繰り返しの設定も追加できます。"
+      },
+      "relationSearchPlaceholder": "タスクを検索…",
+      "relationSearchResults": "一致するタスク",
+      "relationSearchScope": "{project} のタスクを表示しています。",
+      "relationSearchScopeUnknown": "このタスクのプロジェクト内のタスクを表示しています。",
+      "relationSearchNoMatches": "このプロジェクトに一致するタスクはありません。",
+      "relationChosen": "選択中: {task}",
+      "relationPickRequired": "先にリストからタスクを選んでください。何も変更されていません。",
+      "repeat": {
+        "presetDaily": "毎日",
+        "presetWeekly": "毎週",
+        "presetMonthly": "毎月",
+        "presetAnnually": "毎年",
+        "unitOptionDays": "日",
+        "unitOptionWeeks": "週",
+        "unitOptionMonths": "か月",
+        "unitOptionYears": "年",
+        "modeDefault": "前回の期限日から",
+        "modeDefaultHelp": "タスクがすでに持っている日付に間隔を加算します。月曜が期限のタスクは、完了が遅れても期限は月曜のままです。",
+        "modeMonthly": "毎月、同じ日付に",
+        "modeMonthlyHelp": "すべての日付を暦の1か月分進め、日にちはそのまま保ちます。下の間隔は無視されます。",
+        "modeCurrent": "完了した日から",
+        "modeCurrentHelp": "タスクにチェックを入れた日に間隔を加算するため、次の期限は今日から数えます。",
+        "summaryMonthly": "暦上の毎月同じ日付に繰り返します。"
+      }
+    }
+  }
+}

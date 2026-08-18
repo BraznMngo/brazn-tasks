@@ -1,0 +1,246 @@
+{
+  "misc": {
+    "loading": "Cargando…",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "default": "Predeterminado",
+    "download": "Descargar",
+    "cannotBeUndone": "¡No se puede deshacer!"
+  },
+  "navigation": {
+    "settings": "Ajustes"
+  },
+  "user": {
+    "auth": {
+      "email": "Dirección de correo electrónico",
+      "password": "Contraseña",
+      "login": "Iniciar sesión"
+    },
+    "settings": {
+      "title": "Ajustes",
+      "newPasswordTitle": "Actualiza tu contraseña",
+      "updateEmailTitle": "Actualiza tu Dirección de Correo Electrónico",
+      "updateEmailSuccess": "Tu dirección de correo electrónico se ha actualizado con éxito. Te hemos enviado un enlace para confirmarlo.",
+      "passwordUpdateSuccess": "La contraseña se actualizó con éxito.",
+      "general": {
+        "savedSuccess": "Ajustes actualizados con éxito."
+      },
+      "avatar": {
+        "title": "Avatar",
+        "uploadAvatar": "Subir Avatar",
+        "setSuccess": "¡El avatar se ha establecido con éxito!"
+      }
+    },
+    "deletion": {
+      "title": "Eliminar tu Cuenta de Brazn Tasks",
+      "text1": "El borrado de tu cuenta es permanente y no puede deshacerse. Borraremos todos tus proyectos, tareas y todo lo que esté asociado con ellos.",
+      "confirm": "Eliminar mi cuenta",
+      "requestSuccess": "La solicitud ha sido exitosa. Recibirás un correo electrónico con más instrucciones."
+    },
+    "export": {
+      "title": "Exportar tus datos de Brazn Tasks",
+      "request": "Solicitar una copia de mis datos de Brazn Tasks",
+      "success": "Tu petición de datos de Brazn Tasks ha sido procesada correctamente. Te enviaremos un correo una vez esté lista para descargar."
+    }
+  },
+  "task": {
+    "doneSuccess": "La tarea fue marcada con éxito como realizada.",
+    "undoneSuccess": "La tarea fue marcada correctamente como incompleta.",
+    "detail": {
+      "done": "Marcar tarea como ¡completada!",
+      "undone": "Marcar como sin terminar",
+      "move": "Mover tarea a un proyecto diferente",
+      "updated": "Actualizado {0}",
+      "updateSuccess": "La tarea se ha guardado con éxito.",
+      "deleteSuccess": "La tarea se ha eliminado con éxito.",
+      "delete": {
+        "header": "Eliminar esta tarea",
+        "text2": "También se eliminará todos los adjuntos, recordatorios y relaciones asociadas a esta tarea y ¡no se puede deshacer!"
+      },
+      "actions": {
+        "label": "Añadir Etiquetas",
+        "relatedTasks": "Añadir una Relación",
+        "moveProject": "Mover",
+        "color": "Definir Color",
+        "delete": "Eliminar",
+        "favorite": "Añadir a Favoritos",
+        "unfavorite": "Sacar de Favoritos"
+      }
+    },
+    "attributes": {
+      "title": "Título",
+      "description": "Descripción",
+      "labels": "Etiquetas",
+      "assignees": "Responsables",
+      "priority": "Prioridad",
+      "percentDone": "Progreso",
+      "dueDate": "Fecha Límite",
+      "startDate": "Fecha de Inicio",
+      "endDate": "Fecha de Fin",
+      "reminders": "Recordatorios",
+      "repeat": "Repetir",
+      "relatedTasks": "Tareas Relacionadas"
+    },
+    "priority": {
+      "unset": "Sin definir",
+      "low": "Baja",
+      "medium": "Media",
+      "high": "Alta",
+      "urgent": "Urgente",
+      "doNow": "HACER AHORA"
+    },
+    "attachment": {
+      "title": "Adjuntos",
+      "upload": "Subir adjunto",
+      "delete": "Eliminar adjunto"
+    },
+    "comment": {
+      "title": "Comentarios",
+      "comment": "Comentar",
+      "addedSuccess": "El comentario fue añadido con éxito.",
+      "deleteText1": "¿Está seguro que desea eliminar este comentario?",
+      "deleteSuccess": "El comentario fue eliminado con éxito.",
+      "delete": "Eliminar este comentario"
+    },
+    "label": {
+      "addSuccess": "La etiqueta ha sido añadida con éxito.",
+      "removeSuccess": "La etiqueta ha sido quitada con éxito."
+    },
+    "relation": {
+      "add": "Añadir una Nueva Tarea Relacionada",
+      "select": "Selecciona un tipo de relación",
+      "noneYet": "Aún no hay tareas relacionadas.",
+      "delete": "Eliminar Relación de Tarea",
+      "kinds": {
+        "subtask": "Subtarea | Subtareas",
+        "parenttask": "Tarea Padre | Tareas Padre",
+        "related": "Tarea Relacionada | Tareas Relacionadas",
+        "duplicateof": "Duplicado De | Duplicados De",
+        "duplicates": "Duplica | Duplica",
+        "blocking": "Bloquea | Bloquea",
+        "blocked": "Bloqueado Por | Bloqueado Por",
+        "precedes": "Precede | Precede",
+        "follows": "Sigue | Sigue",
+        "copiedfrom": "Copiado Desde | Copiado Desde",
+        "copiedto": "Copiado A | Copiado A"
+      }
+    },
+    "reminder": {
+      "before": "{amount} {unit} antes de {type}",
+      "after": "{amount} {unit} después de {type}"
+    },
+    "repeat": {
+      "everyDay": "Cada Día",
+      "everyWeek": "Cada Semana",
+      "mode": "Modo de repetición",
+      "each": "Cada",
+      "days": "Días",
+      "weeks": "Semanas"
+    },
+    "subscription": {
+      "subscribe": "Suscribirse",
+      "unsubscribe": "Desuscribirse",
+      "subscribeSuccessTask": "Ahora estás suscrito a esta tarea",
+      "unsubscribeSuccessTask": "Ya no estás suscrito a esta tarea"
+    },
+    "assignee": {
+      "assignSuccess": "El usuario ha sido asignado con éxito.",
+      "unassignSuccess": "El usuario ha sido desasignado con éxito."
+    }
+  },
+  "team": {
+    "create": {
+      "success": "El equipo fue creado con éxito."
+    },
+    "edit": {
+      "members": "Miembros del Equipo",
+      "addUser": "Añadir al equipo",
+      "success": "El equipo fue actualizado con éxito.",
+      "userAddedSuccess": "El miembro del equipo fue añadido con éxito.",
+      "deleteUser": {
+        "success": "El usuario fue quitado del equipo con éxito."
+      }
+    },
+    "attributes": {
+      "name": "Nombre del Equipo",
+      "member": "Miembro"
+    }
+  },
+  "one": {
+    "deny": {
+      "dueFollowsEnd": "La fecha de vencimiento sigue a la fecha de fin. Borra la fecha de fin para establecerla por separado."
+    },
+    "toast": {
+      "commentUpdated": "El comentario se ha actualizado."
+    },
+    "brand": {
+      "logoAlt": "ONE",
+      "taskPage": "Detalles de la tarea",
+      "settingsPage": "Ajustes de suscripción"
+    },
+    "edition": {
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
+      "withRole": "{edition} · {role}"
+    },
+    "role": {
+      "personalUser": "Usuario personal",
+      "teamMember": "Miembro del equipo",
+      "administrator": "Administrador"
+    },
+    "subscription": {
+      "personal": "Suscripción ONE Personal",
+      "teams": "Suscripción ONE Teams",
+      "unknown": "No hay ninguna suscripción registrada para esta cuenta en esta instancia.",
+      "help": "La edición con la que ha iniciado sesión esta cuenta."
+    },
+    "settings": {
+      "subscription": "Tu suscripción",
+      "currentEmail": "Dirección de correo electrónico actual",
+      "emailUnavailable": "Esta instancia no devuelve tu dirección de correo electrónico, por lo que no se puede mostrar aquí."
+    },
+    "task": {
+      "comments": {
+        "edit": "Editar",
+        "editAria": "Editar tu comentario del {date}",
+        "deleteAria": "Eliminar tu comentario del {date}",
+        "editing": "Editando este comentario",
+        "sendHint": "Mayús+Intro envía",
+        "editLabel": "Editar comentario"
+      },
+      "statusOwnership": {
+        "title": "Estado y responsabilidad",
+        "subtitle": "Quién se encarga de esta tarea, con qué prioridad y con qué progreso"
+      },
+      "schedule": {
+        "title": "Planificación",
+        "subtitle": "Planifica la tarea y recibe recordatorios; también puedes añadir intervalos de fechas y repeticiones."
+      },
+      "relationSearchPlaceholder": "Buscar tareas…",
+      "relationSearchResults": "Tareas coincidentes",
+      "relationSearchScope": "Mostrando tareas de {project}.",
+      "relationSearchScopeUnknown": "Mostrando tareas del proyecto de esta tarea.",
+      "relationSearchNoMatches": "No hay tareas coincidentes en este proyecto.",
+      "relationChosen": "Seleccionada: {task}",
+      "relationPickRequired": "Elige primero una tarea de la lista. No se ha cambiado nada.",
+      "repeat": {
+        "presetDaily": "Diariamente",
+        "presetWeekly": "Semanalmente",
+        "presetMonthly": "Mensualmente",
+        "presetAnnually": "Anualmente",
+        "unitOptionDays": "Día(s)",
+        "unitOptionWeeks": "Semana(s)",
+        "unitOptionMonths": "Mes(es)",
+        "unitOptionYears": "Año(s)",
+        "modeDefault": "Desde la fecha de vencimiento anterior",
+        "modeDefaultHelp": "Suma el intervalo a las fechas que la tarea ya tiene, así que una tarea que vence un lunes sigue venciendo un lunes aunque la termines tarde.",
+        "modeMonthly": "Cada mes, el mismo día",
+        "modeMonthlyHelp": "Adelanta todas las fechas un mes natural y mantiene el día del mes. El intervalo de abajo se ignora.",
+        "modeCurrent": "Desde la fecha de finalización",
+        "modeCurrentHelp": "Suma el intervalo al día en que marcas la tarea como hecha, así que el próximo vencimiento se cuenta desde hoy.",
+        "summaryMonthly": "Se repite el mismo día de cada mes natural."
+      }
+    }
+  }
+}

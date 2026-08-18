@@ -1,0 +1,525 @@
+{
+  "misc": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "default": "Default",
+    "download": "Download",
+    "createdBy": "Created by {0}",
+    "cannotBeUndone": "This cannot be undone!",
+    "closeDialog": "Close dialog"
+  },
+  "navigation": {
+    "settings": "Settings"
+  },
+  "user": {
+    "auth": {
+      "email": "Email address",
+      "password": "Password",
+      "login": "Sign in"
+    },
+    "settings": {
+      "title": "Settings",
+      "newPasswordTitle": "Update Your Password",
+      "newPassword": "New password",
+      "currentPassword": "Current password",
+      "updateEmailTitle": "Update Your Email Address",
+      "updateEmailNew": "New email address",
+      "updateEmailSuccess": "Your email address was successfully updated. We've sent you a link to confirm it.",
+      "passwordUpdateSuccess": "The password was successfully updated.",
+      "general": {
+        "name": "My Name",
+        "newName": "The new name",
+        "timezone": "Time zone",
+        "savedSuccess": "The settings were successfully updated."
+      },
+      "sections": {
+        "personalInformation": "Personal Information"
+      },
+      "avatar": {
+        "title": "Avatar",
+        "uploadAvatar": "Upload Avatar",
+        "setSuccess": "The avatar has been set successfully!"
+      }
+    },
+    "deletion": {
+      "title": "Delete your Brazn Tasks Account",
+      "text1": "The deletion of your account is permanent and cannot be undone. We will delete all your projects, tasks and everything associated with it.",
+      "confirm": "Delete my account",
+      "requestSuccess": "The request was successful. You'll receive an email with further instructions."
+    },
+    "export": {
+      "title": "Export your Brazn Tasks data",
+      "request": "Request a copy of my Brazn Tasks Data",
+      "success": "You've successfully requested your Brazn Tasks Data! We will send you an email once it's ready to download."
+    }
+  },
+  "task": {
+    "addReminder": "Add a reminder…",
+    "removeReminder": "Remove this reminder",
+    "doneSuccess": "The task was successfully marked as done.",
+    "undoneSuccess": "The task was successfully un-marked as done.",
+    "movedToProject": "The task was moved to {project}.",
+    "detail": {
+      "title": "Task detail",
+      "done": "Mark task done!",
+      "undone": "Mark as undone",
+      "move": "Move task to a different project",
+      "updated": "Updated {0}",
+      "updateSuccess": "The task was saved successfully.",
+      "deleteSuccess": "The task has been deleted successfully.",
+      "duplicateSuccess": "The task was duplicated successfully.",
+      "removeRepeat": "Remove repeat interval",
+      "delete": {
+        "header": "Delete this task",
+        "text2": "This will also remove all attachments, reminders and relations associated with this task and cannot be undone!"
+      },
+      "actions": {
+        "label": "Add Labels",
+        "relatedTasks": "Add Relation",
+        "moveProject": "Move",
+        "duplicate": "Duplicate",
+        "color": "Set Color",
+        "delete": "Delete",
+        "favorite": "Add to Favorites",
+        "unfavorite": "Remove from Favorites"
+      }
+    },
+    "attributes": {
+      "title": "Title",
+      "description": "Description",
+      "labels": "Labels",
+      "assignees": "Assignees",
+      "priority": "Priority",
+      "percentDone": "Progress",
+      "dueDate": "Due Date",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "reminders": "Reminders",
+      "repeat": "Repeat",
+      "relatedTasks": "Related Tasks"
+    },
+    "priority": {
+      "unset": "Unset",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent",
+      "doNow": "DO NOW"
+    },
+    "attachment": {
+      "title": "Attachments",
+      "upload": "Upload attachment",
+      "delete": "Delete attachment"
+    },
+    "comment": {
+      "title": "Comments",
+      "comment": "Comment",
+      "sortNewestFirst": "Newest first",
+      "sortOldestFirst": "Oldest first",
+      "addedSuccess": "The comment was added successfully.",
+      "deleteText1": "Are you sure you want to delete this comment?",
+      "deleteSuccess": "The comment was deleted successfully.",
+      "delete": "Delete this comment"
+    },
+    "label": {
+      "placeholder": "Type to add a label…",
+      "removeLabel": "Remove label {label}",
+      "addSuccess": "The label has been added successfully.",
+      "removeSuccess": "The label has been removed successfully."
+    },
+    "relation": {
+      "add": "Add a New Task Relation",
+      "select": "Select a relation kind",
+      "noneYet": "No task relations yet.",
+      "delete": "Delete Task Relation",
+      "searchPlaceholder": "Type search for a task to add as related…",
+      "kinds": {
+        "subtask": "Subtask | Subtasks",
+        "parenttask": "Parent Task | Parent Tasks",
+        "related": "Related Task | Related Tasks",
+        "duplicateof": "Duplicate Of | Duplicates Of",
+        "duplicates": "Duplicates | Duplicates",
+        "blocking": "Blocking | Blocking",
+        "blocked": "Blocked By | Blocked By",
+        "precedes": "Precedes | Precedes",
+        "follows": "Follows | Follows",
+        "copiedfrom": "Copied From | Copied From",
+        "copiedto": "Copied To | Copied To"
+      }
+    },
+    "reminder": {
+      "before": "{amount} {unit} before {type}",
+      "after": "{amount} {unit} after {type}"
+    },
+    "repeat": {
+      "everyDay": "Every Day",
+      "everyWeek": "Every Week",
+      "every30d": "Every 30 Days",
+      "mode": "Repeat mode",
+      "fromCurrentDate": "From completion date",
+      "each": "Each",
+      "days": "Days",
+      "weeks": "Weeks"
+    },
+    "subscription": {
+      "subscribe": "Subscribe",
+      "unsubscribe": "Unsubscribe",
+      "subscribeSuccessTask": "You are now subscribed to this task",
+      "unsubscribeSuccessTask": "You are now unsubscribed to this task"
+    },
+    "assignee": {
+      "assignSuccess": "The user has been assigned successfully.",
+      "unassignSuccess": "The user has been unassigned successfully."
+    }
+  },
+  "team": {
+    "create": {
+      "success": "The team was successfully created."
+    },
+    "edit": {
+      "members": "Team Members",
+      "addUser": "Add to team",
+      "success": "The team was successfully updated.",
+      "userAddedSuccess": "The team member was successfully added.",
+      "deleteUser": {
+        "success": "The user was successfully deleted from the team."
+      }
+    },
+    "attributes": {
+      "name": "Team Name",
+      "member": "Member"
+    }
+  },
+  "organization": {
+    "title": "Organization",
+    "retry": "Try again",
+    "members": {
+      "title": "Members",
+      "inUse": "{used} / {limit} seats in use",
+      "roleAdministrator": "Organization administrator",
+      "roleMember": "Member"
+    },
+    "seats": {
+      "title": "Seats",
+      "add": "Add seats",
+      "explanation": "A seat frees the moment someone is removed, and an invitation needs a free one before it can be sent."
+    },
+    "teams": {
+      "create": "Create a team",
+      "namePlaceholder": "Team name",
+      "remove": "Remove",
+      "capped": {
+        "title": "You have used the teams your seats allow.",
+        "text": "Another team needs {seats} purchased seats. Buying more adds capacity straight away and nothing else changes.",
+        "unknown": "We cannot read how many seats you have bought, so we cannot let another team be created. Nothing about your organization has changed and it comes back on its own."
+      }
+    },
+    "administration": {
+      "current": "Organization administrator",
+      "transfer": {
+        "text": "Who administers the organization is recorded by the service you pay, so the transfer is made there and takes effect here. You lose every administrative control the moment it completes and cannot take the role back yourself.",
+        "action": "Transfer the role"
+      }
+    },
+    "general": {
+      "name": "Organization"
+    },
+    "unavailable": {
+      "title": "We cannot read your subscription right now.",
+      "text": "This is our side, not yours, and nothing about your organization has changed. Members, teams and tasks all keep working. Only the pages that depend on what you have paid for are unavailable, and they come back on their own."
+    },
+    "stale": {
+      "title": "This page was correct when it loaded and is not any more.",
+      "text": "Your role or your organization changed in another window or on another device. The controls you can see were drawn for the earlier state, so acting on them now would fail for reasons that would not be your fault. Reloading puts you back into a view that matches.",
+      "action": "Reload the page"
+    }
+  },
+  "one": {
+    "page": {
+      "title": "ONE Tasks"
+    },
+    "brand": {
+      "logoAlt": "ONE",
+      "taskPage": "Task Details",
+      "settingsPage": "Subscription Settings"
+    },
+    "edition": {
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
+      "withRole": "{edition} · {role}"
+    },
+    "subscription": {
+      "personal": "ONE Personal Subscription",
+      "teams": "ONE Teams Subscription",
+      "unknown": "No subscription is recorded for this account on this instance.",
+      "help": "The edition this account is signed in under."
+    },
+    "role": {
+      "personalUser": "Personal user",
+      "teamMember": "Team member",
+      "administrator": "Administrator"
+    },
+    "common": {
+      "none": "None",
+      "more": "More",
+      "change": "Change",
+      "continue": "Continue",
+      "add": "Add",
+      "search": "Search",
+      "searching": "Searching…",
+      "you": "(you)",
+      "atUsername": "{'@'}{username}",
+      "separator": " · ",
+      "justNow": "just now"
+    },
+    "task": {
+      "moreActions": "More task actions",
+      "unassigned": "Unassigned",
+      "progressManual": "Manual",
+      "percent": "{percent}%",
+      "deleteTask": "Delete task",
+      "relationTarget": "Task",
+      "relationSearchPlaceholder": "Search tasks…",
+      "relationSearchResults": "Matching tasks",
+      "relationSearchScope": "Showing tasks in {project}.",
+      "relationSearchScopeUnknown": "Showing tasks in this task's project.",
+      "relationSearchNoMatches": "No matching tasks in this project.",
+      "relationChosen": "Selected: {task}",
+      "relationPickRequired": "Choose a task from the list first. Nothing was changed.",
+      "labelExample": "e.g. Launch",
+      "labelPlaceholder": "Add label…",
+      "reminderCount": "{count} reminder | {count} reminders",
+      "statusOwnership": {
+        "title": "Status & ownership",
+        "subtitle": "Who owns this task at what priority and progress"
+      },
+      "schedule": {
+        "title": "Schedule",
+        "subtitle": "Plan the task and get reminded, also add date ranges and recurring."
+      },
+      "repeat": {
+        "interval": "Interval",
+        "months": "Months",
+        "years": "Years",
+        "presetDaily": "Daily",
+        "presetWeekly": "Weekly",
+        "presetMonthly": "Monthly",
+        "presetAnnually": "Annually",
+        "unitOptionDays": "Day(s)",
+        "unitOptionWeeks": "Week(s)",
+        "unitOptionMonths": "Month(s)",
+        "unitOptionYears": "Year(s)",
+        "unitDays": "{count} day | {count} days",
+        "unitWeeks": "{count} week | {count} weeks",
+        "unitMonths": "{count} month | {count} months",
+        "unitYears": "{count} year | {count} years",
+        "modeDefault": "From the previous due date",
+        "modeDefaultHelp": "Adds the interval to the dates the task already has, so a task due on a Monday stays due on a Monday even if you finish it late.",
+        "modeMonthly": "Monthly, on the same date",
+        "modeMonthlyHelp": "Moves every date forward one calendar month and keeps the day of the month. The interval below is ignored.",
+        "modeCurrent": "From the completion date",
+        "modeCurrentHelp": "Adds the interval to the day you tick the task off, so the next due date is measured from today.",
+        "value": "Every {interval}",
+        "summary": "Repeats every {interval}.",
+        "summaryMonthly": "Repeats on the same date every calendar month.",
+        "hint": "Set an interval or use a quick preset to make this task repeat."
+      },
+      "description": {
+        "subtitle": "Markdown. Lists, links and checklists are kept as you type them.",
+        "placeholder": "Enter a description."
+      },
+      "resources": {
+        "title": "Files & relations",
+        "subtitle": "Supporting material and dependencies stay with the task."
+      },
+      "attachments": {
+        "empty": "No attachments yet."
+      },
+      "comments": {
+        "subtitleTeams": "Use {'@'}username to mention someone in a team task.",
+        "subtitlePersonal": "Comments stay with this task.",
+        "placeholder": "Write a comment…",
+        "edit": "Edit",
+        "editAria": "Edit your comment from {date}",
+        "deleteAria": "Delete your comment from {date}",
+        "editing": "Editing this comment",
+        "sendHint": "Shift+Enter sends",
+        "editLabel": "Edit comment"
+      },
+      "reminders": {
+        "empty": "No reminders set.",
+        "hourBeforeDue": "1 hour before due date",
+        "dayBeforeDue": "1 day before due date",
+        "atDueTime": "At due time",
+        "dayBeforeStart": "1 day before start date",
+        "customDateTime": "Custom date and time",
+        "unitMinutes": "{count} minute | {count} minutes",
+        "unitHours": "{count} hour | {count} hours",
+        "unitDays": "{count} day | {count} days",
+        "typeDue": "due date",
+        "typeStart": "start date",
+        "typeEnd": "end date",
+        "atType": "At {type}",
+        "fallback": "Reminder"
+      },
+      "move": {
+        "title": "Move task",
+        "explanation": "A task inherits who can access it from the project it lives in.",
+        "destination": "Destination project"
+      },
+      "color": {
+        "blue": "Blue",
+        "purple": "Purple",
+        "red": "Red",
+        "green": "Green"
+      }
+    },
+    "settings": {
+      "other": "Other",
+      "editName": "Edit name",
+      "editProfile": "Edit profile",
+      "timezoneHelp": "Used for due dates, reminders and repeating tasks.",
+      "subscription": "Your subscription",
+      "dataTitle": "Your task data",
+      "currentEmail": "Current email address",
+      "emailUnavailable": "This instance does not return your email address, so it cannot be shown here.",
+      "updateEmail": "Update email",
+      "updatePassword": "Update password",
+      "export": {
+        "title": "Export ONE Tasks data",
+        "text": "Export your projects, tasks, comments and attachments as a portable archive.",
+        "action": "Export data",
+        "modalText": "A portable archive is prepared in the background.",
+        "ready": "A prepared export is available to download.",
+        "notReady": "No prepared export is currently available.",
+        "download": "Download current",
+        "request": "Request export"
+      },
+      "deleteAccount": {
+        "title": "Delete account",
+        "cancel": "Cancel scheduled deletion",
+        "confirmTitle": "Confirm account deletion",
+        "confirmText": "Delete your ONE account permanently?",
+        "successorTitle": "Choose the administrator who takes over before deleting your account.",
+        "successorText": "The selected team member must become organization administrator before deletion can be requested.",
+        "requestedTitle": "Deletion requested",
+        "requestedText": "Deletion is scheduled only after you open the confirmation link we email you."
+      }
+    },
+    "org": {
+      "teamLabel": "Team",
+      "teamManagement": "Team management",
+      "teamManagementSubtitle": "Teams, members, seats and administrator handover.",
+      "renameOrgAria": "Edit organization name",
+      "renameTeamAria": "Edit {team} name",
+      "renameOrgTitle": "Organization name",
+      "yourProjects": "Your projects",
+      "administratorText": "The administrator can manage teams, members, seats and organization settings.",
+      "membersSubtitle": "Manage who belongs to this team.",
+      "membersEmpty": "This team has no members yet. Add a member to get started.",
+      "addMember": "Add member",
+      "newAdministrator": "New administrator",
+      "selectMember": "Select a team member…",
+      "teamNameExample": "e.g. Product",
+      "organizationMembers": "Organization members",
+      "noOrganizationMembers": "No organization members available.",
+      "findExternal": "Find someone outside your organization",
+      "findExternalHint": "Adding someone external requires their full email or username to find them.",
+      "searchPlaceholder": "Full username or email",
+      "noExternalMatch": "No exact external match found.",
+      "inTeam": "In team",
+      "external": "External",
+      "inviteNewUser": "New user",
+      "addExisting": "Add existing",
+      "inviteEmailPlaceholder": "name{'@'}example.com",
+      "inviteSeatNotice": "The invitation reserves one seat immediately for {team}.",
+      "sendInvitation": "Send invitation",
+      "pendingInvitations": "Pending invitations",
+      "invitePending": "Invitation pending",
+      "seatReserved": "Seat reserved",
+      "subscriptionActionRequired": "Subscription action required",
+      "noPendingInvitations": "No pending invitations for this team.",
+      "revoke": "Revoke",
+      "removeMemberTitle": "Remove {name} from {team}?",
+      "removeMemberLead": "This removes team access.",
+      "removeMemberText": "The person remains part of the organization and keeps access to any other teams they belong to.",
+      "removeFromTeam": "Remove from team",
+      "seats": {
+        "inSubscription": "{count} seat in your subscription | {count} seats in your subscription",
+        "afterInvitation": "{count} seat once this invitation is accepted | {count} seats once this invitation is accepted",
+        "required": "{count} seat required | {count} seats required",
+        "members": "{count} member | {count} members",
+        "pending": "{count} pending invitation | {count} pending invitations",
+        "teams": "{count} team | {count} teams"
+      },
+      "tile": {
+        "privateKind": "Private",
+        "privateName": "Your Tasks",
+        "privateDesc": "Your private task space. Only you can access it.",
+        "teamDesc": "Shared work for this team.",
+        "youAreMember": "You are a member.",
+        "publicKind": "Organization-wide",
+        "publicName": "Public",
+        "publicDesc": "Work visible across the organization."
+      }
+    },
+    "deny": {
+      "personalEdition": "This is part of ONE Teams.",
+      "writeRestricted": "Your account is read-only right now.",
+      "notAdministrator": "Only the organization administrator can change this.",
+      "renameOrg": "Renaming the organization is not available yet.",
+      "noRoute": "This is not available yet.",
+      "rosterUnavailable": "We cannot read this team's members right now.",
+      "noTeams": "This organization has no teams yet. Create one first.",
+      "dueFollowsEnd": "The due date follows the end date. Clear the end date to set it on its own.",
+      "commercial": "We could not reach the subscription service, so nothing was changed.",
+      "taskMove": "Moving tasks between projects is part of ONE Teams.",
+      "forkForbidden": "You are not allowed to do that here. Nothing was changed.",
+      "forkNotFound": "We could not find that. Nothing was changed.",
+      "forkConflict": "That does not fit the current state, so nothing was changed."
+    },
+    "commercial": {
+      "notAuthenticated": "The subscription service did not accept your session, so nothing was changed.",
+      "paymentRequired": "Your payment could not be taken, so nothing was changed.",
+      "forbidden": "The subscription service would not allow that, so nothing was changed.",
+      "notFound": "The subscription service does not have that. Nothing was changed.",
+      "conflict": "The subscription service cannot do that while your account is in its current state. Nothing was changed.",
+      "unavailable": "The subscription service is unavailable right now, so nothing was changed.",
+      "notInvitable": "That address cannot be invited. It belongs to a personal account, to another organization, or to an account that has been deleted. Nothing was sent.",
+      "invitationExpired": "That invitation has expired, so no seat was taken.",
+      "invitationRevoked": "That invitation was withdrawn, so no seat was taken.",
+      "noInvitation": "There is no invitation for this account, so no seat was taken.",
+      "atSeatCeiling": "This organization already holds the largest number of seats the product offers, so no seat was taken.",
+      "notAMember": "That person is not a member of this organization, so nothing was changed.",
+      "stillAdministrator": "That person still administers this organization. Transfer the administrator role first, then remove them.",
+      "notAdmitted": "The request was approved but nobody was seated. It is still open, so you can approve it again once the cause is fixed.",
+      "belowUsers": "That is fewer seats than the people already using them. Remove members first, then reduce the number of seats.",
+      "belowActiveTeams": "That is fewer seats than your existing teams need, so nothing was changed."
+    },
+    "error": {
+      "loadFailed": "This page did not load.",
+      "sessionExpired": "Your session has ended. Sign in to continue.",
+      "requestFailed": "That did not work. Nothing was changed.",
+      "serverUnavailable": "The server is unavailable right now, so nothing was changed.",
+      "catalogue": "The text for this page could not be loaded."
+    },
+    "toast": {
+      "attachmentsAdded": "{count} attachment added | {count} attachments added",
+      "attachmentRemoved": "The attachment was removed.",
+      "relationAdded": "The relation was added.",
+      "relationRemoved": "The relation was removed.",
+      "favoriteAdded": "Added to favorites.",
+      "favoriteRemoved": "Removed from favorites.",
+      "colorUpdated": "The task color was updated.",
+      "seatAdded": "A seat was added.",
+      "invitationSent": "Invitation sent. One seat is reserved.",
+      "alreadyMember": "That person is already in your organization. Nothing was sent and no seat was used.",
+      "invitationRevoked": "The invitation was revoked.",
+      "adminTransferSubmitted": "The administrator transfer was submitted.",
+      "exportDownloaded": "The export was downloaded.",
+      "commentUpdated": "The comment was updated."
+    }
+  }
+}

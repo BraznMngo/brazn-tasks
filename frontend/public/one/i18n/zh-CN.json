@@ -1,0 +1,261 @@
+{
+  "misc": {
+    "loading": "载入中...",
+    "save": "保存",
+    "cancel": "取消",
+    "close": "关闭",
+    "default": "默认",
+    "download": "下载",
+    "createdBy": "由 {0} 创建",
+    "cannotBeUndone": "此操作无法撤消！"
+  },
+  "navigation": {
+    "settings": "设置"
+  },
+  "user": {
+    "auth": {
+      "email": "电子邮箱地址",
+      "password": "密码",
+      "login": "登录"
+    },
+    "settings": {
+      "title": "设置",
+      "newPasswordTitle": "更新密码",
+      "newPassword": "新密码",
+      "currentPassword": "当前密码",
+      "updateEmailTitle": "更新电子邮件地址",
+      "updateEmailNew": "新邮箱地址",
+      "updateEmailSuccess": "您的电子邮件地址已成功更新。我们已经向您发送了一个链接来确认。",
+      "passwordUpdateSuccess": "已成功更新密码",
+      "general": {
+        "name": "我的名字",
+        "newName": "新的名字",
+        "timezone": "时区",
+        "savedSuccess": "成功更新了设置"
+      },
+      "sections": {
+        "personalInformation": "个人信息"
+      },
+      "avatar": {
+        "title": "头像",
+        "uploadAvatar": "上传头像",
+        "setSuccess": "头像设置成功！"
+      }
+    },
+    "deletion": {
+      "title": "删除您的 Brazn Tasks 帐户",
+      "text1": "您账户的删除是永久性的且无法撤消。 我们将删除您的所有项目、任务以及与之相关的所有内容。",
+      "confirm": "删除我的帐户",
+      "requestSuccess": "请求成功。您将收到一封包含更多说明的电子邮件。"
+    },
+    "export": {
+      "title": "导出 Brazn Tasks 数据",
+      "request": "请求我的 Brazn Tasks 数据副本",
+      "success": "已成功请求您的 Brazn Tasks 数据！一旦准备好下载，我们将向您发送一封电子邮件。"
+    }
+  },
+  "task": {
+    "addReminder": "添加提醒...",
+    "doneSuccess": "待办事项已标记为完成。",
+    "undoneSuccess": "待办事项已标记为未完成。",
+    "detail": {
+      "done": "标记为已完成",
+      "undone": "标记为待办",
+      "move": "将任务移动到另一个项目",
+      "updated": "更新于 {0}",
+      "updateSuccess": "该任务已保存",
+      "deleteSuccess": "任务已删除",
+      "delete": {
+        "header": "删除此任务",
+        "text2": "这将删除与此任务相关的所有附件、提醒和关联，无法撤消！"
+      },
+      "actions": {
+        "label": "添加标签",
+        "relatedTasks": "添加关联",
+        "moveProject": "移动",
+        "color": "设置颜色",
+        "delete": "删除",
+        "favorite": "添加至收藏",
+        "unfavorite": "从收藏中移除"
+      }
+    },
+    "attributes": {
+      "title": "标题",
+      "description": "描述信息",
+      "labels": "标签",
+      "assignees": "受理人",
+      "priority": "优先级",
+      "percentDone": "进度",
+      "dueDate": "到期日",
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "reminders": "提醒",
+      "repeat": "重复",
+      "relatedTasks": "相关任务"
+    },
+    "priority": {
+      "unset": "取消设置",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "紧急",
+      "doNow": "现在立刻"
+    },
+    "attachment": {
+      "title": "附件",
+      "upload": "上传附件",
+      "delete": "删除附件"
+    },
+    "comment": {
+      "title": "评论",
+      "comment": "评论",
+      "addedSuccess": "评论已添加。",
+      "deleteText1": "确实要删除此评论吗？",
+      "deleteSuccess": "评论已删除。",
+      "delete": "删除此评论"
+    },
+    "label": {
+      "placeholder": "输入以添加标签...",
+      "addSuccess": "已成功添加标签。",
+      "removeSuccess": "已成功移除标签。"
+    },
+    "relation": {
+      "add": "添加新任务关系",
+      "select": "选择关联类型",
+      "noneYet": "还没有任务关联。",
+      "delete": "删除关联",
+      "searchPlaceholder": "输入来搜索任务以添加关联...",
+      "kinds": {
+        "subtask": "子任务 | 所有子任务",
+        "parenttask": "上级任务 | 所有上级任务",
+        "related": "相关任务 | 相关任务",
+        "duplicateof": "重复 | 所有重复",
+        "duplicates": "重复 | 所有重复",
+        "blocking": "封禁 | 封禁",
+        "blocked": "被阻止 | 被阻止",
+        "precedes": "优先级 | 优先级",
+        "follows": "关注 | 关注",
+        "copiedfrom": "复制自 | 复制自",
+        "copiedto": "复制到 | 复制到"
+      }
+    },
+    "reminder": {
+      "before": "{type}前{amount} {unit} ",
+      "after": "{type}后{amount} {unit} "
+    },
+    "repeat": {
+      "everyDay": "每天",
+      "everyWeek": "每周",
+      "every30d": "每 30 天",
+      "mode": "重复模式",
+      "fromCurrentDate": "添加完成日期",
+      "each": "每个",
+      "days": "天",
+      "weeks": "周"
+    },
+    "subscription": {
+      "subscribe": "订阅",
+      "unsubscribe": "取消订阅",
+      "subscribeSuccessTask": "你现在订阅了此任务",
+      "unsubscribeSuccessTask": "你现在已取消订阅此任务"
+    },
+    "assignee": {
+      "assignSuccess": "已成功分配用户。",
+      "unassignSuccess": "已成功取消分配用户。"
+    }
+  },
+  "team": {
+    "create": {
+      "success": "团队已成功创建。"
+    },
+    "edit": {
+      "members": "团队成员",
+      "addUser": "加入到团队",
+      "success": "团队已更新。",
+      "userAddedSuccess": "团队成员已添加。",
+      "deleteUser": {
+        "success": "此用户已成功从团队中删除。"
+      }
+    },
+    "attributes": {
+      "name": "团队名称",
+      "member": "成员"
+    }
+  },
+  "one": {
+    "deny": {
+      "dueFollowsEnd": "截止日期跟随结束日期。请先清除结束日期，才能单独设置。"
+    },
+    "toast": {
+      "commentUpdated": "评论已更新。"
+    },
+    "brand": {
+      "logoAlt": "ONE",
+      "taskPage": "任务详情",
+      "settingsPage": "订阅设置"
+    },
+    "edition": {
+      "personal": "ONE Personal",
+      "teams": "ONE Teams",
+      "withRole": "{edition} · {role}"
+    },
+    "role": {
+      "personalUser": "个人用户",
+      "teamMember": "团队成员",
+      "administrator": "管理员"
+    },
+    "subscription": {
+      "personal": "ONE Personal 订阅",
+      "teams": "ONE Teams 订阅",
+      "unknown": "此实例上没有为该账户记录任何订阅。",
+      "help": "该账户登录时所属的版本。"
+    },
+    "settings": {
+      "subscription": "你的订阅",
+      "currentEmail": "当前邮箱地址",
+      "emailUnavailable": "此实例不会返回你的邮箱地址，因此无法在此显示。"
+    },
+    "task": {
+      "comments": {
+        "edit": "编辑",
+        "editAria": "编辑你在 {date} 发表的评论",
+        "deleteAria": "删除你在 {date} 发表的评论",
+        "editing": "正在编辑此评论",
+        "sendHint": "按 Shift+Enter 发送",
+        "editLabel": "编辑评论"
+      },
+      "statusOwnership": {
+        "title": "状态与归属",
+        "subtitle": "谁负责这项任务，优先级和进度如何"
+      },
+      "schedule": {
+        "title": "日程安排",
+        "subtitle": "规划任务并接收提醒，还可以添加日期范围和重复设置。"
+      },
+      "relationSearchPlaceholder": "搜索任务…",
+      "relationSearchResults": "匹配的任务",
+      "relationSearchScope": "正在显示 {project} 中的任务。",
+      "relationSearchScopeUnknown": "正在显示该任务所属项目中的任务。",
+      "relationSearchNoMatches": "此项目中没有匹配的任务。",
+      "relationChosen": "已选择：{task}",
+      "relationPickRequired": "请先从列表中选择一个任务。未做任何更改。",
+      "repeat": {
+        "presetDaily": "每天",
+        "presetWeekly": "每周",
+        "presetMonthly": "每月",
+        "presetAnnually": "每年",
+        "unitOptionDays": "天",
+        "unitOptionWeeks": "周",
+        "unitOptionMonths": "个月",
+        "unitOptionYears": "年",
+        "modeDefault": "从上一个截止日期开始",
+        "modeDefaultHelp": "把间隔加到任务已有的日期上，因此原本周一到期的任务，即使你延后完成，仍然在周一到期。",
+        "modeMonthly": "每月同一日期",
+        "modeMonthlyHelp": "把所有日期向后推一个自然月，并保留当月的日号。下方的间隔会被忽略。",
+        "modeCurrent": "从完成日期开始",
+        "modeCurrentHelp": "把间隔加到你勾选完成的那一天，因此下一个截止日期从今天算起。",
+        "summaryMonthly": "在每个自然月的同一日期重复。"
+      }
+    }
+  }
+}

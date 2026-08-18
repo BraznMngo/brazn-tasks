@@ -208,3 +208,354 @@ jobs:
             exit 1
           fi
           echo "No catalogue value in either directory names the product Vikunja."
+
+      # ---------------------------------------------------------------------
+      # BRA-1357 / BRA-1358 — the ONE Tasks restricted views.
+      #
+      # frontend/public/ is copied into dist/ verbatim by Vite (no publicDir
+      # override in frontend/vite.config.ts) and embedded by frontend/embed.go,
+      # so nothing between that directory and production compiles, lints or
+      # type-checks the page: `pnpm lint` globs src/**, stylelint globs src/**,
+      # and vue-tsc only sees what a test imports -- and frontend-typecheck runs
+      # continue-on-error: true (test.yml:404) anyway. Nothing loads the page in
+      # a browser either; there is deliberately no Playwright spec for it,
+      # because the E2E environment is cross-origin (frontend :4173, API :3456,
+      # VIKUNJA_CORS_ENABLE: 1) and this page only works same-origin.
+      #
+      # These four steps are therefore the only automated check in the
+      # repository that ever looks at the page at all.
+      #
+      # Scope note, deliberate: every scan below is rooted at
+      # frontend/public/one and never reads .github/, so unlike the steps above
+      # none of them can match its own search terms in this file and no
+      # --exclude='fork-guards.yml' is needed. If a later change broadens any of
+      # these paths, re-add the exclusion at the same time.
+      # ---------------------------------------------------------------------
+
+      - name: The ONE Tasks page is present and parses
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          dir=frontend/public/one
+          if [[ ! -d "${dir}" ]]; then
+            echo "::error::${dir} is gone. The ONE Tasks restricted views live there and" \
+                 "nothing else in this repository parses them. Re-point this guard" \
+                 "before merging."
+            exit 1
+          fi
+
+          failed=0
+
+          # Named, not globbed. A glob that matches nothing passes, which is the
+          # exact failure this guard exists to prevent: a page half-deleted by a
+          # bad merge would still be "valid JavaScript" in the checks below. This
+          # list is the locked file layout from the brief. Modules reached only
+          # at runtime (view-task.js, view-settings.js) are covered by the
+          # specifier check further down instead, so they are not duplicated here.
+          for f in task.html settings.html one.css app.js api.js i18n.js \
+                   i18n/en.json i18n/es-ES.json i18n/de-DE.json \
+                   i18n/fr-FR.json i18n/zh-CN.json i18n/ja-JP.json \
+                   logo-light.v1.png logo-dark.v1.png; do
+            if [[ ! -f "${dir}/${f}" ]]; then
+              echo "::error::${dir}/${f} is missing. The page cannot load without it."
+              failed=1
+            fi
+          done
+
+          # Node on ubuntu-24.04, stated honestly because `node --check` is the
+          # only parser here: GitHub's ubuntu-24.04 image ships Node.js on PATH,
+          # so no actions/setup-node step is required and none is added -- that
+          # would cost ~15s on a job with a 5-minute budget that currently
+          # installs nothing. The caveat is that the version floats with the
+          # image; we pin nothing. Everything below relies only on `--check` and
+          # on .mjs meaning ESM, both stable since Node 12, so the float is
+          # acceptable. If a future guard here needs a specific language level,
+          # add actions/setup-node with node-version-file: frontend/.nvmrc.
+          #
+          # `node --check` parses a .js file as CommonJS, and these are ES
+          # modules, so checking them in place would fail on correct files.
+          # Copying each to a .mjs outside the tree forces the ESM parser by
+          # extension -- independent of the runner's Node version and of
+          # frontend/package.json's "type": "module" staying where it is. Parse
+          # only: nothing on this page is ever executed.
+          if ! command -v node >/dev/null 2>&1; then
+            echo "::error::node is not on PATH on this runner image. It is the parser this" \
+                 "guard depends on, and without it the page ships unparsed. Add" \
+                 "actions/setup-node with node-version-file: frontend/.nvmrc to this job."
+            exit 1
+          fi
+
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "${tmp}"' EXIT
+          while IFS= read -r js; do
+            mjs="${tmp}/$(basename "${js}" .js).mjs"
+            cp "${js}" "${mjs}"
+            if ! node --check "${mjs}"; then
+              echo "::error::${js} is not valid JavaScript. It is served to the browser" \
+                   "byte-for-byte with no build step, so this is a blank page in production."
+              failed=1
+            fi
+          done < <(find "${dir}" -type f -name '*.js')
+
+          # --check proves a file parses; it never proves its specifiers
+          # resolve. A typo'd relative import is a 404 at load time and a green
+          # CI. Both forms are checked: `from './x.js'` and the dynamic
+          # `import('./x.js')` that app.js uses to load the two view modules --
+          # a static-only scan would miss exactly those two files.
+          while IFS= read -r js; do
+            while IFS= read -r spec; do
+              if [[ ! -f "$(dirname "${js}")/${spec}" ]]; then
+                echo "::error::${js} imports '${spec}', which does not exist. The browser" \
+                     "resolves that against $(dirname "${js}")/ and gets a 404."
+                failed=1
+              fi
+            done < <(grep -oE "(from[[:space:]]+|import[[:space:]]*\([[:space:]]*)['\"]\./[^'\"]+['\"]" "${js}" \
+                     | sed -E "s/.*['\"](.*)['\"]/\1/" || true)
+          done < <(find "${dir}" -type f -name '*.js')
+
+          # The same hazard in the markup: task.html hand-writes its module
+          # script tag and both logo <img>s as relative URLs, and nothing
+          # rewrites them.
+          while IFS= read -r ref; do
+            if [[ ! -f "${dir}/${ref}" ]]; then
+              echo "::error::${dir} markup references './${ref}', which does not exist."
+              failed=1
+            fi
+          done < <(grep -ohE '(src|href)="\./[^"]+"' "${dir}"/*.html \
+                   | sed -E 's/.*"\.\/(.*)"/\1/' | sort -u || true)
+
+          # Every catalogue the page can negotiate to. The i18n fallback rule
+          # covers a missing key; it does not cover a catalogue that fails to
+          # parse, which takes the whole language down. jq is preinstalled on
+          # the runner image, so JSON is validated by a parser rather than by
+          # another node invocation.
+          while IFS= read -r j; do
+            if ! jq empty "${j}" 2>/dev/null; then
+              echo "::error::${j} is not valid JSON. The page cannot render text in that" \
+                   "language at all."
+              failed=1
+            fi
+          done < <(find "${dir}/i18n" -type f -name '*.json')
+
+          if [[ "${failed}" == 0 ]]; then
+            echo "The ONE Tasks page is complete, parses, and every specifier resolves."
+          fi
+          exit "${failed}"
+
+      - name: The ONE Tasks page loads nothing from another origin
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The page authenticates with the session cookie this fork already
+          # sets, and the commercial /v1 service sends no CORS headers at all,
+          # so same-origin is not a preference here -- it is the only
+          # configuration in which the page works. One absolute URL in a src=, a
+          # font @import or a fetch() and that request goes out uncredentialed
+          # and comes back looking like a permission error.
+          dir=frontend/public/one
+          if [[ ! -d "${dir}" ]]; then
+            echo "::error::${dir} is gone. Re-point this guard before merging."
+            exit 1
+          fi
+
+          # One exemption, and it is not a network reference: the SVG namespace
+          # identifier, which is a constant the browser never fetches. Nothing
+          # under frontend/src carries a licence header, so these files carry
+          # none either and there is no gnu.org URL to allow. An <a> to a
+          # documentation page would be a navigation rather than a subresource,
+          # but its href belongs in a catalogue value rather than in markup --
+          # so anchors get no exemption here on purpose.
+          allowed='http://www\.w3\.org/2000/svg'
+
+          # THE `//` IS REQUIRED, and matching a bare `https?:` instead is wrong.
+          # An origin needs the authority component; without it there is nothing
+          # to be cross-origin to. A bare scheme match also hits ordinary prose:
+          # a source citation of the form `percy-http:2856` contains `http:` and
+          # names no host at all, which failed this step on the first run.
+          # Protocol-relative subresources are still caught by the second
+          # alternative below.
+          offenders="$(grep -rnE 'https?://|(src|href)=["'\'']?//' \
+            --include='*.js' --include='*.html' --include='*.json' \
+            "${dir}" | grep -vE "${allowed}" || true)"
+          if [[ -n "${offenders}" ]]; then
+            echo "${offenders}"
+            echo "::error::The line(s) above name another origin. This page is served from" \
+                 "the same origin as both APIs and sends credentials on every request; a" \
+                 "cross-origin subresource is sent without them, and the commercial /v1" \
+                 "service answers no CORS preflight. Address it relative to" \
+                 "import.meta.url instead."
+            exit 1
+          fi
+          echo "Every reference under ${dir} is same-origin."
+
+      - name: Every i18n key the ONE Tasks page uses exists in its catalogue
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # No user-facing string on this page is hardcoded; every one goes
+          # through t(). t() falls back to the requested language, then to en,
+          # then to the key path itself -- so a key that exists nowhere does not
+          # throw, it renders "one.settings.deleteAccount.cancel" into the
+          # button a customer is looking at. That degrades only at runtime, on a
+          # page no browser-driven job ever opens, which is precisely the silent
+          # failure CLAUDE.md section 4 exists to stop. This step is what turns
+          # it into a build failure.
+          dir=frontend/public/one
+          en="${dir}/i18n/en.json"
+          if [[ ! -f "${en}" ]]; then
+            echo "::error::${en} is gone. It is the page's hard i18n dependency -- not a" \
+                 "fallback but the last resort every other language resolves through." \
+                 "Re-point this guard before merging."
+            exit 1
+          fi
+
+          failed=0
+
+          # The namespaces come from en.json itself rather than a hardcoded
+          # list, so adding a namespace does not silently narrow the sweep.
+          # Anchoring to them is what keeps this free of false positives: a
+          # quoted string like "en.json" or "logo-light.v1.png" matches the
+          # dotted-path grammar but not a namespace, so it is never treated as
+          # a key.
+          ns="$(jq -r 'keys[]' "${en}" | paste -sd'|' -)"
+          if [[ -z "${ns}" ]]; then
+            echo "::error::${en} declares no top-level namespaces. Either it is empty or it" \
+                 "is not the catalogue this guard expects."
+            exit 1
+          fi
+
+          # Deliberately a sweep of every complete quoted string in the page's
+          # own sources, not just the literal arguments of t(). Keys reach t()
+          # here through const tables, ternary arms, refusal objects built in
+          # api.js and data-i18n attributes in task.html -- extracting only
+          # t('...') call sites would check roughly half of them and report
+          # success for the rest. Requiring a quote at both ends is what
+          # excludes property-access chains like state.organization.teams and
+          # prose in comments.
+          keys="$(grep -rhoE "[\"'\`](${ns})\.[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*[\"'\`]" \
+            --include='*.js' --include='*.html' "${dir}" \
+            | sed -E 's/^.(.*).$/\1/' | sort -u || true)"
+
+          # The sweep is deliberately broad, so it needs two exclusions or it
+          # reports things that are not keys. Both are properties of the key
+          # vocabulary rather than a list of offenders, so neither needs
+          # maintaining as the page grows:
+          #   - a trailing file extension: "task.html" and "settings.html" are
+          #     filenames the page references, and they match the `task`
+          #     namespace without being keys.
+          #   - a capitalised segment: every key in en.json is lowerCamelCase
+          #     throughout, so "user.User" and "user.GetUserByID" -- Go type and
+          #     method names quoted in comments and error paths -- match the
+          #     `user` namespace without being keys either.
+          keys="$(echo "${keys}" \
+            | grep -vE '\.(html|js|json|css|png|ico|svg|webmanifest)$' \
+            | grep -vE '(^|\.)[A-Z]' || true)"
+
+          while IFS= read -r key; do
+            # A here-string over an empty variable still yields one empty line.
+            if [[ -z "${key}" ]]; then continue; fi
+            if ! jq -e --arg k "${key}" \
+                 'getpath($k | split(".")) | strings | length > 0' "${en}" >/dev/null 2>&1; then
+              echo "::error::i18n key '${key}' is used by the page but resolves to no" \
+                   "non-empty string in ${en}. t() would render the key path itself to a" \
+                   "customer. Add it under the one.* namespace in" \
+                   "frontend/src/i18n/lang/en.json and in this trimmed catalogue, or fix" \
+                   "the call site."
+              failed=1
+            fi
+          done <<< "${keys}"
+
+          # Template literals build a key from a static prefix and a runtime
+          # value -- t(`task.relation.kinds.${kind}`). The individual leaves
+          # cannot be enumerated from source, but the parent must at least exist
+          # as an object; if the whole family has been renamed away, every one
+          # of those calls renders a raw key path.
+          prefixes="$(grep -rhoE "\`(${ns})\.[A-Za-z0-9_.]*\\\$\{" \
+            --include='*.js' "${dir}" \
+            | sed -E 's/^.//; s/\.?\$\{$//' | sort -u || true)"
+
+          while IFS= read -r prefix; do
+            if [[ -z "${prefix}" ]]; then continue; fi
+            if ! jq -e --arg k "${prefix}" \
+                 'getpath($k | split(".")) | objects | length > 0' "${en}" >/dev/null 2>&1; then
+              echo "::error::The page builds i18n keys under '${prefix}.*', but that is not" \
+                   "a non-empty object in ${en}. Every key built from that prefix renders" \
+                   "as its own path."
+              failed=1
+            fi
+          done <<< "${prefixes}"
+
+          if [[ "${failed}" == 0 ]]; then
+            echo "Every i18n key and key prefix the page uses resolves in ${en}."
+          fi
+          exit "${failed}"
+
+      - name: The ONE Tasks page does not call the product Vikunja
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The catalogue step above walks pkg/i18n/lang and
+          # frontend/src/i18n/lang. The page ships its own trimmed catalogues
+          # under frontend/public/one/i18n, which that loop does not reach, and
+          # its markup carries product copy that no catalogue holds at all. 71
+          # of the prototype's 82 "Vikunja" strings were removed on the way in;
+          # this is what reports the 72nd arriving.
+          dir=frontend/public/one
+          if [[ ! -d "${dir}" ]]; then
+            echo "::error::${dir} is gone. Re-point this guard before merging."
+            exit 1
+          fi
+
+          failed=0
+
+          # Catalogues: values only, exactly like the frontend/src/i18n/lang
+          # loop above and for the same reason. A key is an identifier wired to
+          # a call site; only a value is something a customer can read.
+          hits="$(grep -rnE '":.*[Vv]ikunja' "${dir}/i18n" | grep -vF 'Vikunja export' || true)"
+          if [[ -n "${hits}" ]]; then
+            echo "${hits}"
+            failed=1
+          fi
+
+          # Markup and code carry no keys to protect, but they are not
+          # unconditional either -- two mentions are required to be there:
+          #
+          #   X-Vikunja-Format  the literal request header spelled by the fork's
+          #     API. It is a wire identifier, not product copy; renaming it in
+          #     our source would simply stop the description round-tripping as
+          #     markdown.
+          #   mirrored from frontend/src/styles  the provenance comment on the
+          #     design-token subset copied out of the upstream stylesheet, which
+          #     CLAUDE.md section 7 requires us to keep for AGPL attribution.
+          #
+          # Without this allowlist the guard red-fails on both, which is how a
+          # correct check gets deleted rather than fixed. Same shape and same
+          # reasoning as the swagger allowlist above.
+          allowed='X-Vikunja-Format|mirrored from frontend/src/styles|based on Vikunja'
+
+          # *.ts is included because the three hand-written .d.ts files are
+          # copied into dist/ and embedded in the binary exactly like the rest
+          # of this directory -- inert, but shipped, and served as text/plain to
+          # anyone who asks for one by name.
+          offenders="$(grep -rIoiE '.{0,60}vikunja.{0,60}' \
+            --include='*.html' --include='*.js' --include='*.ts' "${dir}" \
+            | grep -viE "${allowed}" || true)"
+          if [[ -n "${offenders}" ]]; then
+            echo "${offenders}"
+            failed=1
+          fi
+
+          if [[ "${failed}" != 0 ]]; then
+            echo "::error::The text above names Vikunja on a customer-facing page. This" \
+                 "product is Brazn Tasks everywhere a customer can see (BRA-926, CLAUDE.md" \
+                 "section 7); upstream attribution lives in NOTICE.md and the About page," \
+                 "not here. If a mention is genuinely required -- a wire identifier or an" \
+                 "attribution comment -- add it to this step's allowlist deliberately" \
+                 "rather than deleting the check."
+            exit 1
+          fi
+          echo "Nothing under ${dir} names the product Vikunja outside the allowlist."
