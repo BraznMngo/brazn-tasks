@@ -49,7 +49,54 @@ const (
 	// The OIDC round trip returns to /auth/openid/{provider}, so this one is a
 	// prefix rather than an exact path.
 	restrictedUIAuthPrefix = `/auth/`
+
+	// The application's service worker, which the lockout has to replace rather
+	// than merely stop serving. See braznEvictingServiceWorker.
+	restrictedUIServiceWorkerPath = `/sw.js`
+	restrictedUIServiceWorkerFile = `sw.js`
 )
+
+// braznEvictingServiceWorker is what /sw.js answers while the lockout is on.
+//
+// INTERCEPTING SERVER READS OF dist/index.html IS NOT ENOUGH, and this is the
+// hole that closes. frontend/src/sw.ts precaches the built assets
+// (`precacheAndRoute(self.__WB_MANIFEST)`), answers HTML with
+// StaleWhileRevalidate, and calls `clientsClaim()`. So a browser that visited
+// the application before the key was turned on keeps a controlled navigation
+// served FROM ITS OWN CACHE: it never reaches this server, the cached chunks run
+// normally, and the deliberately-unblocked APIs keep the whole SPA working.
+// Flipping a server-side config evicts nothing.
+//
+// A service worker is replaced by BYTES, not by configuration: the browser
+// re-fetches this script on navigation and whenever it checks for an update,
+// and installs it if it differs from the one it holds. So the fix is to serve a
+// different script — one whose entire job is to delete every cache, unregister
+// itself, and reload the windows it controls. `skipWaiting` and the
+// unconditional activate are what make that happen on the first update check
+// rather than after every tab is closed.
+//
+// Written as a literal rather than assembled, so what a browser executes is
+// reviewable here in one piece.
+const braznEvictingServiceWorker = `// Brazn Tasks: the restricted-UI lockout is on (brazn.restricteduionly).
+// This replaces the application's service worker so an installed one evicts
+// itself, its caches, and the offline copy of the Vue application.
+self.addEventListener('install', function () {
+  self.skipWaiting();
+});
+self.addEventListener('activate', function (event) {
+  event.waitUntil(
+    caches.keys()
+      .then(function (names) {
+        return Promise.all(names.map(function (name) { return caches.delete(name); }));
+      })
+      .then(function () { return self.registration.unregister(); })
+      .then(function () { return self.clients.matchAll({type: 'window'}); })
+      .then(function (windows) {
+        windows.forEach(function (w) { w.navigate(w.url); });
+      })
+  );
+});
+`
 
 // restrictedUIAuthPaths are the vue-router paths that must keep reaching the app
 // shell while the lockout is on.
@@ -133,6 +180,13 @@ func braznBlocksAppShell(name string) bool {
 		return true
 	}
 
+	// The service worker is a real file too, so it would otherwise be served
+	// verbatim and keep handing out the cached application. Diverted here and
+	// answered with the evicting script instead.
+	if name == path.Join(rootPath, restrictedUIServiceWorkerFile) {
+		return true
+	}
+
 	if !strings.HasSuffix(name, restrictedUIHTMLSuffix) {
 		return false
 	}
@@ -180,6 +234,20 @@ func braznServeAppShell(c *echo.Context, assetFs http.FileSystem) error {
 	}
 
 	requested := path.Clean("/" + c.Request().URL.Path)
+
+	// Answered before anything else: a redirect here would leave the installed
+	// worker in place, and the worker is what keeps serving the cached
+	// application without ever reaching this server.
+	if requested == restrictedUIServiceWorkerPath {
+		// no-store, or the browser can satisfy its own update check from cache
+		// and never see the replacement.
+		c.Response().Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		c.Response().Header().Set("Cache-Control", "no-store")
+		c.Response().WriteHeader(http.StatusOK)
+		_, err := c.Response().Write([]byte(braznEvictingServiceWorker))
+
+		return err
+	}
 
 	// THE COMMERCIAL SERVICE IS NOT UI AND MUST NOT BE REDIRECTED. static()
 	// returns early for "/api/" (static.go:140-142) but that prefix does not

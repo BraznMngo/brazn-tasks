@@ -609,3 +609,67 @@ func TestStaticRestrictedUIKeepsAuthenticationReachable(t *testing.T) {
 		})
 	}
 }
+
+// TestStaticRestrictedUIEvictsTheServiceWorker covers the third of the three
+// ways the Vue application can survive the lockout, and the one that does not
+// involve this server at all.
+//
+// frontend/src/sw.ts precaches the built assets, answers HTML with
+// StaleWhileRevalidate and calls clientsClaim(), so a browser that visited the
+// application before the key was turned on serves the shell FROM ITS OWN CACHE
+// on a controlled navigation. It never asks this server, so intercepting server
+// reads of dist/index.html cannot reach it. A service worker is replaced by
+// bytes, not by configuration — so /sw.js has to answer with a DIFFERENT script,
+// one that deletes the caches and unregisters itself.
+//
+// Cache-Control: no-store is asserted because without it the browser's own
+// update check can be satisfied from cache, and the replacement is never seen.
+//
+// MUTATION, traced: deleting the restrictedUIServiceWorkerFile branch from
+// braznBlocksAppShell makes this fail. Traced: dist/sw.js does not exist in CI's
+// stub dist/, so without the branch the request misses the embed FS, falls to
+// next(c), matches no route, 404s, reaches braznServeAppShell through the
+// fallback — and the /sw.js check there still catches it. So the branch that
+// actually carries this on a REAL build is the one in braznBlocksAppShell, and
+// on the stub it is the path check in braznServeAppShell. Both are asserted by
+// this test because both must hold; the assertion cannot tell which fired, and
+// that is stated rather than hidden.
+func TestStaticRestrictedUIEvictsTheServiceWorker(t *testing.T) {
+	config.InitDefaultConfig()
+	config.BraznRestrictedUIOnly.Set(true)
+	t.Cleanup(func() { config.InitDefaultConfig() })
+
+	rec := doStaticRequest(t, newStaticTestEcho(), restrictedUIServiceWorkerPath)
+
+	require.Equal(t, http.StatusOK, rec.Code, "the replacement worker must be served, not redirected")
+	assert.Empty(t, rec.Header().Get("Location"),
+		"a redirect leaves the installed worker in place, which is the whole defect")
+	assert.Contains(t, rec.Header().Get("Content-Type"), "javascript",
+		"a browser will not install a worker that is not script-typed")
+	assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"),
+		"a cacheable worker lets the browser satisfy its update check from cache")
+
+	body := rec.Body.String()
+	assert.Contains(t, body, "registration.unregister()", "the worker must remove itself")
+	assert.Contains(t, body, "caches.delete", "the worker must drop the cached application")
+	assert.Contains(t, body, "skipWaiting", "without it the eviction waits for every tab to close")
+}
+
+// TestStaticServesTheRealServiceWorkerWhenTheLockoutIsOff is the control for the
+// test above. Without it that one would still pass if the eviction script were
+// served unconditionally, which would strip offline support from every instance
+// that never turned the lockout on.
+//
+// On CI's stub dist/ there is no dist/sw.js, so the request 404s through the
+// fallback rather than being served — what matters, and what this asserts, is
+// that it is NOT the eviction script.
+func TestStaticServesTheRealServiceWorkerWhenTheLockoutIsOff(t *testing.T) {
+	config.InitDefaultConfig()
+	config.BraznRestrictedUIOnly.Set(false)
+	t.Cleanup(func() { config.InitDefaultConfig() })
+
+	rec := doStaticRequest(t, newStaticTestEcho(), restrictedUIServiceWorkerPath)
+
+	assert.NotContains(t, rec.Body.String(), "registration.unregister()",
+		"the eviction script must never be served while the lockout is off")
+}
