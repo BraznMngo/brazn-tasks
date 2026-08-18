@@ -165,78 +165,26 @@ The id must be a **bare run of digits** rather than merely parseable: it is the 
 caller-supplied text that reaches the `Location` header, and `/tasks/+1` would arrive at the page
 as a space. `/tasks/-1`, `/tasks/12ab` and `/tasks/123/subtask` all fall back to the bare page.
 
-### OPEN: `/login` is redirected too, and that is a loop
+### RESOLVED: authentication stays reachable while the lockout is on
 
-**This is a known defect with the key on, and it is recorded here because neither lane owns it.**
+This was an open defect — `/login` is a vue-router path, so the lockout redirected it to the
+restricted page, which found no session and handed back to `/login`, forever. A locked-down
+instance had no way in.
 
-`/login` is a **vue-router path**. `pkg/routes/routes.go` registers only `POST /login` under the
-API group, and there is no `login` file in `dist/`, so `GET /login` matches no route, echo answers
-404, `static()` takes its fallback and `braznServeAppShell` redirects it — like every other SPA
-path — to `/one/task.html`. The loop guard does not fire, because the target differs from the
-request. Then:
+`braznServeAppShell` now serves the app shell for `/login`, `/register`, `/password-reset`,
+`/get-password-reset` and anything under `/auth/` (the OIDC return), instead of redirecting them.
+`TestStaticRestrictedUIKeepsAuthenticationReachable` covers all five.
 
-```
-GET /one/task.html -> the page boots -> no session -> assign('/login')
--> 302 /one/task.html -> boots -> no session -> assign('/login') -> ...
-```
+**This is a deliberate, narrow hole in "the SPA is never delivered", and its size is worth
+stating plainly.** Serving the shell at `/login` serves the whole application, because the router
+is client-side — someone who signs in and then types a path can stay in it. The alternative was a
+second sign-in form, which bar 4 forbids and which would be a worse answer anyway: another
+credential surface to keep correct.
 
-until the browser gives up with `ERR_TOO_MANY_REDIRECTS`. **A signed-out user of a locked-down
-instance can never reach a sign-in form**, for any role, and it happens *only* in the
-configuration this feature exists to create — which is why nothing catches it: `static_test.go`
-never requests `/login`, the page's unit tests never navigate, and bar 9 means no browser-driven
-job opens this page at all.
-
-**The repair is server-side.** The authentication paths — `/login`, `/register`,
-`/password-reset`, `/get-password-reset` and the auth callback — have to keep reaching
-`serveIndexFile`, which is a change to the lockout and a deliberate, narrow hole in the "the SPA
-is never delivered" invariant. It is not the page's to make: bar 4 forbids this page building its
-own sign-in, and a page-side workaround cannot deliver a login form it is not allowed to have.
-
-**What the page does meanwhile is bound the loop, and that much is shipped.** `app.js` marks the
-hand-off in `sessionStorage` immediately before navigating and clears it as soon as a session
-exists. Coming back here without one means the hand-off failed, so the page stops and renders its
-terminal sign-in surface instead of navigating again — one hop per browsing session, and one more
-per press of the button on that surface, never a chain. Where `sessionStorage` is unusable it
-falls back to `PerformanceNavigationTiming.redirectCount`, deliberately as the weaker signal: a
-`/tasks/{id}` deep link is also redirected here, so on its own it would refuse a first hand-off to
-somebody who never had one. The decision is a pure function, `shouldHandOffToLogin`, and is
-covered in `app.gating.test.ts`.
-
-A user still cannot sign in on such an instance. They get a page that says so, with a button, in
-place of a browser error — which is the difference between a bug that gets reported and one that
-does not.
-
-### What the tests can and cannot prove
-
-Coverage is `pkg/routes/static_test.go`. Note what CI can and cannot prove there: every Go job
-creates the embedded frontend with `touch frontend/dist/index.html`, so the embedded index is an
-*empty file* and `dist/` has no `one/` at all. A test asserting that a response does not contain
-the SPA's `<div id="app">` marker therefore cannot fail in CI on its own. The `Server: Brazn
-Tasks` header that `serveFile` sets (`static.go:268`) is the evidence that actually
-discriminates, and it is what those tests assert on.
-
-The two regression tests are the ones to keep. Key on, `GET /index.html` must not be served —
-that is the `/index.html` hole, and it discriminates on the same `Server` header, because CI's
-`dist/index.html` is an empty file and a body assertion cannot fail there. Key on, a registered
-non-`/api` route must still reach its handler — that is the CalDAV/health/feeds blocker, and its
-absence is what let that one through.
-
-The key-**off** control on `/index.html` needs one assertion that is easy to mistake for
-decoration: **the `ETag` header must be present.** With the key off, `/index.html` is served by
-`serveFile` with an ETag; routed through `serveIndexFile` instead it would still answer 200 with
-the same `Server` header, and only the missing ETag would show it. Without that assertion, no
-single change to the lockout can make that test fail.
-
-The `/one/` exemption cannot be proved over HTTP in CI at all, for the same reason as the loop
-guard — the stub `dist/` has no `one/` — so it is proved against `braznBlocksAppShell` directly,
-over the exact strings `static.go:150` computes into `name`.
-
-The loop guard is tested by calling `braznServeAppShell` directly rather than through the
-router. Reaching it end-to-end requires `/one/task.html` to be absent from the embedded `dist/`,
-which is true in CI and false on a real build, so an end-to-end assertion of 404 would be an
-assertion about the environment rather than about the code.
-
----
+What the lockout still buys with the hole open: every *ordinary* way in is closed. The root, every
+task path, every settings path and every deep link a user actually holds all land on the
+restricted page, and a successful sign-in returns to `/`, which is redirected. The Vue application
+stops being where people are sent and becomes somewhere they have to deliberately go.
 
 ## The two-API split
 

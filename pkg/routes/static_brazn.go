@@ -45,7 +45,40 @@ const (
 	// different codebase. static()'s early return covers "/api/" only, so this
 	// prefix has to be named here or the lockout swallows it.
 	restrictedUICommercialPrefix = `/v1/`
+
+	// The OIDC round trip returns to /auth/openid/{provider}, so this one is a
+	// prefix rather than an exact path.
+	restrictedUIAuthPrefix = `/auth/`
 )
+
+// restrictedUIAuthPaths are the vue-router paths that must keep reaching the app
+// shell while the lockout is on.
+//
+// WITHOUT THIS THE LOCKOUT LOCKS EVERYONE OUT. The sign-in form is part of the
+// Vue application; there is no separate login document. So a signed-out visitor
+// is redirected to the restricted page, the page finds no session and hands off
+// to /login exactly as the SPA does, /login is a vue-router path that matches no
+// file and no route, and the fallback redirects it back to the restricted page.
+// The browser gives up with ERR_TOO_MANY_REDIRECTS and nobody can ever sign in.
+//
+// This is a DELIBERATE, NARROW HOLE in "the SPA is never delivered", and it is
+// worth being honest about its size: serving the shell at /login serves the whole
+// application, because the router is client-side. Someone who signs in and then
+// types a path can stay in it. The alternative is building a second sign-in form,
+// which the ticket forbids (bar 4, do not touch auth) and which would be a worse
+// answer anyway — a second credential surface to keep correct.
+//
+// What the lockout still buys with this hole open: every ORDINARY route in is
+// closed. The root, every task path, every settings path and every deep link a
+// user actually holds land on the restricted page, and a successful sign-in
+// returns to "/", which is redirected. The SPA stops being where people are sent
+// and becomes somewhere they must deliberately go.
+var restrictedUIAuthPaths = map[string]bool{
+	"/login":              true,
+	"/register":           true,
+	"/password-reset":     true,
+	"/get-password-reset": true,
+}
 
 // braznBlocksAppShell reports whether a request that resolved to a REAL FILE in
 // the embedded dist/ must be diverted to braznServeAppShell rather than served.
@@ -182,6 +215,12 @@ func braznServeAppShell(c *echo.Context, assetFs http.FileSystem) error {
 	// copied into dist/ that is the same infinite bounce.
 	if target == requested || requested == restrictedUITaskPage {
 		return echo.ErrNotFound
+	}
+
+	// Authentication has to stay reachable, or the lockout is a lockout on
+	// everyone — see restrictedUIAuthPaths for why, and for what it costs.
+	if restrictedUIAuthPaths[requested] || strings.HasPrefix(requested, restrictedUIAuthPrefix) {
+		return serveIndexFile(c, assetFs)
 	}
 
 	http.Redirect(c.Response(), c.Request(), braznRestrictedUILocation(target), http.StatusFound)

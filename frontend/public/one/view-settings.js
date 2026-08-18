@@ -57,6 +57,7 @@ import {
   registerActions,
   registerView,
   reloadOrganization,
+  reloadUser,
   renderRefusal,
   requestRender,
   setViewState,
@@ -146,53 +147,31 @@ function scratch() {
 }
 
 /* ------------------------------------------------------------------ *
- * 1b. The account overlay — "the section must reflect the new value"
+ * 1b. THE ACCOUNT OVERLAY IS GONE. `reloadUser()` is the single path now.
  *
- * `app.js` reads `GET /api/v2/user` ONCE, in `boot()` (app.js:1838), and exports no way to re-read
- * it: `reloadOrganization()` exists, `reloadUser()` does not. `requestRender()` therefore redraws
- * the account tab from the SAME `state.user` it was drawn from before the write, which is why the
- * timezone select "jumps back" — the value reached the server, the page then re-rendered the stale
- * one over it and `fillTimezones` re-`selected` that (PM finding 4). Display name behaved the same
- * way; nobody noticed because the modal closes over it.
+ * What used to live here: a private copy of the account (`accountUser()` / `accountSettings()` /
+ * `refreshAccount()`) held in this view's own scratch state, written from its own
+ * `GET /api/v2/user`, and preferred over `getUser()` / `getSettings()` by every account-tab read.
+ * It existed because `app.js` read the user ONCE in `boot()` and exported no way to re-read it —
+ * so a saved timezone was correct on the server and stale on screen (PM finding 4).
  *
- * Until app.js grows that reload (requested in the report — this file may not edit it), the view
- * keeps its OWN fresh copy in its scratch state and every account-tab read goes through the two
- * accessors below, which prefer it and fall back to app.js's boot copy. Nothing else on the page
- * reads them, so nothing else can drift: the overlay is per-view scratch, exactly what
- * `getViewState` is for.
+ * `app.js` now exports `reloadUser()`, which reads `GET /api/v2/user` once, adopts the body into
+ * `state` and re-renders only when it actually differs. Every read below is therefore `getUser()`
+ * and `getSettings()` again — app.js's copy, which after an awaited `reloadUser()` IS the fresh
+ * one.
+ *
+ * REMOVING IT FIXES MORE THAN IT TIDIES, which is why it is a deletion rather than a wrapper. An
+ * overlay can only correct what THIS view reads: the colour scheme and the `Intl` formatters are
+ * applied by app.js's `adoptAccount`, so a timezone saved through the overlay reached the server
+ * and the select, and every date on the task view kept formatting in the old zone until a page
+ * reload. It also cost a second `GET /api/v2/user` on every save — the view's read and app.js's
+ * throttled resync — where `reloadUser()` is a single in-flight promise both share.
+ *
+ * ONE BEHAVIOUR IS UNCHANGED AND IS THE POINT OF EVERY `await` below: the re-read is awaited
+ * BEFORE the toast, so a success message never lands ahead of the value it describes. A failed
+ * re-read is still not a failed write — `reloadUser()` logs it, resolves false and leaves the
+ * previous copy standing; only `SessionLostError` rejects, and app.js owns that surface.
  * ------------------------------------------------------------------ */
-
-/** The user the account tab draws: the post-write re-read when there is one, else boot's copy. */
-function accountUser() {
-  const fresh = scratch().user;
-  return fresh === undefined || fresh === null ? getUser() : fresh;
-}
-
-/** `settings` from the same body, with the same preference. Keys are snake_case on the wire. */
-function accountSettings() {
-  const fresh = scratch().settings;
-  return fresh === undefined || fresh === null ? getSettings() : fresh;
-}
-
-/**
- * Re-read the user after a successful account write. AWAIT IT BEFORE THE TOAST: a success message
- * that lands ahead of the value it describes is the shape that made finding 4 look like a failed
- * save rather than a stale render.
- *
- * A failed re-read is NOT reported as a failed write — the write succeeded, and saying otherwise
- * would invite the user to repeat an edit that already landed. It is logged, the overlay keeps the
- * value it had, and the next render is simply as stale as it was before. A lost session is the one
- * exception and is rethrown, because app.js owns the terminal surface for it.
- */
-async function refreshAccount() {
-  try {
-    const user = await api.getCurrentUser();
-    setViewState(NS, {user: user ?? null, settings: user?.settings ?? null});
-  } catch (err) {
-    if (err instanceof api.SessionLostError) throw err;
-    console.error('[one/settings] account re-read failed', err);
-  }
-}
 
 /**
  * S5. THE ADDRESS IS NOT ON THE WIRE, and that is a server fact rather than a bug in this file.
@@ -212,7 +191,7 @@ async function refreshAccount() {
  * email address", and it looked broken because nothing on screen said it was not.
  */
 function accountEmail() {
-  const email = accountUser()?.email;
+  const email = getUser()?.email;
   return typeof email === 'string' ? email.trim() : '';
 }
 
@@ -252,7 +231,7 @@ function avatarKey(user) {
  * refused avatar must never delay or fail the tab around it.
  */
 function ensureAvatar() {
-  const user = accountUser();
+  const user = getUser();
   const username = user?.username ?? '';
   if (username === '') return;
 
@@ -398,26 +377,42 @@ function render(ctx) {
  * app.js hydrates their `data-i18n-alt` once they are ordinary nodes inside `#app`.
  */
 function hero() {
-  const user = accountUser();
+  const user = getUser();
   const logo = document.getElementById('brandLogo')?.innerHTML ?? '';
   return `<header class="settings-hero">${logo}<div>
     <div class="settings-title">${tx('one.brand.settingsPage')}</div>
   </div><div class="settings-role">
     <strong>${esc(displayName(user))}</strong>
-    <span data-requires="edition">${esc(editionLine())}</span>
+    <span>${esc(editionLine())}</span>
   </div></header>`;
 }
 
 /**
- * "ONE Team Edition · Administrator". The wire strings (`personal-cloud`, `teams-cloud`) are
- * identifiers and are never displayed — the mapping is a lookup (ruling C10). The whole line is
- * gated `edition`, so U — which is every CI session — renders no edition at all rather than
- * defaulting to one (S9/T13).
+ * "ONE Teams · Administrator" — OR "Administrator" alone. Two facts, two sources, and the round-1
+ * finding was that one node carried both under ONE gate.
+ *
+ * THE ROLE DOES NOT COME FROM THE EDITION CLAIM. `roleLabel()` says Administrator because the
+ * organization read returned 200 (ruling C1.5 — organization surfaces are gated on that read, never
+ * on the edition), and that is a fact this page has actually established. The edition comes from
+ * the `brazn_edition` JWT claim and is frequently absent — every CI session, every unentitled
+ * account. The span used to carry `data-requires="edition"`, which is in `GATES_THAT_HIDE`
+ * (app.js:93), so an absent claim REMOVED THE WHOLE NODE and took "Administrator" off the header
+ * with it: a known role deleted because an unrelated claim was missing.
+ *
+ * So the gate is gone from the span and the composition happens here instead. No edition is ever
+ * invented — an absent claim still prints no edition, exactly as before (bar 7, and app.js's own
+ * "absent is not Teams *here*") — but the role stands on its own, because it is separately true.
+ * The wire strings (`personal-cloud`, `teams-cloud`) are identifiers and are never displayed; the
+ * mapping is a lookup (ruling C10).
+ *
+ * The line is never empty: `roleLabel()` always resolves to one of its three keys, so the span
+ * always has something true in it and the gate has nothing left to hide.
  */
 function editionLine() {
+  const role = roleLabel();
   const edition = editionLabel();
-  if (edition === null) return '';
-  return t('one.edition.withRole', {edition, role: roleLabel()});
+  if (edition === null) return role;
+  return t('one.edition.withRole', {edition, role});
 }
 
 /**
@@ -496,7 +491,7 @@ function accountTab() {
  * is not this file's (see `accountEmail`), so the row says why instead of rendering nothing.
  */
 function profileCard() {
-  const user = accountUser();
+  const user = getUser();
   const email = accountEmail();
   const avatarUrl = scratch().avatarKey === avatarKey(user) ? scratch().avatarUrl ?? null : null;
   const face = typeof avatarUrl === 'string' && avatarUrl !== ''
@@ -538,17 +533,17 @@ function profileCard() {
  * unsorted). Until it arrives the select holds the stored zone alone, so it never shows a value
  * the account does not have.
  *
- * THE ZONE IS READ FROM THE OVERLAY, NOT FROM BOOT (PM finding 4). `getSettings()` is the copy
- * `boot()` took and never refreshes, so after a successful save this markup re-emitted the OLD
- * zone as the only `selected` option and `fillTimezones` then re-`selected` it in the rebuilt
- * list — the value the user chose was gone from the screen while being correct on the server. §1b
- * has the mechanism; `saveTimezone` awaits the re-read before it toasts.
+ * `getSettings()` IS THE FRESH COPY NOW (PM finding 4, and §1b). It used to be the body `boot()`
+ * took and never refreshed, so after a successful save this markup re-emitted the OLD zone as the
+ * only `selected` option and `fillTimezones` then re-`selected` it in the rebuilt list — the value
+ * the user chose was gone from the screen while being correct on the server. `saveTimezone` awaits
+ * `reloadUser()` before it toasts, so by the time this runs again app.js's copy IS the saved one.
  *
  * The subscription row that used to sit here has moved to `subscriptionCard()` (PM finding 6): the
  * PM asked for a subscription SECTION, and a badge in the "Other" card is not one.
  */
 function otherCard() {
-  const timezone = accountSettings()?.timezone ?? '';
+  const timezone = getSettings()?.timezone ?? '';
   return `<div class="card settings-card">
     <div class="card-title">${tx('one.settings.other')}</div>
     <div class="setting-row">
@@ -1065,16 +1060,17 @@ function ensureTimezones() {
 }
 
 /**
- * `accountSettings()`, NOT `getSettings()` — this is the second half of PM finding 4. The list is
- * rebuilt on every render, so whichever zone this function calls `current` is the one the select
- * ends up showing; reading boot's copy is what put the pre-save value back under the user's cursor
- * every time and made a saved zone look like a rejected one.
+ * THE SECOND HALF OF PM FINDING 4. The list is rebuilt on every render, so whichever zone this
+ * function calls `current` is the one the select ends up showing — reading a copy taken before the
+ * write is what put the pre-save value back under the user's cursor every time and made a saved
+ * zone look like a rejected one. `getSettings()` is now re-read by `reloadUser()`, which
+ * `saveTimezone` awaits before anything renders, so the copy this reads is the saved one (§1b).
  */
 function fillTimezones(root) {
   const select = root.querySelector('#timezone');
   const zones = scratch().timezones;
   if (select === null || !Array.isArray(zones) || zones.length === 0) return;
-  const current = accountSettings()?.timezone ?? '';
+  const current = getSettings()?.timezone ?? '';
   // A stored zone the server no longer lists is kept as an option rather than dropped: without it
   // the select would silently display someone else's first zone as if it were this account's.
   const options = current !== '' && !zones.includes(current) ? [current, ...zones] : zones;
@@ -1310,7 +1306,7 @@ registerActions({
 
   'edit-profile': () => {
     modal(t('one.settings.editProfile'), `<label class="label">${tx('user.settings.general.newName')}</label>
-      <input class="input" id="profileName" value="${esc(displayName(accountUser()))}">`,
+      <input class="input" id="profileName" value="${esc(displayName(getUser()))}">`,
       `${footCancel()}<button class="btn primary" data-action="save-profile">${tx('misc.save')}</button>`);
   },
 

@@ -560,3 +560,52 @@ func TestBraznBlocksAppShell(t *testing.T) {
 		}
 	})
 }
+
+// TestStaticRestrictedUIKeepsAuthenticationReachable is the test that stops the
+// lockout locking out everyone, and it is the reason the exemption exists.
+//
+// The sign-in form is part of the Vue application — there is no separate login
+// document. Without the exemption, a signed-out visitor is redirected to the
+// restricted page, the page finds no session and hands off to /login exactly as
+// the SPA does, /login matches no file and no route, and the fallback redirects
+// it straight back. The browser gives up with ERR_TOO_MANY_REDIRECTS and the
+// instance has no way in at all.
+//
+// The assertion is on the Server header rather than the body for the reason
+// stated at the top of this file: CI's dist/index.html is an empty file, so no
+// body assertion can distinguish the shell from anything else here. serveFile
+// sets Server: Brazn Tasks (static.go:268) and is reached only when a document
+// is actually served, which is exactly the distinction under test.
+//
+// MUTATION, traced: deleting the restrictedUIAuthPaths branch from
+// braznServeAppShell makes every subtest fail. Traced rather than assumed — with
+// the branch gone, /login reaches braznRestrictedUITarget, which returns the
+// general page because /login carries no /tasks/ prefix; that differs from the
+// request path so the loop guard does not fire; so the request is answered 302
+// with a Location and no Server header, failing all three assertions.
+func TestStaticRestrictedUIKeepsAuthenticationReachable(t *testing.T) {
+	config.InitDefaultConfig()
+	config.BraznRestrictedUIOnly.Set(true)
+	t.Cleanup(func() { config.InitDefaultConfig() })
+
+	e := newStaticTestEcho()
+
+	for _, path := range []string{
+		"/login",
+		"/register",
+		"/password-reset",
+		"/get-password-reset",
+		"/auth/openid/google",
+	} {
+		t.Run(path, func(t *testing.T) {
+			rec := doStaticRequest(t, e, path)
+
+			assert.Equal(t, http.StatusOK, rec.Code,
+				"authentication must stay reachable or nobody can sign in")
+			assert.Equal(t, "Brazn Tasks", rec.Header().Get("Server"),
+				"the app shell must actually be served, not merely not-redirected")
+			assert.Empty(t, rec.Header().Get("Location"),
+				"a redirect here is the sign-in loop this test exists to prevent")
+		})
+	}
+}
