@@ -670,8 +670,12 @@ router.beforeEach(async (to, from) => {
 
 	await authStore.checkAuth()
 
-	// Every person is sent to the screen their plan and their role entitle them
-	// to, and is let no further. This is asked on every move between screens
+	// On the hosted product, and only there, every person is sent to the screen
+	// their plan and their role entitle them to, and is let no further. Which
+	// installations that means, and why the question has to be asked of the
+	// server rather than worked out here, is written where it is asked below.
+	//
+	// This is asked on every move between screens
 	// rather than once at sign-in, so a tab that has been open since before a
 	// subscription ended is refused the same as a fresh one, and typing an
 	// address is refused the same as following a link.
@@ -686,22 +690,48 @@ router.beforeEach(async (to, from) => {
 	// cannot see who is asking, so it can never tell these four kinds of person
 	// apart; the plan is only readable here.
 	if (authStore.authUser) {
-		const name = to.name as string
-		// Sign-in, registering, resetting a password, confirming an address and
-		// the consent screen a desktop app opens. Turning any of these away
-		// leaves somebody with no way back to their account.
-		const isAuthScreen = AUTH_ROUTE_NAMES.has(name) || name === 'oauth.authorize'
+		// The instance is asked first, and none of the rule below is applied
+		// unless it says yes. The plan the rule reads is only ever written into
+		// a login by an instance running as the hosted product; every other
+		// installation of this fork - a self-hosted copy, and the one continuous
+		// integration starts - writes no plan into anybody's login, so reading a
+		// missing plan there as "entitled to nothing" would send every person on
+		// it to the sign-in screen while holding a perfectly good session.
+		//
+		// The wait is the same one the licence check below takes, for the same
+		// reason: on a directly typed address this guard can run before the
+		// instance has answered, and the value would then be its own starting
+		// default rather than the instance's answer.
+		//
+		// That default is "not the hosted product", and it is the safe direction
+		// in both of the ways it can be reached. A server too old to publish the
+		// field leaves it untouched, and so does a server that has not answered
+		// yet; both readings let everybody through, which is what every
+		// installation other than the hosted one wants. The opposite default
+		// would lock out the whole of a self-hosted instance on a field its
+		// server never sent.
+		const baseStore = useBaseStore()
+		await baseStore.appReady
+		const configStore = useConfigStore()
 
-		if (!isEntitledToOneTasks(authStore.managedEdition)) {
-			// The sign-in screen, and nothing else. They are not signed out:
-			// the session is real and it is theirs, it simply buys no screen
-			// here, and destroying it would take away the one place they can
-			// still act.
-			if (!isAuthScreen) {
-				return {name: 'user.login'}
+		if (configStore.braznManagedMode) {
+			const name = to.name as string
+			// Sign-in, registering, resetting a password, confirming an address and
+			// the consent screen a desktop app opens. Turning any of these away
+			// leaves somebody with no way back to their account.
+			const isAuthScreen = AUTH_ROUTE_NAMES.has(name) || name === 'oauth.authorize'
+
+			if (!isEntitledToOneTasks(authStore.managedEdition)) {
+				// The sign-in screen, and nothing else. They are not signed out:
+				// the session is real and it is theirs, it simply buys no screen
+				// here, and destroying it would take away the one place they can
+				// still act.
+				if (!isAuthScreen) {
+					return {name: 'user.login'}
+				}
+			} else if (!isAuthScreen && !isOneTasksScreen(name)) {
+				return ONE_TASKS_HOME
 			}
-		} else if (!isAuthScreen && !isOneTasksScreen(name)) {
-			return ONE_TASKS_HOME
 		}
 	}
 
