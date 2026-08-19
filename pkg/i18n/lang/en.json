@@ -2,73 +2,73 @@
     "notifications": {
         "greeting": "Hi %[1]s,",
         "email_confirm": {
-            "subject": "%[1]s, please confirm your email address at Brazn Tasks",
-            "subject_new": "%[1]s + Brazn Tasks = <3",
-            "welcome":  "Welcome to Brazn Tasks!",
-            "confirm": "To confirm your email address, click the link below:"
+            "subject": "%[1]s, please confirm your email address",
+            "subject_new": "Welcome to ONE, %[1]s",
+            "welcome": "Welcome to ONE.",
+            "confirm": "Confirm your email address with the link below and you are set."
         },
         "password": {
             "changed": {
-                "subject": "Your Password on Brazn Tasks was changed",
-                "success": "Your account password was successfully changed.",
-                "warning": "If this wasn't you, it could mean someone compromised your account. In this case contact your server's administrator."
+                "subject": "Your ONE password was changed",
+                "success": "Your password has been changed.",
+                "warning": "If that was not you, someone else has access to your account. Contact your administrator now."
             },
             "reset": {
-                "subject": "Reset your password on Brazn Tasks",
-                "instructions": "To reset your password, click the link below:",
-                "valid_duration": "This link will be valid for 24 hours."
+                "subject": "Reset your ONE password",
+                "instructions": "Use the link below to set a new password.",
+                "valid_duration": "The link works for 24 hours."
             }
         },
         "totp": {
             "invalid": {
-                "subject": "Someone just tried to login to your Brazn Tasks account, but failed",
-                "message": "Someone just tried to log in into your account with correct username and password but a wrong TOTP passcode.",
-                "warning": "**If this was not you, someone else knows your password. You should set a new one immediately!**"
+                "subject": "Someone tried to sign in to your ONE account and failed",
+                "message": "Someone signed in with your username and password but got the two-factor code wrong.",
+                "warning": "**If that was not you, someone else knows your password. Change it now.**"
             },
             "account_locked": {
-                "subject": "We've disabled your account on Brazn Tasks",
-                "message": "Someone tried to log in with your credentials but failed to provide a valid TOTP passcode.",
-                "disabled": "After 10 failed attempts, we've disabled your account and reset your password. To set a new one, follow the instructions in the reset email we just sent you.",
-                "reset_instructions": "If you did not receive an email with reset instructions, you can always request a new one at [%[1]s](%[2]s)."
+                "subject": "We have locked your ONE account",
+                "message": "Someone signed in with your password but could not produce a valid two-factor code.",
+                "disabled": "After 10 failed attempts we locked your account and reset your password. The reset email we just sent has the link to set a new one.",
+                "reset_instructions": "If that email has not arrived, you can request another at [%[1]s](%[2]s)."
             }
         },
         "login": {
             "failed": {
-                "subject": "Someone just tried to login to your Brazn Tasks account, but failed to provide a correct password",
-                "message": "Someone just tried to log in into your account with a wrong password three times in a row.",
-                "warning": "If this was not you, this could be someone else trying to break into your account.",
-                "enhance_security": "To enhance the security of you account you may want to set a stronger password or enable TOTP authentication in the settings:"
+                "subject": "Someone tried to sign in to your ONE account with the wrong password",
+                "message": "Someone tried your account with a wrong password three times in a row.",
+                "warning": "If that was not you, someone may be trying to get into your account.",
+                "enhance_security": "A stronger password or two-factor authentication would close that off. Both are in your settings:"
             }
         },
         "account": {
             "deletion": {
                 "confirm": {
-                    "subject": "Please confirm the deletion of your Brazn Tasks account",
-                    "request": "You have requested the deletion of your account. To confirm this, please click the link below:",
-                    "valid_duration": "This link will be valid for 24 hours.",
-                    "schedule_info": "Once you confirm the deletion we will schedule the deletion of your account in three days and send you another email until then.",
-                    "consequences": "If you proceed with the deletion of your account, we will remove all of your projects and tasks you created. Everything you shared with another user or team will transfer ownership to them.",
-                    "changed_mind": "If you did not requested the deletion or changed your mind, you can simply ignore this email."
+                    "subject": "Please confirm you want your ONE account deleted",
+                    "request": "You asked us to delete your account. Confirm it with the link below.",
+                    "valid_duration": "The link works for 24 hours.",
+                    "schedule_info": "Once you confirm, we will delete your account in three days and email you again before then.",
+                    "consequences": "Deleting your account removes every project and task you created. Anything you shared with another person or team transfers to them.",
+                    "changed_mind": "If you did not ask for this, or you have changed your mind, ignore this email."
                 },
                 "scheduled": {
-                    "subject_days": "Your Brazn Tasks account will be deleted in %[1]s days",
-                    "subject_tomorrow": "Your Brazn Tasks account will be deleted tomorrow",
-                    "request_reminder": "You recently requested the deletion of your Brazn Tasks account.",
-                    "deletion_time_days": "We will delete your account in %[1]s days.",
-                    "deletion_time_tomorrow": "We will delete your account tomorrow.",
-                    "changed_mind": "If you changed your mind, simply click the link below to cancel the deletion and follow the instructions there:"
+                    "subject_days": "Your ONE account will be deleted in %[1]s days",
+                    "subject_tomorrow": "Your ONE account will be deleted tomorrow",
+                    "request_reminder": "You asked us to delete your ONE account.",
+                    "deletion_time_days": "We will delete it in %[1]s days.",
+                    "deletion_time_tomorrow": "We will delete it tomorrow.",
+                    "changed_mind": "If you have changed your mind, use the link below to cancel and follow the instructions there."
                 },
                 "completed": {
-                    "subject": "Your Brazn Tasks Account has been deleted",
-                    "confirmation": "As requested, we've deleted your Brazn Tasks account.",
-                    "permanent": "This deletion is permanent. If did not create a backup and need your data back now, talk to your administrator."
+                    "subject": "Your ONE account has been deleted",
+                    "confirmation": "As you asked, we have deleted your ONE account.",
+                    "permanent": "This is permanent. If you need the data back and have no backup, talk to your administrator."
                 }
             }
         },
         "task": {
             "reminder": {
                 "subject": "Reminder for \"%[1]s\" (%[2]s)",
-                "message": "This is a friendly reminder of the task \"%[1]s\" (%[2]s)."
+                "message": "A reminder about the task \"%[1]s\" (%[2]s)."
             },
             "comment": {
                 "subject": "Re: %[1]s (%[2]s)",
@@ -92,9 +92,9 @@
             },
             "overdue": {
                 "subject": "Task \"%[1]s\" (%[2]s) is overdue",
-                "message": "This is a friendly reminder of the task \"%[1]s\" (%[2]s) which is overdue %[3]s and not yet done.",
+                "message": "A reminder about the task \"%[1]s\" (%[2]s). It has been overdue %[3]s and is not done.",
                 "multiple_subject": "Your overdue tasks",
-                "multiple_message": "You have the following overdue tasks:",
+                "multiple_message": "These tasks are overdue:",
                 "overdue_since": "since %[1]s",
                 "overdue_now": "now",
                 "overdue": "overdue %[1]s"
@@ -105,51 +105,51 @@
         },
         "team": {
             "member_added": {
-                "subject": "%[1]s added you to the \"%[2]s\" team in Brazn Tasks",
-                "message": "%[1]s has just added you to the %[2]s team in Brazn Tasks."
+                "subject": "%[1]s added you to the \"%[2]s\" team",
+                "message": "%[1]s just added you to the %[2]s team."
             }
         },
         "data_export": {
             "ready": {
-                "subject": "Your Brazn Tasks Data Export is ready",
-                "message": "Your Brazn Tasks Data Export is ready for you to download. Click the button below to download it:",
-                "availability": "The download will be available for the next 7 days."
+                "subject": "Your ONE data export is ready",
+                "message": "Your data export is ready. The button below downloads it.",
+                "availability": "The download works for the next 7 days."
             }
         },
         "migration": {
             "done": {
-                "subject": "The migration from %[1]s to Brazn Tasks was completed",
-                "imported": "Brazn Tasks has imported all lists/projects, tasks, notes, reminders and files from %[1]s you have access to.",
-                "have_fun": "Have fun with your new (old) projects!"
+                "subject": "The migration from %[1]s to ONE is done",
+                "imported": "ONE has imported every project, task, note, reminder and file you had access to on %[1]s.",
+                "have_fun": "Your projects are waiting for you."
             },
             "failed": {
-                "subject": "The migration from %[1]s to Brazn Tasks has failed",
-                "message": "Looks like the move from %[1]s didn't go as planned this time.",
-                "retry": "No worries, though! Just give it another shot by starting over the same way you did before. Sometimes, these hiccups happen because of glitches on %[1]s's end, but trying again often does the trick.",
-                "error": "We bumped into a little error along the way: `%[2]s`.",
-                "report": "Please drop us a note about this [in the forum](https://github.com/BraznMngo/brazn-tasks/issues) or any of the usual places so that we can take a look at why it failed.",
-                "working_on_it": "We've got the error message on our radar and are on it to get it sorted out soon."
+                "subject": "The migration from %[1]s to ONE failed",
+                "message": "The move from %[1]s did not go through this time.",
+                "retry": "Starting it again the same way usually works. These often come down to something on %[1]s's side that has since cleared.",
+                "error": "The error we hit was: `%[2]s`.",
+                "report": "Tell us about it [in the tracker](https://github.com/BraznMngo/brazn-tasks/issues) so we can look at why it failed.",
+                "working_on_it": "We have the error and we are working on it."
             }
         },
         "api_token": {
             "expiring": {
                 "week": {
                     "subject": "Your API token \"%[1]s\" expires soon",
-                    "message": "Your API token \"%[1]s\" will expire on %[2]s. If you still need it, please create a new token before it expires."
+                    "message": "Your API token \"%[1]s\" expires on %[2]s. Create a new one before then if you still need it."
                 },
                 "day": {
                     "subject": "Your API token \"%[1]s\" expires tomorrow",
-                    "message": "Your API token \"%[1]s\" will expire on %[2]s. If you still need it, please create a new token before it expires."
+                    "message": "Your API token \"%[1]s\" expires on %[2]s. Create a new one before then if you still need it."
                 },
                 "action": "Manage API Tokens"
             }
         },
         "common": {
-            "have_nice_day": "Have a nice day!",
-            "copy_url": "If the button above doesn't work, copy the url below and paste it in your browser's address bar:",
+            "have_nice_day": "Have a good day.",
+            "copy_url": "If the button does not work, copy this address into your browser:",
             "actions": {
-                "open_task": "Open Task in Brazn Tasks",
-                "open_vikunja": "Open Brazn Tasks",
+                "open_task": "Open the task in ONE",
+                "open_vikunja": "Open ONE",
                 "open_project": "Open Project",
                 "open_team": "Open Team",
                 "download": "Download",
@@ -176,7 +176,7 @@
     },
     "feeds": {
         "notifications": {
-            "title": "Brazn Tasks notifications for %[1]s"
+            "title": "ONE notifications for %[1]s"
         }
     }
 }

@@ -72,6 +72,7 @@ const mailTemplateHTML = `
 <!doctype html>
 <html style="width: 100%; height: 100%; padding: 0; margin: 0;">
 <head>
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <meta name="color-scheme" content="light dark">
     <meta name="supported-color-schemes" content="light dark">
@@ -80,24 +81,34 @@ const mailTemplateHTML = `
             color-scheme: light dark;
         }
         @media (prefers-color-scheme: dark) {
-            .email-card {
-                box-shadow: 0.3em 0.3em 0.8em rgba(0,0,0,0.3) !important;
-                -webkit-box-shadow: 0.3em 0.3em 0.8em rgba(0,0,0,0.3) !important;
+            .email-body {
+                background: #14141a !important;
             }
-            .email-button {
-                box-shadow: 0 3px 6px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.15) !important;
-                -webkit-box-shadow: 0 3px 6px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.15) !important;
+            .email-card {
+                background: #1c1c24 !important;
+                border-color: rgba(255,255,255,0.10) !important;
+                color: #eceef4 !important;
+            }
+            .email-card p {
+                color: #eceef4 !important;
+            }
+            .email-footer {
+                border-top-color: rgba(255,255,255,0.10) !important;
+                color: #a2a8bc !important;
+            }
+            .email-footer p {
+                color: #a2a8bc !important;
             }
         }
     </style>
 </head>
-<body style="width: 100%; padding: 0; margin: 0; background: #f3f4f6">
-<div style="width: 100%; font-family: 'Open Sans', sans-serif; Text-rendering: optimizeLegibility">
-    <div style="width: 600px; margin: 0 auto; Text-align: justify;">
-        <h1 style="font-size: 30px; Text-align: center; margin: 20px 0; padding: 12px 0; background: #ffffff; border-radius: 3px;">
-            <img src="cid:logo.png" style="height: 75px;" alt="Brazn Tasks"/>
-        </h1>
-        <div class="email-card" style="border: 1px solid #dbdbdb; -webkit-box-shadow: 0.3em 0.3em 0.8em #e6e6e6; box-shadow: 0.3em 0.3em 0.8em #e6e6e6; color: #4a4a4a; padding: 5px 25px; border-radius: 3px; background: #fff;">
+<body class="email-body" style="width: 100%; padding: 0; margin: 0; background: #f7f7fa">
+<div style="width: 100%; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-rendering: optimizeLegibility">
+    <div style="width: 600px; max-width: 100%; margin: 0 auto;">
+        <div style="text-align: center; margin: 24px 0;">
+            <img src="cid:logo.png" style="height: 72px; width: auto; border: 0;" alt="ONE"/>
+        </div>
+        <div class="email-card" style="border: 1px solid rgba(35,42,69,0.09); color: #171a28; padding: 8px 28px; border-radius: 13px; background: #ffffff; font-size: 15px; line-height: 1.65;">
 <p>
 	{{ .Greeting }}
 </p>
@@ -108,7 +119,7 @@ const mailTemplateHTML = `
 
 {{ if .ActionURL }}
 	<a class="email-button" href="{{ .ActionURL }}" title="{{ .ActionText }}"
-		style="position: relative;Text-decoration:none;display: block;border-radius: 4px;cursor: pointer;padding-bottom: 8px;padding-left: 14px;padding-right: 14px;padding-top: 8px;width:280px;margin:10px auto;Text-align: center;white-space: nowrap;border: 0;Text-transform: uppercase;font-size: 14px;font-weight: 700;-webkit-box-shadow: 0 3px 6px rgba(107,114,128,.12),0 2px 4px rgba(107,114,128,.1);box-shadow: 0 3px 6px rgba(107,114,128,.12),0 2px 4px rgba(107,114,128,.1);background-color: #1973ff;border-color: transparent;color: #fff;">
+		style="display: block;text-decoration: none;border-radius: 10px;cursor: pointer;padding: 12px 16px;width: 280px;margin: 20px auto;text-align: center;white-space: nowrap;border: 0;font-size: 15px;font-weight: 600;color: #ffffff;background-color: #5744cf;background-image: linear-gradient(145deg, #4d6ae0, #5744cf);">
 		{{ .ActionText }}
 	</a>
 {{end}}
@@ -118,7 +129,7 @@ const mailTemplateHTML = `
 {{ end }}
 
 {{ if .ActionURL }}
-	<div style="color: #9CA3AF;font-size:12px;border-top: 1px solid #dbdbdb;margin-top:20px;padding-top:20px;">
+	<div class="email-footer" style="color: #5e6578;font-size:12px;border-top: 1px solid rgba(35,42,69,0.09);margin-top:20px;padding-top:20px;">
 	<p>
 		{{ .CopyURLText }}<br/>
 		{{ .ActionURL }}
@@ -129,7 +140,7 @@ const mailTemplateHTML = `
 	</div>
 {{ else }}
 {{ if .FooterLinesHTML }}
-	<div style="color: #9CA3AF;font-size:12px;border-top: 1px solid #dbdbdb;margin-top:20px;padding-top:20px;">
+	<div class="email-footer" style="color: #5e6578;font-size:12px;border-top: 1px solid rgba(35,42,69,0.09);margin-top:20px;padding-top:20px;">
 		{{ range $line := .FooterLinesHTML }}
 			{{ $line }}
 		{{ end }}
@@ -147,20 +158,49 @@ const mailTemplateConversationalHTML = `
 <!doctype html>
 <html style="width: 100%; height: 100%; padding: 0; margin: 0;">
 <head>
-    <meta name="viewport" content="width=device-width">
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <style>
+        :root {
+            color-scheme: light dark;
+        }
+        @media (prefers-color-scheme: dark) {
+            .email-body {
+                background: #1c1c24 !important;
+            }
+            .email-header {
+                color: #a2a8bc !important;
+            }
+            .email-text, .email-text p {
+                color: #eceef4 !important;
+            }
+            .email-footer {
+                border-top-color: rgba(255,255,255,0.10) !important;
+                color: #a2a8bc !important;
+            }
+            .email-link {
+                color: #a9b4ff !important;
+            }
+        }
+    </style>
 </head>
-<body style="width: 100%; padding: 0; margin: 0; background: #f6f8fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;">
-<div style="margin: 0 auto; background: #ffffff;">
+<body class="email-body" style="width: 100%; padding: 0; margin: 0; background: #ffffff; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+<div style="margin: 0 auto;">
+
+    <div style="padding: 16px 20px 0;">
+        <img src="cid:logo.png" style="height: 28px; width: auto; border: 0;" alt="ONE"/>
+    </div>
 
     {{ if .HeaderLineHTML }}
-    <div style="padding: 12px 20px 0; color: #57606a; font-size: 14px; line-height: 1.5;">
+    <div class="email-header" style="padding: 12px 20px 0; color: #5e6578; font-size: 14px; line-height: 1.5;">
         {{ .HeaderLineHTML }}
     </div>
     {{ end }}
 
     {{ if or .IntroLinesHTML .OutroLinesHTML }}
-    <div style="padding-left: 20px; color: #24292f; font-size: 14px; line-height: 1.5;">
+    <div class="email-text" style="padding-left: 20px; color: #171a28; font-size: 14px; line-height: 1.5;">
 
         {{ range $line := .IntroLinesHTML}}
             {{ $line }}
@@ -173,13 +213,13 @@ const mailTemplateConversationalHTML = `
     {{ end }}
 
     {{ if or .ActionURL .FooterLinesHTML }}
-    <div style="padding: 4px 20px 8px 20px; border-top: 1px solid #d1d9e0; padding-top: 6px; font-size: 12px">
+    <div class="email-footer" style="padding: 4px 20px 8px 20px; border-top: 1px solid rgba(35,42,69,0.09); padding-top: 6px; font-size: 12px">
         {{ if .ActionURL }}
-        <a href="{{ .ActionURL }}" style="color: #0969da; text-decoration: none; font-weight: 500; font-size: 12px;">
+        <a class="email-link" href="{{ .ActionURL }}" style="color: #4f46d6; text-decoration: none; font-weight: 500; font-size: 12px;">
             {{ .ActionText }} →
         </a>
         {{ end }}
-    	<div style="padding-top: 6px; color: #656d76;">
+    	<div style="padding-top: 6px; color: #5e6578;">
     	    {{ range $line := .FooterLinesHTML }}
     	        {{ $line }}
     	    {{ end }}
@@ -191,20 +231,15 @@ const mailTemplateConversationalHTML = `
 </html>
 `
 
-// logo.png is the Percy wordmark, derived from docs/brand/percy-wordmark-source.png
-// by .github/workflows/brand-assets.yml. It is attached inline to every
-// non-conversational notification mail and rendered by mailTemplateHTML above.
+// logo.png is the ONE mark, derived from docs/brand/one-mark-source.png by
+// .github/workflows/brand-assets.yml. It is attached inline to every notification
+// mail, conversational ones included, and rendered by both templates above.
 // Do not edit it by hand: that workflow's path filter covers it, so an edit only
-// triggers a regeneration over the top. It is no longer upstream Vikunja's mark,
-// which the AGPL does not license to us (see CLAUDE.md section 7).
+// triggers a regeneration over the top. It is not upstream Vikunja's mark, which
+// the AGPL does not license to us (see CLAUDE.md section 7).
 //
-// Two things about it are deliberate and interim. It is the Percy wordmark beside
-// alt="Brazn Tasks" until a Brazn Tasks mark exists (Sebastian, 2026-08-01), and it
-// is opaque, because the source artwork is PNG color type 2 with no alpha channel
-// and no tRNS chunk -- the P ribbon's glow fades continuously into the background
-// rather than ending at an edge, so there is nothing to key out. That is why the
-// <h1> holding it sets a white background: on the #f3f4f6 mail body an opaque image
-// would otherwise render as a visible box. See docs/brand/README.md (BRA-990).
+// The source has an alpha channel, so neither template paints a band behind it.
+// The Percy wordmark this replaced had none and needed one (BRA-990).
 //
 //go:embed logo.png
 var logo embed.FS
@@ -599,10 +634,12 @@ func RenderMail(m *Mail, lang string) (mailOpts *mail.Opts, err error) {
 		ThreadID:    m.threadID,
 	}
 
-	if !m.conversational {
-		mailOpts.EmbedFS = map[string]*embed.FS{
-			"logo.png": &logo,
-		}
+	// Every notification mail carries the mark, conversational ones included
+	// (Sebastian, 2026-08-20). The conversational template renders it small, at
+	// 28px, so a reply to a task comment still reads as a reply rather than as an
+	// announcement.
+	mailOpts.EmbedFS = map[string]*embed.FS{
+		"logo.png": &logo,
 	}
 
 	return mailOpts, nil

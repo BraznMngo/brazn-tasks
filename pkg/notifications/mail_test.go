@@ -557,22 +557,28 @@ func TestConversationalMail(t *testing.T) {
 		// Should not contain greeting section
 		assert.NotContains(t, mailopts.HTMLMessage, "<p>\n\t\t\n\t</p>")
 
-		// Should use conversational styling
-		assert.Contains(t, mailopts.HTMLMessage, "background: #f6f8fa")
-		assert.Contains(t, mailopts.HTMLMessage, "font-family: -apple-system")
+		// Should use conversational styling, on ONE's palette rather than the
+		// GitHub one this template started from
+		assert.Contains(t, mailopts.HTMLMessage, "background: #ffffff")
+		assert.Contains(t, mailopts.HTMLMessage, "font-family: Inter,")
+		assert.NotContains(t, mailopts.HTMLMessage, "#f6f8fa")
+		assert.NotContains(t, mailopts.HTMLMessage, "#0969da")
 
-		// Should NOT have logo (completely removed)
-		assert.NotContains(t, mailopts.HTMLMessage, "logo.png")
-		assert.NotContains(t, mailopts.HTMLMessage, "Brazn Tasks")
-		assert.NotContains(t, mailopts.EmbedFS, "logo.png")
+		// Every notification mail carries the ONE mark, this one included
+		// (Sebastian, 2026-08-20). It is rendered small so a reply to a task
+		// comment still reads as a reply.
+		assert.Contains(t, mailopts.HTMLMessage, "logo.png")
+		assert.Contains(t, mailopts.HTMLMessage, `alt="ONE"`)
+		assert.Contains(t, mailopts.HTMLMessage, "height: 28px")
+		assert.Contains(t, mailopts.EmbedFS, "logo.png")
 
 		// Should have inline action link with arrow
 		assert.Contains(t, mailopts.HTMLMessage, "View Task →")
-		assert.Contains(t, mailopts.HTMLMessage, "color: #0969da")
+		assert.Contains(t, mailopts.HTMLMessage, "color: #4f46d6")
 
-		// Should not have the formal button styling
-		assert.NotContains(t, mailopts.HTMLMessage, "background-color: #1973ff")
-		assert.NotContains(t, mailopts.HTMLMessage, "width:280px")
+		// Should not have the formal template button styling
+		assert.NotContains(t, mailopts.HTMLMessage, "linear-gradient")
+		assert.NotContains(t, mailopts.HTMLMessage, "width: 280px")
 
 		// Plain text should not have greeting
 		assert.NotContains(t, mailopts.Message, "Hi there,")
@@ -594,27 +600,33 @@ func TestConversationalMail(t *testing.T) {
 		// Should contain greeting
 		assert.Contains(t, mailopts.HTMLMessage, "Hi there,")
 
-		// Should use formal styling
-		assert.Contains(t, mailopts.HTMLMessage, "background: #f3f4f6")
-		assert.Contains(t, mailopts.HTMLMessage, "font-family: 'Open Sans'")
+		// Should use formal styling, on ONE's palette
+		assert.Contains(t, mailopts.HTMLMessage, "background: #f7f7fa")
+		assert.Contains(t, mailopts.HTMLMessage, "font-family: Inter,")
 		assert.Contains(t, mailopts.HTMLMessage, "width: 600px")
-		assert.Contains(t, mailopts.HTMLMessage, "height: 75px")
+		assert.Contains(t, mailopts.HTMLMessage, "height: 72px")
+		assert.NotContains(t, mailopts.HTMLMessage, "Open Sans")
+		assert.NotContains(t, mailopts.HTMLMessage, "#f3f4f6")
 
-		// The embedded logo is opaque -- the source artwork has no alpha channel
-		// and cannot be given one (docs/brand/README.md) -- so the heading that
-		// holds it has to supply a matching background. Without it the image
-		// renders as a white box on the #f3f4f6 body asserted above. This is the
-		// only #ffffff in the formal template: the card uses the short #fff form.
-		assert.Contains(t, mailopts.HTMLMessage, "background: #ffffff")
+		// The ONE mark has a real alpha channel, so nothing paints a band behind
+		// it any more. The Percy wordmark this replaced was PNG color type 2 with
+		// no alpha and no tRNS chunk, so the heading holding it had to supply a
+		// matching white background or the image rendered as a box on the body.
+		// brand-assets.yml fails the build if the derived mark ever comes out
+		// opaque, so this assertion is the template half of that guarantee.
+		assert.Contains(t, mailopts.HTMLMessage, `<div style="text-align: center; margin: 24px 0;">`)
 
 		// Should HAVE logo in formal emails
 		assert.Contains(t, mailopts.HTMLMessage, "logo.png")
-		assert.Contains(t, mailopts.HTMLMessage, "Brazn Tasks")
+		assert.Contains(t, mailopts.HTMLMessage, `alt="ONE"`)
 		assert.Contains(t, mailopts.EmbedFS, "logo.png")
 
-		// Should have formal button styling
-		assert.Contains(t, mailopts.HTMLMessage, "background-color: #1973ff")
-		assert.Contains(t, mailopts.HTMLMessage, "width:280px")
+		// Should have formal button styling: ONE's accent gradient, with a solid
+		// fallback underneath it because Outlook's Word engine drops the gradient.
+		assert.Contains(t, mailopts.HTMLMessage, "background-color: #5744cf")
+		assert.Contains(t, mailopts.HTMLMessage, "linear-gradient(145deg, #4d6ae0, #5744cf)")
+		assert.Contains(t, mailopts.HTMLMessage, "width: 280px")
+		assert.NotContains(t, mailopts.HTMLMessage, "#1973ff")
 
 		// Should not have conversational arrow
 		assert.NotContains(t, mailopts.HTMLMessage, "View Task →")
@@ -635,7 +647,7 @@ func TestConversationalMail(t *testing.T) {
 		require.NoError(t, err)
 
 		// Should use conversational styling
-		assert.Contains(t, mailopts.HTMLMessage, "background: #f6f8fa")
+		assert.Contains(t, mailopts.HTMLMessage, "background: #ffffff")
 
 		// Should not have action section
 		assert.NotContains(t, mailopts.HTMLMessage, "border-top: 1px solid #e5e7eb")
@@ -654,7 +666,7 @@ func TestConversationalMail(t *testing.T) {
 		require.NoError(t, err)
 
 		// Should have footer with conversational styling
-		assert.Contains(t, mailopts.HTMLMessage, "color: #656d76")
+		assert.Contains(t, mailopts.HTMLMessage, "color: #5e6578")
 		assert.Contains(t, mailopts.HTMLMessage, "font-size: 12px")
 		assert.Contains(t, mailopts.HTMLMessage, "This is a footer line")
 	})
@@ -671,9 +683,9 @@ func TestConversationalMail(t *testing.T) {
 		// Should contain action with username
 		assert.Contains(t, headerLine, "testuser left a comment")
 
-		// Should contain task link with identifier and GitHub blue color
+		// Should contain task link with identifier, on ONE's accent-text colour
 		assert.Contains(t, headerLine, `<a href="https://example.com/task/123"`)
-		assert.Contains(t, headerLine, `color: #0969da`)
+		assert.Contains(t, headerLine, `color: #4f46d6`)
 		assert.Contains(t, headerLine, `(Test Project &gt; Test Task) #1`)
 	})
 
@@ -705,7 +717,7 @@ func TestConversationalMail(t *testing.T) {
 		require.NoError(t, err)
 
 		// Header should be in its own section
-		assert.Contains(t, mailOpts.HTMLMessage, `color: #57606a`)
+		assert.Contains(t, mailOpts.HTMLMessage, `color: #5e6578`)
 		assert.Contains(t, mailOpts.HTMLMessage, `testuser left a comment`)
 
 		// Body content should be separate from the header
@@ -730,7 +742,7 @@ func TestConversationalMail(t *testing.T) {
 		assert.Contains(t, mailOpts.HTMLMessage, `testuser assigned you`)
 
 		// Should not have the content section when there are no intro/outro lines
-		assert.NotContains(t, mailOpts.HTMLMessage, `padding: 20px; padding-bottom: 0; color: #24292f`)
+		assert.NotContains(t, mailOpts.HTMLMessage, `padding: 20px; padding-bottom: 0; color: #171a28`)
 	})
 
 	t.Run("Translation system integration", func(t *testing.T) {
@@ -745,7 +757,7 @@ func TestConversationalMail(t *testing.T) {
 		assert.Contains(t, headerLine2, "Jane assigned you")
 
 		// Verify header structure is maintained
-		assert.Contains(t, headerLine1, `color: #0969da`)
+		assert.Contains(t, headerLine1, `color: #4f46d6`)
 		assert.Contains(t, headerLine1, "(Project &gt; Task) #1")
 	})
 }

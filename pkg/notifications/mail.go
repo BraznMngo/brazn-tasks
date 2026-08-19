@@ -126,7 +126,7 @@ func (m *Mail) IsConversational() bool {
 	return m.conversational
 }
 
-// CreateConversationalHeader creates a GitHub-style header line with avatar, action text, and task reference.
+// CreateConversationalHeader creates a reply-style header line with avatar, action text, and task reference.
 // The action string should already contain the doer's name (e.g. "alice left a comment").
 func CreateConversationalHeader(avatarDataURI, action, taskURL, projectTitle, taskIdentifier, taskTitle string) string {
 	avatarHTML := ""
@@ -137,7 +137,7 @@ func CreateConversationalHeader(avatarDataURI, action, taskURL, projectTitle, ta
 		)
 	}
 	return fmt.Sprintf(
-		`%s%s <a href="%s" style="color: #0969da; text-decoration: none;">(%s &gt; %s) %s</a>`,
+		`%s%s <a href="%s" style="color: #4f46d6; text-decoration: none;">(%s &gt; %s) %s</a>`,
 		avatarHTML,
 		action,
 		taskURL,
