@@ -1883,6 +1883,39 @@ export function duplicateTask(taskId) {
 }
 
 /**
+ * POST /api/v2/projects/{project}/tasks — the only way this page creates a task.
+ *
+ * VERIFIED BEFORE WIRING, the same way `listProjects` below was and for the same reason (ruling
+ * C3, which forbids inventing a route). Two separate facts had to hold, and a control offering
+ * to do something the server refuses is worse than no control:
+ *
+ *   1. THE ROUTE EXISTS. `tasks-create`, registered at pkg/routes/api/v2/tasks.go:76-83. Note
+ *      the v1 -> v2 method flip this file keeps meeting: v1 create is a PUT.
+ *   2. MANAGED MODE DOES NOT REFUSE IT. route-classification.json classifies
+ *      `POST /api/v2/projects/:project/tasks` as `ordinary`, and an ordinary route carries no
+ *      `managed` rule, so `RequireManagedPolicy` has nothing to look up and lets it through.
+ *      The distinction is the whole of that file's first class: creating a PROJECT is
+ *      `protected-topology` and is refused, because a project can touch the Inbox and the
+ *      Public root the product guarantees. Creating a TASK INSIDE a project it already has is
+ *      ordinary task work, which managed mode was never meant to stop.
+ *
+ * THE UNPAID CASE IS THE OTHER HALF, AND IT IS THE SERVER'S TO DECIDE. The same row carries no
+ * `write` marker, and absence there means refuse — so a subject whose entitlement says
+ * `write_access: settings_only` is refused this by the server, exactly as they are refused every
+ * other task write. `data-requires="write"` on the button in app.js MIRRORS that refusal so the
+ * page can say why before the round trip; it never replaces it, and the request is still issued
+ * and still answered by the gate whenever one is made.
+ *
+ * THE TITLE IS THE WHOLE BODY, deliberately. `project_id` comes from the URL and OVERWRITES
+ * anything a body sends (tasks.go:178), and the creator is the authenticated user. Sending a
+ * fuller task would be this page inventing defaults — a due date, a priority, a bucket — that
+ * nobody asked it to hold an opinion about.
+ */
+export function createTask(projectId, title) {
+  return forkSend('POST', forkV2Url(`projects/${encodeURIComponent(projectId)}/tasks`), {title});
+}
+
+/**
  * The move picker's data source: GET /api/v2/projects
  * (pkg/routes/api/v2/projects.go:41-45).
  *

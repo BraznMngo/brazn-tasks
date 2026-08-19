@@ -194,6 +194,7 @@
       "dueFollowsEnd": "期限は終了日に従います。個別に設定するには終了日を消してください。"
     },
     "toast": {
+      "taskAdded": "タスクを追加しました。",
       "commentUpdated": "コメントを更新しました。"
     },
     "brand": {
@@ -232,6 +233,11 @@
       "teamLabel": "チーム"
     },
     "task": {
+      "add": {
+        "title": "タスクを追加",
+        "project": "プロジェクト",
+        "titleRequired": "先にタスク名を入力してください。何も作成されていません。"
+      },
       "progressManual": "手動",
       "comments": {
         "edit": "編集",

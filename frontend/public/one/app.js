@@ -1756,13 +1756,46 @@ function editionText(facts) {
 }
 
 /**
- * The block itself. Three lines beside one circle, vertically centred by
- * `.one-identity` (one.css) rather than by anything here.
+ * The two glyphs this file draws — the header's add-task plus, and the close cross every modal
+ * head carries.
+ *
+ * `view-task.js` has an `ICON` table of fourteen and an `ic()` helper, and neither is reached
+ * from here: that module is loaded DYNAMICALLY and is allowed to fail to load at all
+ * (`loadViews` swallows a rejection into a console line), and the header has to keep drawing
+ * when it does. Both paths are the same ones, copied rather than imported — two duplicated
+ * short strings bought instead of a dependency the header cannot afford, which is the same
+ * trade the whole of section 13b already made.
+ *
+ * `aria-hidden` and nothing else, exactly as `ic()` marks every SVG it emits: the button's own
+ * `aria-label` is the accessible name, and a described glyph inside a labelled button is the
+ * same thing read to somebody twice. Sized by the global `svg` rule in one.css.
+ */
+const PLUS_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+const CLOSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+
+/**
+ * The block itself. Three lines beside one circle, then the add-task button,
+ * vertically centred by `.one-identity` (one.css) rather than by anything here.
  *
  * The image is `alt=""` and `aria-hidden` ON PURPOSE and it costs no catalogue
  * key: the name it depicts is the very next node, so a described avatar would
  * make a screen reader read the same person twice. The initials underneath are
  * the same decoration and are hidden the same way.
+ *
+ * THE BUTTON IS LAST, AND THE ORDER IS LOAD-BEARING RATHER THAN TASTE. It is
+ * gated, so `applyGates` inserts the refusal sentence as its NEXT SIBLING, and
+ * `.refusal-text` is `flex-basis:100%` in a wrapping row — which puts the
+ * sentence on its own line underneath. Put the button first instead and that
+ * same full-width line lands BETWEEN the button and the avatar, splitting the
+ * identity block in half for exactly the customer who is being refused. This is
+ * the case one.css already documents for the project chip in the breadcrumb,
+ * and `.one-identity` is added to the same `flex-wrap:wrap` list there.
+ *
+ * IT IS ON BOTH DOCUMENTS BECAUSE THIS BLOCK IS, which is the whole reason the
+ * button lives here rather than in either view module. `mountIdentity` adopts
+ * this markup into `.task-topbar` on task.html and `.settings-hero` on
+ * settings.html, so the control cannot drift between the two the way the
+ * avatar and the subscription line did before round 1b.
  */
 export function identityBlock(facts = readGateFacts()) {
   const user = getUser();
@@ -1774,6 +1807,8 @@ export function identityBlock(facts = readGateFacts()) {
       <span>${escapeHtml(roleText(facts))}</span>
       <small data-requires="edition">${escapeHtml(edition)}</small>
     </div>
+    <button class="icon-btn" data-action="add-task" data-requires="write"
+      aria-label="${escapeHtml(t('one.task.add.title'))}">${PLUS_ICON}</button>
   </div>`;
 }
 
@@ -1905,6 +1940,168 @@ export function ensureAvatarFor(user) {
 
 function ensureAvatar() {
   ensureAvatarFor(getUser());
+}
+
+/* ------------------------------------------------------------------ *
+ * 13c. Add a task — the header button's behaviour
+ *
+ * THE SECOND EXCEPTION TO "IT RENDERS NO VIEW MARKUP", declared here rather
+ * than discovered later. It is the same exception as 13b and for the same
+ * reason: the control sits in the shared identity block, so it exists on
+ * task.html and settings.html alike, and neither view module can own behaviour
+ * for a button on a page it does not render. `view-settings.js` has no notion
+ * of a task at all.
+ *
+ * WHAT THE BUTTON CAN DO, ESTABLISHED BEFORE IT WAS BUILT. `api.createTask`
+ * carries the route verification in full; the short version is that creating a
+ * task inside an existing project is `ordinary` in route-classification.json,
+ * so managed mode does not refuse it, while creating a PROJECT is
+ * `protected-topology` and does. That is exactly why this asks which project
+ * and never offers to make one.
+ *
+ * AND WHY IT HAS TO ASK. There is no default to fall back on: every account has
+ * an Inbox and the server points `default_project_id` at it, but that column is
+ * `json:"-"` (pkg/user/user.go:114) and reaches no client. Matching the title
+ * "Inbox" instead would be a guess against a name customers can change and
+ * duplicate, which is the reason pkg/models/brazn_topology.go gives for
+ * refusing to identify an Inbox that way itself. So the destination is asked
+ * for, from `GET /api/v2/projects`, the same source the move picker uses.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Normalise a collection body. `GET /api/v2/projects` answers with a bare array
+ * today and the paginated shape is `{items}`; both are accepted so a server
+ * change does not empty the picker in silence. Same three lines as
+ * `view-task.js`'s `items()`, which this file cannot reach into.
+ */
+function collectionItems(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+}
+
+/**
+ * Open the dialog. ASYNC ON PURPOSE, and the read happens BEFORE the modal is
+ * drawn rather than after: a picker that appears empty and fills in a moment
+ * later is one a fast reader commits against the wrong project, and there is no
+ * loading state on this page to borrow. One `GET /api/v2/projects` is cheap.
+ *
+ * A FAILED OR EMPTY READ REFUSES IN THE MARKUP, exactly as `moveModal` does and
+ * for the identical reason: every account has an Inbox, so an empty list means
+ * the read failed rather than that there is nowhere to put a task. The refusal
+ * is written into the markup instead of through `data-requires` because
+ * `applyGates` calls `releaseControl` on a passing gate and would strip a
+ * manually applied refusal straight back off.
+ */
+async function openAddTask() {
+  let projects = [];
+  try {
+    projects = collectionItems(await api.listProjects({perPage: 100}));
+  } catch (err) {
+    if (err instanceof api.SessionLostError) throw err;
+    console.error('[one/app] the projects read for a new task failed', err);
+  }
+
+  const options = projects.map((project) => `<option value="${escapeHtml(project?.id)}"
+    >${escapeHtml(project?.title ?? '')}</option>`).join('');
+
+  const confirm = options === ''
+    ? `<button class="btn primary is-refused" data-action="confirm-add-task" aria-disabled="true"
+        >${escapeHtml(t('one.common.add'))}</button>
+       <p class="refusal-text" data-refusal-source="server"
+         >${escapeHtml(t('one.error.requestFailed'))}</p>`
+    : `<button class="btn primary" data-action="confirm-add-task" data-requires="write"
+        >${escapeHtml(t('one.common.add'))}</button>`;
+
+  openModal(`<div class="modal-scrim" data-modal-scrim="true"><div class="modal">
+    <div class="modal-head"><h3>${escapeHtml(t('one.task.add.title'))}</h3>
+      <button class="icon-btn" data-action="modal-close"
+        aria-label="${escapeHtml(t('misc.closeDialog'))}">${CLOSE_ICON}</button></div>
+    <div class="modal-body">
+      <label class="label">${escapeHtml(t('task.attributes.title'))}</label>
+      <input class="input" id="newTaskTitle"
+        aria-label="${escapeHtml(t('task.attributes.title'))}">
+      <label class="label" style="margin-top:8px"
+        >${escapeHtml(t('one.task.add.project'))}</label>
+      <select class="select" id="newTaskProject"
+        aria-label="${escapeHtml(t('one.task.add.project'))}">${options}</select>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-action="modal-close">${escapeHtml(t('misc.cancel'))}</button>
+      ${confirm}
+    </div>
+  </div></div>`);
+}
+
+/**
+ * Create it, then take the person to it.
+ *
+ * THE EMPTY TITLE IS CAUGHT HERE AND NOT LEFT TO THE SERVER, which is a
+ * deliberate exception to "render the server's own sentence". The server does
+ * refuse it — `minLength:"1"` on Task.Title (pkg/models/tasks.go:68) — but the
+ * sentence Huma answers a schema violation with is "validation failed", which
+ * tells a customer nothing about which box to fill in. Every OTHER refusal on
+ * this path is still the server's own words, through `describeForkError`.
+ *
+ * NAVIGATION IS THE CONFIRMATION, so the toast is short. `navigate` re-renders,
+ * and the task view loads the new task by id — which is also the only proof
+ * that offers itself: the person lands on the thing they just made.
+ */
+async function confirmAddTask(event, el) {
+  const root = document.getElementById('modalRoot');
+  const title = String(root?.querySelector('#newTaskTitle')?.value ?? '').trim();
+  if (title === '') {
+    renderRefusal(el, {messageKey: 'one.task.add.titleRequired', source: 'server'});
+    return;
+  }
+
+  const projectId = Number(root?.querySelector('#newTaskProject')?.value);
+  if (!Number.isSafeInteger(projectId) || projectId <= 0) {
+    renderRefusal(el, {messageKey: 'one.error.requestFailed', source: 'server'});
+    return;
+  }
+
+  try {
+    const task = await api.createTask(projectId, title);
+    const id = typeof task?.id === 'number' ? task.id : null;
+    closeModal();
+    toast(t('one.toast.taskAdded'));
+    // A created task with no id is not something this page can navigate to, and
+    // guessing one would open somebody else's. The toast already said it worked.
+    if (id !== null) showTask(id);
+  } catch (err) {
+    if (err instanceof api.SessionLostError) throw err;
+    renderRefusal(el, describeForkError(err));
+  }
+}
+
+/**
+ * Go to a task — and CROSS TO THE TASK DOCUMENT when we are not already on it.
+ *
+ * `navigate()` alone is wrong from settings.html and the reason is written down
+ * two hundred lines up, in `parseRoute`: the document chooses the view, `?view=`
+ * only OVERRIDES it, and that override "is not what a link should carry".
+ * Routing in place from the settings document lands the person on
+ * `settings.html?task=41&view=task` — a task rendered inside the settings
+ * document, on a web address whose filename says settings. It works, and it is
+ * a URL nobody can hand to anyone, which is the exact fault splitting the two
+ * documents was meant to remove.
+ *
+ * So the document is compared against the one the task needs. Already on it,
+ * this stays a history push and nothing reloads — the common case, from the
+ * task page. Anywhere else it is a real navigation to `task.html`, and the
+ * address that results is the one somebody can paste to a colleague.
+ *
+ * The URL is built by `routeToSearch`, not by hand, so a later change to the
+ * query grammar moves this with it.
+ */
+function showTask(taskId) {
+  const route = {taskId, view: 'task', tab: SETTINGS_TABS[0]};
+  if (document.body?.dataset?.defaultView === 'task') {
+    navigate({view: 'task', taskId});
+    return;
+  }
+  location.assign(`./task.html${routeToSearch(route)}`);
 }
 
 /* ------------------------------------------------------------------ *
@@ -2536,6 +2733,13 @@ registerActions({
   // would be more machinery than the one case it serves. It is also what the organization
   // notice offers, for the same reason.
   retry: () => location.reload(),
+
+  // Section 13c. Registered HERE rather than in a view module because the button lives in the
+  // shared identity block, so it is on both documents — and `view-settings.js` has no notion of
+  // a task to own it with. `registerActions` throws on a duplicate name, so a view module that
+  // later claims either of these fails loudly at load rather than silently winning.
+  'add-task': () => openAddTask(),
+  'confirm-add-task': (event, el) => confirmAddTask(event, el),
 
   'data-settings-tab': (event, el) => {
     const value = el.getAttribute('data-settings-tab');

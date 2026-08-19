@@ -690,8 +690,14 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
    `data-requires="teams"`, and app.js inserts the refusal sentence as its next SIBLING. Without
    wrapping, a server sentence would be laid out mid-breadcrumb between the chip and the bucket
    name; `.refusal-text{flex-basis:100%}` then puts it on its own line underneath, which is where
-   a sentence belongs. */
-.section-head,.settings-heading,.prop-head,.member-actions,.modal-foot,.task-head-actions,.task-kicker,.task-footer{flex-wrap:wrap}
+   a sentence belongs.
+   .one-identity JOINED THEM WHEN IT GAINED A BUTTON. The add-task control in the header block is
+   `data-requires="write"`, so the same sentence is inserted after it, and this row had no wrap at
+   all — the sentence would have been laid out INLINE beside the name, squeezing the identity
+   block for exactly the customer being refused. The button is emitted LAST in that block for the
+   matching reason (app.js, `identityBlock`): a full-width line after a FIRST child would break
+   the row between the button and the avatar instead of falling underneath the whole block. */
+.section-head,.settings-heading,.prop-head,.member-actions,.modal-foot,.task-head-actions,.task-kicker,.task-footer,.one-identity{flex-wrap:wrap}
 .section-head>div:first-child,.settings-heading>div:first-child,.prop-head-left,.row-grow{min-inline-size:0}
 
 @media(max-width:900px){

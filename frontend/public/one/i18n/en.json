@@ -275,6 +275,11 @@
       "justNow": "just now"
     },
     "task": {
+      "add": {
+        "title": "Add task",
+        "project": "Project",
+        "titleRequired": "Give the task a title first. Nothing was created."
+      },
       "moreActions": "More task actions",
       "unassigned": "Unassigned",
       "progressManual": "Manual",
@@ -507,6 +512,7 @@
       "catalogue": "The text for this page could not be loaded."
     },
     "toast": {
+      "taskAdded": "The task was added.",
       "attachmentsAdded": "{count} attachment added | {count} attachments added",
       "attachmentRemoved": "The attachment was removed.",
       "relationAdded": "The relation was added.",
