@@ -98,11 +98,19 @@ func assertHTMLContainsDarkModeSupport(t *testing.T, htmlMessage string) {
 	assert.Contains(t, htmlMessage, `<meta name="color-scheme" content="light dark">`)
 	assert.Contains(t, htmlMessage, `<meta name="supported-color-schemes" content="light dark">`)
 
-	// Check for dark mode CSS
+	// Check for dark mode CSS. The dark block repaints the surfaces -- body,
+	// card and footer -- rather than only strengthening a shadow, which is what
+	// it did while the card was Vikunja's. The button is deliberately not in
+	// here: ONE's accent gradient carries white text on both themes and does not
+	// flip, because an identity that changes with the OS theme is two identities
+	// (web/app/globals.css in the Percy repo).
 	assert.Contains(t, htmlMessage, `@media (prefers-color-scheme: dark)`)
+	assert.Contains(t, htmlMessage, `.email-body`)
+	assert.Contains(t, htmlMessage, `background: #14141a !important`)
 	assert.Contains(t, htmlMessage, `.email-card`)
-	assert.Contains(t, htmlMessage, `box-shadow: 0.3em 0.3em 0.8em rgba(0,0,0,0.3) !important`)
-	assert.Contains(t, htmlMessage, `.email-button`)
+	assert.Contains(t, htmlMessage, `background: #1c1c24 !important`)
+	assert.Contains(t, htmlMessage, `.email-footer`)
+	assert.Contains(t, htmlMessage, `color: #a2a8bc !important`)
 
 	// Check for email-card class on the card div
 	assert.Contains(t, htmlMessage, `class="email-card"`)
