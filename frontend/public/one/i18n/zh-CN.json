@@ -228,6 +228,7 @@
         "editLabel": "编辑评论"
       },
       "reminders": {
+        "customRequired": "请先选择日期和时间。未做任何更改。",
         "typeDue": "到期日",
         "typeStart": "开始日期",
         "typeEnd": "结束日期"

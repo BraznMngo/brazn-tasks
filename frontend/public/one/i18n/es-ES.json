@@ -213,6 +213,7 @@
         "editLabel": "Editar comentario"
       },
       "reminders": {
+        "customRequired": "Elige primero una fecha y una hora. No se ha cambiado nada.",
         "typeDue": "Fecha Límite",
         "typeStart": "Fecha de Inicio",
         "typeEnd": "Fecha de Fin"

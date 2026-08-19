@@ -358,6 +358,7 @@
         "unitMinutes": "{count} minute | {count} minutes",
         "unitHours": "{count} hour | {count} hours",
         "unitDays": "{count} day | {count} days",
+        "customRequired": "Choose a date and time first. Nothing was changed.",
         "typeDue": "due date",
         "typeStart": "start date",
         "typeEnd": "end date",

@@ -242,6 +242,7 @@
         "editLabel": "コメントを編集"
       },
       "reminders": {
+        "customRequired": "先に日付と時刻を選んでください。何も変更されていません。",
         "typeDue": "期日",
         "typeStart": "開始日",
         "typeEnd": "終了日"

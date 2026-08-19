@@ -1836,23 +1836,34 @@ function mountIdentity(root, facts) {
 
 const AVATAR_PIXEL_SIZE = 88;
 
-/** The key currently CLAIMED — in flight or settled. Never two reads at once. */
-let avatarKeyWanted = null;
-/** The object URL last successfully produced for that key, or null. */
-let avatarUrl = null;
+/**
+ * ONE SLOT PER PERSON, not one slot. This was a single pair of variables holding the signed-in
+ * user's picture, which is why every other face on the page — a comment author's — could only
+ * ever be initials. `username -> {key, url}`: `key` is the generation-stamped cache key CLAIMED
+ * for that person (in flight or settled) and `url` is the object URL last produced for it, or
+ * null meaning "there is no picture, draw the initials". The signed-in user is one entry in here
+ * like anybody else, so an upload still invalidates it through the shared generation.
+ */
+const avatarByUsername = new Map();
 
 function avatarCacheKey(user) {
   return `${user?.username ?? ''}|${api.getAvatarGeneration()}`;
 }
 
-/** The URL to paint, or null for "use the initials". Synchronous, for render. */
+/** The URL to paint for anyone, or null for "use the initials". Synchronous, for render. */
+export function avatarUrlFor(user) {
+  const entry = avatarByUsername.get(user?.username ?? '');
+  return entry !== undefined && entry.key === avatarCacheKey(user) ? entry.url : null;
+}
+
+/** The header's circle. Unchanged in behaviour: it is the above, for the signed-in user. */
 export function headerAvatarUrl(user) {
-  return avatarKeyWanted === avatarCacheKey(user) ? avatarUrl : null;
+  return avatarUrlFor(user);
 }
 
 /**
- * Read the avatar once per key. Re-entrant by design — `mountIdentity` runs on
- * every render and this is what makes it a no-op after the first.
+ * Read one person's avatar once per key. Re-entrant by design — the callers run on every render
+ * and this is what makes it a no-op after the first.
  *
  * Fire-and-forget on purpose: the picture is decorative, render is synchronous,
  * and a slow or refused avatar must never delay or fail the page around it.
@@ -1860,32 +1871,40 @@ export function headerAvatarUrl(user) {
  * there is no rejection path to handle here.
  *
  * `render()`, not `requestRender()`: the bytes landing say nothing about the
- * account, and `requestRender` would schedule an account re-read for it.
+ * account, and `requestRender` would schedule an account re-read for it. It is also why the
+ * `previous === next` test matters more now than it did with one face: most people have no
+ * uploaded picture, both sides are null, and a page of comments must not re-render once per
+ * author to learn that.
  */
-function ensureAvatar() {
-  const user = getUser();
+export function ensureAvatarFor(user) {
   const username = user?.username ?? '';
   if (username === '') return;
 
   const key = avatarCacheKey(user);
-  if (avatarKeyWanted === key) return;
+  const entry = avatarByUsername.get(username);
+  if (entry !== undefined && entry.key === key) return;
   // Claimed BEFORE the await. A second render during the read must not start a
   // second one. The PREVIOUS url is deliberately left in place until the new
   // bytes land, so an upload cross-fades instead of flashing the initials.
-  avatarKeyWanted = key;
+  avatarByUsername.set(username, {key, url: entry?.url ?? null});
 
   void api.getAvatarBlob(username, AVATAR_PIXEL_SIZE).then((blob) => {
     // The key moved while this was in flight — another upload, or another
     // account. Nothing is created, so nothing leaks.
-    if (avatarKeyWanted !== key) return;
+    const current = avatarByUsername.get(username);
+    if (current === undefined || current.key !== key) return;
     const next = blob === null ? null : URL.createObjectURL(blob);
-    const previous = avatarUrl;
+    const previous = current.url;
     if (previous === next) return;
-    avatarUrl = next;
+    avatarByUsername.set(username, {key, url: next});
     // Revoked only after nothing points at it any more, and only once.
     if (typeof previous === 'string') URL.revokeObjectURL(previous);
     render();
   });
+}
+
+function ensureAvatar() {
+  ensureAvatarFor(getUser());
 }
 
 /* ------------------------------------------------------------------ *

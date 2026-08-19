@@ -287,6 +287,7 @@
         "editLabel": "Kommentar bearbeiten"
       },
       "reminders": {
+        "customRequired": "Wähle zuerst ein Datum und eine Uhrzeit. Es wurde nichts geändert.",
         "typeDue": "Fälligkeitsdatum",
         "typeStart": "Anfangsdatum",
         "typeEnd": "Enddatum"

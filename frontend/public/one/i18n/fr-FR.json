@@ -229,6 +229,7 @@
         "editLabel": "Modifier le commentaire"
       },
       "reminders": {
+        "customRequired": "Choisissez d’abord une date et une heure. Rien n’a été modifié.",
         "typeDue": "Date d’échéance",
         "typeStart": "Date de début",
         "typeEnd": "Date de fin"
