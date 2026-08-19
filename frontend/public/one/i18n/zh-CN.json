@@ -187,6 +187,7 @@
       "dueFollowsEnd": "截止日期跟随结束日期。请先清除结束日期，才能单独设置。"
     },
     "toast": {
+      "taskAdded": "任务已添加。",
       "commentUpdated": "评论已更新。"
     },
     "brand": {
@@ -219,6 +220,11 @@
       "emailUnavailable": "此实例不会返回你的邮箱地址，因此无法在此显示。"
     },
     "task": {
+      "add": {
+        "title": "添加任务",
+        "project": "项目",
+        "titleRequired": "请先填写任务标题。未创建任何内容。"
+      },
       "comments": {
         "edit": "编辑",
         "editAria": "编辑你在 {date} 发表的评论",
@@ -228,6 +234,7 @@
         "editLabel": "编辑评论"
       },
       "reminders": {
+        "customRequired": "请先选择日期和时间。未做任何更改。",
         "typeDue": "到期日",
         "typeStart": "开始日期",
         "typeEnd": "结束日期"

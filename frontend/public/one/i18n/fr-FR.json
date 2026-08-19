@@ -187,6 +187,7 @@
       "dueFollowsEnd": "La date d’échéance suit la date de fin. Effacez la date de fin pour la définir séparément."
     },
     "toast": {
+      "taskAdded": "La tâche a bien été ajoutée.",
       "commentUpdated": "Le commentaire a bien été modifié."
     },
     "brand": {
@@ -219,6 +220,11 @@
       "emailUnavailable": "Cette instance ne renvoie pas votre adresse e-mail, elle ne peut donc pas être affichée ici."
     },
     "task": {
+      "add": {
+        "title": "Ajouter une tâche",
+        "project": "Projet",
+        "titleRequired": "Donnez d’abord un nom à la tâche. Rien n’a été créé."
+      },
       "progressManual": "Manuel",
       "comments": {
         "edit": "Modifier",
@@ -229,6 +235,7 @@
         "editLabel": "Modifier le commentaire"
       },
       "reminders": {
+        "customRequired": "Choisissez d’abord une date et une heure. Rien n’a été modifié.",
         "typeDue": "Date d’échéance",
         "typeStart": "Date de début",
         "typeEnd": "Date de fin"

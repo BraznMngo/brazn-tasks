@@ -59,6 +59,8 @@ import {
   renderRefusal,
   describeForkError,
   isRefused,
+  avatarUrlFor,
+  ensureAvatarFor,
 } from './app.js';
 
 /*
@@ -254,6 +256,24 @@ function dateInputToIso(value) {
   return value ? new Date(`${value}T12:00:00`).toISOString() : null;
 }
 
+/**
+ * A `<input type="datetime-local">` value for a moment in time.
+ *
+ * LOCAL PARTS, NOT `toISOString()`. This control's value is defined as local wall-clock time and
+ * `new Date(value)` reads it back as local, so the value written in has to be built from the local
+ * getters. `dateInputValue` above slices `toISOString()`, which is UTC — correct there only
+ * because that field is a whole day, and wrong here by the size of the timezone offset.
+ *
+ * Seconds are dropped because the control's default step has no seconds field: a value carrying
+ * them is out of step and Chromium refuses to display it, which is the shape "the box is empty"
+ * wears when the value was in fact set.
+ */
+function dateTimeInputValue(date) {
+  const pad = (part) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 /** Two initials for the avatar circle, prototype `initials` (597). */
 function initials(person) {
   const name = String(person?.name || person?.username || '');
@@ -264,6 +284,23 @@ function initials(person) {
 /** A user's display name, falling back to the username the fork always sends. */
 function personName(person) {
   return String(person?.name || person?.username || '');
+}
+
+/**
+ * Somebody's circle: their uploaded picture when the bytes are known, their initials otherwise.
+ *
+ * The header has drawn the signed-in user's real picture since round 1b, and the comment rows
+ * next to it drew letters — which is the difference reported as "comment avatar icon is not
+ * displayed". The reason was a stale note on `userSummary` below saying api.js offered no way to
+ * reach another person's avatar; `api.getAvatarBlob(username, size)` takes any username, and
+ * `app.js` now keeps one cache slot per person rather than one in total.
+ *
+ * `alt=""` deliberately, matching `app.js`'s own `avatarFace`: the name this depicts is the very
+ * next node, so a described picture would announce it twice.
+ */
+function personAvatar(person) {
+  const url = avatarUrlFor(person);
+  return url === null ? esc(initials(person)) : `<img src="${esc(url)}" alt="">`;
 }
 
 /**
@@ -698,9 +735,11 @@ function brandLogo() {
  * run — has no edition claim, so there is nothing true to print and `app.js` removes the node
  * (T13). The role beside it is derived from the same facts, never from a switcher.
  *
- * The avatar is initials only. `GET /api/v2/avatar/{username}` exists but `api.js` exports no way
- * to build that URL, and this file may not reach past what `api.js` offers (bar 7 covers routes
- * this page has no wiring for). The prototype's own fallback is initials.
+ * The avatar here is initials only, and that is now moot rather than a decision: `mountIdentity`
+ * replaces this whole node with `app.js`'s own identity block, which draws the picture. The
+ * sentence that used to stand here — that `api.js` exports no way to reach an avatar — was true
+ * when it was written and stopped being true in round 1b, which added `api.getAvatarBlob`. It is
+ * corrected rather than deleted because it is why every comment row drew letters.
  */
 function userSummary(facts) {
   const user = getUser();
@@ -1064,6 +1103,27 @@ function descriptionSection(task) {
   </section>`;
 }
 
+/**
+ * The download control for one attachment row.
+ *
+ * A BUTTON, NOT AN ANCHOR, AND NO `data-requires`.
+ *
+ * The bytes come from `GET /api/v2/tasks/{task}/attachments/{id}`, which sits behind the bearer
+ * token like every other read: the fork accepts no token in a query string, so an anchor the
+ * browser follows on its own sends no Authorization header and is answered 401. That is the
+ * version of this fix that looks right in the markup and downloads nothing, so the click goes
+ * through `api.downloadAttachment` and the blob is handed to the browser afterwards.
+ *
+ * No gate, deliberately. Downloading needs READ access, which anyone looking at this row already
+ * has; `data-requires="write"` — which the delete button beside it correctly carries — would
+ * refuse the file to a write-restricted member who is entitled to read it.
+ */
+function downloadLink(attachment) {
+  return `<button class="row-download" data-action="download-file"
+    data-attachment="${esc(attachment?.id)}"
+    data-name="${esc(attachment?.file?.name ?? '')}">${esc(t('misc.download'))}</button>`;
+}
+
 /** Prototype `resourcesPanel()` (1053-1059). */
 function resourcesPanel(state) {
   const task = state.task;
@@ -1089,7 +1149,8 @@ function resourcesPanel(state) {
         <div class="file-icon">${ic('file')}</div>
         <div class="row-grow">
           <div class="row-title">${esc(attachment?.file?.name ?? '')}</div>
-          <div class="row-meta">${esc(joinMeta([attachment?.file?.mime, fileSize(attachment?.file?.size)]))}</div>
+          <div class="row-meta">${esc(joinMeta([attachment?.file?.mime, fileSize(attachment?.file?.size)]))}${
+            downloadLink(attachment)}</div>
         </div>
         <button class="row-menu" data-action="remove-file" data-attachment="${esc(attachment?.id)}"
           data-requires="write" aria-label="${esc(t('task.attachment.delete'))}">${ic('close')}</button>
@@ -1219,7 +1280,7 @@ function commentsSection(state, facts) {
     const beingEdited = editing && String(comment?.id) === String(editingId);
     const controls = isOwnComment(comment, user) ? commentControls(comment, beingEdited) : '';
     return `<div class="comment">
-      <div class="avatar">${esc(initials(comment?.author))}</div>
+      <div class="avatar">${personAvatar(comment?.author)}</div>
       <div><div>
         <span class="comment-author">${esc(personName(comment?.author))}</span>
         <span class="comment-time">${esc(formatDateTime(comment?.created))}</span>
@@ -1274,7 +1335,7 @@ function commentsSection(state, facts) {
       : 'task.comment.sortNewestFirst'))}</button></div>
     <div class="comment-list">${comments}</div>
     <div class="comment-box" style="margin-top:10px">
-      <div class="avatar">${esc(initials(user))}</div>
+      <div class="avatar">${personAvatar(user)}</div>
       <div class="comment-editor">
         ${editorNotice}
         <textarea id="commentText" placeholder="${esc(t('one.task.comments.placeholder'))}"
@@ -1336,6 +1397,18 @@ export function render(ctx) {
 export function mount(root, ctx) {
   installListeners();
   ensureLoaded(ctx);
+  // Ask for each comment author's picture. Here rather than inside the render, because a render
+  // must stay synchronous and side-effect free, and this is the same place and the same reason
+  // `app.js`'s `mountIdentity` kicks off the header's own read. One request per person per
+  // generation: `ensureAvatarFor` is a no-op once a key is claimed, and `mount` runs after every
+  // render. The signed-in user is not repeated here — `mountIdentity` has already claimed them.
+  const seen = new Set();
+  for (const comment of getViewState(NS).comments ?? []) {
+    const username = comment?.author?.username ?? '';
+    if (username === '' || seen.has(username)) continue;
+    seen.add(username);
+    ensureAvatarFor(comment.author);
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -1414,6 +1487,7 @@ function remindersModal(state) {
     </select>
     <label class="label" style="margin-top:8px">${esc(t('one.task.reminders.customDateTime'))}</label>
     <input class="input" id="customReminder" type="datetime-local"
+      value="${esc(dateTimeInputValue(new Date()))}"
       aria-label="${esc(t('one.task.reminders.customDateTime'))}">`,
   `<button class="btn" data-action="modal-close">${esc(t('misc.close'))}</button>
    <button class="btn primary" data-action="add-reminder" data-requires="write"
@@ -1775,7 +1849,16 @@ registerActions({
     const choice = document.getElementById('newReminder')?.value ?? '';
     const custom = document.getElementById('customReminder')?.value ?? '';
     const addition = reminderFromChoice(choice, custom);
-    if (addition === null) return;
+    if (addition === null) {
+      // A cleared or unreadable custom box used to return here in silence: no request, no toast,
+      // no sentence — the button simply did nothing, which is what "I cannot actually add it"
+      // describes. THE PAGE is refusing, not the server, so the sentence is written with
+      // `source: 'gate'` exactly as the relation picker's own missing-pick refusal is.
+      const foot = document.querySelector('#modalRoot .modal-foot');
+      if (foot !== null) renderRefusal(foot, {messageKey: 'one.task.reminders.customRequired', source: 'gate'});
+      document.getElementById('customReminder')?.focus();
+      return;
+    }
     const existing = Array.isArray(getViewState(NS).task?.reminders) ? getViewState(NS).task.reminders : [];
     try {
       await api.patchTask(getViewState(NS).taskId, {reminders: [...existing, addition]});
@@ -1828,6 +1911,34 @@ registerActions({
   /* --- attachments ------------------------------------------------ */
   upload: () => {
     document.getElementById('attachmentInput')?.click();
+  },
+  /**
+   * Fetch the bytes with the session's bearer, then hand them to the browser as a download.
+   *
+   * The link is APPENDED before it is clicked and removed afterwards, and the object URL is
+   * revoked on the NEXT turn rather than inline. Both are `view-settings.js`'s `download-export`,
+   * for the reasons written there: a programmatic click on a detached `<a download>` is ignored
+   * outright by some engines, and revoking in the same task cancels the download.
+   */
+  'download-file': async (event, el) => {
+    let blob;
+    try {
+      blob = await api.downloadAttachment(getViewState(NS).taskId, el.getAttribute('data-attachment'));
+    } catch (err) {
+      reportWriteFailure(el, err);
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    // The server's own name for the file. Empty means the payload carried none, and an empty
+    // `download` attribute still asks for a download — the browser then names it itself.
+    link.download = el.getAttribute('data-name') ?? '';
+    link.hidden = true;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => {URL.revokeObjectURL(url);}, 0);
   },
   'remove-file': async (event, el) => {
     try {

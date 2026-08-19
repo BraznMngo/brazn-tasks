@@ -302,6 +302,20 @@ export function identityBlock(facts?: GateFacts): string
  */
 export function headerAvatarUrl(user: any): string | null
 
+/**
+ * The same answer for ANYONE, not only the signed-in user — a comment's author, say. The header
+ * circle above is this function applied to the account, and both read the one cache app.js keeps
+ * per username, so an upload invalidates every circle at once through the shared generation.
+ */
+export function avatarUrlFor(user: any): string | null
+
+/**
+ * Ask for one person's avatar bytes, once per person per generation. Fire-and-forget and a no-op
+ * after the first call for a key: the picture is decorative, so a slow or refused read must never
+ * delay the page. Call it from `mount`, never from a render — a render stays synchronous.
+ */
+export function ensureAvatarFor(user: any): void
+
 /* --- chrome the views share --------------------------------------- */
 
 /**

@@ -515,16 +515,27 @@ describe('one/app.js login hand-off (the restricted-UI redirect loop)', () => {
 describe('one/app.js action registry', () => {
 	it('ships the chrome actions app.js owns, and no hook without an emitter', () => {
 		// The shell emits no data-action of its own; every hook is delegated from document. These
-		// five are the ones app.js itself claims, and the two view modules add theirs on import.
+		// seven are the ones app.js itself claims, and the two view modules add theirs on import.
 		//
 		// TWO WERE DROPPED and their absence is asserted, not merely un-asserted. `return-signin`
 		// mirrored a prototype control that lived in the deleted demo arm, and `data-nav` was a
 		// prototype attribute hook this page has no navigation control to emit - both were
 		// registered handlers for names nothing writes, which reads to the next person as a
 		// load-bearing affordance.
-		// MUTATION: re-registering either name makes this red. So does adding a sixth chrome action
-		// without listing it, which is the case this file has always covered.
+		//
+		// TWO WERE ADDED by the add-task control (section 13c), and each earns its place here by
+		// having a real emitter - which is the half of this test's name that is not bookkeeping:
+		//   `add-task`         emitted by identityBlock(), the button in the shared identity
+		//                      block that both documents render; handled by openAddTask().
+		//   `confirm-add-task` emitted by openAddTask() into the modal it opens, in both the
+		//                      refused and the writable arm; handled by confirmAddTask().
+		// They are registered in app.js rather than a view module because the identity block is
+		// shared, and view-settings.js has no task to own the control with.
+		// MUTATION: re-registering either dropped name makes this red. So does adding an eighth
+		// chrome action without listing it, which is the case this file has always covered.
 		expect(actionNames()).toEqual([
+			'add-task',
+			'confirm-add-task',
 			'data-settings-tab',
 			'modal-close',
 			'reload',

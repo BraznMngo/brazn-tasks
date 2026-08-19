@@ -278,6 +278,52 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 .input,.select,.text-area{width:100%;border:1px solid var(--grey-300);background-color:var(--scheme-main);border-radius:11px;padding:10px 12px;outline:none;transition:.15s ease}
 .select{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:34px;background-image:linear-gradient(45deg,transparent 50%,var(--text-muted) 50%),linear-gradient(135deg,var(--text-muted) 50%,transparent 50%);background-position:calc(100% - 16px) calc(50% - 1px),calc(100% - 11px) calc(50% - 1px);background-size:5px 5px,5px 5px;background-repeat:no-repeat;white-space:nowrap}
 .select{position:relative;z-index:2}.select:focus{z-index:180}
+/* THE OPEN LIST. Everything above styles the CLOSED control, and the closed control was never the
+   complaint: measured at eight window sizes from 1280x900 down to 380x320, the Move picker and its
+   modal are never clipped and compute identically to every other dropdown on the page. What the
+   user opens is a different surface — until now the OPERATING SYSTEM's list, in the system font,
+   square, with none of this file's design on it, positioned and clipped by the browser against
+   the window rather than by us. That is both halves of "not in the normal design" and "partially
+   hidden by the window", and no amount of styling the <select> box could reach it.
+
+   `appearance:base-select` is the standards-track opt-in that moves the list into the page, where
+   `::picker(select)` is ours to style. It renders in the TOP LAYER, so no ancestor's overflow can
+   clip it and the browser keeps it inside the viewport — which is the "overflow on it?" the report
+   guessed at, answered by taking the list out of the overflow question altogether.
+
+   THE FALLBACK IS THE OLD BEHAVIOUR, FOR FREE. A browser that does not know `base-select` finds an
+   invalid value and drops that one declaration, keeping the `appearance:none` above it and today's
+   native list. `::picker(select)` and `::checkmark` are unknown selectors there, so those rules are
+   dropped whole. Nothing needs a query or a script.
+
+   The list is deliberately the same surface as `.popover`, the more-menu — one design for "a list
+   that drops out of a control", which is what "the normal design" means. `::picker-icon` is hidden
+   because this file already draws its own caret with two gradients, and the UA would add a second. */
+.select{appearance:base-select;-webkit-appearance:base-select}
+.select::picker-icon{display:none}
+/* NO `position-area` HERE, DELIBERATELY. The obvious declaration — `block-end`, so the list drops
+   below the control — is DROPPED by Chromium 149 in favour of its own picker anchoring, and
+   setting `position-try-fallbacks: flip-block` alongside it does not change the outcome either:
+   measured across max-block-size 120px..none, the browser places the list above the control every
+   time and no value of ours moves it. That placement is the platform's, it is stable, and the
+   list lands fully inside the window at every size measured (1280x900, 1366x620, 420x700,
+   380x320), which is the thing that was wrong. A declaration that computes to nothing would read
+   as a decision this file had made and had not. */
+/* `box-sizing` is spelled out because the `*{box-sizing:border-box}` at the top of this file does
+   NOT reach a pseudo-element. Without it `anchor-size(inline)` sizes the content box and the list
+   lands 16px — this rule's own padding and border — narrower than the control it drops from. */
+.select::picker(select){appearance:base-select;box-sizing:border-box;
+  inline-size:anchor-size(inline);border:1px solid var(--border);border-radius:13px;
+  background:var(--scheme-main);box-shadow:var(--shadow-lg);padding:7px;margin-block-start:6px;
+  max-block-size:min(52vh,320px);overflow-y:auto}
+/* No px width and no nowrap on an option: these are project names and translated labels, so they
+   wrap rather than being cut, which is the same decision §"TRANSLATED LABELS" below records for
+   buttons. The tick is dropped because the selected row is the one already shown in the closed
+   control. */
+.select option{border-radius:9px;padding:9px 10px;font-size:11px;color:var(--text);background:transparent}
+.select option:hover,.select option:focus{background:var(--grey-100)}
+.select option::checkmark{display:none}
+.select option:checked{color:var(--primary);background:hsla(var(--primary-hsl), .08)}
 .input:focus,.select:focus,.text-area:focus{border-color:hsla(var(--primary-hsl), .48);box-shadow:0 0 0 4px hsla(var(--primary-hsl), .08)}
 /* `.text-area{min-height:110px;resize:vertical;line-height:1.55}` is DELETED. No view applies
    the class: the description is `.editor` (which carries its own 190px box) and every other
@@ -481,12 +527,23 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 .row-grow{min-width:0;flex:1}
 .row-title{font-size:12px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row-meta{font-size:10px;color:var(--grey-400);margin-top:2px}
+/* The download control sits INSIDE .row-meta, after the size, separated by a margin rather than
+   by a separator glyph — asked for as "next to the size information divided by some space". It is
+   a <button> wearing a link's clothes because it fetches the bytes with the session's bearer
+   before handing them to the browser; see the note at its markup. No px width: the label is
+   translated ("Herunterladen"). */
+.row-download{border:0;background:transparent;padding:0;margin-inline-start:10px;font-size:10px;font-weight:700;color:var(--primary);text-decoration:underline;cursor:pointer}
+.row-download:hover{text-decoration:none}
 .row-menu{border:0;background:transparent;color:var(--grey-400);padding:5px}
 .relation-type{min-inline-size:86px;color:var(--text-muted);font-size:10px}
 .empty-state{border:1px dashed var(--grey-300);background:var(--grey-50);border-radius:12px;padding:20px;text-align:center;color:var(--text-muted);font-size:11px}
 
 .comment{display:grid;grid-template-columns:34px 1fr;gap:10px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--scheme-main)}
 .avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,hsla(var(--info-h),var(--info-s),var(--info-l),.16),hsla(var(--primary-hsl),.16));font-size:11px;font-weight:750;color:var(--primary);overflow:hidden}
+/* The circle can now hold a picture as well as initials. Without this the <img> paints at its own
+   intrinsic size inside a `place-items:center` grid — an 88px avatar overflowing a 34px circle,
+   clipped to a square-ish crop of its middle. Same pair `.task-user-avatar img` already carries. */
+.avatar img{width:100%;height:100%;object-fit:cover}
 .comment-author{font-size:11px;font-weight:700}
 .comment-time{font-size:10px;color:var(--grey-400);margin-left:6px}
 .comment-text{font-size:12px;line-height:1.55;margin-top:4px;color:var(--text)}
@@ -633,8 +690,14 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
    `data-requires="teams"`, and app.js inserts the refusal sentence as its next SIBLING. Without
    wrapping, a server sentence would be laid out mid-breadcrumb between the chip and the bucket
    name; `.refusal-text{flex-basis:100%}` then puts it on its own line underneath, which is where
-   a sentence belongs. */
-.section-head,.settings-heading,.prop-head,.member-actions,.modal-foot,.task-head-actions,.task-kicker,.task-footer{flex-wrap:wrap}
+   a sentence belongs.
+   .one-identity JOINED THEM WHEN IT GAINED A BUTTON. The add-task control in the header block is
+   `data-requires="write"`, so the same sentence is inserted after it, and this row had no wrap at
+   all — the sentence would have been laid out INLINE beside the name, squeezing the identity
+   block for exactly the customer being refused. The button is emitted LAST in that block for the
+   matching reason (app.js, `identityBlock`): a full-width line after a FIRST child would break
+   the row between the button and the avatar instead of falling underneath the whole block. */
+.section-head,.settings-heading,.prop-head,.member-actions,.modal-foot,.task-head-actions,.task-kicker,.task-footer,.one-identity{flex-wrap:wrap}
 .section-head>div:first-child,.settings-heading>div:first-child,.prop-head-left,.row-grow{min-inline-size:0}
 
 @media(max-width:900px){

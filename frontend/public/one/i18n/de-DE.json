@@ -241,6 +241,7 @@
       "loadFailed": "Diese Seite wurde nicht geladen."
     },
     "toast": {
+      "taskAdded": "Die Aufgabe wurde hinzugefügt.",
       "commentUpdated": "Der Kommentar wurde aktualisiert."
     },
     "brand": {
@@ -276,6 +277,11 @@
     "org": {
     },
     "task": {
+      "add": {
+        "title": "Aufgabe hinzufügen",
+        "project": "Projekt",
+        "titleRequired": "Gib der Aufgabe zuerst einen Titel. Es wurde nichts erstellt."
+      },
       "progressManual": "Manuell",
       "relationTarget": "Aufgabe",
       "comments": {
@@ -287,6 +293,7 @@
         "editLabel": "Kommentar bearbeiten"
       },
       "reminders": {
+        "customRequired": "Wähle zuerst ein Datum und eine Uhrzeit. Es wurde nichts geändert.",
         "typeDue": "Fälligkeitsdatum",
         "typeStart": "Anfangsdatum",
         "typeEnd": "Enddatum"
