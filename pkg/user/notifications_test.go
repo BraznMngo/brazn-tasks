@@ -41,24 +41,24 @@ var shippedLanguages = []string{"en", "de-DE", "es-ES", "fr-FR", "ja-JP", "zh-CN
 // code. Missing a language here would make TestEmailConfirmAcrossLanguages/
 // TestResetPasswordAcrossLanguages skip it rather than silently pass, which
 // is why both tests assert len(cases) == len(shippedLanguages) up front.
-var wantedConfirmWords = map[string][2]string{
-	// [0] eyebrow, [1] footer (the "if you didn't create an account" line)
-	"en":    {"Confirm your email", "you can safely ignore this email"},
-	"de-DE": {"E-Mail bestätigen", "einfach ignorieren"},
-	"es-ES": {"Confirma tu correo", "con tranquilidad"},
-	"fr-FR": {"Confirmez votre e-mail", "toute sécurité"},
-	"ja-JP": {"メールアドレスの確認", "無視してください"}, //nolint:gosmopolitan // asserting the actual rendered Japanese wording
-	"zh-CN": {"确认您的邮箱", "可以放心忽略"},       //nolint:gosmopolitan // asserting the actual rendered Chinese wording
+var wantedConfirmWords = map[string][3]string{
+	// [0] eyebrow, [1] footer (the "if you didn't create an account" line), [2] preheader
+	"en":    {"Confirm your email", "you can safely ignore this email", "Almost there"},
+	"de-DE": {"E-Mail bestätigen", "einfach ignorieren", "Nur noch ein Schritt"},
+	"es-ES": {"Confirma tu correo", "con tranquilidad", "Ya casi está"},
+	"fr-FR": {"Confirmez votre e-mail", "toute sécurité", "Encore une étape"},
+	"ja-JP": {"メールアドレスの確認", "無視してください", "あと一歩です"}, //nolint:gosmopolitan // asserting the actual rendered Japanese wording
+	"zh-CN": {"确认您的邮箱", "可以放心忽略", "只差一步"},         //nolint:gosmopolitan // asserting the actual rendered Chinese wording
 }
 
-var wantedResetWords = map[string][2]string{
-	// [0] eyebrow, [1] valid_duration (now carries the 24h + ignore note)
-	"en":    {"Password reset", "24 hours"},
-	"de-DE": {"Passwort-Reset", "24 Stunden"},
-	"es-ES": {"Restablecimiento de contraseña", "24 horas"},
-	"fr-FR": {"Réinitialisation du mot de passe", "24 heures"},
-	"ja-JP": {"パスワード再設定", "24時間"}, //nolint:gosmopolitan // asserting the actual rendered Japanese wording
-	"zh-CN": {"密码重置", "24小时"},     //nolint:gosmopolitan // asserting the actual rendered Chinese wording
+var wantedResetWords = map[string][3]string{
+	// [0] eyebrow, [1] valid_duration (now carries the 24h + ignore note), [2] preheader
+	"en":    {"Password reset", "24 hours", "This secure link is valid for 24 hours"},
+	"de-DE": {"Passwort-Reset", "24 Stunden", "Dieser sichere Link ist 24 Stunden gültig"},
+	"es-ES": {"Restablecimiento de contraseña", "24 horas", "Este enlace seguro es válido durante 24 horas"},
+	"fr-FR": {"Réinitialisation du mot de passe", "24 heures", "Ce lien sécurisé est valable pendant 24 heures"},
+	"ja-JP": {"パスワード再設定", "24時間", "この安全なリンクの有効期限は24時間です"}, //nolint:gosmopolitan // asserting the actual rendered Japanese wording
+	"zh-CN": {"密码重置", "24小时", "此安全链接的有效期为24小时"},           //nolint:gosmopolitan // asserting the actual rendered Chinese wording
 }
 
 func newTestUser() *User {
@@ -83,6 +83,7 @@ func TestEmailConfirmAcrossLanguages(t *testing.T) {
 			want := wantedConfirmWords[lang]
 			assert.Contains(t, mailOpts.HTMLMessage, want[0], "lang=%s eyebrow", lang)
 			assert.Contains(t, mailOpts.HTMLMessage, want[1], "lang=%s footer", lang)
+			assert.Contains(t, mailOpts.HTMLMessage, want[2], "lang=%s preheader", lang)
 
 			// The heading is the subject rendered as HTML -- confirming this
 			// isn't the bare i18n key (which happens whenever a translation
@@ -123,6 +124,7 @@ func TestResetPasswordAcrossLanguages(t *testing.T) {
 			want := wantedResetWords[lang]
 			assert.Contains(t, mailOpts.HTMLMessage, want[0], "lang=%s eyebrow", lang)
 			assert.Contains(t, mailOpts.HTMLMessage, want[1], "lang=%s valid_duration", lang)
+			assert.Contains(t, mailOpts.HTMLMessage, want[2], "lang=%s preheader", lang)
 
 			assert.NotContains(t, mailOpts.Subject, "notifications.password.reset.")
 			assert.Contains(t, mailOpts.HTMLMessage, mailOpts.Subject, "lang=%s heading should equal the subject", lang)

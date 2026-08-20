@@ -45,6 +45,7 @@ func (n *EmailConfirmNotification) ToMail(lang string) *notifications.Mail {
 	nn := notifications.NewMail().
 		Subject(subject).
 		Eyebrow(i18n.T(lang, "notifications.email_confirm.eyebrow")).
+		Preheader(i18n.T(lang, "notifications.email_confirm.preheader")).
 		Greeting(i18n.T(lang, "notifications.greeting", n.User.GetName()))
 
 	if n.IsNew {
@@ -106,6 +107,7 @@ func (n *ResetPasswordNotification) ToMail(lang string) *notifications.Mail {
 	return notifications.NewMail().
 		Subject(i18n.T(lang, "notifications.password.reset.subject")).
 		Eyebrow(i18n.T(lang, "notifications.password.reset.eyebrow")).
+		Preheader(i18n.T(lang, "notifications.password.reset.preheader")).
 		Greeting(i18n.T(lang, "notifications.greeting", n.User.GetName())).
 		Line(i18n.T(lang, "notifications.password.reset.instructions")).
 		Action(i18n.T(lang, "notifications.common.actions.reset_password"), config.ServicePublicURL.GetString()+"?userPasswordReset="+n.Token.ClearTextToken).

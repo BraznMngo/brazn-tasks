@@ -84,10 +84,14 @@ jobs:
           # The source (BRA-1374) carries a real alpha channel -- unlike the
           # interim Percy wordmark this replaced, whose glow faded
           # continuously into an opaque background with nothing to key out.
-          # Trim therefore trims transparency, not a corner colour, and
-          # nothing borders the result: mailTemplateHTML places it directly
-          # on the mail's own background, light or dark, with no colour band
-          # behind it.
+          # No trim step here: the source SVG's own viewBox is exactly 3:2
+          # (BRA-1374 -- "three units wide to two tall") with the wordmark's
+          # vertical breathing room baked into that viewBox as a deliberate
+          # part of the composition, not incidental canvas. `-trim` reads
+          # that margin as empty space and crops it away, which is what
+          # produced a visibly squashed, wrong-aspect logo the first time
+          # this ran -- 276x99 instead of the spec's 276x184. Resize directly
+          # from the source and its own aspect ratio survives unmodified.
           #
           # -define png:color-type=6 is what keeps the alpha channel through
           # quantization: without it ImageMagick is free to flatten to a
@@ -97,7 +101,6 @@ jobs:
           # gradient ever grow more colour stops than fit a small palette.
           for COLORS in 256 128 64; do
             im "$SOURCE" \
-              -fuzz 2% -trim +repage \
               -resize "${TARGET_WIDTH}x" \
               -strip \
               -dither None -colors "$COLORS" \
@@ -119,6 +122,17 @@ jobs:
 
           if [ "$WIDTH" -ne "$TARGET_WIDTH" ]; then
             echo "::error::derived logo is ${WIDTH}px wide, expected ${TARGET_WIDTH}px"
+            exit 1
+          fi
+          # The mark is three units wide to two tall (BRA-1374): at 138px
+          # wide it stands 92px tall, so at TARGET_WIDTH (2x, for
+          # high-density screens) it must stand at TARGET_WIDTH*2/3. This is
+          # the exact regression a `-trim` step once introduced silently --
+          # 276x99 shipped instead of 276x184 -- so pin it rather than only
+          # checking width.
+          EXPECTED_HEIGHT=$((TARGET_WIDTH * 2 / 3))
+          if [ "$HEIGHT" -ne "$EXPECTED_HEIGHT" ]; then
+            echo "::error::derived logo is ${HEIGHT}px tall, expected ${EXPECTED_HEIGHT}px (3:2 aspect at ${TARGET_WIDTH}px wide)"
             exit 1
           fi
           if [ "$SIZE" -gt "$MAX_BYTES" ]; then

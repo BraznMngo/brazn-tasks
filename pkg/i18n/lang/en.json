@@ -5,6 +5,7 @@
             "subject": "Welcome to ONE",
             "subject_new": "Welcome to ONE",
             "eyebrow": "Confirm your email",
+            "preheader": "Almost there: confirm your email address for ONE.",
             "welcome":  "Good to have you here.",
             "confirm": "Confirm your email address now to activate your account.",
             "footer": "If you didn't create an account, you can safely ignore this email."
@@ -18,6 +19,7 @@
             "reset": {
                 "subject": "Reset your password",
                 "eyebrow": "Password reset",
+                "preheader": "Reset your ONE password. This secure link is valid for 24 hours.",
                 "instructions": "we received a request to reset your ONE password. Use the secure link below to choose a new one.",
                 "valid_duration": "This link is valid for 24 hours. If you didn’t request a password reset, you can safely ignore this email."
             }

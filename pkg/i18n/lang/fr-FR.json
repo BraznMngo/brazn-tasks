@@ -5,6 +5,7 @@
 			"subject": "Bienvenue sur ONE",
 			"subject_new": "Bienvenue sur ONE",
 			"eyebrow": "Confirmez votre e-mail",
+			"preheader": "Encore une étape : confirmez votre adresse e-mail pour ONE.",
 			"welcome": "Ravi de vous compter parmi nous.",
 			"confirm": "Confirmez votre adresse e-mail dès maintenant pour activer votre compte.",
 			"footer": "Si vous n'avez pas créé de compte, vous pouvez ignorer cet e-mail en toute sécurité."
@@ -18,6 +19,7 @@
 			"reset": {
 				"subject": "Réinitialisez votre mot de passe",
 				"eyebrow": "Réinitialisation du mot de passe",
+				"preheader": "Réinitialisez votre mot de passe ONE. Ce lien sécurisé est valable pendant 24 heures.",
 				"instructions": "Nous avons reçu une demande de réinitialisation de votre mot de passe ONE. Utilisez le lien sécurisé ci-dessous pour en choisir un nouveau.",
 				"valid_duration": "Ce lien est valable pendant 24 heures. Si vous n'avez pas demandé de réinitialisation de mot de passe, vous pouvez ignorer cet e-mail en toute sécurité."
 			}

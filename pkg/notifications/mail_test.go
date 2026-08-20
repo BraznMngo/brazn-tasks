@@ -134,7 +134,7 @@ This is a line
 		assertHTMLContainsDarkModeSupport(t, mailopts.HTMLMessage)
 
 		// Check for expected content
-		assert.Contains(t, mailopts.HTMLMessage, `<p style="margin-top: 10px; margin-bottom: 10px;">This is a line</p>`)
+		assert.Contains(t, mailopts.HTMLMessage, `<p class="main-text" style="margin:0 0 12px; color:#263247; font-size:16px; line-height:26px;">This is a line</p>`)
 		assert.Contains(t, mailopts.HTMLMessage, `Hi there,`)
 
 		// Verify no action button is present
@@ -224,7 +224,7 @@ This is a footer line
 		assertHTMLContainsDarkModeSupport(t, mailopts.HTMLMessage)
 
 		// Check for content
-		assert.Contains(t, mailopts.HTMLMessage, `<p style="margin-top: 10px; margin-bottom: 10px;">This is a line</p>`)
+		assert.Contains(t, mailopts.HTMLMessage, `<p class="main-text" style="margin:0 0 12px; color:#263247; font-size:16px; line-height:26px;">This is a line</p>`)
 		assert.Contains(t, mailopts.HTMLMessage, `This is a footer line`)
 
 		// Verify no action button
@@ -567,7 +567,7 @@ func TestConversationalMail(t *testing.T) {
 
 		// Should have inline action link with arrow
 		assert.Contains(t, mailopts.HTMLMessage, "View Task →")
-		assert.Contains(t, mailopts.HTMLMessage, "color: #0969da")
+		assert.Contains(t, mailopts.HTMLMessage, "color: #2a6afe")
 
 		// Should not have the formal button styling
 		assert.NotContains(t, mailopts.HTMLMessage, "background-color: #1973ff")
@@ -608,6 +608,16 @@ func TestConversationalMail(t *testing.T) {
 		// Eyebrow() still gets a title, just no small label above it.
 		assert.Contains(t, mailopts.HTMLMessage, "Testmail")
 		assert.NotContains(t, mailopts.HTMLMessage, `text-transform:uppercase`)
+
+		// The <title> is what an inbox list shows next to the sender name;
+		// Sebastian's attached files both set it to the same text as the
+		// heading (BRA-1374).
+		assert.Contains(t, mailopts.HTMLMessage, "<title>Testmail</title>")
+
+		// A mail that never calls Preheader() renders no preheader line at
+		// all, not an empty one -- the div is only worth emitting once
+		// there is real preview text to hide.
+		assert.NotContains(t, mailopts.HTMLMessage, `class="preheader"`)
 
 		// Should HAVE logo in formal emails
 		assert.Contains(t, mailopts.HTMLMessage, "logo.png")
@@ -662,6 +672,47 @@ func TestConversationalMail(t *testing.T) {
 		assert.NotContains(t, mailopts.HTMLMessage, "text-transform:uppercase")
 	})
 
+	t.Run("Preheader renders as hidden preview text when set", func(t *testing.T) {
+		mail := NewMail().
+			From("test@example.com").
+			To("test@otherdomain.com").
+			Subject("Reset your password").
+			Preheader("Reset your ONE password. This secure link is valid for 24 hours.").
+			Greeting("Hi there,").
+			Line("Use the link below.").
+			Action("Reset your password", "https://example.com/reset/123")
+
+		mailopts, err := RenderMail(mail, "en")
+		require.NoError(t, err)
+
+		assert.Contains(t, mailopts.HTMLMessage,
+			`<div class="preheader">Reset your ONE password. This secure link is valid for 24 hours.</div>`)
+		// The .preheader rule is what actually hides it from the rendered
+		// body while still exposing it to the client's own preview
+		// mechanism -- present without it, this is just a second visible
+		// line of body copy.
+		assert.Contains(t, mailopts.HTMLMessage, `.preheader { display: none !important;`)
+	})
+
+	t.Run("Formal template inherits the shell even without confirm/reset content", func(t *testing.T) {
+		// BRA-1374: "every other message the product sends inherits the
+		// same shell" -- a plain team-invite-shaped mail with no eyebrow,
+		// preheader or password-reset wording at all should still render
+		// dark-mode-safe classed paragraphs, not the old unstyled ones.
+		mail := NewMail().
+			From("test@example.com").
+			To("test@otherdomain.com").
+			Subject("Antje added you to Marketing").
+			Greeting("Hi there,").
+			Line("Antje just added you to the Marketing team.").
+			Action("Open Team", "https://example.com/teams/1")
+
+		mailopts, err := RenderMail(mail, "en")
+		require.NoError(t, err)
+
+		assert.Contains(t, mailopts.HTMLMessage, `<p class="main-text" style="margin:0 0 12px; color:#263247; font-size:16px; line-height:26px;">Antje just added you to the Marketing team.</p>`)
+	})
+
 	t.Run("Conversational without action", func(t *testing.T) {
 		mail := NewMail().
 			From("test@example.com").
@@ -710,9 +761,9 @@ func TestConversationalMail(t *testing.T) {
 		// Should contain action with username
 		assert.Contains(t, headerLine, "testuser left a comment")
 
-		// Should contain task link with identifier and GitHub blue color
+		// Should contain task link with identifier, in ONE's accent blue (BRA-1374)
 		assert.Contains(t, headerLine, `<a href="https://example.com/task/123"`)
-		assert.Contains(t, headerLine, `color: #0969da`)
+		assert.Contains(t, headerLine, `color: #2a6afe`)
 		assert.Contains(t, headerLine, `(Test Project &gt; Test Task) #1`)
 	})
 
@@ -784,7 +835,7 @@ func TestConversationalMail(t *testing.T) {
 		assert.Contains(t, headerLine2, "Jane assigned you")
 
 		// Verify header structure is maintained
-		assert.Contains(t, headerLine1, `color: #0969da`)
+		assert.Contains(t, headerLine1, `color: #2a6afe`)
 		assert.Contains(t, headerLine1, "(Project &gt; Task) #1")
 	})
 }

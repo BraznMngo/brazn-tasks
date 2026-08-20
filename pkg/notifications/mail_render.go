@@ -77,6 +77,7 @@ const mailTemplateHTML = `
   <meta name="x-apple-disable-message-reformatting">
   <meta name="color-scheme" content="light dark">
   <meta name="supported-color-schemes" content="light dark">
+  <title>{{ .Heading }}</title>
   <!--[if mso]>
   <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
   <![endif]-->
@@ -85,6 +86,7 @@ const mailTemplateHTML = `
     table { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
     img { border: 0; display: block; outline: none; text-decoration: none; }
     a { color: inherit; }
+    .preheader { display: none !important; max-height: 0 !important; overflow: hidden !important; opacity: 0 !important; color: transparent !important; mso-hide: all !important; }
     @media screen and (max-width: 640px) {
       .outer { padding: 24px 12px !important; }
       .shell { width: 100% !important; max-width: 100% !important; }
@@ -117,6 +119,7 @@ const mailTemplateHTML = `
   <![endif]-->
 </head>
 <body class="email-bg" style="margin:0; padding:0; background-color:#f3f6fb;">
+  {{ if .Preheader }}<div class="preheader">{{ .Preheader }}</div>{{ end }}
   <table class="email-bg" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3f6fb" style="width:100%; background-color:#f3f6fb;">
     <tr>
       <td class="outer" align="center" style="padding:42px 18px;">
@@ -250,7 +253,7 @@ const mailTemplateConversationalHTML = `
     {{ if or .ActionURL .FooterLinesHTML }}
     <div style="padding: 4px 20px 8px 20px; border-top: 1px solid #d1d9e0; padding-top: 6px; font-size: 12px">
         {{ if .ActionURL }}
-        <a href="{{ .ActionURL }}" style="color: #0969da; text-decoration: none; font-weight: 500; font-size: 12px;">
+        <a href="{{ .ActionURL }}" style="color: #2a6afe; text-decoration: none; font-weight: 500; font-size: 12px;">
             {{ .ActionText }} →
         </a>
         {{ end }}
@@ -299,7 +302,22 @@ func newNotificationSanitizer() *bluemonday.Policy {
 	return p
 }
 
-func convertLinesToHTML(lines []*mailLine) (linesHTML []templatehtml.HTML, err error) {
+func convertLinesToHTML(lines []*mailLine) ([]templatehtml.HTML, error) {
+	return convertLinesToStyledHTML(lines, ensurePMargins)
+}
+
+// convertLinesToFormalHTML renders lines the same way convertLinesToHTML
+// does, but opens each paragraph with pOpenTag instead of the generic 10px
+// margin. The formal template's dark-mode CSS targets .main-text/.muted-text
+// (BRA-1374) -- text that only ever gets the untargeted, unstyled <p> from
+// ensurePMargins keeps its light-mode color on the dark card.
+func convertLinesToFormalHTML(lines []*mailLine, pOpenTag string) ([]templatehtml.HTML, error) {
+	return convertLinesToStyledHTML(lines, func(html string) string {
+		return rePTag.ReplaceAllString(html, pOpenTag)
+	})
+}
+
+func convertLinesToStyledHTML(lines []*mailLine, style func(string) string) (linesHTML []templatehtml.HTML, err error) {
 	p := newNotificationSanitizer()
 
 	for _, line := range lines {
@@ -309,7 +327,7 @@ func convertLinesToHTML(lines []*mailLine) (linesHTML []templatehtml.HTML, err e
 				sanitized = "<p>" + sanitized + "</p>"
 			}
 			// #nosec G203 -- the html is sanitized
-			linesHTML = append(linesHTML, templatehtml.HTML(ensurePMargins(sanitized)))
+			linesHTML = append(linesHTML, templatehtml.HTML(style(sanitized)))
 			continue
 		}
 
@@ -320,7 +338,7 @@ func convertLinesToHTML(lines []*mailLine) (linesHTML []templatehtml.HTML, err e
 			return nil, err
 		}
 		// #nosec G203 -- the html is sanitized
-		linesHTML = append(linesHTML, templatehtml.HTML(ensurePMargins(p.Sanitize(buf.String()))))
+		linesHTML = append(linesHTML, templatehtml.HTML(style(p.Sanitize(buf.String()))))
 	}
 
 	return
@@ -623,6 +641,7 @@ func RenderMail(m *Mail, lang string) (mailOpts *mail.Opts, err error) {
 	// touched to gain one.
 	data["Heading"] = m.subject
 	data["Eyebrow"] = m.eyebrow
+	data["Preheader"] = m.preheader
 	data["Greeting"] = m.greeting
 	data["IntroLines"] = convertLinesToPlain(m.introLines)
 	data["OutroLines"] = convertLinesToPlain(m.outroLines)
@@ -644,14 +663,28 @@ func RenderMail(m *Mail, lang string) (mailOpts *mail.Opts, err error) {
 		data["HeaderLineHTML"] = templatehtml.HTML(newNotificationSanitizer().Sanitize(m.headerLine.Text))
 	}
 
-	data["IntroLinesHTML"], err = convertLinesToHTML(m.introLines)
-	if err != nil {
-		return nil, err
-	}
+	if m.conversational {
+		data["IntroLinesHTML"], err = convertLinesToHTML(m.introLines)
+		if err != nil {
+			return nil, err
+		}
 
-	data["OutroLinesHTML"], err = convertLinesToHTML(m.outroLines)
-	if err != nil {
-		return nil, err
+		data["OutroLinesHTML"], err = convertLinesToHTML(m.outroLines)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		data["IntroLinesHTML"], err = convertLinesToFormalHTML(m.introLines,
+			`<p class="main-text" style="margin:0 0 12px; color:#263247; font-size:16px; line-height:26px;">`)
+		if err != nil {
+			return nil, err
+		}
+
+		data["OutroLinesHTML"], err = convertLinesToFormalHTML(m.outroLines,
+			`<p class="muted-text" style="margin:0 0 12px; color:#667085; font-size:13px; line-height:21px;">`)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	data["FooterLinesHTML"], err = sanitizeLinesToHTML(m.footerLines)

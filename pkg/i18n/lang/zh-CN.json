@@ -5,6 +5,7 @@
 			"subject": "欢迎使用 ONE",
 			"subject_new": "欢迎使用 ONE",
 			"eyebrow": "确认您的邮箱",
+			"preheader": "只差一步：确认您的 ONE 邮箱地址。",
 			"welcome": "很高兴您能加入。",
 			"confirm": "请立即确认您的邮箱地址以激活您的帐户。",
 			"footer": "如果您没有创建帐户，可以放心忽略此邮件。"
@@ -18,6 +19,7 @@
 			"reset": {
 				"subject": "重置您的密码",
 				"eyebrow": "密码重置",
+				"preheader": "重置您的 ONE 密码。此安全链接的有效期为24小时。",
 				"instructions": "我们收到了重置您 ONE 密码的请求。请使用下方的安全链接设置新密码。",
 				"valid_duration": "此链接的有效期为24小时。如果您没有请求重置密码，可以放心忽略此邮件。"
 			}
