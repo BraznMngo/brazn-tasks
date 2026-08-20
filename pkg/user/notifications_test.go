@@ -48,7 +48,7 @@ var wantedConfirmWords = map[string][2]string{
 	"es-ES": {"Confirma tu correo", "con tranquilidad"},
 	"fr-FR": {"Confirmez votre e-mail", "toute sécurité"},
 	"ja-JP": {"メールアドレスの確認", "無視してください"}, //nolint:gosmopolitan // asserting the actual rendered Japanese wording
-	"zh-CN": {"确认您的邮箱", "可以放心忽略"},         //nolint:gosmopolitan // asserting the actual rendered Chinese wording
+	"zh-CN": {"确认您的邮箱", "可以放心忽略"},       //nolint:gosmopolitan // asserting the actual rendered Chinese wording
 }
 
 var wantedResetWords = map[string][2]string{
@@ -58,7 +58,7 @@ var wantedResetWords = map[string][2]string{
 	"es-ES": {"Restablecimiento de contraseña", "24 horas"},
 	"fr-FR": {"Réinitialisation du mot de passe", "24 heures"},
 	"ja-JP": {"パスワード再設定", "24時間"}, //nolint:gosmopolitan // asserting the actual rendered Japanese wording
-	"zh-CN": {"密码重置", "24小时"},   //nolint:gosmopolitan // asserting the actual rendered Chinese wording
+	"zh-CN": {"密码重置", "24小时"},     //nolint:gosmopolitan // asserting the actual rendered Chinese wording
 }
 
 func newTestUser() *User {
