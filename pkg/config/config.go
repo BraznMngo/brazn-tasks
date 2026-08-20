@@ -129,6 +129,7 @@ const (
 	MailerAuthType      Key = `mailer.authtype`
 	MailerSkipTLSVerify Key = `mailer.skiptlsverify`
 	MailerFromEmail     Key = `mailer.fromemail`
+	MailerFromName      Key = `mailer.fromname`
 	MailerQueuelength   Key = `mailer.queuelength`
 	MailerQueueTimeout  Key = `mailer.queuetimeout`
 	MailerForceSSL      Key = `mailer.forcessl`
@@ -439,6 +440,11 @@ func InitDefaultConfig() {
 	MailerPassword.setDefault("")
 	MailerSkipTLSVerify.setDefault(false)
 	MailerFromEmail.setDefault("mail@vikunja")
+	// BRA-1374: was a literal "Brazn Tasks" in pkg/mail/send_mail.go, which
+	// meant correcting it needed a rebuild. Defaulting to "ONE" is that
+	// correction; a deployment that wants a different sender name from here
+	// on sets this rather than waiting for another rebuild.
+	MailerFromName.setDefault("ONE")
 	MailerQueuelength.setDefault(100)
 	MailerQueueTimeout.setDefault(30)
 	MailerForceSSL.setDefault(false)

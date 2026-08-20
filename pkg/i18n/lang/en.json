@@ -2,10 +2,13 @@
     "notifications": {
         "greeting": "Hi %[1]s,",
         "email_confirm": {
-            "subject": "%[1]s, please confirm your email address at Brazn Tasks",
-            "subject_new": "%[1]s + Brazn Tasks = <3",
-            "welcome":  "Welcome to Brazn Tasks!",
-            "confirm": "To confirm your email address, click the link below:"
+            "subject": "Welcome to ONE",
+            "subject_new": "Welcome to ONE",
+            "eyebrow": "Confirm your email",
+            "preheader": "Almost there: confirm your email address for ONE.",
+            "welcome":  "Good to have you here.",
+            "confirm": "Confirm your email address now to activate your account.",
+            "footer": "If you didn't create an account, you can safely ignore this email."
         },
         "password": {
             "changed": {
@@ -14,9 +17,11 @@
                 "warning": "If this wasn't you, it could mean someone compromised your account. In this case contact your server's administrator."
             },
             "reset": {
-                "subject": "Reset your password on Brazn Tasks",
-                "instructions": "To reset your password, click the link below:",
-                "valid_duration": "This link will be valid for 24 hours."
+                "subject": "Reset your password",
+                "eyebrow": "Password reset",
+                "preheader": "Reset your ONE password. This secure link is valid for 24 hours.",
+                "instructions": "we received a request to reset your ONE password. Use the secure link below to choose a new one.",
+                "valid_duration": "This link is valid for 24 hours. If you didn’t request a password reset, you can safely ignore this email."
             }
         },
         "totp": {
@@ -146,7 +151,7 @@
         },
         "common": {
             "have_nice_day": "Have a nice day!",
-            "copy_url": "If the button above doesn't work, copy the url below and paste it in your browser's address bar:",
+            "copy_url": "The button doesn’t work? Copy this link into your browser’s address bar:",
             "actions": {
                 "open_task": "Open Task in Brazn Tasks",
                 "open_vikunja": "Open Brazn Tasks",

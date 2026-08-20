@@ -2,10 +2,13 @@
 	"notifications": {
 		"greeting": "Hallo %[1]s,",
 		"email_confirm": {
-			"subject": "%[1]s, bitte bestätige deine E-Mail-Adresse bei Brazn Tasks",
-			"subject_new": "%[1]s + Brazn Tasks = <3",
-			"welcome": "Willkommen bei Brazn Tasks!",
-			"confirm": "Um deine E-Mail-Adresse zu bestätigen, klicke auf den Link unten:"
+			"subject": "Willkommen bei ONE",
+			"subject_new": "Willkommen bei ONE",
+			"eyebrow": "E-Mail bestätigen",
+			"preheader": "Nur noch ein Schritt: Bestätige deine E-Mail-Adresse für ONE.",
+			"welcome": "schön, dass du da bist.",
+			"confirm": "Bestätige jetzt deine E-Mail-Adresse, um dein Konto zu aktivieren.",
+			"footer": "Falls du kein Konto erstellt hast, kannst du diese E-Mail einfach ignorieren."
 		},
 		"password": {
 			"changed": {
@@ -14,9 +17,11 @@
 				"warning": "Falls das nicht du warst, könnte jemand Zugriff auf deinen Account haben. Wende dich in diesem Fall an den Administrator deines Servers."
 			},
 			"reset": {
-				"subject": "Setze dein Passwort bei Brazn Tasks zurück",
-				"instructions": "Um dein Passwort zurückzusetzen, klicke auf den Link unten:",
-				"valid_duration": "Dieser Link ist 24 Stunden gültig."
+				"subject": "Setze dein Passwort zurück",
+				"eyebrow": "Passwort-Reset",
+				"preheader": "Setze dein ONE-Passwort zurück. Dieser sichere Link ist 24 Stunden gültig.",
+				"instructions": "wir haben eine Anfrage erhalten, dein ONE-Passwort zurückzusetzen. Verwende den sicheren Link unten, um ein neues zu wählen.",
+				"valid_duration": "Dieser Link ist 24 Stunden gültig. Falls du keine Passwort-Zurücksetzung angefordert hast, kannst du diese E-Mail einfach ignorieren."
 			}
 		},
 		"totp": {
@@ -146,7 +151,7 @@
 		},
 		"common": {
 			"have_nice_day": "Hab einen schönen Tag!",
-			"copy_url": "Falls der Button oben nicht funktioniert, kopiere die untenstehende URL und füge sie in die Adressleiste deines Browsers ein:",
+			"copy_url": "Der Button funktioniert nicht? Kopiere diesen Link in die Adressleiste deines Browsers:",
 			"actions": {
 				"open_task": "Aufgabe in Brazn Tasks öffnen",
 				"open_vikunja": "Brazn Tasks öffnen",

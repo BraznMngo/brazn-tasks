@@ -366,6 +366,11 @@
                     "comment": "The default from address when sending emails"
                 },
                 {
+                    "key": "fromname",
+                    "default_value": "ONE",
+                    "comment": "The sender name shown alongside fromemail (BRA-1374)"
+                },
+                {
                     "key": "queuelength",
                     "default_value": "100",
                     "comment": "The length of the mail queue."

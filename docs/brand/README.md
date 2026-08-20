@@ -1,9 +1,8 @@
 # Brand source artwork
 
-`percy-wordmark-source.png` is the master the shipped notification-email logo is derived
-from. It is 1536 x 1024, 1.1 MB, opaque, SHA-256 `aa2a0614…07ffcea`, and it is the same
-file as `docs/brand/percy-wordmark-source.png` in the private Percy repository, which is
-where it is maintained. Supplied by Sebastian, 2026-08-01.
+`one-wordmark-source.png` is the master the shipped notification-email logo is derived
+from: the ONE mark, exported from Sebastian's vector source and trimmed to its own
+content. It replaces the interim Percy wordmark this ticket (BRA-1374) removed.
 
 **Nothing in this directory ships.** `.github/workflows/brand-assets.yml` derives
 `pkg/notifications/logo.png` from the file here, so a shipped asset can always be
@@ -18,25 +17,13 @@ publishes it. That is the intended outcome and not an accident of the mechanism:
 same artwork is attached to every non-conversational notification mail the product
 sends, which is a wider and less controlled distribution than a public Git repository.
 
-## Why it is the Percy wordmark and not a Brazn Tasks one
+## It has a real alpha channel, unlike the wordmark it replaced
 
-Sebastian's decision, 2026-08-01: *"logo yes wordmark scaled down i will later replace
-with a brazn task one."* Until that mark exists, the mail carries the Percy wordmark with
-`alt="Brazn Tasks"` beside it. Replacing this file and letting the workflow re-derive is
-the whole of that future change.
+The interim Percy wordmark (removed by BRA-1374) was PNG color type 2 — truecolour, no
+alpha channel, no `tRNS` chunk — so nothing could be keyed out, and `mailTemplateHTML`
+had to put a matching solid band behind it to keep it from rendering as a box.
 
-The point it does settle is the one with a legal edge: `pkg/notifications/logo.png` was
-byte-identical to upstream Vikunja's, and the AGPL does not license the Vikunja
-trademark.
-
-## It has no transparency, and cannot be given any
-
-PNG color type 2 — truecolour, no alpha channel, and no `tRNS` chunk either. The `P`
-ribbon's glow fades continuously into the white background rather than ending at an
-edge, so there is no colour that can be keyed out and no alpha matte to recover: a
-luminance key would take the glow and the ribbon's own white highlights with it.
-
-The derived logo is therefore opaque, and `mailTemplateHTML` in
-`pkg/notifications/mail_render.go` puts a matching white band behind it so it does not
-render as a box on the `#f3f4f6` mail body. Both are reversible in one commit each if a
-wordmark with real transparency is ever exported.
+This mark carries a genuine alpha channel, and `.github/workflows/brand-assets.yml`
+preserves it through trim, resize and quantization (`png:color-type=6`, checked at the
+end of the derive step — the job fails rather than ship a flattened logo). `mailTemplateHTML`
+places it directly on the mail's own background, light or dark, with no band behind it.

@@ -29,6 +29,8 @@ type Mail struct {
 	from           string
 	to             string
 	subject        string
+	eyebrow        string
+	preheader      string
 	actionText     string
 	actionURL      string
 	greeting       string
@@ -65,6 +67,23 @@ func (m *Mail) To(to string) *Mail {
 // Subject sets the subject of the mail message
 func (m *Mail) Subject(subject string) *Mail {
 	m.subject = subject
+	return m
+}
+
+// Eyebrow sets the small uppercase label rendered above the heading in the
+// formal template (e.g. "Password reset"). Optional: the heading itself is
+// always the subject (RenderMail), so a mail that never calls this simply
+// renders without one.
+func (m *Mail) Eyebrow(eyebrow string) *Mail {
+	m.eyebrow = eyebrow
+	return m
+}
+
+// Preheader sets the hidden preview text mail clients show next to the
+// subject in the inbox list, before the message is opened (formal template
+// only). Optional: a mail that never calls this renders no preheader line.
+func (m *Mail) Preheader(preheader string) *Mail {
+	m.preheader = preheader
 	return m
 }
 
@@ -137,7 +156,7 @@ func CreateConversationalHeader(avatarDataURI, action, taskURL, projectTitle, ta
 		)
 	}
 	return fmt.Sprintf(
-		`%s%s <a href="%s" style="color: #0969da; text-decoration: none;">(%s &gt; %s) %s</a>`,
+		`%s%s <a href="%s" style="color: #2a6afe; text-decoration: none;">(%s &gt; %s) %s</a>`,
 		avatarHTML,
 		action,
 		taskURL,

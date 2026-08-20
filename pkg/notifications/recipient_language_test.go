@@ -59,8 +59,8 @@ const (
 	// The leading run of notifications.common.copy_url in each language, cut
 	// before the first character html/template would escape, so the assertion
 	// cannot break on HTML escaping rather than on language.
-	englishCopyURL = "If the button above"
-	germanCopyURL  = "Falls der Button oben"
+	englishCopyURL = "The button doesn’t work? Copy this link"
+	germanCopyURL  = "Der Button funktioniert nicht? Kopiere diesen Link"
 
 	// The person who triggered the invitation. Identical in both directions:
 	// the doer is what stays fixed while the recipient changes.

@@ -1,1 +1,30 @@
-{}
+{
+    "notifications": {
+        "greeting": "Hola %[1]s,",
+        "email_confirm": {
+            "subject": "Bienvenido a ONE",
+            "subject_new": "Bienvenido a ONE",
+            "eyebrow": "Confirma tu correo",
+            "preheader": "Ya casi está: confirma tu dirección de correo para ONE.",
+            "welcome": "Nos alegra que estés aquí.",
+            "confirm": "Confirma tu dirección de correo ahora para activar tu cuenta.",
+            "footer": "Si no creaste una cuenta, puedes ignorar este correo con tranquilidad."
+        },
+        "password": {
+            "reset": {
+                "subject": "Restablece tu contraseña",
+                "eyebrow": "Restablecimiento de contraseña",
+                "preheader": "Restablece tu contraseña de ONE. Este enlace seguro es válido durante 24 horas.",
+                "instructions": "Recibimos una solicitud para restablecer tu contraseña de ONE. Usa el enlace seguro de abajo para elegir una nueva.",
+                "valid_duration": "Este enlace es válido durante 24 horas. Si no solicitaste un restablecimiento de contraseña, puedes ignorar este correo con tranquilidad."
+            }
+        },
+        "common": {
+            "copy_url": "¿El botón no funciona? Copia este enlace en la barra de direcciones de tu navegador:",
+            "actions": {
+                "confirm_email": "Confirmar dirección de correo",
+                "reset_password": "Restablecer tu contraseña"
+            }
+        }
+    }
+}

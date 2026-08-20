@@ -40,3 +40,34 @@ func TestGetMessageSetsMessageID(t *testing.T) {
 	assert.NotEmpty(t, msgID)
 	assert.Contains(t, msgID, "@tasks.example.com>")
 }
+
+// BRA-1374: the sender name was a literal "Brazn Tasks" in getMessage,
+// which meant correcting it needed a rebuild. It is config now
+// (MailerFromName), so a deployment can change it without one -- this test
+// pins both halves of that: the default, and that setting it actually
+// changes the assembled From header.
+func TestGetMessageFromNameIsConfigured(t *testing.T) {
+	config.MailerFromEmail.Set("test@example.com")
+
+	t.Run("defaults to ONE", func(t *testing.T) {
+		config.MailerFromName.Set("ONE")
+		opts := &Opts{To: "recipient@example.com", Subject: "Test", ContentType: ContentTypePlain}
+		getMessage(opts)
+		assert.Equal(t, "ONE <test@example.com>", opts.From)
+	})
+
+	t.Run("a configured name replaces it without a rebuild", func(t *testing.T) {
+		config.MailerFromName.Set("Custom Sender")
+		opts := &Opts{To: "recipient@example.com", Subject: "Test", ContentType: ContentTypePlain}
+		getMessage(opts)
+		assert.Equal(t, "Custom Sender <test@example.com>", opts.From)
+		assert.NotContains(t, opts.From, "Brazn Tasks")
+		config.MailerFromName.Set("ONE")
+	})
+
+	t.Run("an explicit From on the opts is never overridden", func(t *testing.T) {
+		opts := &Opts{From: "Someone Else <someone@example.com>", To: "recipient@example.com", Subject: "Test", ContentType: ContentTypePlain}
+		getMessage(opts)
+		assert.Equal(t, "Someone Else <someone@example.com>", opts.From)
+	})
+}
