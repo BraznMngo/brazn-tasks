@@ -17,7 +17,6 @@
 package user
 
 import (
-	"strings"
 	"testing"
 
 	"code.vikunja.io/api/pkg/notifications"
@@ -48,8 +47,8 @@ var wantedConfirmWords = map[string][2]string{
 	"de-DE": {"E-Mail bestätigen", "einfach ignorieren"},
 	"es-ES": {"Confirma tu correo", "con tranquilidad"},
 	"fr-FR": {"Confirmez votre e-mail", "toute sécurité"},
-	"ja-JP": {"メールアドレスの確認", "無視してください"},
-	"zh-CN": {"确认您的邮箱", "可以放心忽略"},
+	"ja-JP": {"メールアドレスの確認", "無視してください"}, //nolint:gosmopolitan // asserting the actual rendered Japanese wording
+	"zh-CN": {"确认您的邮箱", "可以放心忽略"},         //nolint:gosmopolitan // asserting the actual rendered Chinese wording
 }
 
 var wantedResetWords = map[string][2]string{
@@ -58,8 +57,8 @@ var wantedResetWords = map[string][2]string{
 	"de-DE": {"Passwort-Reset", "24 Stunden"},
 	"es-ES": {"Restablecimiento de contraseña", "24 horas"},
 	"fr-FR": {"Réinitialisation du mot de passe", "24 heures"},
-	"ja-JP": {"パスワード再設定", "24時間"},
-	"zh-CN": {"密码重置", "24小时"},
+	"ja-JP": {"パスワード再設定", "24時間"}, //nolint:gosmopolitan // asserting the actual rendered Japanese wording
+	"zh-CN": {"密码重置", "24小时"},   //nolint:gosmopolitan // asserting the actual rendered Chinese wording
 }
 
 func newTestUser() *User {
@@ -154,13 +153,13 @@ func TestConfirmAndResetPlainTextMatchesHTML(t *testing.T) {
 	mailOpts, err := notifications.RenderMail(n.ToMail("en"), "en")
 	require.NoError(t, err)
 	for _, want := range []string{"Good to have you here", "Confirm your email address now", "you can safely ignore this email"} {
-		assert.True(t, strings.Contains(mailOpts.Message, want), "plain text missing %q:\n%s", want, mailOpts.Message)
+		assert.Contains(t, mailOpts.Message, want)
 	}
 
 	r := &ResetPasswordNotification{User: newTestUser(), Token: &Token{ClearTextToken: "test-token"}}
 	resetOpts, err := notifications.RenderMail(r.ToMail("en"), "en")
 	require.NoError(t, err)
 	for _, want := range []string{"we received a request to reset your ONE password", "This link is valid for 24 hours"} {
-		assert.True(t, strings.Contains(resetOpts.Message, want), "plain text missing %q:\n%s", want, resetOpts.Message)
+		assert.Contains(t, resetOpts.Message, want)
 	}
 }
