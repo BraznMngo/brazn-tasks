@@ -2,10 +2,12 @@
 	"notifications": {
 		"greeting": "Bonjour %[1]s,",
 		"email_confirm": {
-			"subject": "%[1]s, veuillez confirmer votre adresse e-mail sur Brazn Tasks",
-			"subject_new": "%[1]s + Brazn Tasks = <3",
-			"welcome": "Bienvenue sur Brazn Tasks !",
-			"confirm": "Pour confirmer votre adresse e-mail, cliquez sur le lien ci-dessous :"
+			"subject": "Bienvenue sur ONE",
+			"subject_new": "Bienvenue sur ONE",
+			"eyebrow": "Confirmez votre e-mail",
+			"welcome": "Ravi de vous compter parmi nous.",
+			"confirm": "Confirmez votre adresse e-mail dès maintenant pour activer votre compte.",
+			"footer": "Si vous n'avez pas créé de compte, vous pouvez ignorer cet e-mail en toute sécurité."
 		},
 		"password": {
 			"changed": {
@@ -14,9 +16,10 @@
 				"warning": "Si ce n'était pas vous, cela pourrait signifier que quelqu'un a compromis votre compte. Dans ce cas, contactez l'administrateur de votre serveur."
 			},
 			"reset": {
-				"subject": "Réinitialiser votre mot de passe sur Brazn Tasks",
-				"instructions": "Pour réinitialiser votre mot de passe, cliquez sur le lien ci-dessous :",
-				"valid_duration": "Ce lien sera valide pendant 24 heures."
+				"subject": "Réinitialisez votre mot de passe",
+				"eyebrow": "Réinitialisation du mot de passe",
+				"instructions": "Nous avons reçu une demande de réinitialisation de votre mot de passe ONE. Utilisez le lien sécurisé ci-dessous pour en choisir un nouveau.",
+				"valid_duration": "Ce lien est valable pendant 24 heures. Si vous n'avez pas demandé de réinitialisation de mot de passe, vous pouvez ignorer cet e-mail en toute sécurité."
 			}
 		},
 		"totp": {
@@ -123,7 +126,7 @@
 		},
 		"common": {
 			"have_nice_day": "Passez une bonne journée !",
-			"copy_url": "Si le bouton ci-dessus ne fonctionne pas, copiez l'URL ci-dessous et collez-la dans la barre d'adresse de votre navigateur :",
+			"copy_url": "Le bouton ne fonctionne pas ? Copiez ce lien dans la barre d'adresse de votre navigateur :",
 			"actions": {
 				"open_vikunja": "Ouvrir Brazn Tasks",
 				"open_project": "Ouvrir le projet",

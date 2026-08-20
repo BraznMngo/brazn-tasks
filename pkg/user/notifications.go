@@ -34,13 +34,17 @@ type EmailConfirmNotification struct {
 // ToMail returns the mail notification for EmailConfirmNotification
 func (n *EmailConfirmNotification) ToMail(lang string) *notifications.Mail {
 
-	subject := i18n.T(lang, "notifications.email_confirm.subject", n.User.GetName())
+	// Neither subject carries the customer's name any more (BRA-1374,
+	// Sebastian's template): the heading says the same thing the subject
+	// does, for either case, so both keys hold identical wording now.
+	subject := i18n.T(lang, "notifications.email_confirm.subject")
 	if n.IsNew {
-		subject = i18n.T(lang, "notifications.email_confirm.subject_new", n.User.GetName())
+		subject = i18n.T(lang, "notifications.email_confirm.subject_new")
 	}
 
 	nn := notifications.NewMail().
 		Subject(subject).
+		Eyebrow(i18n.T(lang, "notifications.email_confirm.eyebrow")).
 		Greeting(i18n.T(lang, "notifications.greeting", n.User.GetName()))
 
 	if n.IsNew {
@@ -50,7 +54,11 @@ func (n *EmailConfirmNotification) ToMail(lang string) *notifications.Mail {
 	return nn.
 		Line(i18n.T(lang, "notifications.email_confirm.confirm")).
 		Action(i18n.T(lang, "notifications.common.actions.confirm_email"), config.ServicePublicURL.GetString()+"?userEmailConfirm="+n.ConfirmToken).
-		Line(i18n.T(lang, "notifications.common.have_nice_day"))
+		// After Action(), appendLine's own rule routes this to the OUTRO —
+		// the quieter line under the button, which is where Sebastian's
+		// design puts it. "have_nice_day" no longer appears here (BRA-1374):
+		// it is still used by other messages, just not these two.
+		Line(i18n.T(lang, "notifications.email_confirm.footer"))
 }
 
 // ToDB returns the EmailConfirmNotification notification in a format which can be saved in the db
@@ -97,11 +105,15 @@ type ResetPasswordNotification struct {
 func (n *ResetPasswordNotification) ToMail(lang string) *notifications.Mail {
 	return notifications.NewMail().
 		Subject(i18n.T(lang, "notifications.password.reset.subject")).
+		Eyebrow(i18n.T(lang, "notifications.password.reset.eyebrow")).
 		Greeting(i18n.T(lang, "notifications.greeting", n.User.GetName())).
 		Line(i18n.T(lang, "notifications.password.reset.instructions")).
 		Action(i18n.T(lang, "notifications.common.actions.reset_password"), config.ServicePublicURL.GetString()+"?userPasswordReset="+n.Token.ClearTextToken).
-		Line(i18n.T(lang, "notifications.password.reset.valid_duration")).
-		Line(i18n.T(lang, "notifications.common.have_nice_day"))
+		// valid_duration now carries both the 24-hour window and the
+		// "ignore this if you didn't request it" note as one line (BRA-1374,
+		// Sebastian's template combines them) -- "have_nice_day" no longer
+		// follows it; it is still used by other messages, just not this one.
+		Line(i18n.T(lang, "notifications.password.reset.valid_duration"))
 }
 
 // ToDB returns the ResetPasswordNotification notification in a format which can be saved in the db

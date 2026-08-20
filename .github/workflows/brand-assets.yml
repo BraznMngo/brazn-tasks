@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - docs/brand/percy-wordmark-source.png
+      - docs/brand/one-wordmark-source.png
       - pkg/notifications/logo.png
       - .github/workflows/brand-assets.yml
 
@@ -37,15 +37,14 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SOURCE: docs/brand/percy-wordmark-source.png
+  SOURCE: docs/brand/one-wordmark-source.png
   DERIVED: pkg/notifications/logo.png
-  # Final width, border included. mailTemplateHTML renders the image at
-  # height: 75px, so this is roughly 2x for high-density displays.
-  TARGET_WIDTH: 400
-  BORDER: 10
+  # Final width. mailTemplateHTML renders the image at width:138px, so this
+  # is 2x for high-density displays (BRA-1374).
+  TARGET_WIDTH: 276
   # BRA-830's acceptance criterion is that notification mail reaches a
   # mainstream inbox rather than a spam folder, and this file is attached to
-  # every one of them. Upstream's logo was 7 KB; the source artwork is 1.1 MB.
+  # every one of them. Upstream's logo was 7 KB.
   MAX_BYTES: 30720
 
 jobs:
@@ -79,34 +78,30 @@ jobs:
 
           echo "::group::Source artwork"
           im_ident -format 'geometry=%wx%h depth=%z colorspace=%[colorspace] alpha=%A channels=%[channels]\n' "$SOURCE"
-          echo "background (pixel 0,0): $(im_ident -format '%[pixel:p{0,0}]' "$SOURCE")"
           echo "bytes: $(stat -c%s "$SOURCE")"
           echo "::endgroup::"
 
-          # The source is opaque -- PNG color type 2, no alpha channel and no
-          # tRNS chunk -- and the P ribbon's glow fades continuously into its
-          # background, so there is no edge to key out and no alpha to recover.
-          # Trimming and bordering therefore both use the artwork's own corner
-          # color, and mailTemplateHTML puts a matching band behind the result.
-          BG=$(im_ident -format '%[pixel:p{0,0}]' "$SOURCE")
-          INNER=$(( TARGET_WIDTH - 2 * BORDER ))
-
-          # The artwork carries wide empty margins. Rendered at height: 75px
-          # untrimmed, the lockup itself would be about half that -- the trim is
-          # what makes the logo legible in a mail client, not a cosmetic tidy-up.
+          # The source (BRA-1374) carries a real alpha channel -- unlike the
+          # interim Percy wordmark this replaced, whose glow faded
+          # continuously into an opaque background with nothing to key out.
+          # Trim therefore trims transparency, not a corner colour, and
+          # nothing borders the result: mailTemplateHTML places it directly
+          # on the mail's own background, light or dark, with no colour band
+          # behind it.
           #
-          # Quantizing is what keeps the file under the ceiling: a truecolor PNG
-          # of a resampled gradient does not fit in 30 KB, and at the size this
-          # renders the difference is not visible. Step down until it fits, and
-          # report each attempt so the trade-off is in the log rather than
-          # implied.
+          # -define png:color-type=6 is what keeps the alpha channel through
+          # quantization: without it ImageMagick is free to flatten to a
+          # palette PNG whose single transparent index cannot represent the
+          # gradient's own antialiased edges. The colour-count loop stays
+          # regardless, guarding the file-size ceiling below should the
+          # gradient ever grow more colour stops than fit a small palette.
           for COLORS in 256 128 64; do
             im "$SOURCE" \
               -fuzz 2% -trim +repage \
-              -resize "${INNER}x" \
-              -bordercolor "$BG" -border "$BORDER" \
+              -resize "${TARGET_WIDTH}x" \
               -strip \
               -dither None -colors "$COLORS" \
+              -define png:color-type=6 \
               -define png:compression-level=9 \
               -define png:compression-filter=5 \
               -define png:compression-strategy=1 \
@@ -120,6 +115,7 @@ jobs:
           WIDTH=$(im_ident -format '%w' "$DERIVED")
           HEIGHT=$(im_ident -format '%h' "$DERIVED")
           SIZE=$(stat -c%s "$DERIVED")
+          ALPHA=$(im_ident -format '%A' "$DERIVED")
 
           if [ "$WIDTH" -ne "$TARGET_WIDTH" ]; then
             echo "::error::derived logo is ${WIDTH}px wide, expected ${TARGET_WIDTH}px"
@@ -127,6 +123,10 @@ jobs:
           fi
           if [ "$SIZE" -gt "$MAX_BYTES" ]; then
             echo "::error::derived logo is ${SIZE} bytes, ceiling is ${MAX_BYTES}"
+            exit 1
+          fi
+          if [ "$ALPHA" != "True" ] && [ "$ALPHA" != "true" ] && [ "$ALPHA" != "Blend" ]; then
+            echo "::error::derived logo lost its alpha channel (reports alpha=${ALPHA}) -- it would render as a solid box on the mail's background"
             exit 1
           fi
 
@@ -137,7 +137,8 @@ jobs:
             echo "|---|---|"
             echo "| geometry | ${WIDTH} x ${HEIGHT} |"
             echo "| size | ${SIZE} bytes (ceiling ${MAX_BYTES}) |"
-            echo "| source | \`${SOURCE}\`, $(stat -c%s "$SOURCE") bytes, background ${BG} |"
+            echo "| alpha | ${ALPHA} |"
+            echo "| source | \`${SOURCE}\`, $(stat -c%s "$SOURCE") bytes |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit the derived asset
@@ -160,6 +161,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- "$DERIVED"
           git commit \
-            -m "chore(brand): derive the notification-email logo from the Percy wordmark (BRA-990)" \
+            -m "chore(brand): derive the notification-email logo from the ONE wordmark (BRA-1374)" \
             -m "Generated by .github/workflows/brand-assets.yml from ${SOURCE}. Not edited by hand: editing it re-triggers that workflow, which regenerates the file over the edit."
           git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"

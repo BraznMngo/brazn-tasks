@@ -1,9 +1,13 @@
 {
 	"notifications": {
+		"greeting": "您好，%[1]s，",
 		"email_confirm": {
-			"subject": "%[1]s, 请在Brazn Tasks确认你的邮箱地址",
-			"welcome": "欢迎使用 Brazn Tasks！",
-			"confirm": "要确认您的电子邮件地址，请点击下面的链接："
+			"subject": "欢迎使用 ONE",
+			"subject_new": "欢迎使用 ONE",
+			"eyebrow": "确认您的邮箱",
+			"welcome": "很高兴您能加入。",
+			"confirm": "请立即确认您的邮箱地址以激活您的帐户。",
+			"footer": "如果您没有创建帐户，可以放心忽略此邮件。"
 		},
 		"password": {
 			"changed": {
@@ -12,9 +16,10 @@
 				"warning": "如果不是你，这可能意味着有人破坏你的帐户。在这种情况下，请联系你的服务器管理员。"
 			},
 			"reset": {
-				"subject": "重置您在 Brazn Tasks 上的密码",
-				"instructions": "如要重置您的密码，请点击下面的链接：",
-				"valid_duration": "此链接将有效期为24小时。"
+				"subject": "重置您的密码",
+				"eyebrow": "密码重置",
+				"instructions": "我们收到了重置您 ONE 密码的请求。请使用下方的安全链接设置新密码。",
+				"valid_duration": "此链接的有效期为24小时。如果您没有请求重置密码，可以放心忽略此邮件。"
 			}
 		},
 		"totp": {
@@ -120,7 +125,7 @@
 		},
 		"common": {
 			"have_nice_day": "祝你有愉快的一天！",
-			"copy_url": "如果上面的按钮无法工作，请复制下面的URL并将其粘贴到您的浏览器地址栏：",
+			"copy_url": "按钮无法使用？请将此链接粘贴到您的浏览器地址栏：",
 			"actions": {
 				"open_vikunja": "打开 Brazn Tasks",
 				"open_project": "打开项目",

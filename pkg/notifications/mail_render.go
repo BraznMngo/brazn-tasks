@@ -70,75 +70,150 @@ const mailTemplateConversationalPlain = `
 
 const mailTemplateHTML = `
 <!doctype html>
-<html style="width: 100%; height: 100%; padding: 0; margin: 0;">
+<html lang="{{ .Lang }}" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
-    <meta name="viewport" content="width=device-width">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
-    <style>
-        :root {
-            color-scheme: light dark;
-        }
-        @media (prefers-color-scheme: dark) {
-            .email-card {
-                box-shadow: 0.3em 0.3em 0.8em rgba(0,0,0,0.3) !important;
-                -webkit-box-shadow: 0.3em 0.3em 0.8em rgba(0,0,0,0.3) !important;
-            }
-            .email-button {
-                box-shadow: 0 3px 6px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.15) !important;
-                -webkit-box-shadow: 0 3px 6px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.15) !important;
-            }
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <![endif]-->
+  <style>
+    html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    table { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { border: 0; display: block; outline: none; text-decoration: none; }
+    a { color: inherit; }
+    @media screen and (max-width: 640px) {
+      .outer { padding: 24px 12px !important; }
+      .shell { width: 100% !important; max-width: 100% !important; }
+      .content { padding: 34px 24px 30px !important; }
+      .title { font-size: 27px !important; line-height: 33px !important; }
+      .email-card { border-radius: 34px !important; }
+      .button-link { box-sizing: border-box !important; min-width: 0 !important; width: 100% !important; }
+      .fallback-url { word-break: break-all !important; }
+    }
+    @media (prefers-color-scheme: dark) {
+      .email-bg { background-color: #080d1a !important; }
+      .email-card { background-color: #111827 !important; border-color: #283247 !important; }
+      .main-text, .title { color: #f8fafc !important; }
+      .muted-text { color: #aeb8ca !important; }
+      .divider { background-color: #2b3549 !important; }
+      .url-box { background-color: #0b1220 !important; border-color: #2b3549 !important; }
+      .url-link { color: #8db1ff !important; }
+    }
+    [data-ogsc] .email-bg { background-color: #080d1a !important; }
+    [data-ogsc] .email-card { background-color: #111827 !important; border-color: #283247 !important; }
+    [data-ogsc] .main-text, [data-ogsc] .title { color: #f8fafc !important; }
+    [data-ogsc] .muted-text { color: #aeb8ca !important; }
+    [data-ogsc] .url-box { background-color: #0b1220 !important; border-color: #2b3549 !important; }
+    [data-ogsc] .url-link { color: #8db1ff !important; }
+  </style>
+  <!--[if mso]>
+  <style>
+    .email-card { border: 0 !important; background-color: transparent !important; }
+  </style>
+  <![endif]-->
 </head>
-<body style="width: 100%; padding: 0; margin: 0; background: #f3f4f6">
-<div style="width: 100%; font-family: 'Open Sans', sans-serif; Text-rendering: optimizeLegibility">
-    <div style="width: 600px; margin: 0 auto; Text-align: justify;">
-        <h1 style="font-size: 30px; Text-align: center; margin: 20px 0; padding: 12px 0; background: #ffffff; border-radius: 3px;">
-            <img src="cid:logo.png" style="height: 75px;" alt="Brazn Tasks"/>
-        </h1>
-        <div class="email-card" style="border: 1px solid #dbdbdb; -webkit-box-shadow: 0.3em 0.3em 0.8em #e6e6e6; box-shadow: 0.3em 0.3em 0.8em #e6e6e6; color: #4a4a4a; padding: 5px 25px; border-radius: 3px; background: #fff;">
-<p>
-	{{ .Greeting }}
-</p>
+<body class="email-bg" style="margin:0; padding:0; background-color:#f3f6fb;">
+  <table class="email-bg" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3f6fb" style="width:100%; background-color:#f3f6fb;">
+    <tr>
+      <td class="outer" align="center" style="padding:42px 18px;">
+        <table class="shell" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
+          <tr>
+            <td align="center" style="padding:0 0 23px;">
+              <img src="cid:logo.png" width="138" alt="ONE" style="width:138px; max-width:138px; height:auto;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" style="width:600px;" arcsize="14%" strokecolor="#e3e8f2" strokeweight="1px" fillcolor="#ffffff">
+                <w:anchorlock/>
+                <v:textbox inset="0,0,0,0" style="mso-fit-shape-to-text:true;">
+              <![endif]-->
+              <table class="email-card" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%; background-color:#ffffff; border:1px solid #e3e8f2; border-collapse:separate !important; border-spacing:0; border-radius:34px; box-shadow:0 14px 40px rgba(20,37,74,0.09); overflow:hidden;">
+                <tr>
+                  <td class="content" style="padding:38px 48px 38px; background-color:transparent; border-radius:33px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+                    <table role="presentation" width="44" cellpadding="0" cellspacing="0" border="0" style="width:44px; border-collapse:separate !important;">
+                      <tr><td height="4" bgcolor="#2a6afe" style="height:4px; background-color:#2a6afe; border-radius:2px; font-size:0; line-height:0;">&nbsp;</td></tr>
+                    </table>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="20" style="height:20px; font-size:0; line-height:0;">&nbsp;</td></tr></table>
+                    {{ if .Eyebrow }}
+                    <div style="color:#2a6afe; font-size:11px; font-weight:800; line-height:16px; letter-spacing:1.7px; text-transform:uppercase;">{{ .Eyebrow }}</div>
+                    {{ end }}
+                    <h1 class="title" style="margin:10px 0 22px; color:#111827; font-size:32px; font-weight:750; line-height:39px; letter-spacing:-0.8px;">{{ .Heading }}</h1>
+                    <p class="main-text" style="margin:0 0 12px; color:#263247; font-size:16px; line-height:26px;">{{ .Greeting }}</p>
 
-{{ range $line := .IntroLinesHTML}}
-	{{ $line }}
-{{ end }}
+                    {{ range $line := .IntroLinesHTML }}
+                      {{ $line }}
+                    {{ end }}
 
-{{ if .ActionURL }}
-	<a class="email-button" href="{{ .ActionURL }}" title="{{ .ActionText }}"
-		style="position: relative;Text-decoration:none;display: block;border-radius: 4px;cursor: pointer;padding-bottom: 8px;padding-left: 14px;padding-right: 14px;padding-top: 8px;width:280px;margin:10px auto;Text-align: center;white-space: nowrap;border: 0;Text-transform: uppercase;font-size: 14px;font-weight: 700;-webkit-box-shadow: 0 3px 6px rgba(107,114,128,.12),0 2px 4px rgba(107,114,128,.1);box-shadow: 0 3px 6px rgba(107,114,128,.12),0 2px 4px rgba(107,114,128,.1);background-color: #1973ff;border-color: transparent;color: #fff;">
-		{{ .ActionText }}
-	</a>
-{{end}}
+                    {{ if .ActionURL }}
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="left" style="padding:0; mso-padding-alt:0;">
+                          <!--[if mso]>
+                          <v:roundrect href="{{ .ActionURL }}" style="height:48px;v-text-anchor:middle;width:250px;" arcsize="29%" stroke="f" fillcolor="#2a6afe">
+                            <w:anchorlock xmlns:w="urn:schemas-microsoft-com:office:word"/>
+                            <center style="color:#ffffff;font-family:Segoe UI,Arial,sans-serif;font-size:15px;font-weight:bold;">{{ .ActionText }}</center>
+                          </v:roundrect>
+                          <![endif]-->
+                          <!--[if !mso]><!-->
+                          <a class="button-link" href="{{ .ActionURL }}" title="{{ .ActionText }}" style="display:inline-block; box-sizing:border-box; width:250px; padding:14px 20px; background-color:#2a6afe; border-radius:14px; box-shadow:0 8px 20px rgba(42,106,254,0.25); color:#ffffff; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; font-size:15px; font-weight:750; line-height:20px; text-align:center; text-decoration:none; white-space:nowrap;">{{ .ActionText }}</a>
+                          <!--<![endif]-->
+                        </td>
+                      </tr>
+                    </table>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="27" style="height:27px; font-size:0; line-height:0;">&nbsp;</td></tr></table>
+                    {{ end }}
 
-{{ range $line := .OutroLinesHTML}}
-	{{ $line }}
-{{ end }}
+                    {{ range $line := .OutroLinesHTML }}
+                      {{ $line }}
+                    {{ end }}
 
-{{ if .ActionURL }}
-	<div style="color: #9CA3AF;font-size:12px;border-top: 1px solid #dbdbdb;margin-top:20px;padding-top:20px;">
-	<p>
-		{{ .CopyURLText }}<br/>
-		{{ .ActionURL }}
-	</p>
-{{ range $line := .FooterLinesHTML}}
-	{{ $line }}
-	{{ end }}
-	</div>
-{{ else }}
-{{ if .FooterLinesHTML }}
-	<div style="color: #9CA3AF;font-size:12px;border-top: 1px solid #dbdbdb;margin-top:20px;padding-top:20px;">
-		{{ range $line := .FooterLinesHTML }}
-			{{ $line }}
-		{{ end }}
-	</div>
-{{ end }}
-{{ end }}
-</div>
-</div>
-</div>
+                    {{ if .ActionURL }}
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr><td height="28" style="height:28px; font-size:0; line-height:0;">&nbsp;</td></tr>
+                      <tr><td class="divider" height="1" bgcolor="#e8ecf3" style="height:1px; background-color:#e8ecf3; font-size:0; line-height:0;">&nbsp;</td></tr>
+                      <tr><td height="22" style="height:22px; font-size:0; line-height:0;">&nbsp;</td></tr>
+                    </table>
+                    <p class="muted-text" style="margin:0 0 10px; color:#7a8496; font-size:12px; line-height:19px;">{{ .CopyURLText }}</p>
+                    <a class="url-box url-link fallback-url" href="{{ .ActionURL }}" style="display:block; padding:12px 14px; background-color:#f7f9fc; border:1px solid #e6ebf3; border-radius:14px; color:#2a6afe; font-size:11px; line-height:17px; text-decoration:none; word-break:break-all;">{{ .ActionURL }}</a>
+                    {{ range $line := .FooterLinesHTML }}
+                      {{ $line }}
+                    {{ end }}
+                    {{ else }}
+                    {{ if .FooterLinesHTML }}
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr><td height="28" style="height:28px; font-size:0; line-height:0;">&nbsp;</td></tr>
+                      <tr><td class="divider" height="1" bgcolor="#e8ecf3" style="height:1px; background-color:#e8ecf3; font-size:0; line-height:0;">&nbsp;</td></tr>
+                      <tr><td height="22" style="height:22px; font-size:0; line-height:0;">&nbsp;</td></tr>
+                    </table>
+                    {{ range $line := .FooterLinesHTML }}
+                      {{ $line }}
+                    {{ end }}
+                    {{ end }}
+                    {{ end }}
+                  </td>
+                </tr>
+              </table>
+              <!--[if mso]>
+                </v:textbox>
+              </v:roundrect>
+              <![endif]-->
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:23px 20px 0; color:#8993a5; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; font-size:11px; line-height:18px;">
+              ONE&nbsp;&nbsp;&middot;&nbsp;&nbsp;by Brazn&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="https://brazn.one" style="color:#8993a5; text-decoration:underline;">brazn.one</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
 `
@@ -191,20 +266,17 @@ const mailTemplateConversationalHTML = `
 </html>
 `
 
-// logo.png is the Percy wordmark, derived from docs/brand/percy-wordmark-source.png
+// logo.png is the ONE wordmark, derived from docs/brand/one-wordmark-source.png
 // by .github/workflows/brand-assets.yml. It is attached inline to every
 // non-conversational notification mail and rendered by mailTemplateHTML above.
 // Do not edit it by hand: that workflow's path filter covers it, so an edit only
 // triggers a regeneration over the top. It is no longer upstream Vikunja's mark,
-// which the AGPL does not license to us (see CLAUDE.md section 7).
+// nor Percy's, which the AGPL does not license to us (see CLAUDE.md section 7).
 //
-// Two things about it are deliberate and interim. It is the Percy wordmark beside
-// alt="Brazn Tasks" until a Brazn Tasks mark exists (Sebastian, 2026-08-01), and it
-// is opaque, because the source artwork is PNG color type 2 with no alpha channel
-// and no tRNS chunk -- the P ribbon's glow fades continuously into the background
-// rather than ending at an edge, so there is nothing to key out. That is why the
-// <h1> holding it sets a white background: on the #f3f4f6 mail body an opaque image
-// would otherwise render as a visible box. See docs/brand/README.md (BRA-990).
+// Unlike the interim Percy wordmark it replaces (BRA-990), this asset carries a
+// real alpha channel, so mailTemplateHTML places it directly on the mail's own
+// background -- light or dark -- with no matching colour band behind it. See
+// docs/brand/README.md (BRA-1374).
 //
 //go:embed logo.png
 var logo embed.FS
@@ -543,6 +615,14 @@ func RenderMail(m *Mail, lang string) (mailOpts *mail.Opts, err error) {
 
 	data := make(map[string]interface{})
 
+	data["Lang"] = lang
+	// The formal template's heading is always the subject line itself
+	// (BRA-1374's own "cheapest honest answer": Sebastian's design headline
+	// says the same thing the subject does) -- no separate field for
+	// messages to set, so nothing that predates this change has to be
+	// touched to gain one.
+	data["Heading"] = m.subject
+	data["Eyebrow"] = m.eyebrow
 	data["Greeting"] = m.greeting
 	data["IntroLines"] = convertLinesToPlain(m.introLines)
 	data["OutroLines"] = convertLinesToPlain(m.outroLines)

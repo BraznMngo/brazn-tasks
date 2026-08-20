@@ -2,10 +2,12 @@
 	"notifications": {
 		"greeting": "こんにちは、%[1]sさん",
 		"email_confirm": {
-			"subject": "%[1]sさん、Brazn Tasksでメールアドレスの登録を完了してください",
-			"subject_new": "%[1]s + Brazn Tasks = <3",
-			"welcome": "Brazn Tasksへようこそ！",
-			"confirm": "メールアドレスの登録を完了するには、以下のリンクをクリックしてください:"
+			"subject": "ONE へようこそ",
+			"subject_new": "ONE へようこそ",
+			"eyebrow": "メールアドレスの確認",
+			"welcome": "ご登録ありがとうございます。",
+			"confirm": "アカウントを有効にするには、今すぐメールアドレスを確認してください。",
+			"footer": "アカウントを作成した覚えがない場合は、このメールを無視してください。"
 		},
 		"password": {
 			"changed": {
@@ -14,9 +16,10 @@
 				"warning": "この操作に心当たりがない場合、アカウントが侵害された可能性があります。サーバー管理者にお問い合わせください。"
 			},
 			"reset": {
-				"subject": "Brazn Tasks パスワード再設定",
-				"instructions": "パスワードを再設定するには、以下のリンクをクリックしてください:",
-				"valid_duration": "このリンクは24時間有効です。"
+				"subject": "パスワードの再設定",
+				"eyebrow": "パスワード再設定",
+				"instructions": "ONE のパスワード再設定のリクエストを受け付けました。以下の安全なリンクから新しいパスワードを設定してください。",
+				"valid_duration": "このリンクの有効期限は24時間です。パスワードの再設定に心当たりがない場合は、このメールを無視していただいて構いません。"
 			}
 		},
 		"totp": {
@@ -146,7 +149,7 @@
 		},
 		"common": {
 			"have_nice_day": "よい一日を！",
-			"copy_url": "上のボタンが機能しない場合は、以下のURLをコピーし、ブラウザのアドレスバーに貼り付けてください:",
+			"copy_url": "ボタンが機能しない場合は、以下のリンクをブラウザのアドレスバーに貼り付けてください:",
 			"actions": {
 				"open_task": "Brazn Tasksでタスクを開く",
 				"open_vikunja": "Brazn Tasksを開く",

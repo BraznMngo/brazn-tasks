@@ -29,6 +29,7 @@ type Mail struct {
 	from           string
 	to             string
 	subject        string
+	eyebrow        string
 	actionText     string
 	actionURL      string
 	greeting       string
@@ -65,6 +66,15 @@ func (m *Mail) To(to string) *Mail {
 // Subject sets the subject of the mail message
 func (m *Mail) Subject(subject string) *Mail {
 	m.subject = subject
+	return m
+}
+
+// Eyebrow sets the small uppercase label rendered above the heading in the
+// formal template (e.g. "Password reset"). Optional: the heading itself is
+// always the subject (RenderMail), so a mail that never calls this simply
+// renders without one.
+func (m *Mail) Eyebrow(eyebrow string) *Mail {
+	m.eyebrow = eyebrow
 	return m
 }
 
