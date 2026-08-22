@@ -17,9 +17,13 @@
 package models
 
 import (
+	"context"
 	"strings"
+	"time"
 
 	"code.vikunja.io/api/pkg/config"
+	"code.vikunja.io/api/pkg/db"
+	"code.vikunja.io/api/pkg/events"
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/user"
 
@@ -101,6 +105,119 @@ func ProvisionFeedbackAccess(s *xorm.Session, u *user.User) (int64, error) {
 	return ensureFeedbackSubProject(s, rootID, owner, u)
 }
 
+// feedbackRootMarker is the fixed value every row of brazn_feedback_root
+// carries in its Marker column - there is nothing else to make it unique
+// against, since the whole point of the table is that only one root may
+// exist across the instance.
+const feedbackRootMarker = 1
+
+// feedbackRootConstraint and feedbackReporterConstraint are the fragments
+// every supported database puts in its unique-violation message for the two
+// claim tables below - see provisionedMailboxConstraint (brazn_provisioning.go)
+// for why this is a substring match rather than a typed error.
+//
+// NEITHER CLAIM'S UNIQUE COLUMN IS ITS PRIMARY KEY, deliberately, matching
+// ProvisionedUser's own Email (not its autoincrement ID). MySQL and MariaDB
+// name a duplicate-PRIMARY-KEY violation only "for key 'PRIMARY'" - the table
+// name IsUniqueConstraintError's MySQL branch requires never appears - while a
+// separately named unique index's violation carries it. A PRIMARY KEY claim
+// would compile, pass on SQLite and PostgreSQL, and silently stop the retry
+// from ever firing on MySQL and MariaDB.
+const (
+	feedbackRootConstraint     = "brazn_feedback_root"
+	feedbackReporterConstraint = "brazn_feedback_reporters"
+)
+
+// FeedbackRootClaim is the atomic claim on "the" Percy Feedback root project.
+// Marker is always feedbackRootMarker, so a second concurrent INSERT collides
+// on that unique column instead of racing ensureFeedbackProject's own
+// read-then-create - see ProvisionFeedbackAccessRetrying for who relies on
+// that collision.
+type FeedbackRootClaim struct {
+	ID     int64 `xorm:"bigint autoincr not null unique pk"`
+	Marker int64 `xorm:"bigint not null unique"`
+	// ProjectID is 0 for the moment between the claim being taken and the
+	// project it names existing - the same reason ProvisionedUser.UserID
+	// starts at 0, so the claim can be taken before the expensive half of
+	// provisioning ever runs.
+	ProjectID int64     `xorm:"bigint not null default 0"`
+	Created   time.Time `xorm:"created not null"`
+}
+
+// TableName is the table name for the Percy Feedback root claim.
+func (FeedbackRootClaim) TableName() string { return "brazn_feedback_root" }
+
+// FeedbackReporterClaim is the same atomic claim, one row per reporter,
+// keyed by UserID rather than a fixed constant.
+type FeedbackReporterClaim struct {
+	ID        int64     `xorm:"bigint autoincr not null unique pk"`
+	UserID    int64     `xorm:"bigint not null unique"`
+	ProjectID int64     `xorm:"bigint not null default 0"`
+	Created   time.Time `xorm:"created not null"`
+}
+
+// TableName is the table name for Percy Feedback reporter claims.
+func (FeedbackReporterClaim) TableName() string { return "brazn_feedback_reporters" }
+
+// maxFeedbackProvisioningAttempts and feedbackProvisioningRetryDelay mirror
+// maxMailboxProvisioningAttempts and mailboxProvisioningRetryDelay
+// (brazn_provisioning.go) for the same reason: the race this waits out is one
+// request's own commit or rollback, not a human process.
+const maxFeedbackProvisioningAttempts = 3
+const feedbackProvisioningRetryDelay = 50 * time.Millisecond
+
+// ProvisionFeedbackAccessRetrying is ProvisionFeedbackAccess for a caller that can be asked for the same account's feedback access more than once, including concurrently - the on-demand lookup route (BRA-1414) and the commercial create_personal_inbox channel; CreateNewProjectForUser's registration-time call keeps using ProvisionFeedbackAccess directly, since CreateOrResolveUserForMailbox already serialises that call upstream.
+func ProvisionFeedbackAccessRetrying(ctx context.Context, u *user.User) (int64, error) {
+	// Every self-hosted or pre-rollout instance takes this path, so it is
+	// checked before opening a session at all rather than inside one.
+	if strings.TrimSpace(config.BraznFeedbackOwner.GetString()) == "" {
+		return 0, nil
+	}
+
+	var lastErr error
+	for attempt := 0; attempt < maxFeedbackProvisioningAttempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return 0, ctx.Err()
+			case <-time.After(feedbackProvisioningRetryDelay):
+			}
+		}
+		projectID, lostRace, err := provisionFeedbackAccessOnce(ctx, u)
+		if err == nil || !lostRace {
+			return projectID, err
+		}
+		lastErr = err
+	}
+	return 0, lastErr
+}
+
+// provisionFeedbackAccessOnce is one attempt at ProvisionFeedbackAccessRetrying,
+// reporting whether it lost a race a retry can recover from.
+func provisionFeedbackAccessOnce(ctx context.Context, u *user.User) (int64, bool, error) {
+	s := db.NewSession()
+	defer s.Close()
+	defer events.CleanupPending(s)
+
+	projectID, err := ProvisionFeedbackAccess(s, u)
+	if err != nil {
+		_ = s.Rollback()
+		if db.IsUniqueConstraintError(err, feedbackRootConstraint) ||
+			db.IsUniqueConstraintError(err, feedbackReporterConstraint) {
+			return 0, true, err
+		}
+		return 0, false, err
+	}
+
+	if err := s.Commit(); err != nil {
+		_ = s.Rollback()
+		return 0, false, err
+	}
+
+	events.DispatchPending(ctx, s)
+	return projectID, false, nil
+}
+
 // feedbackOwner resolves the Brazn account that owns Percy Feedback, or nil
 // when this instance has not been told about one.
 //
@@ -146,8 +263,22 @@ func ensureFeedbackProject(s *xorm.Session, owner *user.User) (int64, error) {
 		return existing.ProjectID, nil
 	}
 
+	// The claim is taken before the project it will name even exists - the
+	// same order CreateOrResolveUserForMailbox claims a mailbox before
+	// creating its user. A second concurrent caller that also read "no root
+	// yet" above collides on brazn_feedback_root's unique marker here, before
+	// creating anything it would have to undo.
+	claim := &FeedbackRootClaim{Marker: feedbackRootMarker}
+	if _, err := s.Insert(claim); err != nil {
+		return 0, err
+	}
+
 	project := &Project{Title: FeedbackProjectTitle}
 	if err := project.Create(s, owner); err != nil {
+		return 0, err
+	}
+	if _, err := s.ID(claim.ID).Cols("project_id").
+		Update(&FeedbackRootClaim{ProjectID: project.ID}); err != nil {
 		return 0, err
 	}
 	if err := RegisterProtectedProject(s, ProtectedKindFeedback, project.ID, 0); err != nil {
@@ -212,8 +343,21 @@ func ensureFeedbackSubProject(s *xorm.Session, rootID int64, owner, u *user.User
 			return existing.ID, nil
 		}
 
+		// Claimed before creation for the same reason ensureFeedbackProject's
+		// root claim is: a second concurrent call for this SAME reporter
+		// collides on brazn_feedback_reporters' unique user_id here, rather
+		// than both creating a sub-project.
+		claim := &FeedbackReporterClaim{UserID: u.ID}
+		if _, err := s.Insert(claim); err != nil {
+			return 0, err
+		}
+
 		sub := &Project{Title: FeedbackProjectTitle, ParentProjectID: Ptr(rootID)}
 		if err := sub.Create(s, owner); err != nil {
+			return 0, err
+		}
+		if _, err := s.ID(claim.ID).Cols("project_id").
+			Update(&FeedbackReporterClaim{ProjectID: sub.ID}); err != nil {
 			return 0, err
 		}
 		return sub.ID, nil
@@ -231,8 +375,17 @@ func ensureFeedbackSubProject(s *xorm.Session, rootID int64, owner, u *user.User
 		return existing.ID, nil
 	}
 
+	claim := &FeedbackReporterClaim{UserID: u.ID}
+	if _, err := s.Insert(claim); err != nil {
+		return 0, err
+	}
+
 	sub := &Project{Title: FeedbackProjectTitle, ParentProjectID: Ptr(rootID)}
 	if err := sub.Create(s, owner); err != nil {
+		return 0, err
+	}
+	if _, err := s.ID(claim.ID).Cols("project_id").
+		Update(&FeedbackReporterClaim{ProjectID: sub.ID}); err != nil {
 		return 0, err
 	}
 

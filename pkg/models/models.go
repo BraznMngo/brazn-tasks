@@ -75,6 +75,8 @@ func GetTables() []interface{} {
 		&ProtectedEntity{},
 		&EntitlementProjection{},
 		&ProvisionedUser{},
+		&FeedbackRootClaim{},
+		&FeedbackReporterClaim{},
 	}
 }
 
