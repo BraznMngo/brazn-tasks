@@ -182,9 +182,9 @@ func ensureFeedbackProject(s *xorm.Session, owner *user.User) (int64, error) {
 // membership and nothing else; sub.Create(s, owner) is what keeps ownership on
 // the Brazn account rather than the reporter creating it.
 //
-// SAME DISPLAY TITLE AS THE ROOT, deliberately, so a client that finds "the"
-// Percy Feedback project by title - the only way anything outside this
-// package has ever done so, since there is no dedicated lookup route -
+// SAME DISPLAY TITLE AS THE ROOT, deliberately, so a client still finding
+// "the" Percy Feedback project by title - the only way anything outside this
+// package did so before GET /brazn/feedback/project (BRA-1414) existed -
 // keeps working unmodified: every reporter's own sub-project is the one
 // project so named that they can see.
 //
