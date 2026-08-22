@@ -664,6 +664,14 @@ func registerAPIRoutes(a *echo.Group) {
 	// ordinary project-read check rather than by the managed-policy table.
 	a.GET("/brazn/projects/:project/public-root", apiv1.BraznGetProjectRoot)
 
+	// Resolves the caller's own Percy Feedback sub-project (BRA-1414), so a
+	// client can file into or list it without the fragile title-matching
+	// every other caller has relied on until now. Unclassified for the same
+	// reason as the two reads above - it provisions on first use, but only
+	// ever within the caller's own account, so it needs no managed-policy
+	// entry of its own.
+	a.GET("/brazn/feedback/project", apiv1.BraznGetFeedbackProject)
+
 	// Avatar endpoint
 	a.GET("/avatar/:username", apiv1.GetAvatar)
 
