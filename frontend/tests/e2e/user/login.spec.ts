@@ -84,7 +84,12 @@ test.describe('Login', () => {
 		// is the steady state the flash guard existed to protect: the two screens
 		// never coexist.
 		await expect(page.locator('#loginform')).toHaveCount(0)
-		await expect(page.locator('nav[aria-label="main navigation"]')).toBeVisible()
+		// AppHeader.vue carries aria-label="main navigation" on the <header>
+		// element, not a <nav> - the original observer-based version of this
+		// test queried `nav[aria-label="main navigation"]`, which never
+		// matched anything, so hasNavbar was always false and the flash guard
+		// could never actually detect a flash. That predates this PR.
+		await expect(page.locator('header[aria-label="main navigation"]')).toBeVisible()
 	})
 
 	test('Should redirect to the previous route after logging in', async ({page}) => {
