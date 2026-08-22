@@ -73,29 +73,23 @@ test.describe('Login', () => {
 
 	test('Should not show login form inside authenticated app shell after login', async ({page}) => {
 		await page.goto('/login')
-
-		// Set up a flag that tracks if login form and navbar are ever visible simultaneously
-		await page.evaluate(() => {
-			(window as any).__loginFormFlashDetected = false
-			const observer = new MutationObserver(() => {
-				const hasLoginForm = !!document.querySelector('#loginform')
-				const hasNavbar = !!document.querySelector('nav[aria-label="main navigation"]')
-				if (hasLoginForm && hasNavbar) {
-					(window as any).__loginFormFlashDetected = true
-				}
-			})
-			observer.observe(document.body, {childList: true, subtree: true, attributes: true})
-			;(window as any).__loginFormFlashObserver = observer
-		})
-
 		await login(page)
 
-		const flashDetected = await page.evaluate(() => {
-			(window as any).__loginFormFlashObserver.disconnect()
-			return (window as any).__loginFormFlashDetected
-		})
-
-		expect(flashDetected).toBe(false)
+		// A real navigation follows a successful login now (useRedirectToLastVisited.ts),
+		// not a client-side route change, so the browser discards the whole login
+		// document and boots a fresh one rather than mutating it in place. That
+		// makes the original failure mode - the login form and the authenticated
+		// navbar both present in one continuous DOM - impossible by construction,
+		// so there is no in-flight mutation left to observe. What's left to assert
+		// is the steady state the flash guard existed to protect: the two screens
+		// never coexist.
+		await expect(page.locator('#loginform')).toHaveCount(0)
+		// AppHeader.vue carries aria-label="main navigation" on the <header>
+		// element, not a <nav> - the original observer-based version of this
+		// test queried `nav[aria-label="main navigation"]`, which never
+		// matched anything, so hasNavbar was always false and the flash guard
+		// could never actually detect a flash. That predates this PR.
+		await expect(page.locator('header[aria-label="main navigation"]')).toBeVisible()
 	})
 
 	test('Should redirect to the previous route after logging in', async ({page}) => {
