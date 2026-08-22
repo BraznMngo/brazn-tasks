@@ -66,6 +66,7 @@ const router = createRouter({
 			component: Login,
 			meta: {
 				title: 'user.auth.login',
+				subtitle: 'user.auth.loginSubtitle',
 			},
 		},
 		{

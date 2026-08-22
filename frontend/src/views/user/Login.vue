@@ -18,19 +18,39 @@
 
 		<DesktopLogin v-if="isDesktop" />
 
-		<!--
-			The same two routes as registration, in the same order and at the
-			same weight: Google full width above the form, then the form.
-			Percy-Account-Path.md §4.
-		-->
+		<!-- Same order/weight as registration: Google full width above the form, then the form (Percy-Account-Path.md §4). -->
 		<template v-if="!isDesktop && hasOpenIdProviders">
 			<XButton
 				v-for="(p, k) in openidConnect.providers"
 				:key="k"
 				variant="secondary"
-				class="is-fullwidth mbe-2"
+				class="is-fullwidth mbe-2 oidc-button"
 				@click="redirectToProvider(p)"
 			>
+				<!-- Official 4-colour Google "G" (developers.google.com/identity/branding-guidelines) - XButton's `icon` prop only takes a single-colour FontAwesome glyph. -->
+				<svg
+					v-if="isGoogleProvider(p)"
+					class="oidc-icon"
+					viewBox="0 0 18 18"
+					aria-hidden="true"
+				>
+					<path
+						fill="#4285F4"
+						d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"
+					/>
+					<path
+						fill="#34A853"
+						d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"
+					/>
+					<path
+						fill="#FBBC05"
+						d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"
+					/>
+					<path
+						fill="#EA4335"
+						d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
+					/>
+				</svg>
 				{{ $t('user.auth.loginWith', {provider: p.name}) }}
 			</XButton>
 			<div
@@ -141,6 +161,7 @@ import FormField from '@/components/input/FormField.vue'
 import FormCheckbox from '@/components/input/FormCheckbox.vue'
 import ErrorSummary from '@/components/misc/ErrorSummary.vue'
 import type {IFieldError} from '@/types/IFieldError'
+import type {IProvider} from '@/types/IProvider'
 import DesktopLogin from '@/views/user/DesktopLogin.vue'
 
 import {getErrorText} from '@/message'
@@ -175,6 +196,10 @@ const ldapAuthEnabled = computed(() => configStore.auth.ldap.enabled)
 
 const openidConnect = computed(() => configStore.auth.openidConnect)
 const hasOpenIdProviders = computed(() => openidConnect.value.enabled && openidConnect.value.providers?.length > 0)
+
+function isGoogleProvider(provider: IProvider): boolean {
+	return provider.name.toLowerCase().includes('google')
+}
 
 const isLoading = computed(() => authStore.isLoading)
 const isDesktop = isDesktopApp()
@@ -373,5 +398,70 @@ async function submit() {
 	justify-content: center;
 	min-block-size: 2.75rem;
 	min-inline-size: 2.75rem;
+}
+
+// Inset "pressed into the surface" treatment; :deep() rather than a global
+// .input rule since the rest of the app's inputs haven't been measured against it.
+:deep(.input) {
+	border: 1px solid transparent;
+	border-radius: 14px;
+	background-color: var(--neumorphic-input-bg);
+	box-shadow:
+		inset 3px 3px 7px var(--neumorphic-shadow-dark),
+		inset -3px -3px 7px var(--neumorphic-shadow-light);
+
+	&:focus {
+		border-color: hsla(var(--primary-hsl), 0.4);
+		box-shadow:
+			inset 2px 2px 5px var(--neumorphic-shadow-dark),
+			inset -2px -2px 5px var(--neumorphic-shadow-light),
+			0 0 0 3px hsla(var(--primary-hsl), 0.12);
+	}
+}
+
+// The raised counterpart: buttons sit ABOVE the surface rather than pressed
+// into it, so their shadow is a normal (non-inset) soft pair instead.
+:deep(.button) {
+	border-radius: 14px;
+	text-transform: none;
+	font-weight: 600;
+	font-size: 0.95rem;
+}
+
+:deep(.button.is-primary) {
+	// A fixed gradient rather than the theme's --primary, in both modes: the
+	// mockup's button is a specific blue-to-violet regardless of light/dark,
+	// the same way .button's own --button-text-color is pinned white above
+	// rather than following the theme.
+	background: linear-gradient(135deg, #2563eb, #7c3aed);
+	box-shadow: 0 10px 24px hsla(255, 60%, 55%, 0.28);
+	border: 0;
+
+	&:hover {
+		background: linear-gradient(135deg, #2554d1, #6c2fd4);
+	}
+}
+
+.oidc-button.button.is-outlined {
+	background-color: var(--white);
+	border: 1px solid var(--grey-200);
+	box-shadow:
+		3px 3px 8px var(--neumorphic-shadow-dark),
+		-3px -3px 8px var(--neumorphic-shadow-light);
+	color: var(--grey-800);
+
+	&:hover {
+		border-color: var(--grey-300);
+		color: var(--grey-800);
+	}
+}
+
+.oidc-icon {
+	inline-size: 18px;
+	block-size: 18px;
+	flex: none;
+	// Vue strips the whitespace-only text node between this svg and the label
+	// that follows it, so the gap has to come from margin instead.
+	margin-inline-end: .5rem;
 }
 </style>
