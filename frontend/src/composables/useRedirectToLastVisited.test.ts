@@ -58,4 +58,26 @@ describe('useRedirectToLastVisited', () => {
 		expect(window.location.href).toBe('/resolved/task.detail')
 		expect(localStorage.getItem('lastVisited')).toBeNull()
 	})
+
+	// router.resolve() throws synchronously (unlike router.push()'s rejected
+	// promise) for a route name the current build no longer has. A saved route
+	// from before a deploy that renamed/removed it must not take down the
+	// sign-in it follows. Deleting the try/catch in redirectIfSaved() makes
+	// this fail with an uncaught exception instead of a fallback.
+	it('falls back to home when the saved route no longer resolves', () => {
+		localStorage.setItem('lastVisited', JSON.stringify({
+			name: 'a-route-removed-in-a-later-release',
+			params: {},
+			query: {},
+		}))
+		resolveMock.mockImplementationOnce(() => {
+			throw new Error('No match for {"name":"a-route-removed-in-a-later-release"}')
+		})
+
+		const {redirectIfSaved} = useRedirectToLastVisited()
+		redirectIfSaved()
+
+		expect(resolveMock).toHaveBeenLastCalledWith({name: 'home'})
+		expect(window.location.href).toBe('/resolved/home')
+	})
 })
