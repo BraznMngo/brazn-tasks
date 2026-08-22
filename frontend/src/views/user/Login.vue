@@ -18,11 +18,7 @@
 
 		<DesktopLogin v-if="isDesktop" />
 
-		<!--
-			The same two routes as registration, in the same order and at the
-			same weight: Google full width above the form, then the form.
-			Percy-Account-Path.md §4.
-		-->
+		<!-- Same order/weight as registration: Google full width above the form, then the form (Percy-Account-Path.md §4). -->
 		<template v-if="!isDesktop && hasOpenIdProviders">
 			<XButton
 				v-for="(p, k) in openidConnect.providers"
@@ -31,14 +27,7 @@
 				class="is-fullwidth mbe-2 oidc-button"
 				@click="redirectToProvider(p)"
 			>
-				<!--
-					The exact four-colour Google "G" (developers.google.com/identity/branding-guidelines),
-					not a generic icon-font glyph - XButton's `icon` prop takes a FontAwesome icon,
-					which has no multi-colour mark. `p.name` is whatever an administrator typed when
-					configuring the provider, not a fixed identifier, so this matches on substance
-					("this is Google") rather than an exact literal a differently-worded config would
-					miss. Any other OIDC provider (Azure AD, generic OIDC) falls back to plain text.
-				-->
+				<!-- Official 4-colour Google "G" (developers.google.com/identity/branding-guidelines) - XButton's `icon` prop only takes a single-colour FontAwesome glyph. -->
 				<svg
 					v-if="isGoogleProvider(p)"
 					class="oidc-icon"
@@ -411,18 +400,8 @@ async function submit() {
 	min-inline-size: 2.75rem;
 }
 
-// The soft, inset-shadow "pressed into the surface" treatment - the input
-// half of the neumorphic language NoAuthWrapper.vue introduces for the
-// no-auth screens. :deep() rather than a global .input rule, because the
-// rest of the app (task detail, settings) keeps its existing flat inputs;
-// nothing there has been measured against this heavier shadow.
-//
-// The --neumorphic-* custom properties are declared once on .no-auth-wrapper
-// (NoAuthWrapper.vue), light- and dark-mode both, and inherit down through
-// the DOM into this component's slot content regardless of the Vue component
-// boundary between them - so this file consumes them with a plain var()
-// rather than declaring its own (and its own dark-mode media queries) a
-// second time.
+// Inset "pressed into the surface" treatment; :deep() rather than a global
+// .input rule since the rest of the app's inputs haven't been measured against it.
 :deep(.input) {
 	border: 1px solid transparent;
 	border-radius: 14px;
@@ -481,5 +460,8 @@ async function submit() {
 	inline-size: 18px;
 	block-size: 18px;
 	flex: none;
+	// Vue strips the whitespace-only text node between this svg and the label
+	// that follows it, so the gap has to come from margin instead.
+	margin-inline-end: .5rem;
 }
 </style>

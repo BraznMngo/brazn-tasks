@@ -15,12 +15,7 @@
 				class="content"
 			>
 				<div>
-					<!--
-						Replaces the generic <Logo> (still "Brazn Tasks" branding
-						elsewhere in the app - out of scope here) with the ONE mark
-						for the no-auth screens only. Decorative icon: the name
-						beside it is the accessible text.
-					-->
+					<!-- Replaces <Logo> with the ONE mark on no-auth screens only; drops CUSTOM_LOGO_URL white-labeling here, unlike AppHeader/Navigation. Decorative icon, name beside it is the accessible text. -->
 					<div class="brand-header">
 						<span
 							class="brand-icon"
@@ -47,7 +42,7 @@
 									>
 										<stop
 											offset="0"
-											stop-color="#1d4ed8"
+											stop-color="#2563eb"
 										/>
 										<stop
 											offset="1"
@@ -117,9 +112,11 @@ import { isDesktopApp } from '@/helpers/desktopAuth'
 const props = withDefaults(
 	defineProps<{
 		showApiConfig?: boolean;
+		showSubtitle?: boolean;
 	}>(),
 	{
 		showApiConfig: false,
+		showSubtitle: true,
 	},
 )
 
@@ -135,31 +132,20 @@ const { t } = useI18n({ useScope: 'global' })
 const title = computed(() =>
 	route.meta?.title ? t(route.meta.title as string) : '',
 )
-// Same pattern as `title` above: read from route meta rather than a prop,
-// because App.vue renders this wrapper around a bare <RouterView> - no
-// individual view (Login.vue included) ever gets a chance to pass one in
-// directly. Empty for every no-auth screen that doesn't set one (register,
-// password reset), so only the login screen's copy actually changes.
+// Read from route meta rather than a prop, same as `title`: App.vue renders
+// this wrapper around a bare <RouterView>, so a view never gets to pass one
+// in directly. `showSubtitle` exists for Ready.vue, which renders this
+// wrapper's slot for an unrelated API-connectivity error without navigating
+// away from the current route, so route.meta's subtitle would otherwise leak
+// in underneath that error.
 const subtitle = computed(() =>
-	route.meta?.subtitle ? t(route.meta.subtitle as string) : '',
+	props.showSubtitle && route.meta?.subtitle ? t(route.meta.subtitle as string) : '',
 )
 useTitle(() => title.value)
 </script>
 
 <style lang="scss" scoped>
-// Neumorphism needs a background close in value to its own shadow colours,
-// or the "raised off the surface" illusion doesn't read - which means every
-// token here has to flip with the theme, not just go dark by inheriting
-// --scheme-main the way a flat design could. Defined once, on the outermost
-// element these two screens share, so Login.vue's :deep() rules and this
-// file's own can both consume them with a plain var() and nothing is
-// duplicated between the two dark-mode triggers below.
-//
-// The two blocks are byte-identical but for their selector, matching the
-// existing --shadow-* pattern in one.css/colors.scss: :root.dark is the
-// user's explicit choice and always wins; the prefers-color-scheme query is
-// the OS falling through when the user made no explicit choice at all
-// (:not(.light) is what stops an explicit light choice losing to a dark OS).
+// Neumorphic shadows need a background close in value to their own colour, so these tokens (consumed via var() from Login.vue's :deep() rules too) flip per-theme like --shadow-* does, rather than just inheriting --scheme-main.
 .no-auth-wrapper {
 	--neumorphic-surface: linear-gradient(160deg, hsl(220, 24%, 97%), hsl(230, 30%, 95%));
 	--neumorphic-shadow-dark: hsla(228, 25%, 68%, 0.28);
