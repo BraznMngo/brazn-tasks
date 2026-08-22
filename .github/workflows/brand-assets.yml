@@ -39,9 +39,9 @@ concurrency:
 env:
   SOURCE: docs/brand/one-wordmark-source.png
   DERIVED: pkg/notifications/logo.png
-  # Final width. mailTemplateHTML renders the image at width:414px, so this
+  # Final width. mailTemplateHTML renders the image at width:207px, so this
   # is 2x for high-density displays (BRA-1374).
-  TARGET_WIDTH: 828
+  TARGET_WIDTH: 414
   # BRA-830's acceptance criterion is that notification mail reaches a
   # mainstream inbox rather than a spam folder, and this file is attached to
   # every one of them. Upstream's logo was 7 KB.
@@ -124,8 +124,8 @@ jobs:
             echo "::error::derived logo is ${WIDTH}px wide, expected ${TARGET_WIDTH}px"
             exit 1
           fi
-          # The mark is three units wide to two tall (BRA-1374): at 414px
-          # wide it stands 276px tall, so at TARGET_WIDTH (2x, for
+          # The mark is three units wide to two tall (BRA-1374): at 207px
+          # wide it stands 138px tall, so at TARGET_WIDTH (2x, for
           # high-density screens) it must stand at TARGET_WIDTH*2/3. This is
           # the exact regression a `-trim` step once introduced silently --
           # 276x99 shipped instead of 276x184 at the original 138px display

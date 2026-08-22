@@ -126,7 +126,7 @@ const mailTemplateHTML = `
         <table class="shell" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
           <tr>
             <td align="center" style="padding:0 0 23px;">
-              <img src="cid:logo.png" width="414" alt="ONE" style="width:414px; max-width:414px; height:auto;">
+              <img src="cid:logo.png" width="207" alt="ONE" style="width:207px; max-width:207px; height:auto;">
             </td>
           </tr>
           <tr>
