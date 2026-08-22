@@ -27,16 +27,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The GET /brazn/feedback/project read model (BRA-1414), observed over real
-// HTTP through the real route table - the same way BRA-1343's public-root
-// read model is in brazn_project_topology_test.go.
+// The GET /api/v2/brazn/feedback/project read model (BRA-1414), observed
+// over real HTTP through the real route table - the same way BRA-1343's
+// public-root read model is in brazn_project_topology_test.go.
 //
 // Before this route existed, the only way anything outside pkg/models found
 // this project was its title, which is unique per reporter today but is not
 // a contract. These tests are about what the route itself answers, not about
 // what a client draws from it.
 
-const feedbackProjectPath = "/api/v1/brazn/feedback/project"
+const feedbackProjectPath = "/api/v2/brazn/feedback/project"
 
 type feedbackProjectResponse struct {
 	ProjectID *int64 `json:"project_id"`
@@ -45,7 +45,9 @@ type feedbackProjectResponse struct {
 // TestFeedbackProjectRouteMatchesProvisioning pins the route to the same
 // answer the product's own provisioning gives: calling it must not create a
 // second sub-project alongside the one ProvisionFeedbackAccess already made,
-// and must not hand one reporter another reporter's.
+// and must not hand one reporter another reporter's - and it doubles as the
+// "provisions on first use" case, since neither reporter here has been
+// provisioned by anything other than the call under test.
 func TestFeedbackProjectRouteMatchesProvisioning(t *testing.T) {
 	env, _ := newTeamsEnv(t)
 	setConfigForTest(t, config.BraznFeedbackOwner, feedbackOwnerUsername)
@@ -71,22 +73,6 @@ func TestFeedbackProjectRouteMatchesProvisioning(t *testing.T) {
 		"two reporters must resolve to two different projects, or there is nothing here to isolate")
 }
 
-// TestFeedbackProjectRouteProvisionsOnFirstUse covers the account created
-// before brazn.feedbackowner was configured: the route must not merely read
-// an existing sub-project, it must make one, the same way registering an
-// account would have.
-func TestFeedbackProjectRouteProvisionsOnFirstUse(t *testing.T) {
-	env := newFeedbackEnv(t)
-
-	rec := env.request(http.MethodGet, feedbackProjectPath, "", &testuser1)
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-
-	body := feedbackProjectResponse{}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	require.NotNil(t, body.ProjectID)
-	assert.NotZero(t, *body.ProjectID)
-}
-
 // TestFeedbackProjectRouteIsIdempotent is the property the whole endpoint
 // exists to give a client: calling it repeatedly must keep answering with the
 // same project, never growing a second one.
@@ -97,14 +83,14 @@ func TestFeedbackProjectRouteIsIdempotent(t *testing.T) {
 	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
 	firstBody := feedbackProjectResponse{}
 	require.NoError(t, json.Unmarshal(first.Body.Bytes(), &firstBody))
+	require.NotNil(t, firstBody.ProjectID)
 
 	second := env.request(http.MethodGet, feedbackProjectPath, "", &testuser1)
 	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
 	secondBody := feedbackProjectResponse{}
 	require.NoError(t, json.Unmarshal(second.Body.Bytes(), &secondBody))
-
-	require.NotNil(t, firstBody.ProjectID)
 	require.NotNil(t, secondBody.ProjectID)
+
 	assert.Equal(t, *firstBody.ProjectID, *secondBody.ProjectID)
 }
 
@@ -133,4 +119,24 @@ func TestFeedbackProjectRouteAnswersNullWithoutAResolvableOwner(t *testing.T) {
 			assert.Nil(t, body.ProjectID)
 		})
 	}
+}
+
+// TestFeedbackProjectRouteAnswersNullOutsideManagedMode pins the same
+// self-hosted-stays-untouched guarantee CreateNewProjectForUser gives at
+// registration (pkg/models/project.go): an operator who has configured
+// brazn.feedbackowner but never turned managed mode on must not have this
+// route provision Percy Feedback behind their back.
+func TestFeedbackProjectRouteAnswersNullOutsideManagedMode(t *testing.T) {
+	env := newFeedbackEnv(t)
+	setConfigForTest(t, config.BraznManagedMode, false)
+
+	before := len(projectMemberships(t, testuser1.ID))
+
+	rec := env.request(http.MethodGet, feedbackProjectPath, "", &testuser1)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	body := feedbackProjectResponse{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Nil(t, body.ProjectID)
+	assert.Len(t, projectMemberships(t, testuser1.ID), before, "an unmanaged instance must provision nothing")
 }
