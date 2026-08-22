@@ -9,10 +9,18 @@ name: Notify Percy Vikunja deploy
 #
 #   the secret PERCY_DISPATCH_TOKEN is stored HERE, in BraznMngo/brazn-tasks,
 #     because this is where the workflow that presents it runs;
-#   its repository access must be BraznMngo/PERCY — Contents: read and write —
-#     because Percy is the repository the API call below writes to.
+#   its repository access must be BraznMngo/one-apps (GitHub repo ID 1308207999,
+#     named BraznMngo/Percy until it was renamed) — Contents: read and write —
+#     because that's the repository the API call below writes to.
 #
 # A classic token with `repo` works too and has no resource owner to get wrong.
+#
+# The dispatch call below targets the numeric repository ID rather than
+# `repos/BraznMngo/one-apps`, on purpose: a GitHub repo rename leaves the old
+# name working for GET requests via a redirect, but `gh api` does not follow
+# redirects for POST, so every dispatch 307'd and failed silently from the
+# moment this repo was renamed until this line was changed. The numeric ID is
+# stable across any future rename, this one included.
 #
 # Carried forward from `main` by BRA-774 and retargeted: `brazn/main` is now the
 # controlled baseline and the default branch, so `main` no longer represents this
@@ -43,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${GH_TOKEN}" ]]; then
-            echo "Missing fork secret PERCY_DISPATCH_TOKEN (PAT that can dispatch to BraznMngo/Percy)." >&2
+            echo "Missing fork secret PERCY_DISPATCH_TOKEN (PAT that can dispatch to BraznMngo/one-apps, née Percy)." >&2
             exit 1
           fi
           if [[ ! "${GITHUB_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
@@ -62,11 +70,15 @@ jobs:
           # which is what it was mistaken for. Verified before the fix: a token
           # that returns `BraznMngo/Percy` from `gh api repos/BraznMngo/Percy`
           # still gets 404 from a GET on this path.
+          #
+          # See the top-of-file comment for why this targets `repositories/1308207999`
+          # rather than a repo name: BraznMngo/Percy was renamed to BraznMngo/one-apps,
+          # and `gh api` doesn't follow the resulting redirect for a POST.
           jq -n \
             --arg sha "${GITHUB_SHA}" \
             --arg ref "${GITHUB_REF}" \
             '{
               event_type: "vikunja-source-updated",
               client_payload: {sha: $sha, ref: $ref}
-            }' | gh api --method POST repos/BraznMngo/Percy/dispatches --input -
+            }' | gh api --method POST repositories/1308207999/dispatches --input -
           echo "Dispatched Percy redeploy for ${GITHUB_SHA}"
