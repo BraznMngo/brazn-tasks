@@ -22,6 +22,7 @@ import (
 
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/events"
+	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/user"
 
 	"xorm.io/xorm"
@@ -83,13 +84,25 @@ var ErrProvisioningSubjectUnknown = errors.New("the provisioning request names a
 // BRA-1021's to settle deliberately, and adopting whatever project they happen
 // to point default_project_id at would be a guess this cannot check.
 func ProvisionPersonalInbox(ctx context.Context, subject string) error {
-	return provisionInTransaction(ctx, func(s *xorm.Session) error {
+	var provisioned *user.User
+	err := provisionInTransaction(ctx, func(s *xorm.Session) error {
 		u, err := provisioningSubject(s, subject)
 		if err != nil {
 			return err
 		}
+		provisioned = u
 		return ensurePersonalInbox(s, u)
 	})
+	if err != nil {
+		return err
+	}
+
+	// Independent of the Inbox above, deliberately not the same transaction: Percy Feedback is optional, so a failure provisioning it must never undo, or be blamed on, an Inbox this call already gave the customer.
+	if _, err := ProvisionFeedbackAccessRetrying(ctx, provisioned); err != nil {
+		log.Errorf("could not provision Percy Feedback for user %d after provisioning their Inbox: %s",
+			provisioned.ID, err)
+	}
+	return nil
 }
 
 // ProvisionTeamRoots creates a commercial team's topology - the team, its Team

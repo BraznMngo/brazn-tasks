@@ -21,7 +21,6 @@ import (
 	"net/http"
 
 	"code.vikunja.io/api/pkg/config"
-	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/user"
 
@@ -80,6 +79,13 @@ func RegisterFeedbackProjectRoutes(api huma.API) {
 // configured after they registered), not a new capability. It is therefore
 // exempt from BRA-1087's write-restriction gate for the same reason
 // provisioning at signup already was.
+//
+// USES ProvisionFeedbackAccessRetrying, NOT ProvisionFeedbackAccess DIRECTLY,
+// because this route - unlike the registration-time call - is expected to be
+// asked for the same account's feedback project more than once, including
+// concurrently (two devices, a client retry): see that function's own
+// comment for why a plain check-then-insert is not safe for a caller with
+// that shape.
 func feedbackProject(ctx context.Context, _ *struct{}) (*feedbackProjectBody, error) {
 	if !config.BraznManagedMode.GetBool() {
 		out := &feedbackProjectBody{}
@@ -95,15 +101,8 @@ func feedbackProject(ctx context.Context, _ *struct{}) (*feedbackProjectBody, er
 		return nil, huma.Error403Forbidden("Percy Feedback is available to accounts, not to link shares.")
 	}
 
-	s := db.NewSession()
-	defer s.Close()
-
-	projectID, err := models.ProvisionFeedbackAccess(s, u)
+	projectID, err := models.ProvisionFeedbackAccessRetrying(ctx, u)
 	if err != nil {
-		_ = s.Rollback()
-		return nil, translateDomainError(err)
-	}
-	if err := s.Commit(); err != nil {
 		return nil, translateDomainError(err)
 	}
 
