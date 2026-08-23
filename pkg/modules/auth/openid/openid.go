@@ -679,6 +679,25 @@ func decideManagedFallbackMatch(matched bool) error {
 	return nil
 }
 
+// TEMPORARY DIAGNOSTIC — decideManagedFallbackMatchDiag wraps
+// decideManagedFallbackMatch and, only when it is about to refuse, appends the
+// stored vs. looked-up issuer/subject so the refusal itself carries the data
+// needed to see why the issuer+subject lookup didn't match an account that
+// should already be non-local. Revert this and go back to calling
+// decideManagedFallbackMatch directly once the mismatch is understood.
+func decideManagedFallbackMatchDiag(matched bool, fallbackUser *user.User, idToken *oidc.IDToken) error {
+	err := decideManagedFallbackMatch(matched)
+	if err == nil || fallbackUser == nil {
+		return err
+	}
+	return echo.NewHTTPError(http.StatusForbidden, fmt.Sprintf(
+		"%s [DIAG stored issuer=%q subject=%q vs looked-up issuer=%q subject=%q]",
+		err.(*echo.HTTPError).Message, //nolint:errorlint
+		fallbackUser.Issuer, fallbackUser.Subject,
+		idToken.Issuer, idToken.Subject,
+	))
+}
+
 // decideManagedSignUp answers whether this callback may create a user at all.
 // It returns nil on a self-hosted instance, where none of this applies.
 //
@@ -775,7 +794,7 @@ func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider 
 			}
 		}
 
-		if err := decideManagedFallbackMatch(fallbackMatchFound); err != nil {
+		if err := decideManagedFallbackMatchDiag(fallbackMatchFound, u, idToken); err != nil {
 			return nil, err
 		}
 	}
