@@ -680,21 +680,30 @@ func decideManagedFallbackMatch(matched bool) error {
 }
 
 // TEMPORARY DIAGNOSTIC — decideManagedFallbackMatchDiag wraps
-// decideManagedFallbackMatch and, only when it is about to refuse, appends the
-// stored vs. looked-up issuer/subject so the refusal itself carries the data
-// needed to see why the issuer+subject lookup didn't match an account that
-// should already be non-local. Revert this and go back to calling
-// decideManagedFallbackMatch directly once the mismatch is understood.
-func decideManagedFallbackMatchDiag(matched bool, fallbackUser *user.User, idToken *oidc.IDToken) error {
+// decideManagedFallbackMatch and, only when it is about to refuse, appends
+// both (a) the fallback-matched account's stored issuer/subject/id/email and
+// (b) whatever the DIRECT issuer+subject lookup found, if anything, and its
+// id/email — so a duplicate-email-across-accounts case (fallback matches a
+// DIFFERENT row than the one actually switched) is visible, not just assumed.
+// Revert this and go back to calling decideManagedFallbackMatch directly once
+// the mismatch is understood.
+func decideManagedFallbackMatchDiag(matched bool, fallbackUser *user.User, idToken *oidc.IDToken, issuerLookupUser *user.User, issuerLookupErr error) error {
 	err := decideManagedFallbackMatch(matched)
 	if err == nil || fallbackUser == nil {
 		return err
 	}
+	issuerLookupFound := "not found"
+	if issuerLookupErr == nil {
+		issuerLookupFound = fmt.Sprintf("id=%d email=%q issuer=%q subject=%q",
+			issuerLookupUser.ID, issuerLookupUser.Email, issuerLookupUser.Issuer, issuerLookupUser.Subject)
+	} else if user.IsErrUserStatusError(issuerLookupErr) {
+		issuerLookupFound = fmt.Sprintf("id=%d (status error: %v)", issuerLookupUser.ID, issuerLookupErr)
+	}
 	return echo.NewHTTPError(http.StatusForbidden, fmt.Sprintf(
-		"%s [DIAG stored issuer=%q subject=%q vs looked-up issuer=%q subject=%q]",
+		"%s [DIAG fallback-matched id=%d email=%q issuer=%q subject=%q | direct issuer+subject lookup for issuer=%q subject=%q: %s]",
 		err.(*echo.HTTPError).Message, //nolint:errorlint
-		fallbackUser.Issuer, fallbackUser.Subject,
-		idToken.Issuer, idToken.Subject,
+		fallbackUser.ID, fallbackUser.Email, fallbackUser.Issuer, fallbackUser.Subject,
+		idToken.Issuer, idToken.Subject, issuerLookupFound,
 	))
 }
 
@@ -768,6 +777,9 @@ func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider 
 		return nil, err
 	}
 	alreadyCreatedFromIssuer = err == nil || user.IsErrUserStatusError(err)
+	// TEMPORARY DIAGNOSTIC — captured before u is reassigned in the fallback
+	// loop below; see decideManagedFallbackMatchDiag.
+	issuerLookupUser, issuerLookupErr := u, err
 
 	// If the user exists but is disabled/locked, return early — don't update their profile or sync avatar.
 	// HandleCallback will reject the auth attempt.
@@ -794,7 +806,7 @@ func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider 
 			}
 		}
 
-		if err := decideManagedFallbackMatchDiag(fallbackMatchFound, u, idToken); err != nil {
+		if err := decideManagedFallbackMatchDiag(fallbackMatchFound, u, idToken, issuerLookupUser, issuerLookupErr); err != nil {
 			return nil, err
 		}
 	}
