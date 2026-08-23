@@ -352,7 +352,19 @@ func LinkCallback(ctx context.Context, cb *Callback, providerKey string, current
 	defer s.Close()
 	defer events.CleanupPending(s)
 
-	if _, err := linkIdentity(s, cl, idToken, currentUser); err != nil { //nolint:contextcheck // avatar sync inside linkIdentity runs on its own background context, same as AuthenticateCallback's.
+	// currentUser comes from the caller's JWT via user.GetFromAuth, which —
+	// user.GetUserFromClaims — only ever populates ID, Username and IsAdmin
+	// from the token. Every other field, Issuer included, is left at its Go
+	// zero value (""). IsLocalUser() compares Issuer to "local", so trusting
+	// that object here would refuse every account, local or not, before ever
+	// reaching the real check: "" never equals "local". Re-fetch by ID for the
+	// one field this function actually depends on.
+	fullUser, err := user.GetUserByID(s, currentUser.ID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := linkIdentity(s, cl, idToken, fullUser); err != nil { //nolint:contextcheck // avatar sync inside linkIdentity runs on its own background context, same as AuthenticateCallback's.
 		return err
 	}
 
@@ -679,34 +691,6 @@ func decideManagedFallbackMatch(matched bool) error {
 	return nil
 }
 
-// TEMPORARY DIAGNOSTIC — decideManagedFallbackMatchDiag wraps
-// decideManagedFallbackMatch and, only when it is about to refuse, appends
-// both (a) the fallback-matched account's stored issuer/subject/id/email and
-// (b) whatever the DIRECT issuer+subject lookup found, if anything, and its
-// id/email — so a duplicate-email-across-accounts case (fallback matches a
-// DIFFERENT row than the one actually switched) is visible, not just assumed.
-// Revert this and go back to calling decideManagedFallbackMatch directly once
-// the mismatch is understood.
-func decideManagedFallbackMatchDiag(matched bool, fallbackUser *user.User, idToken *oidc.IDToken, issuerLookupUser *user.User, issuerLookupErr error) error {
-	err := decideManagedFallbackMatch(matched)
-	if err == nil || fallbackUser == nil {
-		return err
-	}
-	issuerLookupFound := "not found"
-	if issuerLookupErr == nil {
-		issuerLookupFound = fmt.Sprintf("id=%d email=%q issuer=%q subject=%q",
-			issuerLookupUser.ID, issuerLookupUser.Email, issuerLookupUser.Issuer, issuerLookupUser.Subject)
-	} else if user.IsErrUserStatusError(issuerLookupErr) {
-		issuerLookupFound = fmt.Sprintf("id=%d (status error: %v)", issuerLookupUser.ID, issuerLookupErr)
-	}
-	return echo.NewHTTPError(http.StatusForbidden, fmt.Sprintf(
-		"%s [DIAG fallback-matched id=%d email=%q issuer=%q subject=%q | direct issuer+subject lookup for issuer=%q subject=%q: %s]",
-		err.(*echo.HTTPError).Message, //nolint:errorlint
-		fallbackUser.ID, fallbackUser.Email, fallbackUser.Issuer, fallbackUser.Subject,
-		idToken.Issuer, idToken.Subject, issuerLookupFound,
-	))
-}
-
 // decideManagedSignUp answers whether this callback may create a user at all.
 // It returns nil on a self-hosted instance, where none of this applies.
 //
@@ -777,9 +761,6 @@ func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider 
 		return nil, err
 	}
 	alreadyCreatedFromIssuer = err == nil || user.IsErrUserStatusError(err)
-	// TEMPORARY DIAGNOSTIC — captured before u is reassigned in the fallback
-	// loop below; see decideManagedFallbackMatchDiag.
-	issuerLookupUser, issuerLookupErr := u, err
 
 	// If the user exists but is disabled/locked, return early — don't update their profile or sync avatar.
 	// HandleCallback will reject the auth attempt.
@@ -806,7 +787,7 @@ func getOrCreateUser(ctx context.Context, s *xorm.Session, cl *claims, provider 
 			}
 		}
 
-		if err := decideManagedFallbackMatchDiag(fallbackMatchFound, u, idToken, issuerLookupUser, issuerLookupErr); err != nil {
+		if err := decideManagedFallbackMatch(fallbackMatchFound); err != nil {
 			return nil, err
 		}
 	}
