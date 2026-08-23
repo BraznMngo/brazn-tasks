@@ -105,9 +105,9 @@ function findProvider(providerKey: string): IProvider | undefined {
  * BYTE. Separate bundles, no shared constant, no test that would catch a
  * drift — grep that file before renaming any of these here.
  */
-const LINK_STATE_KEY = 'one.settings.oidcLinkState'
-const LINK_PROVIDER_KEY = 'one.settings.oidcLinkProvider'
-const LINK_RETURN_KEY = 'one.settings.oidcLinkReturnTo'
+const LINK_STATE_KEY = 'one-settings-oidc-link-state'
+const LINK_PROVIDER_KEY = 'one-settings-oidc-link-provider'
+const LINK_RETURN_KEY = 'one-settings-oidc-link-return-to'
 
 function readLinkRequest(): {state: string, provider: string} | null {
 	const state = sessionStorage.getItem(LINK_STATE_KEY)

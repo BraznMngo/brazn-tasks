@@ -352,7 +352,7 @@ func LinkCallback(ctx context.Context, cb *Callback, providerKey string, current
 	defer s.Close()
 	defer events.CleanupPending(s)
 
-	if _, err := linkIdentity(s, cl, idToken, currentUser); err != nil {
+	if _, err := linkIdentity(s, cl, idToken, currentUser); err != nil { //nolint:contextcheck // avatar sync inside linkIdentity runs on its own background context, same as AuthenticateCallback's.
 		return err
 	}
 

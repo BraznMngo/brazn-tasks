@@ -557,9 +557,13 @@ function connectedAccountsCard() {
  * validate step on the read side, where a malformed value must fail closed
  * (see readLinkRequest in OpenIdAuth.vue) rather than throw mid-parse.
  */
-const OIDC_LINK_STATE_KEY = 'one.settings.oidcLinkState';
-const OIDC_LINK_PROVIDER_KEY = 'one.settings.oidcLinkProvider';
-const OIDC_LINK_RETURN_KEY = 'one.settings.oidcLinkReturnTo';
+// Hyphenated, not dotted: any quoted string under this directory that looks
+// like a dotted one-namespace path reads as an i18n key to the "Fork guards"
+// CI check and gets checked against en.json, which is exactly wrong for a
+// sessionStorage key that no translation call ever resolves.
+const OIDC_LINK_STATE_KEY = 'one-settings-oidc-link-state';
+const OIDC_LINK_PROVIDER_KEY = 'one-settings-oidc-link-provider';
+const OIDC_LINK_RETURN_KEY = 'one-settings-oidc-link-return-to';
 
 /**
  * The one-shot flash message for a completed (or failed) Google connect.
