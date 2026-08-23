@@ -58,7 +58,7 @@ import {getErrorText} from '@/message'
 import Message from '@/components/misc/Message.vue'
 import FormField from '@/components/input/FormField.vue'
 import {useRedirectToLastVisited} from '@/composables/useRedirectToLastVisited'
-import {redirectToProvider} from '@/helpers/redirectToProvider'
+import {redirectToProvider, getRedirectUrlFromCurrentFrontendPath} from '@/helpers/redirectToProvider'
 import {refreshToken} from '@/helpers/auth'
 import {AuthenticatedHTTPFactory, apiV2Url} from '@/helpers/fetcher'
 
@@ -173,10 +173,27 @@ async function authenticateAsLink(providerKey: string) {
 		return
 	}
 
+	// exchangeOidcTokens (pkg/modules/auth/openid/openid.go) sets the provider's
+	// OAuth2 redirect_url from THIS field before exchanging the code — Google
+	// refuses the exchange if it doesn't match what redirectToProvider() sent
+	// when starting the flow. authStore.openIdAuth() recomputes and sends this
+	// same value for an ordinary sign-in (frontend/src/stores/auth.ts); this
+	// call needs its own copy for exactly the same reason, or the exchange
+	// 400s with "Could not authenticate against third party" no matter how
+	// valid the code is.
+	const provider = findProvider(providerKey)
+	if (!provider) {
+		finishLink(t('user.auth.openIdGeneralError'))
+		return
+	}
+
 	try {
 		await AuthenticatedHTTPFactory().post(
 			apiV2Url(`user/settings/connect/openid/${encodeURIComponent(providerKey)}`),
-			{code: route.query.code as string},
+			{
+				code: route.query.code as string,
+				redirect_url: getRedirectUrlFromCurrentFrontendPath(provider),
+			},
 		)
 		finishLink(null)
 	} catch (e) {
