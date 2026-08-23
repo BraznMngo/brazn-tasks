@@ -259,6 +259,11 @@ export function downloadExport(password: string): Promise<Blob>
 export function requestAccountDeletion(password: string): Promise<any>
 export function cancelAccountDeletion(password: string): Promise<any>
 export function getInfo(): Promise<any>
+export function forkAppUrl(path: string): string
+export function buildOpenIdAuthorizeUrl(
+  provider: {key: string, auth_url: string, client_id: string, scope: string},
+  state: string,
+): string
 
 /* --- fork: task --------------------------------------------------- */
 

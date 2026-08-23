@@ -415,6 +415,7 @@
     { "method": "PUT", "path": "/api/v2/user/settings/avatar", "class": "ordinary" },
     { "method": "PATCH", "path": "/api/v2/user/settings/avatar/provider", "class": "ordinary" },
     { "method": "PUT", "path": "/api/v2/user/settings/avatar/provider", "class": "ordinary" },
+    { "method": "POST", "path": "/api/v2/user/settings/connect/openid/:provider", "class": "ordinary", "write": "credentials" },
     { "method": "PUT", "path": "/api/v2/user/settings/email", "class": "ordinary", "write": "credentials" },
     { "method": "PUT", "path": "/api/v2/user/settings/general", "class": "ordinary" },
     { "method": "POST", "path": "/api/v2/user/settings/token/caldav", "class": "ordinary", "managed": "disabled" },

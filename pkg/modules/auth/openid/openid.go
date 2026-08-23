@@ -308,6 +308,131 @@ func AuthenticateCallback(ctx context.Context, cb *Callback, providerKey string)
 	return u, oidcData, nil
 }
 
+// LinkCallback verifies a Google OIDC callback and SWITCHES the CURRENT,
+// already-authenticated user from local (password) sign-in to this Google
+// identity — the missing half of the promise errManagedUsePassword makes:
+// "you can add Google to your account afterwards."
+//
+// "ADD" IS NOT WHAT THIS DOES, AND THAT IS DELIBERATE, NOT A SHORTCUT. This
+// schema has one Issuer/Subject slot per account, and IsLocalUser() —
+// CheckUserCredentials's own gate on password login — reads that same slot.
+// There is no second, non-primary identity a user can hold alongside their
+// password here; building one would need a real schema change (a separate
+// linked-identity table, plus teaching getOrCreateUser's resolver to read
+// it), which is real, larger work than this call makes. So this is a one-way
+// migration off passwords, not a second sign-in method layered on top of
+// one, and every caller of it — the settings-page copy, the confirmation
+// step, the success message — must say so, not "connect" or "add" as if
+// both kept working.
+//
+// linkIdentity refuses outright unless currentUser.IsLocalUser() for exactly
+// this reason: an account already on Google switching to a DIFFERENT Google
+// identity has no password left to fall back to if that turns out to be a
+// mistake, and this ticket exists to give customers a way OFF password
+// lock-in, not a way to self-lock-out of the identity they already use.
+//
+// Unlike AuthenticateCallback, this never looks up or creates an account:
+// currentUser is already known from the caller's own session, and this only
+// ever writes Issuer/Subject (and avatar sync) onto that one row. It
+// deliberately does NOT touch Email or Name from the provider's claims — an
+// unverified or mismatched claim has no business overwriting a field on an
+// account it did not create.
+func LinkCallback(ctx context.Context, cb *Callback, providerKey string, currentUser *user.User) error {
+	provider, oauthToken, idToken, _, err := exchangeOidcTokens(cb, providerKey) //nolint:contextcheck
+	if err != nil {
+		return err
+	}
+
+	cl, err := getClaims(provider, oauthToken, idToken) //nolint:contextcheck
+	if err != nil {
+		return err
+	}
+
+	s := db.NewSession()
+	defer s.Close()
+	defer events.CleanupPending(s)
+
+	if _, err := linkIdentity(s, cl, idToken, currentUser); err != nil {
+		return err
+	}
+
+	if err := s.Commit(); err != nil {
+		_ = s.Rollback()
+		return err
+	}
+
+	events.DispatchPending(ctx, s)
+
+	return nil
+}
+
+// linkIdentity is LinkCallback's pure logic, split out the same way
+// AuthenticateCallback separates its own transport (token exchange, session
+// lifecycle) from getOrCreateUser's account logic — this half takes already-
+// resolved claims and an ID token, so it is unit-testable without a real or
+// mocked OIDC round trip.
+func linkIdentity(s *xorm.Session, cl *claims, idToken *oidc.IDToken, currentUser *user.User) (*user.User, error) {
+	// Only a local (password) account may make this one-way switch. An
+	// account already on Google doing this again would be trading its one
+	// working identity for a different one with no password left to fall
+	// back to — see LinkCallback's own comment for why this is a switch and
+	// not an addition in the first place.
+	if !currentUser.IsLocalUser() {
+		return nil, errAlreadyUsesProvider()
+	}
+
+	// Same principle fallbackSearchUsers applies when matching an existing
+	// account (GHSA-xv7q-fvmc-jx96): an unverified claim proves nothing, so it
+	// is never trusted to attach a new identity either.
+	if !bool(cl.EmailVerified) {
+		return nil, errManagedUnverifiedAddress()
+	}
+
+	// Refuse rather than reassign: this Google identity may already be
+	// somebody else's account. getOrCreateUser's own issuer+subject lookup
+	// only ever REUSES whatever it finds there — correct for a sign-in, wrong
+	// here, where a match against a DIFFERENT account is exactly the takeover
+	// this function exists to refuse, not something to silently paper over.
+	existing, err := user.GetUserWithEmail(s, &user.User{Issuer: idToken.Issuer, Subject: idToken.Subject})
+	if err != nil && !user.IsErrUserDoesNotExist(err) && !user.IsErrUserStatusError(err) {
+		return nil, err
+	}
+	found := err == nil || user.IsErrUserStatusError(err)
+	if found && existing.ID != currentUser.ID {
+		return nil, errIdentityAlreadyLinked()
+	}
+
+	// A narrow, targeted update — not user.UpdateUser, whose column allowlist
+	// (baseUserUpdateColumns) never includes issuer/subject at all: that
+	// function exists for a signed-in user's own profile/settings edits,
+	// where those two columns are never meant to move. Mirrors SetUserStatus
+	// immediately below in pkg/user/user.go, the same narrow-Cols() shape for
+	// the same reason: touch exactly the columns this action means to change.
+	// THIS IS THE SWITCH: once this commits, IsLocalUser() is false and
+	// CheckUserCredentials refuses this account's password — deliberately,
+	// per this function's own doc comment, not a defect to guard against.
+	if _, err := s.ID(currentUser.ID).Cols("issuer", "subject").Update(&user.User{
+		Issuer:  idToken.Issuer,
+		Subject: idToken.Subject,
+	}); err != nil {
+		return nil, err
+	}
+	// No re-fetch: only Issuer/Subject moved, and both are already known —
+	// mutate the in-memory copy the same way getOrCreateUser's own avatar-sync
+	// call and SetUserStatus's callers do, rather than spend a SELECT to learn
+	// values this function just wrote itself.
+	currentUser.Issuer = idToken.Issuer
+	currentUser.Subject = idToken.Subject
+
+	// nolint:contextcheck — same as AuthenticateCallback's own avatar sync:
+	// deliberately on its own background context, unchanged by this ticket.
+	if err := syncUserAvatarFromOpenID(s, currentUser, cl.Picture); err != nil { //nolint:contextcheck
+		log.Errorf("Error syncing avatar for user %s: %v", currentUser.Username, err)
+	}
+
+	return currentUser, nil
+}
+
 func getTeamDataFromToken(groups []map[string]interface{}, provider *Provider) (teamData []*models.Team) {
 	teamData = []*models.Team{}
 	for _, t := range groups {
@@ -490,6 +615,27 @@ func errManagedUsePassword() error {
 func errManagedUnverifiedAddress() error {
 	return echo.NewHTTPError(http.StatusForbidden,
 		"This provider did not confirm your email address, so an account cannot be created from it. Register with an email address and a password instead.")
+}
+
+// errIdentityAlreadyLinked is what LinkCallback answers when the Google
+// identity being attached already belongs to a different account.
+//
+// A 409, not the 403 errManagedUsePassword uses: the credentials this caller
+// presented (their own session) are fine, and presenting them again would not
+// change the answer — the conflict is with a different account's existing
+// state, not with this caller's authorization.
+func errIdentityAlreadyLinked() error {
+	return echo.NewHTTPError(http.StatusConflict,
+		"This Google account is already connected to a different Brazn Tasks account.")
+}
+
+// errAlreadyUsesProvider is what linkIdentity answers when the caller's own
+// account is not a local (password) account — see linkIdentity's own comment
+// for why switching an already-external account to a different provider
+// identity is refused rather than performed.
+func errAlreadyUsesProvider() error {
+	return echo.NewHTTPError(http.StatusConflict,
+		"This account already signs in with a connected provider and has no password to fall back to.")
 }
 
 // existingUserForAddress reports the account already holding an address, or nil.

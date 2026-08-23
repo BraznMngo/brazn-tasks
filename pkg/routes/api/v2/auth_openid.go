@@ -25,6 +25,7 @@ import (
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/auth"
 	"code.vikunja.io/api/pkg/modules/auth/openid"
+	"code.vikunja.io/api/pkg/user"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -49,6 +50,51 @@ func RegisterOpenIDRoutes(api huma.API) {
 		Tags:          []string{"auth"},
 		Security:      publicSecurity,
 	}, authOpenIDCallback)
+
+	// Authenticated — no Security override, so it requires the same JWT every
+	// other /user/settings/* route does. This is the missing half of what
+	// errManagedUsePassword promises a customer who registered with a
+	// password: "you can add Google to your account afterwards." That promise
+	// is fulfilled as a ONE-WAY SWITCH, not an addition — see linkIdentity's
+	// own comment (pkg/modules/auth/openid/openid.go) for why this schema has
+	// no way to hold a password and an external identity on one account at
+	// once. Unlike the callback above, this never creates or resolves an
+	// account by email — the account is already fixed by the caller's own
+	// session, and it refuses outright (409) unless that account is currently
+	// local.
+	Register(api, huma.Operation{
+		OperationID: "user-connect-openid",
+		Summary:     "Switch the current user from password to OpenID Connect sign-in",
+		Description: "Exchanges the authorization code returned by an OpenID Connect provider and switches the authenticated user's account to sign in with that identity instead of a password. Only a local (password) account may do this. Refuses with 409 if the caller's account is not local, or if the identity is already connected to a different account.",
+		Method:      http.MethodPost,
+		Path:        "/user/settings/connect/openid/{provider}",
+		// Attaches an identity to the caller's own account, it creates nothing —
+		// keep 200 over the wrapper's POST->201, same as user-change-password.
+		DefaultStatus: http.StatusOK,
+		Tags:          []string{"user"},
+	}, userConnectOpenID)
+}
+
+func userConnectOpenID(ctx context.Context, in *struct {
+	Provider string          `path:"provider" doc:"The OpenID Connect provider key as returned by the /info endpoint."`
+	Body     openid.Callback `doc:"The provider callback, carrying the authorization code."`
+}) (*singleBody[userActionMessageBody], error) {
+	a, err := authFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	doer, err := user.GetFromAuth(a)
+	if err != nil {
+		return nil, translateDomainError(err)
+	}
+
+	if err := openid.LinkCallback(ctx, &in.Body, in.Provider, doer); err != nil { //nolint:contextcheck // same as authOpenIDCallback: resolves providers from a cached, context-less map.
+		return nil, translateOpenIDError(err)
+	}
+
+	return &singleBody[userActionMessageBody]{
+		Body: &userActionMessageBody{Message: "Your Google account is now connected."},
+	}, nil
 }
 
 func authOpenIDCallback(ctx context.Context, in *struct {

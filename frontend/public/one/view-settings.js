@@ -489,12 +489,114 @@ function accountTab() {
     <div class="settings-heading"><div><h2>${tx('user.settings.title')}</h2></div></div>
     <div class="settings-grid">
       ${profileCard()}
+      ${connectedAccountsCard()}
       ${otherCard()}
       ${subscriptionCard()}
       ${dataCard()}
       ${dangerZone()}
     </div>
   </section>`;
+}
+
+/**
+ * Sign-in method — lets a customer who registered with a password SWITCH to
+ * Google afterward. This is the missing half of the refusal a password
+ * account gets when it first tries "Sign in with Google" on the same email
+ * ("you can add Google to your account afterwards"): that promise had no
+ * implementation anywhere until this card and its backend route.
+ *
+ * SWITCH, NOT ADD — read before changing any copy here. The backend
+ * (linkIdentity, pkg/modules/auth/openid/openid.go) has one Issuer/Subject
+ * slot per account and no schema for holding a password and an external
+ * identity at once, so connecting Google permanently ends password sign-in
+ * on this account. `confirm-connect-google`'s modal exists because of this,
+ * not as ordinary confirm-before-write caution — never turn this back into a
+ * bare click-to-redirect without also removing the confirmation copy that
+ * warns about it.
+ *
+ * NO `data-requires="write"`, matching the email/password rows immediately
+ * above (see profileCard's own comment): the connect route is classified
+ * `write: "credentials"` in route-classification.json, so it already
+ * survives the server's write-restricted overlay under managed mode, and
+ * gating it client-side the way avatar/edit-profile are would hide a control
+ * the server would still accept.
+ */
+function connectedAccountsCard() {
+  const user = getUser();
+  const isLocal = user?.is_local_user ?? true;
+  return `<div class="card settings-card">
+    <div class="card-title">${tx('one.settings.connectedAccounts.title')}</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-name">${tx('one.settings.connectedAccounts.google')}</div>
+        <div class="setting-desc">${isLocal
+          ? tx('one.settings.connectedAccounts.notConnected')
+          : tx('one.settings.connectedAccounts.connected')}</div>
+      </div>
+      ${isLocal
+        ? `<button class="btn small" data-action="connect-google">${tx('one.settings.connectedAccounts.connect')}</button>`
+        : ''}
+    </div>
+  </div>`;
+}
+
+/**
+ * `sessionStorage`, not the Vue app's own `localStorage` key
+ * (`redirectToProvider.ts`) — a normal sign-in redirect and a connect-from-
+ * settings redirect must never be able to collide mid-flight, and the two
+ * pages already keep separate storage areas for everything else (bar 1).
+ *
+ * MUST MATCH `LINK_STATE_KEY`/`LINK_PROVIDER_KEY`/`LINK_RETURN_KEY` in
+ * frontend/src/views/user/OpenIdAuth.vue BYTE FOR BYTE. The two files are
+ * separate bundles (bar 1 forbids importing between them), so there is no
+ * shared constant and no test that would catch a drift — grep for the
+ * literal string in that file before ever renaming any of these here.
+ *
+ * Three flat keys, not one JSON-encoded blob: state and provider are always
+ * written and read together, but a plain string needs no encode/decode/
+ * validate step on the read side, where a malformed value must fail closed
+ * (see readLinkRequest in OpenIdAuth.vue) rather than throw mid-parse.
+ */
+const OIDC_LINK_STATE_KEY = 'one.settings.oidcLinkState';
+const OIDC_LINK_PROVIDER_KEY = 'one.settings.oidcLinkProvider';
+const OIDC_LINK_RETURN_KEY = 'one.settings.oidcLinkReturnTo';
+
+/**
+ * The one-shot flash message for a completed (or failed) Google connect.
+ * `OpenIdAuth.vue`, the unavoidable landing point for the OAuth redirect
+ * (Google's registered redirect_uri never changes, and it is the Vue app's
+ * route — see the plan doc), appends `openid_linked=1` or
+ * `openid_link_error=<message>` to the URL it sends the browser back to.
+ *
+ * Read directly off `window.location.search` rather than through
+ * `parseRoute`/`navigate()`: those only ever know `task`/`view`/`tab` and
+ * rebuild the URL from that fixed set on every call, so an ad-hoc flag would
+ * not survive a single round trip through them. This reads it once, toasts,
+ * and strips ONLY these two params via `history.replaceState` — `task`,
+ * `view` and `tab` are left exactly as they were in the address bar.
+ *
+ * Idempotent by construction: the params are gone from the URL before this
+ * function returns, so mount()'s next call (every re-render on this tab)
+ * finds nothing and does nothing.
+ */
+function consumeOpenIdLinkResult() {
+  const url = new URL(window.location.href);
+  const linked = url.searchParams.get('openid_linked');
+  const error = url.searchParams.get('openid_link_error');
+  if (linked === null && error === null) return;
+
+  url.searchParams.delete('openid_linked');
+  url.searchParams.delete('openid_link_error');
+  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+
+  if (error !== null) {
+    // The provider/server's own sentence, verbatim (ruling C4) — the same
+    // convention reportModalFailure follows for every other write on this tab.
+    toast(error);
+    return;
+  }
+  toast(tx('one.settings.connectedAccounts.connectSuccess'));
+  reloadUser().then(() => requestRender());
 }
 
 /**
@@ -1050,6 +1152,7 @@ function mount(root, ctx) {
   installChangeListeners();
 
   if (ctx.route.tab === 'account') {
+    consumeOpenIdLinkResult();
     ensureTimezones();
     fillTimezones(root);
     // After the select, not before: `ensureAvatar` may call `requestRender()` when the bytes land,
@@ -1445,6 +1548,55 @@ registerActions({
     closeModal();
     // Every other session is invalidated by this route; this one keeps its access token.
     toast(t('user.settings.passwordUpdateSuccess'));
+  },
+
+  /**
+   * Fetches the provider config, then opens a confirmation modal — this is a
+   * ONE-WAY SWITCH (the backend refuses to reverse it: linkIdentity requires
+   * the account be local), not an addition, so it gets the same
+   * confirm-before-acting shape delete-account uses, not a bare redirect.
+   * `pendingGoogleProvider` carries the resolved provider to
+   * `confirm-connect-google` the same way `deleteTransfer` carries its own
+   * decision to `confirm-delete-account` — a modal action handler has no
+   * closure over this one's locals.
+   */
+  'connect-google': async () => {
+    let provider;
+    try {
+      const info = await api.getInfo();
+      provider = (info?.auth?.openid_connect?.providers ?? [])[0];
+    } catch (err) {
+      console.error('[one/settings] could not read openid provider config', err);
+      toast(refusalText(describeForkError(err)));
+      return;
+    }
+    if (!provider) {
+      toast(tx('one.settings.connectedAccounts.unavailable'));
+      return;
+    }
+
+    setViewState(NS, {pendingGoogleProvider: provider});
+    modal(t('one.settings.connectedAccounts.confirmTitle'), `<div class="notice">
+      <strong>${tx('one.settings.connectedAccounts.confirmText')}</strong></div>`,
+      `${footCancel()}<button class="btn danger" data-action="confirm-connect-google">${
+        tx('one.settings.connectedAccounts.confirmAction')}</button>`);
+  },
+
+  'confirm-connect-google': () => {
+    const provider = scratch().pendingGoogleProvider;
+    if (!provider) {
+      // The modal cannot have reached this button without it — defensive only.
+      closeModal();
+      toast(tx('one.settings.connectedAccounts.unavailable'));
+      return;
+    }
+
+    const state = crypto.randomUUID();
+    sessionStorage.setItem(OIDC_LINK_STATE_KEY, state);
+    sessionStorage.setItem(OIDC_LINK_PROVIDER_KEY, provider.key);
+    sessionStorage.setItem(OIDC_LINK_RETURN_KEY, '/one/settings.html?tab=account');
+
+    window.location.href = api.buildOpenIdAuthorizeUrl(provider, state);
   },
 
   /**

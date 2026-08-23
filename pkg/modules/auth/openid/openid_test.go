@@ -937,6 +937,146 @@ func TestSyncUserAvatarFromOpenID(t *testing.T) {
 	})
 }
 
+func TestLinkIdentity(t *testing.T) {
+	t.Run("attaches a verified identity to the current user", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		// user1 (fixture) registered locally, issuer "local", no Google identity yet.
+		currentUser, err := user.GetUserByID(s, 1)
+		require.NoError(t, err)
+
+		cl := &claims{Email: "user1@example.com", EmailVerified: true}
+		idToken := &oidc.IDToken{Issuer: "https://accounts.google.com", Subject: "new-google-subject"}
+
+		updated, err := linkIdentity(s, cl, idToken, currentUser)
+		require.NoError(t, err)
+		assert.Equal(t, "https://accounts.google.com", updated.Issuer)
+		assert.Equal(t, "new-google-subject", updated.Subject)
+
+		err = s.Commit()
+		require.NoError(t, err)
+
+		db.AssertExists(t, "users", map[string]interface{}{
+			"id":      1,
+			"issuer":  "https://accounts.google.com",
+			"subject": "new-google-subject",
+		}, false)
+	})
+
+	t.Run("refuses an unverified email", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		currentUser, err := user.GetUserByID(s, 1)
+		require.NoError(t, err)
+
+		cl := &claims{Email: "user1@example.com", EmailVerified: false}
+		idToken := &oidc.IDToken{Issuer: "https://accounts.google.com", Subject: "unverified-subject"}
+
+		_, err = linkIdentity(s, cl, idToken, currentUser)
+		require.Error(t, err)
+
+		// Untouched — the refusal must not have written anything.
+		db.AssertMissing(t, "users", map[string]interface{}{
+			"id":      1,
+			"subject": "unverified-subject",
+		})
+	})
+
+	t.Run("refuses when the identity already belongs to a different account", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		// user14 (fixture) already holds issuer "https://some.service.com" /
+		// subject "12345". user1 trying to attach the same identity must be
+		// refused, not silently reassigned.
+		currentUser, err := user.GetUserByID(s, 1)
+		require.NoError(t, err)
+
+		cl := &claims{Email: "user15@some.service.com", EmailVerified: true}
+		idToken := &oidc.IDToken{Issuer: "https://some.service.com", Subject: "12345"}
+
+		_, err = linkIdentity(s, cl, idToken, currentUser)
+		require.Error(t, err)
+
+		var httpErr *echo.HTTPError
+		require.ErrorAs(t, err, &httpErr)
+		assert.Equal(t, http.StatusConflict, httpErr.Code)
+
+		// user1 must be untouched, and user14 must still hold the identity.
+		db.AssertExists(t, "users", map[string]interface{}{
+			"id":     1,
+			"issuer": "local",
+		}, false)
+		db.AssertExists(t, "users", map[string]interface{}{
+			"id":      14,
+			"issuer":  "https://some.service.com",
+			"subject": "12345",
+		}, false)
+	})
+
+	t.Run("refuses when the current account is not local — no password to fall back to", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		// user14 already holds issuer "https://some.service.com" — it is not a
+		// local (password) account, so switching it to a DIFFERENT identity
+		// would trade its one working sign-in method for another with nothing
+		// to fall back to if that turns out to be a mistake.
+		currentUser, err := user.GetUserByID(s, 14)
+		require.NoError(t, err)
+
+		cl := &claims{Email: "user1@example.com", EmailVerified: true}
+		idToken := &oidc.IDToken{Issuer: "https://accounts.google.com", Subject: "a-different-google-subject"}
+
+		_, err = linkIdentity(s, cl, idToken, currentUser)
+		require.Error(t, err)
+
+		var httpErr *echo.HTTPError
+		require.ErrorAs(t, err, &httpErr)
+		assert.Equal(t, http.StatusConflict, httpErr.Code)
+
+		// Untouched — the refusal must not have written anything.
+		db.AssertExists(t, "users", map[string]interface{}{
+			"id":      14,
+			"issuer":  "https://some.service.com",
+			"subject": "12345",
+		}, false)
+	})
+
+	t.Run("switching to Google ends this account's password sign-in", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		// user1's fixture password (see pkg/db/fixtures/users.yml comment).
+		const password = "12345678"
+
+		before, err := user.CheckUserCredentials(context.Background(), s, &user.Login{Username: "user1", Password: password})
+		require.NoError(t, err, "the fixture password must work before switching, or this test proves nothing")
+		require.Equal(t, int64(1), before.ID)
+
+		currentUser, err := user.GetUserByID(s, 1)
+		require.NoError(t, err)
+		cl := &claims{Email: "user1@example.com", EmailVerified: true}
+		idToken := &oidc.IDToken{Issuer: "https://accounts.google.com", Subject: "new-google-subject"}
+		_, err = linkIdentity(s, cl, idToken, currentUser)
+		require.NoError(t, err)
+		require.NoError(t, s.Commit())
+
+		s2 := db.NewSession()
+		defer s2.Close()
+		_, err = user.CheckUserCredentials(context.Background(), s2, &user.Login{Username: "user1", Password: password})
+		require.Error(t, err, "the whole point of the switch is that the old password stops working")
+		assert.True(t, user.IsErrAccountIsNotLocal(err), "expected ErrAccountIsNotLocal, got %T: %v", err, err)
+	})
+}
+
 func TestEmailVerifiedClaimDecoding(t *testing.T) {
 	// Some OIDC providers emit email_verified as a JSON string; both forms must
 	// decode without breaking the whole claims parse (GHSA-xv7q-fvmc-jx96).
