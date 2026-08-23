@@ -1691,6 +1691,46 @@ export async function getInfo() {
   return expectOk(res, url);
 }
 
+/**
+ * The fork's own app root, NOT an /api/v1 or /api/v2 path — for building the
+ * Google OAuth redirect_uri (`{base}auth/openid/{provider}`), which is the
+ * VUE APP'S route, registered verbatim with Google and never this page's own.
+ * `forkV1Url`/`forkV2Url` both hardcode an API prefix this path must not have.
+ */
+export function forkAppUrl(path) {
+  return new URL(stripLeadingSlash(path), forkBase()).toString();
+}
+
+/**
+ * The Google authorization URL for starting an OIDC round trip, built the
+ * same way the Vue app's own `redirectToProvider.ts` builds it — same four
+ * query parameters, same redirect_uri shape. Kept here rather than in
+ * view-settings.js per this file's own rule: nothing outside api.js builds a
+ * URL, and that includes a third-party one, not only the fork's own prefixes.
+ *
+ * `provider` is one entry of GET /api/v1/info's `auth.openid_connect.providers`
+ * (`{key, auth_url, client_id, scope}`); `state` is the caller's own opaque
+ * value, round-tripped by the provider and verified by whoever consumes it.
+ *
+ * THIS FILE HAS NO FUNCTION THAT CALLS THE RESULTING ROUTE
+ * (`POST /api/v2/user/settings/connect/openid/{provider}`), and that is not
+ * an omission. Google's redirect_uri always lands on the Vue app's own
+ * `frontend/src/views/user/OpenIdAuth.vue`, a separate bundle this page
+ * cannot import into or be imported from (bar 1) — that page makes the actual
+ * connect call, using the session it re-establishes there. This function's
+ * whole job ends at handing the browser off to Google.
+ */
+export function buildOpenIdAuthorizeUrl(provider, state) {
+  const redirectUri = forkAppUrl(`auth/openid/${provider.key}`);
+  const url = new URL(provider.auth_url);
+  url.searchParams.set('client_id', provider.client_id);
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', provider.scope);
+  url.searchParams.set('state', state);
+  return url.toString();
+}
+
 /* ------------------------------------------------------------------ *
  * 9. Fork — task
  * ------------------------------------------------------------------ */

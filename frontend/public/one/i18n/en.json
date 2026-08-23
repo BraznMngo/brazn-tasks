@@ -393,6 +393,18 @@
       "emailUnavailable": "This instance does not return your email address, so it cannot be shown here.",
       "updateEmail": "Update email",
       "updatePassword": "Update password",
+      "connectedAccounts": {
+        "title": "Sign-in method",
+        "google": "Google",
+        "notConnected": "You sign in with your password.",
+        "connected": "You sign in with Google. Password sign-in is no longer available on this account.",
+        "connect": "Switch to Google sign-in",
+        "confirmTitle": "Switch to Google sign-in?",
+        "confirmText": "Your password will stop working for this account. You'll only be able to sign in with Google afterward. This cannot be undone from here.",
+        "confirmAction": "Switch to Google",
+        "connectSuccess": "You now sign in with Google. Your password no longer works for this account.",
+        "unavailable": "Google sign-in is not configured on this instance."
+      },
       "export": {
         "title": "Export ONE Tasks data",
         "text": "Export your projects, tasks, comments and attachments as a portable archive.",
