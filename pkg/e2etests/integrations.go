@@ -59,6 +59,18 @@ var (
 // Unlike setupTestEnv in pkg/webtests/, this does NOT call events.Fake(),
 // so events are dispatched through the real Watermill router to registered listeners.
 func setupE2ETestEnv(ctx context.Context) (e *echo.Echo, err error) {
+	// The previous test's `defer cancel()` only signals its event router to
+	// stop; shutdown is asynchronous, and in-flight webhook deliveries keep
+	// reading the shared in-memory SQLite database while this test starts.
+	// The fixture cleanup below then loses the shared-cache table lock and
+	// dies in setup: `testfixtures: could not clean table "webhooks":
+	// database table is locked` (BRA-1443). SQLITE_LOCKED is returned
+	// immediately — the connection's busy timeout never applies to it — so
+	// the race has to be closed by construction: wait here, before anything
+	// touches the database, until that router has fully stopped and none of
+	// its handlers can run again.
+	events.WaitForTestingRouterShutdown()
+
 	config.InitDefaultConfig()
 	config.ServicePublicURL.Set("https://localhost")
 	config.WebhooksEnabled.Set(true)
