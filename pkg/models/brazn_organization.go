@@ -26,16 +26,22 @@ import (
 	"xorm.io/xorm"
 )
 
-// SeatsPerTeam is the capacity arithmetic, and it is here rather than in a
-// handler because two callers must agree on it exactly: what the Organization
-// area SHOWS and what the route REFUSES. A number the display derives
-// separately from the enforcement is the same defect as a test that computes
-// its own expectation.
+// SeatsPerTeam is the seats-to-teams ratio, kept in one place because two
+// surfaces must agree on it exactly: what the Organization area SHOWS
+// (`seats_per_team` in the read model) and what the display derives from it. A
+// number the display derives separately from the source is the same defect as
+// a test that computes its own expectation.
 //
-// Product rule 2.3, restated: an organization may hold one team per three
-// PURCHASED seats. Purchased, never occupied - an organization that buys nine
-// seats builds three teams before the first invitation goes out, because
-// nobody can be invited into a team that does not exist.
+// IT NO LONGER REFUSES ANYTHING. Decided by Sebastian on 2026-08-26 (BRA-1439
+// Story 9): creating a team is never refused for seats. The purchased seat
+// count instead RISES automatically - the commercial service raises it to
+// max(teams x 3, users) when this fork reports a team creation through
+// POST /v1/organizations/seats/ensure. THE FORMULA LIVES THERE AND ONLY THERE:
+// this fork reports the team count and never computes the rise, because a
+// formula duplicated either side of a boundary is checked by neither and the
+// two copies would drift apart silently. What survives here is the ratio the
+// display speaks in ("one team per three seats"), which the commercial
+// service's own formula also uses.
 const SeatsPerTeam = 3
 
 var (
@@ -98,6 +104,16 @@ type OrganizationTeam struct {
 type Organization struct {
 	ID      string `json:"id"`
 	Edition string `json:"edition"`
+	// Name is the organization's registered display name, read from the acting
+	// administrator's projection (state.organization_name - carried on the
+	// administrator's projection only, like SeatsPurchased and for the same
+	// reason). NULL when the projection predates the member or the producer has
+	// not begun emitting it; a client renders its own "no name recorded"
+	// sentence for null and NEVER the org_ identifier (BRA-1439 Story 2). It is
+	// display-only: nothing may decide anything from it, and this fork never
+	// writes it - renaming goes through the commercial service, which
+	// re-delivers the projection.
+	Name *string `json:"organization_name"`
 	// Administrator is the single administrator. Never nil in a value returned
 	// by OrganizationFor, which refuses rather than return an organization
 	// without exactly one.
@@ -119,9 +135,13 @@ type Organization struct {
 	Teams []*OrganizationTeam `json:"teams"`
 	// TeamsAllowed is null exactly when SeatsPurchased is, for the same reason.
 	TeamsAllowed *int `json:"teams_allowed"`
-	// CanCreateTeam is the capacity decision itself, so a client renders the
-	// same answer the route enforces rather than recomputing it. See
-	// SeatsPerTeam.
+	// CanCreateTeam is ALWAYS TRUE since Sebastian's decision of 2026-08-26
+	// (BRA-1439 Story 9): creating a team is never refused for seats - the
+	// purchased seat count rises automatically instead (see SeatsPerTeam). The
+	// field is kept, rather than removed, because the client contract renders
+	// it and gates the create control on it, and the rule that a client renders
+	// the server's decision instead of recomputing one has not changed - only
+	// the decision has.
 	CanCreateTeam bool `json:"can_create_team"`
 	// SeatsPerTeam is the ratio the rule is expressed in, sent so a client can
 	// say what buying more would buy WITHOUT holding its own copy of the
@@ -189,6 +209,7 @@ func OrganizationFor(s *xorm.Session, userID int64) (*Organization, error) {
 	organization := &Organization{
 		ID:             organizationID,
 		Edition:        acting.State.Edition,
+		Name:           acting.State.OrganizationName,
 		Administrator:  administrators[0],
 		Members:        members,
 		SeatsOccupied:  len(members),
@@ -196,7 +217,7 @@ func OrganizationFor(s *xorm.Session, userID int64) (*Organization, error) {
 		TeamsUsed:      teamsUsed,
 		Teams:          teams,
 		TeamsAllowed:   teamsAllowed(acting.State.SeatsPurchased),
-		CanCreateTeam:  CanCreateTeam(acting.State.SeatsPurchased, teamsUsed),
+		CanCreateTeam:  true,
 		SeatsPerTeam:   SeatsPerTeam,
 	}
 	return organization, nil
@@ -253,44 +274,19 @@ func teamsAllowed(seatsPurchased *int) *int {
 	return &allowed
 }
 
-// CanCreateTeam answers the seat rule for ONE MORE team:
-// `purchased seats >= SeatsPerTeam x (teams after this one)`.
+// THE SEAT-CAPACITY REFUSAL THAT USED TO LIVE HERE IS REMOVED, not moved.
+// CanCreateTeam (the `purchased >= 3 x (teams + 1)` rule, with a nil count
+// refusing) and ErrOrganizationTeamCapacity (the 409 that carried the numbers)
+// were BRA-917 AC2. Sebastian decided on 2026-08-26 (BRA-1439 Story 9) that
+// the restriction was never the designed behaviour: creating a team is never
+// refused for seats, and the purchased count rises automatically instead. The
+// rise itself is the commercial service's - see SeatsPerTeam for where the
+// formula lives and how this fork reports the event.
 //
-// A NIL COUNT IS A REFUSAL, which is the settled reading of the contract and
-// the opposite of how an absent `valid_to` is read. The two absences do
-// opposite things: an absent end date taken as "no end" would grant time
-// nobody paid for, where an absent count taken as "no limit" would grant
-// capacity nobody paid for. Both errors point the same way, so both are closed
-// the same way - by refusing.
-func CanCreateTeam(seatsPurchased *int, teamsUsed int) bool {
-	if seatsPurchased == nil {
-		return false
-	}
-	return *seatsPurchased >= SeatsPerTeam*(teamsUsed+1)
-}
-
-// ErrOrganizationTeamCapacity is the seat rule refusing, and it carries the
-// three numbers a customer needs to act: what they have, what they bought, and
-// what buying more would give them. BRA-917 AC2 requires the refusal to return
-// actionable increase-seat guidance rather than a flat no, and a message that
-// says only "capacity reached" cannot be acted on without going to look
-// something up.
-type ErrOrganizationTeamCapacity struct {
-	TeamsUsed      int
-	SeatsPurchased *int
-	SeatsPerTeam   int
-}
-
-// Error distinguishes the two refusals, because they have different remedies.
-// "Buy more seats" is wrong advice for an organization whose seat count this
-// instance could not read at all, and the numbers are carried on the struct
-// rather than formatted into this string so a caller renders them itself.
-func (e ErrOrganizationTeamCapacity) Error() string {
-	if e.SeatsPurchased == nil {
-		return "this instance cannot read how many seats the organization has bought, so no team can be created"
-	}
-	return "the organization has bought too few seats for another team"
-}
+// A future reader tempted to re-derive the old rule from the contract's
+// "absence refuses" doctrine: that doctrine still governs access-expanding
+// decisions taken AGAINST the seat count, and there no longer is one. The
+// count is display and billing input now, not a gate.
 
 // ErrOrganizationTeamProtected means the named team is the organization's
 // primary team, which has no removal control anywhere. Its root is provisioned
@@ -311,22 +307,13 @@ var ErrOrganizationTeamNotFound = errors.New("this organization has no such team
 // A team WITHOUT a root is the failure this guards against, not a tidiness
 // concern. Every placement rule in managed_rules_teams.go asks whether a
 // project sits beneath a Team or Public root, so a team whose root was never
-// created is a team inside which nothing can be created - and the customer
-// would have spent capacity on it.
+// created is a team inside which nothing can be created.
 func CreateOrganizationTeam(
 	s *xorm.Session,
 	admin *user.User,
 	organization *Organization,
 	name string,
 ) (*Team, error) {
-	if !CanCreateTeam(organization.SeatsPurchased, organization.TeamsUsed) {
-		return nil, ErrOrganizationTeamCapacity{
-			TeamsUsed:      organization.TeamsUsed,
-			SeatsPurchased: organization.SeatsPurchased,
-			SeatsPerTeam:   SeatsPerTeam,
-		}
-	}
-
 	team := &Team{Name: name}
 	if err := team.CreateNewTeam(s, admin, true); err != nil {
 		return nil, err

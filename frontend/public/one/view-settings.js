@@ -821,24 +821,28 @@ function organizationTab() {
 }
 
 /**
- * O1/O2. `models.Organization` HAS NO NAME FIELD — `id` is an identifier, and it is what the
- * prototype's name slot can honestly show.
+ * O1/O2. The registered name, from the fork organization read (`organization_name` — carried on
+ * the administrator's projection, BRA-1439 Story 2). NULL gets its own sentence and NEVER the
+ * `org_` identifier: the name is the customer's own wording, stored by the commercial service at
+ * sign-up and already used by the invitation mail, so anything invented here — the identifier,
+ * a username — would disagree with mail already sent.
  *
- * The pencil stays, refused, with its reason (ruling C8.1 — "read-only until
- * POST /v1/organizations/rename lands", not "remove"). It is the only control on the page with no
- * route anywhere: no commercial route, no service method, no model field. api.js deliberately
- * exports no rename function and NO HANDLER IS REGISTERED for `rename-org` below, so the negative
- * test — the field renders and issues no request — holds by construction rather than by care.
+ * THE PENCIL IS LIVE. Ruling C8.1 held it read-only "until POST /v1/organizations/rename lands",
+ * and that route landed with BRA-1439's commercial half, so the ruling's own condition is met.
+ * The negative test that pinned api.js exporting no rename call is replaced by its positive
+ * counterpart in api.commercial.test.ts. After a successful rename the name is re-read from the
+ * FORK — the rename re-delivers the administrator's projection, and the fork read is what proves
+ * the change reached this instance (bar 8, the same discipline as the seat numbers).
  */
 function organizationIdentityBlock(organization) {
-  return `<div ${refusedGroup(DENY.NO_ROUTE, 'org-identity-item')} style="flex-wrap:wrap">
+  const name = organization?.organization_name ?? null;
+  return `<div class="org-identity-item" style="flex-wrap:wrap">
     <div class="meta">
       <span>${tx('organization.general.name')}</span>
-      <strong id="orgNameValue">${esc(organization?.id ?? '')}</strong>
+      <strong id="orgNameValue">${name === null ? tx('one.org.nameUnknown') : esc(name)}</strong>
     </div>
-    <button class="mini-edit" data-action="rename-org" aria-disabled="true"
+    <button class="mini-edit" data-action="rename-org" data-requires="admin write"
       aria-label="${tx('one.org.renameOrgAria')}">${ic('edit')}</button>
-    ${refusalNote(t('one.deny.renameOrg'))}
   </div>`;
 }
 
@@ -945,14 +949,18 @@ function addTeamButton(meter) {
  * M1/M2. Every number here comes from the fork organization endpoint — the brief is explicit that
  * the commercial service is not the source for the seat meter.
  *
- * The requirement line is the NEXT team's cost: `seats_per_team × (teams_used + 1)`, and member
- * count is not in it. The prototype's `requiredSeats()` (:603) folded members and pending
- * invitations into it and is deleted rather than adapted.
+ * THE "SEATS REQUIRED" LINE IS GONE, and its removal is BRA-1439 Story 9: since Sebastian's
+ * decision of 2026-08-26 nothing requires seats for a team — creating one raises the purchased
+ * count automatically instead — so a line stating the next team's seat cost as a requirement
+ * asserted a rule the server no longer enforces. What remains is what is still true in the
+ * present tense: seats purchased, members holding one, invitations pending, teams in use. The
+ * risen figure after a creation arrives through `reloadOrganization()`, the same way every other
+ * number on this card moves. (The prototype's `requiredSeats()` (:603), which also folded
+ * members and pending invitations into a requirement, stays deleted.)
  */
 function seatsCard(meter) {
   const pending = scratch().pendingInvites?.length ?? 0;
   const help = joinParts([
-    meter.requiredForNextTeam === null ? '' : t('one.org.seats.required', {count: meter.requiredForNextTeam}),
     meter.occupied === null ? '' : t('one.org.seats.members', {count: meter.occupied}),
     pending === 0 ? '' : t('one.org.seats.pending', {count: pending}),
     meter.teamsUsed === null ? '' : t('one.org.seats.teams', {count: meter.teamsUsed}),
@@ -1786,6 +1794,36 @@ registerActions({
    * request" true by construction.
    */
 
+  'rename-org': () => {
+    renderRenameOrgModal(getOrganization()?.organization_name ?? '');
+  },
+
+  /**
+   * O2. `POST /v1/organizations/rename` with `{organization_id, organization_name}`; api.js
+   * defaults the required `idempotency_key`. The commercial guard decides `ok` (bar 8), and the
+   * name on screen comes from `reloadOrganization()` — the FORK read — never from the commercial
+   * response: success re-delivers the administrator's projection, so the fork re-read is the
+   * proof the change reached this instance. If the projection lags the rename, the card honestly
+   * shows the old name until it arrives, which is the same behaviour the seat meter has.
+   */
+  'save-org-name': async () => {
+    const organization = getOrganization();
+    const name = fieldValue('orgName');
+    if (organization === null || name === '') return;
+
+    const result = await api.renameOrganization({
+      organization_id: organization.id,
+      organization_name: name,
+    });
+    if (!result.ok) {
+      refuseModal(describeCommercialRefusal(result));
+      return;
+    }
+    closeModal();
+    toast(t('one.toast.organizationRenamed'));
+    await reloadOrganization();
+  },
+
   'rename-team': (event, el) => {
     const teamId = el.getAttribute('data-team');
     const team = organizationTeams().find((entry) => String(entry.team_id) === String(teamId));
@@ -2007,7 +2045,9 @@ registerActions({
   },
 
   invite: () => {
-    setViewState(NS, {memberAddMode: 'new'});
+    // `memberSearch: null` so a freshly opened modal never shows the results of
+    // a search somebody ran the last time it was open (M12).
+    setViewState(NS, {memberAddMode: 'new', memberSearch: null});
     renderInviteModal();
   },
 
@@ -2140,12 +2180,42 @@ registerActions({
     renderInviteModal();
   },
 
-  /*
-   * `search-existing-member` HAS NO HANDLER. The control is kept (ruling C8.3) but refused: the
-   * lookup it needs is `GET /api/v2/users?q=`, api.js exports no global user search, and bar 7
-   * forbids building a fork URL here to reach one. The organization-members picker in the same
-   * modal is the working half and is fully wired.
+  /**
+   * M12. "Find someone outside your organization" (BRA-1439 Story 8). The comment that stood
+   * here said the control was refused because `GET /api/v2/users?q=` did not exist and api.js
+   * exported no search — the route HAS existed since 5dcc501d5 (pkg/routes/api/v2/user_search.go)
+   * and api.js now exports `searchUsers`, so the refusal's stated reason is gone and §1 of the
+   * product rules leaves no third treatment: the control is live.
+   *
+   * The results land in view scratch and the modal is RE-RENDERED through `renderInviteModal`,
+   * not written into the open modal's DOM — re-rendering is what runs `applyGates` over the Add
+   * buttons on the new rows (see `externalSearchResults`). The term is kept in scratch so the
+   * re-render does not eat what the person typed.
    */
+  'search-existing-member': async () => {
+    const term = fieldValue('existingMemberSearch');
+    if (term === '') return;
+
+    setViewState(NS, {memberSearch: {term, status: 'searching'}});
+    renderInviteModal();
+
+    let found;
+    try {
+      found = await api.searchUsers(term);
+    } catch (err) {
+      if (err instanceof api.SessionLostError) throw err;
+      console.error('[one/settings] user search failed', err);
+      setViewState(NS, {memberSearch: {term, status: 'failed', refusal: describeForkError(err)}});
+      renderInviteModal();
+      return;
+    }
+
+    // `{items: [...]}` is the v2 Paginated envelope; a shape change must read
+    // as "no match" rather than as rows invented from the wrong field.
+    const items = Array.isArray(found?.items) ? found.items : [];
+    setViewState(NS, {memberSearch: {term, status: 'done', items}});
+    renderInviteModal();
+  },
 
   'remove-member': (event, el) => {
     const username = el.getAttribute('data-username');
@@ -2211,6 +2281,18 @@ function renderRenameTeamModal(name) {
 }
 
 /**
+ * The organization rename (BRA-1439 Story 2) — ONE write, unlike the team rename's two: the name
+ * lives on the commercial service alone, and the fork's copy arrives by projection re-delivery
+ * rather than by a second write from here.
+ */
+function renderRenameOrgModal(name) {
+  modal(t('one.org.renameOrgTitle'), `
+    <label class="label">${tx('organization.general.name')}</label>
+    <input class="input" id="orgName" value="${esc(name)}">`,
+    `${footCancel()}<button class="btn primary" data-action="save-org-name">${tx('misc.save')}</button>`);
+}
+
+/**
  * The two-tab Add-member modal (:1150-1161), rebuilt on every tab switch as the prototype does.
  *
  * DELIBERATE COPY CHANGE, reported rather than smuggled: the prototype's seat notice reads "The
@@ -2260,18 +2342,47 @@ function renderInviteModal() {
       <label class="label">${tx('one.org.organizationMembers')}</label>
       <div class="member-picker">${picker}</div>
     </div>
-    <div ${refusedGroup(DENY.NO_ROUTE)}>
+    <div>
       <label class="label">${tx('one.org.findExternal')}</label>
       <div class="member-search-row">
-        <input class="input" id="existingMemberSearch" readonly aria-disabled="true"
+        <input class="input" id="existingMemberSearch" value="${esc(scratch().memberSearch?.term ?? '')}"
           placeholder="${tx('one.org.searchPlaceholder')}">
-        <button class="btn" data-action="search-existing-member" aria-disabled="true">${
-          tx('one.common.search')}</button>
+        <button class="btn" data-action="search-existing-member">${tx('one.common.search')}</button>
       </div>
       <div class="info-label">${ic('info')}<span>${tx('one.org.findExternalHint')}</span></div>
-      ${refusalNote(t('one.deny.noRoute'))}
+      ${externalSearchResults(teamId, inTeam)}
     </div>`,
     `<button class="btn" data-action="modal-close">${tx('misc.close')}</button>`);
+}
+
+/**
+ * The external-search results, rendered from view scratch so the whole modal can be re-rendered
+ * through `openModal` — which is what applies the gates to the Add buttons on the rows. Writing
+ * rows straight into the open modal's DOM would skip `applyGates`, and an Add button that was
+ * never gated is a control the gating engine has not decided (file header).
+ *
+ * Four states, each its own true sentence: nothing yet (no markup at all), in flight, a refusal
+ * (the server's own sentence through the shared describers), no match (a plain sentence — an
+ * empty result is an answer, not an error), and the matches. Matches reuse `memberPickerRow`,
+ * so the Add button, the in-team badge and the no-team refusal are byte-identical to the
+ * organization-members picker above — one row shape, one set of rules. The search route never
+ * returns email addresses (api.js `searchUsers`), so the row's email line is simply empty.
+ */
+function externalSearchResults(teamId, inTeam) {
+  const search = scratch().memberSearch ?? null;
+  if (search === null || search.status === undefined) return '';
+  if (search.status === 'searching') {
+    return `<div class="member-picker"><div class="empty-state">${tx('one.common.searching')}</div></div>`;
+  }
+  if (search.status === 'failed') {
+    return `<div class="member-picker">${refusalNote(refusalText(search.refusal))}</div>`;
+  }
+  const rows = Array.isArray(search.items) ? search.items : [];
+  if (rows.length === 0) {
+    return `<div class="member-picker"><div class="empty-state">${tx('one.org.noExternalMatch')}</div></div>`;
+  }
+  return `<div class="member-picker">${
+    rows.map((person) => memberPickerRow(person, teamId, inTeam.has(person?.username))).join('')}</div>`;
 }
 
 /**

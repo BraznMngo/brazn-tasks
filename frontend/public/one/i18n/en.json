@@ -433,6 +433,7 @@
       "renameOrgAria": "Edit organization name",
       "renameTeamAria": "Edit {team} name",
       "renameOrgTitle": "Organization name",
+      "nameUnknown": "Your organization's name has not been recorded here yet.",
       "yourProjects": "Your projects",
       "administratorText": "The administrator can manage teams, members, seats and organization settings.",
       "membersSubtitle": "Manage who belongs to this team.",
@@ -482,6 +483,20 @@
         "publicName": "Public",
         "publicDesc": "Work visible across the organization."
       }
+    },
+    "join": {
+      "title": "Join your organization",
+      "lead": "You have been invited to a team on ONE Tasks.",
+      "explain": "Sign in to accept the invitation. If you do not have a password yet, set one first — your account already exists — or sign in with Google from the sign-in page.",
+      "signIn": "Sign in",
+      "setPassword": "Set a password",
+      "accepting": "Accepting your invitation…",
+      "accepted": "You have joined your organization. Welcome aboard.",
+      "alreadyMember": "You already hold a seat in this organization, so nothing needed to change.",
+      "openApp": "Open ONE Tasks",
+      "retry": "Try again",
+      "refusedLead": "The invitation could not be accepted.",
+      "missingLink": "This link is incomplete. Open the link from your invitation email, or ask the person who invited you to send a new one."
     },
     "deny": {
       "personalEdition": "This is part of ONE Teams.",
@@ -537,6 +552,7 @@
       "alreadyMember": "That person is already in your organization. Nothing was sent and no seat was used.",
       "invitationRevoked": "The invitation was revoked.",
       "adminTransferSubmitted": "The administrator transfer was submitted.",
+      "organizationRenamed": "The organization's name was changed.",
       "exportDownloaded": "The export was downloaded.",
       "commentUpdated": "The comment was updated."
     }

@@ -248,12 +248,35 @@ type Subject struct {
 // it would say `full`, so no existing projection's signed bytes move, and
 // nothing that marshals this struct - the golden corpus included - changes
 // shape by the member merely existing.
+// OrganizationName is a POINTER for the reason SeatsPurchased is: the producer
+// makes it optional, and a projection minted before the member existed carries
+// nothing, which must stay distinguishable from a name somebody chose. It is
+// DISPLAY-ONLY - no policy decision may read it - so absence refuses nothing:
+// the page renders its own "no name recorded" sentence instead. It must never
+// be invented locally (from the identifier, from a username); the customer gave
+// the commercial service a name at sign-up and the invitation mail already uses
+// it, so anything derived here would disagree with mail already sent (BRA-1439
+// Story 2).
+//
+// Like SeatsPurchased it is an ORGANIZATION-scoped value carried only on the
+// ADMINISTRATOR'S projection, per the producer's decision on BRA-1439:
+// revision orders per subject, so N copies on N members' projections would
+// have no defined tie-break. models.OrganizationFor reads it from the acting
+// administrator only.
+//
+// `omitempty` is what keeps this additive, exactly as it does for WriteAccess:
+// the producer omits the member until its projectOrganizationName flag is
+// turned on, no existing projection's signed bytes move, and this struct must
+// DECLARE the member before that flag flips - hasUndeclaredField refuses any
+// projection carrying a member this build has not declared, so the producer
+// emitting first would take every new projection down.
 type State struct {
 	Edition           string     `json:"edition"`
 	SeatStatus        string     `json:"seat_status"`
 	OrganizationAdmin bool       `json:"organization_admin"`
 	EffectiveState    string     `json:"effective_state"`
 	SeatsPurchased    *int       `json:"seats_purchased"`
+	OrganizationName  *string    `json:"organization_name,omitempty"`
 	WriteAccess       *string    `json:"write_access,omitempty"`
 	ValidFrom         time.Time  `json:"valid_from"`
 	ValidTo           *time.Time `json:"valid_to"`

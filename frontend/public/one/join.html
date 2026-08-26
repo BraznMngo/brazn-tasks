@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Brand name, not translated copy — the same reasoning as task.html and settings.html. -->
+<title>ONE Tasks</title>
+<link rel="stylesheet" href="./one.css">
+</head>
+<!-- The invitation acceptance page (BRA-1439 Story 5). The email's link lands here as
+     /one/join.html?i=<invitation_id>#signup_token=<token> — the token rides the FRAGMENT as a
+     security property (never sent to any server; join.js stores and strips it on arrival).
+
+     THE ROOT IS #join, NOT #app, AND THE DIFFERENCE IS LOAD-BEARING: join.js imports app.js for
+     the shared commercial-refusal describers, and app.js's boot() self-schedules on any document
+     carrying #app — this page must get join.js's own boot and nothing else.
+
+     `hidden` is in the markup for task.html's reason: the shell stays invisible until the
+     catalogue has loaded and the page has rendered once, and a module that fails to load must
+     leave an invisible page rather than a wrong one. -->
+<body>
+<div class="stage hidden"><main class="window task-window" id="join"></main></div>
+<script type="module" src="./join.js"></script>
+</body>
+</html>
