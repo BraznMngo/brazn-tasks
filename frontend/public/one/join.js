@@ -166,7 +166,7 @@ export function joinSurface(state) {
     <p class="card-sub">${tx('one.join.refusedLead')}</p>
     <p class="help">${esc(state?.sentence ?? '')}</p>
     <div class="profile-actions" style="flex-wrap:wrap;gap:8px">
-      <button class="btn" data-action="join-retry">${tx('one.join.retry')}</button>
+      <button class="btn" data-action="join-retry">${tx('organization.retry')}</button>
       <button class="btn" data-action="join-open-app">${tx('one.join.openApp')}</button>
     </div>
   </div></div>`;

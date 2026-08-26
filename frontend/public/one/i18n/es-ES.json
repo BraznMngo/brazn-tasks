@@ -433,6 +433,7 @@
       "renameOrgAria": "Editar nombre de la organización",
       "renameTeamAria": "Editar nombre de {team}",
       "renameOrgTitle": "Nombre de la organización",
+      "nameUnknown": "El nombre de tu organización todavía no se ha registrado aquí.",
       "yourProjects": "Tus proyectos",
       "administratorText": "El administrador puede gestionar los equipos, los miembros, los puestos y los ajustes de la organización.",
       "membersSubtitle": "Gestiona quién pertenece a este equipo.",
@@ -454,7 +455,7 @@
       "inviteEmailPlaceholder": "nombre{'@'}ejemplo.com",
       "inviteSeatNotice": "La invitación reserva un puesto para {team} de forma inmediata.",
       "sendInvitation": "Enviar invitación",
-      "pendingInvitations": "Invitaciones pendientes",
+      "pendingInvitations": "Solicitudes para unirse al equipo",
       "invitePending": "Invitación pendiente",
       "seatReserved": "Puesto reservado",
       "subscriptionActionRequired": "Acción necesaria en la suscripción",
@@ -482,6 +483,19 @@
         "publicName": "Público",
         "publicDesc": "Trabajo visible en toda la organización."
       }
+    },
+    "join": {
+      "title": "Únete a tu organización",
+      "lead": "Te han invitado a un equipo en ONE Tasks.",
+      "explain": "Inicia sesión para aceptar la invitación. Si todavía no tienes contraseña, establece una primero (tu cuenta ya existe) o inicia sesión con Google desde la página de inicio de sesión.",
+      "signIn": "Iniciar sesión",
+      "setPassword": "Establecer contraseña",
+      "accepting": "Aceptando tu invitación…",
+      "accepted": "Te has unido a tu organización. Te damos la bienvenida.",
+      "alreadyMember": "Ya tienes un puesto en esta organización, así que no ha hecho falta cambiar nada.",
+      "openApp": "Abrir ONE Tasks",
+      "refusedLead": "No se ha podido aceptar la invitación.",
+      "missingLink": "Este enlace está incompleto. Abre el enlace de tu correo de invitación o pide a la persona que te invitó que te envíe uno nuevo."
     },
     "deny": {
       "personalEdition": "Esto forma parte de ONE Teams.",
@@ -537,6 +551,7 @@
       "alreadyMember": "Esa persona ya está en tu organización. No se ha enviado nada ni se ha usado ningún puesto.",
       "invitationRevoked": "La invitación se ha revocado.",
       "adminTransferSubmitted": "Se ha enviado la transferencia de administrador.",
+      "organizationRenamed": "El nombre de la organización se ha cambiado.",
       "exportDownloaded": "La exportación se ha descargado.",
       "commentUpdated": "El comentario se ha actualizado."
     }

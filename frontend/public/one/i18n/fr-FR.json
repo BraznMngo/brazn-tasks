@@ -433,6 +433,7 @@
       "renameOrgAria": "Modifier le nom de l’organisation",
       "renameTeamAria": "Modifier le nom de {team}",
       "renameOrgTitle": "Nom de l’organisation",
+      "nameUnknown": "Le nom de votre organisation n’a pas encore été enregistré ici.",
       "yourProjects": "Vos projets",
       "administratorText": "L’administrateur peut gérer les équipes, les membres, les licences et les paramètres de l’organisation.",
       "membersSubtitle": "Gérez qui fait partie de cette équipe.",
@@ -454,7 +455,7 @@
       "inviteEmailPlaceholder": "nom{'@'}exemple.com",
       "inviteSeatNotice": "L’invitation réserve immédiatement une licence pour {team}.",
       "sendInvitation": "Envoyer l’invitation",
-      "pendingInvitations": "Invitations en attente",
+      "pendingInvitations": "Demandes pour rejoindre l’équipe",
       "invitePending": "Invitation en attente",
       "seatReserved": "Licence réservée",
       "subscriptionActionRequired": "Action requise sur l’abonnement",
@@ -482,6 +483,19 @@
         "publicName": "Public",
         "publicDesc": "Le travail visible dans toute l’organisation."
       }
+    },
+    "join": {
+      "title": "Rejoignez votre organisation",
+      "lead": "Vous avez reçu une invitation à rejoindre une équipe sur ONE Tasks.",
+      "explain": "Connectez-vous pour accepter l’invitation. Si vous n’avez pas encore de mot de passe, définissez-en un d’abord — votre compte existe déjà — ou connectez-vous avec Google depuis la page de connexion.",
+      "signIn": "Se connecter",
+      "setPassword": "Définir un mot de passe",
+      "accepting": "Acceptation de l’invitation…",
+      "accepted": "Vous avez rejoint votre organisation. Bienvenue à bord.",
+      "alreadyMember": "Vous détenez déjà une licence dans cette organisation, il n’y avait donc rien à modifier.",
+      "openApp": "Ouvrir ONE Tasks",
+      "refusedLead": "L’invitation n’a pas pu être acceptée.",
+      "missingLink": "Ce lien est incomplet. Ouvrez le lien de votre e-mail d’invitation, ou demandez un nouveau lien à la personne qui vous a envoyé l’invitation."
     },
     "deny": {
       "personalEdition": "Cette fonctionnalité fait partie de ONE Teams.",
@@ -537,6 +551,7 @@
       "alreadyMember": "Cette personne fait déjà partie de votre organisation. Rien n’a été envoyé et aucune licence n’a été utilisée.",
       "invitationRevoked": "L’invitation a bien été révoquée.",
       "adminTransferSubmitted": "La demande de transfert du rôle d’administrateur a été envoyée.",
+      "organizationRenamed": "Le nom de l’organisation a bien été modifié.",
       "exportDownloaded": "L’export a bien été téléchargé.",
       "commentUpdated": "Le commentaire a bien été modifié."
     }

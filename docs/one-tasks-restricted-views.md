@@ -423,12 +423,13 @@ Visibility here is *not* gated on edition.
 | -- | -- | -- |
 | Organization read (and the seat meter) | `GET /api/v1/brazn/organization` | 403 → tabs hidden entirely; **anything else** → `organization.unavailable.*` notice with a retry |
 | Team detail / roster | `GET /api/v2/teams/{id}` | **can 403**; that row degrades to disabled with `one.deny.rosterUnavailable` |
-| Create team | `PUT /api/v1/brazn/organization/teams` `{name}` | **409 body rendered verbatim** when seats cap the team count |
+| Create team | `PUT /api/v1/brazn/organization/teams` `{name}` | never refused for seats since BRA-1439 Story 9 — the purchased count rises instead, and the fork reports the creation to `POST /v1/organizations/seats/ensure` server-side |
 | Rename team | `PATCH /api/v2/teams/{id}` **and** `PATCH /api/v2/projects/{projectId}` | two writes; one alone drifts |
 | Add existing member | `POST /api/v2/teams/{team}/members` `{username, admin}` | disabled with `one.deny.personalEdition` under Personal |
 | Remove member from team | `DELETE /api/v2/teams/{team}/members/{username}` | **username, not numeric id** |
 | Invite by email | `POST /v1/organizations/invitations` | commercial `outcome` refusal |
-| Organization display name | *no route anywhere* | rendered **read-only** with `one.deny.renameOrg` |
+| Organization display name | `POST /v1/organizations/rename` `{organization_id, organization_name, idempotency_key}` | **live since BRA-1439 Story 2**; the name renders from the FORK organization read (`organization_name`), a missing name gets its own sentence, and after a rename the fork is re-read rather than trusting the commercial response |
+| Find someone outside the organization | `GET /api/v2/users?q=` | **live since BRA-1439 Story 8** — the route has existed since 5dcc501d5; the earlier "no route" notes here and in BRA-1384 were stale |
 
 **Four rows were removed from the two tables above and are listed below instead.** They named
 `GET /api/v2/teams`, `DELETE /api/v1/brazn/organization/teams/{id}`,
@@ -521,7 +522,7 @@ success. Nothing here was probed and nothing here may be reported as verified.
 | `GET /v1/organizations/seats/quote` | `?organization_id=&seats=` | wired; no charge, same shape as the `seat_notice` that already renders on invite |
 | `POST /v1/organizations/seats` | `{organization_id, seats, idempotency_key}` | wired to the add-seats control |
 | `POST /v1/organizations/admin-transfer` | `{organization_id, to_user_id, idempotency_key}` | wired to the transfer control |
-| `POST /v1/organizations/rename` | `{organization_id, organization_name, idempotency_key}` | **documentation only — deliberately not implemented** |
+| `POST /v1/organizations/rename` | `{organization_id, organization_name, idempotency_key}` | wired to the rename pencil (BRA-1439 Story 2); the route lands with the same ticket's commercial half, and its outcome union is not declared yet — the descriptor assumes `renamed` and fails closed on everything else until the landed handler is read |
 
 `from_user_id` on the admin transfer **is the resolved bearer and is never a body field.**
 `transferAdministrator` in `api.js` takes no parameter for it, so a caller cannot send one.
@@ -532,8 +533,8 @@ validator rejects with a 200 and a failure `outcome`, which is the hardest failu
 page to debug. In particular `POST /v1/organizations/invitations` does **not** carry a
 `team_id`; that field was invented and has been dropped.
 
-`POST /v1/organizations/rename` is not implemented at all, and the absence of the export is
-the mechanism rather than an oversight — see below.
+`POST /v1/organizations/rename` is implemented since BRA-1439 Story 2 — the paragraph that
+stood here recorded its deliberate absence, and the section below records the reversal.
 
 **Three of these four are wired to live-looking, enabled buttons**, and that is a deliberate
 position rather than an omission. `revoke-invite`, `add-seat`/`confirm-seats` and
@@ -558,15 +559,17 @@ be re-edited to re-enable. **If the route slips, revisit this**: the argument de
 
 ## What is deliberately not shipped
 
-### Organization rename — no route exists anywhere
+### Organization rename — SHIPPED with BRA-1439 Story 2, reversing this section
 
-This is the only control on the page with no route on either service: no commercial route, no
-service method, and `models.Organization` has no `Name` field at all. The field is therefore
-**rendered read-only with a reason** rather than removed, because the contract says read-only
-until `POST /v1/organizations/rename` lands, and because a field that is present and disabled
-is testable — the negative test asserts that it renders disabled and issues no request.
-`api.js` deliberately exports no rename function: exporting one would make that test
-unwritable.
+This section used to record the one control with no route on either service, rendered
+read-only with a reason, its absence pinned by a negative test. Every clause of that has been
+reversed on its own condition rather than quietly: `POST /v1/organizations/rename` landed with
+BRA-1439's commercial half, `models.Organization` gained `organization_name` (from
+`state.organization_name` on the administrator's projection), the pencil is live, and the
+negative test flipped to its positive counterpart in `api.commercial.test.ts`. What did not
+change is the discipline around it: the name on screen always comes from the fork organization
+read — a rename re-delivers the administrator's projection, so the fork re-read is the proof
+the change arrived — and a missing name renders its own sentence, never the `org_` identifier.
 
 ### Organization-level member removal — live, but out of scope
 

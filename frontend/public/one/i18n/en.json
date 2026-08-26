@@ -455,7 +455,7 @@
       "inviteEmailPlaceholder": "name{'@'}example.com",
       "inviteSeatNotice": "The invitation reserves one seat immediately for {team}.",
       "sendInvitation": "Send invitation",
-      "pendingInvitations": "Pending invitations",
+      "pendingInvitations": "Requests to join the team",
       "invitePending": "Invitation pending",
       "seatReserved": "Seat reserved",
       "subscriptionActionRequired": "Subscription action required",
@@ -494,7 +494,6 @@
       "accepted": "You have joined your organization. Welcome aboard.",
       "alreadyMember": "You already hold a seat in this organization, so nothing needed to change.",
       "openApp": "Open ONE Tasks",
-      "retry": "Try again",
       "refusedLead": "The invitation could not be accepted.",
       "missingLink": "This link is incomplete. Open the link from your invitation email, or ask the person who invited you to send a new one."
     },

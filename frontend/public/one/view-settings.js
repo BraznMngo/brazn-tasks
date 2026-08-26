@@ -1084,7 +1084,14 @@ function memberRow(member, teamId) {
 }
 
 /**
- * M13. THERE IS NO LIST ROUTE. The `/v1` inventory has create, accept and (contract-only) revoke;
+ * M13. THE CARD IS TITLED "Requests to join the team" SINCE BRA-1439 Story 3 (decided by
+ * Sebastian, 2026-08-26: people are added, not invited, so listing invitations is not the
+ * feature being promised). Only `one.org.pendingInvitations`'s VALUE changed, in all six
+ * catalogues; the key, the coming-soon treatment and everything else on the card are untouched —
+ * the working chain behind the renamed promise (referral tokens, request pages, this queue) is
+ * BRA-1441's, not this change's.
+ *
+ * THERE IS NO LIST ROUTE. The `/v1` inventory has create, accept and (contract-only) revoke;
  * `GET /v1/organizations/invitations` does not exist and inventing one is barred (bar 7). So the
  * card renders a cannot-list state rather than the prototype's "No pending invitations for this
  * team" (:1131) — claiming zero asserts a fact the page never read, which is the same defect
