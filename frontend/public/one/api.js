@@ -688,23 +688,23 @@ export const COMMERCIAL_OPS = Object.freeze({
   /**
    * POST /v1/organizations/rename — the administrator corrects the
    * organization's registered display name (BRA-1439 Story 2).
+   * Body: `{organization_id, organization_name}` — the renamed record, written
+   * straight out with NO `outcome` member (one-apps
+   * cloud/service/src/http.ts:3684-3689, the landed handler). Success also
+   * re-delivers the administrator's projection, which is how the new name
+   * reaches the fork's organization read; refusals are bare statuses, so
+   * `res.ok` carries them.
    *
-   * THE ROUTE IS BEING BUILT BY THE COMMERCIAL HALF OF BRA-1439 IN THE SAME
-   * PASS AS THIS CALLER, and its ticket comment of 2026-08-26 declares the
-   * request — administrator bearer, body `{organization_id, organization_name,
-   * idempotency_key}` — and that success re-delivers the administrator's
-   * projection, which is how the new name reaches the fork's organization
-   * read. THE RESPONSE'S OUTCOME UNION IS NOT DECLARED YET: `renamed` below is
-   * this page's reading of the service's naming convention (`changed`,
-   * `removed`, `admitted` — a past-tense verb per operation), asked for on the
-   * ticket and to be corrected from the landed handler if it answers
-   * differently. Until then anything else FAILS CLOSED here, which shows an
-   * administrator a refusal rather than ever a success that did not happen —
-   * and the name on screen is re-read from the FORK afterwards either way
-   * (bar 8), so a wrongly-refused rename still renders the true name on the
-   * next read.
+   * CORRECTED FROM AN ASSUMED UNION, and the correction is worth its history:
+   * this descriptor first shipped as OUTCOME_REQUIRED `['renamed']`, read off
+   * a LOG line (service.ts:6530) while the handler was unpushed — so every
+   * successful rename opened the refusal modal, the exact fail-closed
+   * direction the guard promises, caught by independent QA before merge. The
+   * refusal row in api.commercial.test.ts now pins the old assumption as what
+   * must be refused: an `outcome` arriving on this operation is a vocabulary
+   * this file has not read.
    */
-  RENAME_ORGANIZATION: commercialOp(OUTCOME_REQUIRED, ['renamed']),
+  RENAME_ORGANIZATION: commercialOp(OUTCOME_ABSENT),
 
   /**
    * GET /v1/team-access-requests.

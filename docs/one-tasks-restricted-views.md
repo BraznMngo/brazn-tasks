@@ -522,7 +522,7 @@ success. Nothing here was probed and nothing here may be reported as verified.
 | `GET /v1/organizations/seats/quote` | `?organization_id=&seats=` | wired; no charge, same shape as the `seat_notice` that already renders on invite |
 | `POST /v1/organizations/seats` | `{organization_id, seats, idempotency_key}` | wired to the add-seats control |
 | `POST /v1/organizations/admin-transfer` | `{organization_id, to_user_id, idempotency_key}` | wired to the transfer control |
-| `POST /v1/organizations/rename` | `{organization_id, organization_name, idempotency_key}` | wired to the rename pencil (BRA-1439 Story 2); the route lands with the same ticket's commercial half, and its outcome union is not declared yet — the descriptor assumes `renamed` and fails closed on everything else until the landed handler is read |
+| `POST /v1/organizations/rename` | `{organization_id, organization_name, idempotency_key}` | wired to the rename pencil (BRA-1439 Story 2); landed with the same ticket's commercial half. Success answers the renamed record — `{organization_id, organization_name}`, no `outcome` member (http.ts:3684-3689) — so the descriptor is `absent`-shaped; refusals are bare statuses |
 
 `from_user_id` on the admin transfer **is the resolved bearer and is never a body field.**
 `transferAdministrator` in `api.js` takes no parameter for it, so a caller cannot send one.

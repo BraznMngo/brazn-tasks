@@ -188,7 +188,6 @@ describe('one/api.js commercial guard - transport and shape (bar 8, ruling C14)'
 			api.COMMERCIAL_OPS.INVITE_MEMBER,
 			api.COMMERCIAL_OPS.ACCEPT_INVITATION,
 			api.COMMERCIAL_OPS.REMOVE_ORGANIZATION_MEMBER,
-			api.COMMERCIAL_OPS.RENAME_ORGANIZATION,
 			api.COMMERCIAL_OPS.DECIDE_TEAM_ACCESS_REQUEST,
 			api.COMMERCIAL_OPS.PURCHASE_SEATS,
 		]) {
@@ -294,20 +293,23 @@ const OPERATIONS: OpCase[] = [
 	{
 		name: 'rename organization (POST /v1/organizations/rename)',
 		op: api.COMMERCIAL_OPS.RENAME_ORGANIZATION,
-		shape: 'required',
+		shape: 'absent',
 		affirmative: [
-			// THE UNION IS NOT DECLARED YET - the route is BRA-1439's commercial half, landing in
-			// the same pass as this caller, and its ticket comment declares the request but not the
-			// response vocabulary. `renamed` is api.js's reading of the service's per-operation
-			// past-tense convention, asked for on the ticket; when the landed handler declares its
-			// union, this row and the descriptor are corrected together from that citation.
-			{label: 'renamed', body: {outcome: 'renamed', organization_id: 'org-1', organization_name: 'Nordwind Logistik'}},
+			// The landed handler writes the renamed record straight out, with no `outcome` member
+			// (one-apps cloud/service/src/http.ts:3684-3689); refusals are bare statuses.
+			{
+				label: 'the renamed record, with no outcome field',
+				body: {organization_id: 'org-1', organization_name: 'Nordwind Logistik'},
+			},
 		],
 		refusal: {
-			// Any value outside the (assumed) union fails closed - pinned with a plausible name on
-			// purpose, PURCHASE_SEATS's own approach for a union that could not be read.
-			label: 'invalid_name (a refusal whose real name could not be read)',
-			body: {outcome: 'invalid_name', organization_id: 'org-1'},
+			// THE OLD ASSUMPTION, PINNED AS THE REFUSAL IT ALWAYS WAS. This row first shipped as the
+			// AFFIRMATIVE `outcome: 'renamed'`, read off a log line while the handler was unpushed -
+			// independent QA caught that every real success would have opened the refusal modal. An
+			// `outcome` arriving on this operation is a vocabulary nothing has read, and refusing it
+			// is what would catch the same drift again from the other direction.
+			label: "the log word 'renamed', which is not a result field",
+			body: {outcome: 'renamed', organization_id: 'org-1', organization_name: 'Nordwind Logistik'},
 		},
 	},
 	{
@@ -531,10 +533,12 @@ describe('one/api.js commercial guard - the per-operation outcome vocabulary', (
 		for (const entry of OPERATIONS) {
 			expect(entry.op.shape, entry.name).toBe(entry.shape)
 		}
-		// Six required, twelve absent. The counts keep a table-wide mistake (every row copied as
-		// 'absent', say) from passing as agreement. RENAME_ORGANIZATION is the sixth (BRA-1439).
-		expect(OPERATIONS.filter(entry => entry.shape === 'required')).toHaveLength(6)
-		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(12)
+		// Five required, thirteen absent. The counts keep a table-wide mistake (every row copied
+		// as 'absent', say) from passing as agreement. RENAME_ORGANIZATION is the thirteenth
+		// absent row (BRA-1439) - it briefly sat on the required side of this line, on an assumed
+		// union independent QA traced false against the landed handler; see its own row.
+		expect(OPERATIONS.filter(entry => entry.shape === 'required')).toHaveLength(5)
+		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(13)
 	})
 
 	for (const entry of OPERATIONS) {
@@ -876,8 +880,9 @@ describe('one/api.js commercial calls (bar 6, ruling C17)', () => {
 		// its grammar is `{organization_id, organization_name, idempotency_key}` (the ticket
 		// comment of 2026-08-26), and the key is defaulted at the api.js seam like the invite's.
 		// MUTATION: removing the key default, or adding any field to the body, makes this red -
-		// toEqual pins the whole body.
-		queue = [jsonResponse({outcome: 'renamed', organization_id: 'org-1', organization_name: 'Nordwind'})]
+		// toEqual pins the whole body. The stubbed success is the handler's real one: the renamed
+		// record, no outcome member (http.ts:3684-3689).
+		queue = [jsonResponse({organization_id: 'org-1', organization_name: 'Nordwind'})]
 
 		const result = await api.renameOrganization({organization_id: 'org-1', organization_name: 'Nordwind'})
 
