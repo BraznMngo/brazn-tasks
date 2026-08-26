@@ -547,7 +547,7 @@
       "favoriteRemoved": "お気に入りから削除しました。",
       "colorUpdated": "タスクの色を更新しました。",
       "seatAdded": "ライセンスを1件追加しました。",
-      "invitationSent": "招待を送信しました。ライセンスを1件確保しました。",
+      "invitationSent": "招待を送信しました。",
       "alreadyMember": "このユーザーはすでに組織のメンバーです。何も送信されておらず、ライセンスも消費されていません。",
       "invitationRevoked": "招待を取り消しました。",
       "adminTransferSubmitted": "管理者の移譲を申請しました。",

@@ -547,7 +547,7 @@
       "favoriteRemoved": "已从收藏中移除。",
       "colorUpdated": "任务颜色已更新。",
       "seatAdded": "已添加一个席位。",
-      "invitationSent": "邀请已发送，已预留一个席位。",
+      "invitationSent": "邀请已发送。",
       "alreadyMember": "该用户已在你的组织中。未发送邀请，也未占用席位。",
       "invitationRevoked": "邀请已撤销。",
       "adminTransferSubmitted": "管理员转让请求已提交。",

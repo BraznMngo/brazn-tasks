@@ -547,7 +547,7 @@
       "favoriteRemoved": "Removed from favorites.",
       "colorUpdated": "The task color was updated.",
       "seatAdded": "A seat was added.",
-      "invitationSent": "Invitation sent. One seat is reserved.",
+      "invitationSent": "Invitation sent.",
       "alreadyMember": "That person is already in your organization. Nothing was sent and no seat was used.",
       "invitationRevoked": "The invitation was revoked.",
       "adminTransferSubmitted": "The administrator transfer was submitted.",
