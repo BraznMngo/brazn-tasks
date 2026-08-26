@@ -255,6 +255,7 @@ const (
 	BraznFeedbackOwner       Key = `brazn.feedbackowner`
 	BraznAccountURL          Key = `brazn.accounturl`
 	BraznSignupRedemptionURL Key = `brazn.signupredemptionurl`
+	BraznSeatsEnsureURL      Key = `brazn.seatsensureurl`
 	BraznServiceToken        Key = `brazn.servicetoken`
 	BraznRestrictedUIOnly    Key = `brazn.restricteduionly`
 
@@ -569,6 +570,14 @@ func InitDefaultConfig() {
 	// shared service credential this instance presents as a bearer token; it is
 	// not the signup token and never appears in a URL.
 	BraznSignupRedemptionURL.setDefault("")
+	// Where a team creation is reported so the purchased seat count can rise
+	// automatically (BRA-1439 Story 9). The full endpoint URL, including its
+	// path, like the redemption URL above, and presented with the same
+	// brazn.servicetoken bearer. Empty by default, and UNLIKE the redemption
+	// pair an unconfigured instance is not closed by it: team creation is
+	// never refused for seats, so a missing URL costs only the automatic seat
+	// rise, which pkg/modules/brazn/seats logs loudly every time.
+	BraznSeatsEnsureURL.setDefault("")
 	BraznServiceToken.setDefault("")
 	// The restricted-UI lockout: when on, this instance serves the ONE Tasks
 	// page under /one/ and nothing else, and the Vue SPA is never delivered.

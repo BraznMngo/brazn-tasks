@@ -118,6 +118,7 @@ export interface CommercialOps {
 	readonly INVITE_MEMBER: CommercialOp
 	readonly ACCEPT_INVITATION: CommercialOp
 	readonly REMOVE_ORGANIZATION_MEMBER: CommercialOp
+	readonly RENAME_ORGANIZATION: CommercialOp
 	readonly LIST_TEAM_ACCESS_REQUESTS: CommercialOp
 	readonly DECIDE_TEAM_ACCESS_REQUEST: CommercialOp
 	readonly CONFIRM_TEAM_ACCESS_REQUEST: CommercialOp
@@ -353,6 +354,9 @@ export function addAssignee(taskId: number | string, userId: number): Promise<an
 export function removeAssignee(taskId: number | string, userId: number): Promise<any>
 export function searchProjectUsers(projectId: number | string, q: string): Promise<any>
 
+/** GET /api/v2/users?q= — the instance-wide user search (BRA-1439 Story 8). */
+export function searchUsers(q: string): Promise<any>
+
 /* --- fork: organization and teams --------------------------------- */
 
 /** Null on 403 — the ordinary answer for a non-administrator (ruling C1.5). */
@@ -414,6 +418,15 @@ export function acceptOrganizationInvitation(body: Record<string, any>): Promise
  * Body is `{organization_id, member_user_id}` and nothing else — no key.
  */
 export function removeOrganizationMember(body: Record<string, any>): Promise<CommercialResult>
+
+/**
+ * POST /v1/organizations/rename (BRA-1439 Story 2). `idempotency_key` is
+ * defaulted at this seam, like the invite's.
+ */
+export function renameOrganization(
+	body: Record<string, any>,
+	idempotencyKey?: string,
+): Promise<CommercialResult>
 export function listTeamAccessRequests(query?: Record<string, any>): Promise<CommercialResult>
 export function decideTeamAccessRequest(body: Record<string, any>): Promise<CommercialResult>
 export function confirmTeamAccessRequest(body: Record<string, any>): Promise<CommercialResult>

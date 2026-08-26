@@ -17,13 +17,16 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
 
 	"code.vikunja.io/api/pkg/db"
+	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/auth"
+	"code.vikunja.io/api/pkg/modules/brazn/seats"
 	"code.vikunja.io/api/pkg/user"
 
 	"github.com/labstack/echo/v5"
@@ -57,22 +60,6 @@ import (
 // membership, which is a different route and a different rule.
 type braznOrganizationTeamRequest struct {
 	Name string `json:"name"`
-}
-
-// BraznOrganizationTeamCapacityResponse is the refusal AC2 asks for: not "no",
-// but the numbers that say what would change the answer.
-type BraznOrganizationTeamCapacityResponse struct {
-	Message string `json:"message"`
-	// SeatsPurchased is null when this instance cannot read one, which is a
-	// different problem with a different remedy from having bought too few, and
-	// the two must not be reported as one.
-	SeatsPurchased *int `json:"seats_purchased"`
-	TeamsUsed      int  `json:"teams_used"`
-	SeatsPerTeam   int  `json:"seats_per_team"`
-	// SeatsNeeded is how many seats the organization would have to hold for one
-	// more team. Null when the seat count could not be read, because the honest
-	// answer is then unknown rather than a number.
-	SeatsNeeded *int `json:"seats_needed"`
 }
 
 // actingOrganization resolves the caller and the organization they administer,
@@ -132,17 +119,28 @@ func BraznGetOrganization(c *echo.Context) error {
 	return c.JSON(http.StatusOK, organization)
 }
 
-// BraznCreateOrganizationTeam creates one additional team, within capacity.
+// BraznCreateOrganizationTeam creates one additional team.
+//
+// THERE IS NO SEAT-CAPACITY REFUSAL ON THIS ROUTE ANY MORE, and its removal is
+// the change, not an oversight (BRA-1439 Story 9, decided by Sebastian on
+// 2026-08-26): creating a team is never refused for seats. The purchased seat
+// count rises instead - after the creation commits, the new team count is
+// reported to the commercial service, which raises the count to its own
+// formula, opens whatever proration Q7 requires for a paying organization, and
+// re-delivers the administrator's projection so the next organization read
+// shows the new figure. The report is synchronous so the page's re-read after
+// a creation sees the risen count, and IT NEVER FAILS THE CREATION: a team
+// that has committed is a fact, and a missed report is converged by the next
+// one (the endpoint is a converging ensure).
 //
 // @Summary Create an additional team
-// @Description Creates a team and its protected Team root, if the organization's purchased seats allow another one.
+// @Description Creates a team and its protected Team root, and reports the new team count to the commercial service so the purchased seat count can rise.
 // @tags brazn
 // @Accept json
 // @Produce json
 // @Security JWTKeyAuth
 // @Success 201 {object} models.Team "The created team."
 // @Failure 403 {object} web.HTTPError "The caller does not administer an organization."
-// @Failure 409 {object} v1.BraznOrganizationTeamCapacityResponse "The purchased seats do not allow another team."
 // @Router /brazn/organization/teams [put]
 func BraznCreateOrganizationTeam(c *echo.Context) error {
 	acting, organization, err := actingOrganization(c)
@@ -161,36 +159,28 @@ func BraznCreateOrganizationTeam(c *echo.Context) error {
 	team, err := models.CreateOrganizationTeam(s, acting, organization, request.Name)
 	if err != nil {
 		_ = s.Rollback()
-
-		var capacity models.ErrOrganizationTeamCapacity
-		if errors.As(err, &capacity) {
-			return c.JSON(http.StatusConflict, capacityRefusal(capacity))
-		}
 		return echo.NewHTTPError(http.StatusBadRequest, "The team could not be created.").Wrap(err)
 	}
 
 	if err := s.Commit(); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "The team could not be created.").Wrap(err)
 	}
-	return c.JSON(http.StatusCreated, team)
-}
 
-// capacityRefusal turns the seat rule's refusal into the numbers a customer can
-// act on. `seats_needed` is computed from the SAME constant the rule enforces,
-// so guidance that says "buy up to N" cannot recommend a number that would then
-// be refused.
-func capacityRefusal(capacity models.ErrOrganizationTeamCapacity) BraznOrganizationTeamCapacityResponse {
-	refusal := BraznOrganizationTeamCapacityResponse{
-		Message:        capacity.Error(),
-		SeatsPurchased: capacity.SeatsPurchased,
-		TeamsUsed:      capacity.TeamsUsed,
-		SeatsPerTeam:   capacity.SeatsPerTeam,
+	// After the commit, never before: a rolled-back team must not be billed.
+	// `TeamsUsed + 1` is exact because this transaction added exactly one.
+	// context.WithoutCancel because the creation is already a fact - a report
+	// lost to a closed browser tab would leave the seat count lagging until
+	// the next creation converges it.
+	if err := seats.EnsureOrganizationSeats(
+		context.WithoutCancel(c.Request().Context()),
+		organization.ID,
+		organization.TeamsUsed+1,
+	); err != nil {
+		log.Errorf("The team was created and the seat rise could not be reported for organization %q: %s",
+			organization.ID, err)
 	}
-	if capacity.SeatsPurchased != nil {
-		needed := capacity.SeatsPerTeam * (capacity.TeamsUsed + 1)
-		refusal.SeatsNeeded = &needed
-	}
-	return refusal
+
+	return c.JSON(http.StatusCreated, team)
 }
 
 // BraznDeleteOrganizationTeam removes one additional team and the work inside

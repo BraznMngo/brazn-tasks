@@ -2395,6 +2395,61 @@ function handOffToLogin({force = false} = {}) {
 }
 
 /**
+ * THE JOIN RETURN LEG (BRA-1439 Story 5). /one/join.html hands a signed-out invitation
+ * recipient to the Vue app's sign-in pages, and signing in lands them in the APPLICATION — the
+ * finding above explains why no return-to can carry a static page. So the join page records the
+ * pending invitation under this key, and boot(), which every ONE page runs the moment a session
+ * exists, sends the person back to the join page exactly once to finish accepting.
+ *
+ * `localStorage`, NOT sessionStorage, and that is a decision with a cost paid deliberately: the
+ * set-a-password path crosses tabs (the reset link arrives by email and opens wherever the mail
+ * client puts it), and a per-tab marker would strand exactly the people who most need the
+ * return leg. What bounds the cost on a shared machine: the marker holds only the invitation id
+ * (never the signup token, which stays in per-tab sessionStorage), it expires after an hour,
+ * this hook REMOVES it before navigating — one automatic bounce per write — and the join page
+ * consumes it on every terminal outcome, where the commercial service's own outcome vocabulary
+ * (`no_invitation`, `not_invitable`) is the real guard against the wrong person accepting.
+ */
+// brazn. prefix, not one., for LOGIN_HANDOFF_MARKER's reason: a storage key must not read like
+// an i18n key to the fork-guards sweep.
+export const PENDING_JOIN_KEY = 'brazn.one.join-pending';
+
+const PENDING_JOIN_MAX_AGE_MS = 60 * 60 * 1000;
+
+/**
+ * PURE, so the whole decision is a table in a test: the stored string (or null) and the clock
+ * in, the invitation id to resume (or null) out. Malformed JSON, a missing id, a missing or
+ * unreadable timestamp and a stale timestamp all answer null — a marker that cannot prove it is
+ * fresh must not move the browser.
+ */
+export function pendingJoinRedirect(raw, now) {
+  if (typeof raw !== 'string' || raw === '') return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const id = typeof parsed?.i === 'string' && parsed.i !== '' ? parsed.i : null;
+  const at = typeof parsed?.at === 'number' && Number.isFinite(parsed.at) ? parsed.at : null;
+  if (id === null || at === null) return null;
+  if (typeof now !== 'number' || now < at || now - at > PENDING_JOIN_MAX_AGE_MS) return null;
+  return id;
+}
+
+/** Read AND remove the marker — the removal is what makes the bounce one-shot. */
+function consumePendingJoin() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(PENDING_JOIN_KEY);
+    if (raw !== null) localStorage.removeItem(PENDING_JOIN_KEY);
+  } catch {
+    return null;
+  }
+  return pendingJoinRedirect(raw, Date.now());
+}
+
+/**
  * The terminal sign-in surface. Reached when the hand-off refused to loop, and when the session
  * is lost after boot — both are "there is nothing to render and the user has to sign in", and
  * folding them into one function is what keeps the two paths from drifting apart.
@@ -2444,6 +2499,17 @@ export async function boot() {
     // A session exists, so the next expiry earns a fresh automatic hand-off: the marker is
     // about "we tried and came straight back", not about "we have ever tried".
     writeHandoffMarker(false);
+
+    // The join return leg, before anything renders: a person who signed in to accept an
+    // invitation is standing on the wrong page right now, and painting this one first would be
+    // a flash of a surface they did not ask for. `consumePendingJoin` removed the marker, so
+    // this navigation happens once per write, and the join page re-establishes the session from
+    // the refresh cookie the way every page here does.
+    const pendingJoinId = consumePendingJoin();
+    if (pendingJoinId !== null) {
+      location.replace(`${api.forkAppUrl('one/join.html')}?i=${encodeURIComponent(pendingJoinId)}`);
+      return;
+    }
     // After boot a lost session is a TERMINAL STATE with a visible hand-off, not a silent
     // redirect: a redirect mid-edit throws away whatever the user had typed with no warning.
     api.onSessionLost(() => {showSignInSurface();});

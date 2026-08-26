@@ -8,12 +8,14 @@ import {
 	DENY_MESSAGE_KEY,
 	GATES,
 	GATES_THAT_HIDE,
+	PENDING_JOIN_KEY,
 	SETTINGS_TABS,
 	VIEWS,
 	actionNames,
 	decideGate,
 	editionMessageKey,
 	parseRoute,
+	pendingJoinRedirect,
 	readGateFacts,
 	registerActions,
 	resolveRoute,
@@ -509,6 +511,54 @@ describe('one/app.js login hand-off (the restricted-UI redirect loop)', () => {
 		// boot failure.
 		expect(shouldHandOffToLogin()).toBe(true)
 		expect(shouldHandOffToLogin({})).toBe(true)
+	})
+})
+
+describe('one/app.js join return leg (BRA-1439 Story 5)', () => {
+	/*
+	 * /one/join.html records a pending invitation before handing a signed-out recipient to the
+	 * sign-in pages, and boot() resumes it once a session exists. The decision is pure so the
+	 * whole table lives here rather than in a navigation; the impure wrapper removes the marker
+	 * before acting on it, which is what makes the bounce one-shot and is asserted from the
+	 * decider's side as "a marker only ever answers once per read-and-remove".
+	 */
+	const now = 1_700_000_000_000
+
+	it('resumes a fresh, well-formed marker and answers the invitation id', () => {
+		// MUTATION: deleting the consumePendingJoin() branch from boot() cannot be seen from here
+		// (boot is one-shot by design, see "Deliberately NOT tested"); what this pins is the
+		// decider itself - returning null for a valid marker strands every recipient who had to
+		// sign in first, silently, on the settings page.
+		expect(pendingJoinRedirect(JSON.stringify({i: 'inv-9', at: now - 60_000}), now)).toBe('inv-9')
+	})
+
+	it('refuses a stale marker, and a clock that runs backwards', () => {
+		// An hour is the freshness window: long enough for a password round trip through email,
+		// short enough that a shared machine does not resume somebody else's invitation tomorrow.
+		// MUTATION: dropping the age check makes the first of these red.
+		expect(pendingJoinRedirect(JSON.stringify({i: 'inv-9', at: now - 2 * 60 * 60 * 1000}), now)).toBeNull()
+		expect(pendingJoinRedirect(JSON.stringify({i: 'inv-9', at: now + 60_000}), now)).toBeNull()
+	})
+
+	it('refuses everything that cannot prove it is a marker', () => {
+		// Malformed JSON, a missing id, a missing or non-numeric timestamp, and nothing at all.
+		// A marker that cannot prove it is fresh must not move the browser.
+		// MUTATION: defaulting a missing `at` to Date.now() - "treat unknown as fresh" - makes
+		// the third of these red.
+		expect(pendingJoinRedirect('not json', now)).toBeNull()
+		expect(pendingJoinRedirect(JSON.stringify({at: now}), now)).toBeNull()
+		expect(pendingJoinRedirect(JSON.stringify({i: 'inv-9'}), now)).toBeNull()
+		expect(pendingJoinRedirect(JSON.stringify({i: '', at: now}), now)).toBeNull()
+		expect(pendingJoinRedirect(null, now)).toBeNull()
+		expect(pendingJoinRedirect('', now)).toBeNull()
+	})
+
+	it('keeps the storage key out of the one. namespace, where the i18n sweep would claim it', () => {
+		// The fork-guards sweep checks every quoted one.*-anchored string against en.json; a key
+		// spelled one.join-pending would be reported as a missing translation forever.
+		// MUTATION: renaming the key into the one. namespace makes this red before CI does.
+		expect(PENDING_JOIN_KEY.startsWith('one.')).toBe(false)
+		expect(PENDING_JOIN_KEY).toBe('brazn.one.join-pending')
 	})
 })
 

@@ -44,15 +44,15 @@
       }
     },
     "deletion": {
-      "title": "Lösche deinen Brazn Tasks-Account",
+      "title": "Lösche deinen ONE Tasks-Account",
       "text1": "Das Löschen deines Accounts ist dauerhaft und unwiderruflich. Alle Projekte, Aufgaben und zugehörige Daten werden gelöscht.",
       "confirm": "Meinen Account löschen",
       "requestSuccess": "Die Anfrage war erfolgreich. Du erhältst eine E-Mail mit weiteren Anweisungen."
     },
     "export": {
-      "title": "Exportiere deine Brazn Tasks-Daten",
-      "request": "Eine Kopie meiner Brazn Tasks Daten anfordern",
-      "success": "Du hast deine Daten bei Brazn Tasks erfolgreich angefordert! Wir schicken dir eine E-Mail, sobald sie zum Download bereitstehen."
+      "title": "Exportiere deine ONE Tasks-Daten",
+      "request": "Eine Kopie meiner ONE Tasks Daten anfordern",
+      "success": "Du hast deine Daten bei ONE Tasks erfolgreich angefordert! Wir schicken dir eine E-Mail, sobald sie zum Download bereitstehen."
     }
   },
   "task": {
@@ -433,6 +433,7 @@
       "renameOrgAria": "Namen der Organisation bearbeiten",
       "renameTeamAria": "Namen von {team} bearbeiten",
       "renameOrgTitle": "Name der Organisation",
+      "nameUnknown": "Der Name eurer Organisation ist hier noch nicht hinterlegt.",
       "yourProjects": "Deine Projekte",
       "administratorText": "Der Administrator kann Teams, Mitglieder, Sitzplätze und die Einstellungen der Organisation verwalten.",
       "membersSubtitle": "Verwalte, wer zu diesem Team gehört.",
@@ -454,7 +455,7 @@
       "inviteEmailPlaceholder": "name{'@'}example.com",
       "inviteSeatNotice": "Die Einladung reserviert sofort einen Sitzplatz für {team}.",
       "sendInvitation": "Einladung senden",
-      "pendingInvitations": "Ausstehende Einladungen",
+      "pendingInvitations": "Beitrittsanfragen für das Team",
       "invitePending": "Einladung ausstehend",
       "seatReserved": "Sitzplatz reserviert",
       "subscriptionActionRequired": "Euer Abonnement erfordert eine Aktion.",
@@ -482,6 +483,19 @@
         "publicName": "Öffentlich",
         "publicDesc": "Arbeit, die in der ganzen Organisation sichtbar ist."
       }
+    },
+    "join": {
+      "title": "Deiner Organisation beitreten",
+      "lead": "Du wurdest in ein Team bei ONE Tasks eingeladen.",
+      "explain": "Melde dich an, um die Einladung anzunehmen. Wenn du noch kein Passwort hast, lege zuerst eins fest – dein Konto existiert bereits – oder melde dich auf der Anmeldeseite mit Google an.",
+      "signIn": "Anmelden",
+      "setPassword": "Passwort festlegen",
+      "accepting": "Einladung wird angenommen…",
+      "accepted": "Du bist deiner Organisation beigetreten. Willkommen an Bord.",
+      "alreadyMember": "Du hast in dieser Organisation bereits einen Sitzplatz. Es musste nichts geändert werden.",
+      "openApp": "ONE Tasks öffnen",
+      "refusedLead": "Die Einladung konnte nicht angenommen werden.",
+      "missingLink": "Dieser Link ist unvollständig. Öffne den Link aus deiner Einladungs-E-Mail oder bitte die Person, die dich eingeladen hat, um einen neuen."
     },
     "deny": {
       "personalEdition": "Das gehört zu ONE Teams.",
@@ -533,10 +547,11 @@
       "favoriteRemoved": "Aus Favoriten entfernt.",
       "colorUpdated": "Die Farbe der Aufgabe wurde aktualisiert.",
       "seatAdded": "Ein Sitzplatz wurde hinzugefügt.",
-      "invitationSent": "Einladung verschickt. Ein Sitzplatz ist reserviert.",
+      "invitationSent": "Einladung verschickt.",
       "alreadyMember": "Diese Person ist bereits in eurer Organisation. Es wurde nichts verschickt und kein Sitzplatz belegt.",
       "invitationRevoked": "Die Einladung wurde zurückgezogen.",
       "adminTransferSubmitted": "Die Übergabe der Administratorrolle wurde eingereicht.",
+      "organizationRenamed": "Der Name der Organisation wurde geändert.",
       "exportDownloaded": "Der Export wurde heruntergeladen.",
       "commentUpdated": "Der Kommentar wurde aktualisiert."
     }

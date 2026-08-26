@@ -686,6 +686,27 @@ export const COMMERCIAL_OPS = Object.freeze({
   REMOVE_ORGANIZATION_MEMBER: commercialOp(OUTCOME_REQUIRED, ['removed']),
 
   /**
+   * POST /v1/organizations/rename — the administrator corrects the
+   * organization's registered display name (BRA-1439 Story 2).
+   * Body: `{organization_id, organization_name}` — the renamed record, written
+   * straight out with NO `outcome` member (one-apps
+   * cloud/service/src/http.ts:3684-3689, the landed handler). Success also
+   * re-delivers the administrator's projection, which is how the new name
+   * reaches the fork's organization read; refusals are bare statuses, so
+   * `res.ok` carries them.
+   *
+   * CORRECTED FROM AN ASSUMED UNION, and the correction is worth its history:
+   * this descriptor first shipped as OUTCOME_REQUIRED `['renamed']`, read off
+   * a LOG line (service.ts:6530) while the handler was unpushed — so every
+   * successful rename opened the refusal modal, the exact fail-closed
+   * direction the guard promises, caught by independent QA before merge. The
+   * refusal row in api.commercial.test.ts now pins the old assumption as what
+   * must be refused: an `outcome` arriving on this operation is a vocabulary
+   * this file has not read.
+   */
+  RENAME_ORGANIZATION: commercialOp(OUTCOME_ABSENT),
+
+  /**
    * GET /v1/team-access-requests.
    * Body: `{requests: [{request_id, requester_email, message, team_id,
    * requested_at, verified_at}]}` (percy-http-27c95232.ts:3170-3197).
@@ -2210,6 +2231,33 @@ export function searchProjectUsers(projectId, q) {
   return forkGet(withQuery(forkV2Url(`projects/${encodeURIComponent(projectId)}/users/search`), {q}));
 }
 
+/**
+ * GET /api/v2/users?q= — the instance-wide user search behind "Find someone
+ * outside your organization" (BRA-1439 Story 8).
+ *
+ * THE ROUTE EXISTS, correcting two written claims in this repository's own
+ * history. BRA-1384 concluded `GET /api/v2/users?q=` was absent and proposed
+ * removing the control; BRA-1439 corrected that to "the real endpoint is
+ * `GET /api/v1/users?s=`"; and both are half-right — the v2 route has been
+ * registered since 5dcc501d5 ("feat(api/v2): add user search endpoints",
+ * pkg/routes/api/v2/user_search.go, Path "/users", query `q`), sharing its
+ * search logic with v1 (5807f2e7b). v2 is used here because ruling C18 caps
+ * the fork's v1 base at its two documented uses and this must not become a
+ * third.
+ *
+ * What the server does with the term (the route's own description): matches by
+ * username, full name or FULL email, where name and email require the target
+ * to have made themselves discoverable — which is the "you must know the exact
+ * address" limit the control's hint already states. Email addresses are never
+ * returned in the results.
+ *
+ * Answers `{items: [user], total, page, per_page, total_pages}` (the v2
+ * Paginated envelope, pkg/routes/api/v2/types.go:27).
+ */
+export function searchUsers(q) {
+  return forkGet(withQuery(forkV2Url('users'), {q}));
+}
+
 /* ------------------------------------------------------------------ *
  * 14. Fork — organization and teams
  * ------------------------------------------------------------------ */
@@ -2494,6 +2542,36 @@ export function acceptOrganizationInvitation(body) {
  */
 export function removeOrganizationMember(body) {
   return commercialPost('organizations/members/removal', COMMERCIAL_OPS.REMOVE_ORGANIZATION_MEMBER, body);
+}
+
+/**
+ * POST /v1/organizations/rename — change the organization's registered display
+ * name (BRA-1439 Story 2; the route is the commercial half of the same
+ * ticket, and the request grammar comes from its ticket comment of
+ * 2026-08-26: `{organization_id, organization_name, idempotency_key}`).
+ *
+ * THIS EXPORT USED TO BE DELIBERATELY ABSENT (ruling C8.1: "read-only until
+ * POST /v1/organizations/rename lands"), and a test pinned its absence so the
+ * refused pencil could not issue a request. The route has now landed on the
+ * commercial side, so the ruling's own condition is met: the export exists,
+ * the pencil is live, and the test that pinned the absence pins the call
+ * instead.
+ *
+ * `idempotency_key` is defaulted here, the same seam the invite defaults its
+ * own at, so no caller can forget it. One key per user action: a refreshed
+ * retry replays the same body and converges on one rename.
+ *
+ * The caller must NOT render the new name out of this response. Success
+ * re-delivers the administrator's projection, and the name on screen is
+ * re-read from the FORK organization endpoint afterwards (bar 8), the same
+ * discipline the seat numbers follow.
+ */
+export function renameOrganization(body, idempotencyKey) {
+  return commercialPost('organizations/rename', COMMERCIAL_OPS.RENAME_ORGANIZATION, {
+    idempotency_key: idempotencyKey ?? newIdempotencyKey(),
+    // Spread last so an explicit key in the body wins over the default.
+    ...body,
+  });
 }
 
 /**

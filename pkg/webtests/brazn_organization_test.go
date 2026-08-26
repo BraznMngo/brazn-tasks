@@ -19,9 +19,13 @@ package webtests
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/brazn/entitlement"
@@ -51,6 +55,17 @@ const otherOrganization = "org_other"
 
 func seats(n int) *int { return &n }
 
+// organizationDisplayName is the name the fixture organization registered with
+// the commercial service - the value `state.organization_name` carries on the
+// administrator's projection (BRA-1439 Story 2). A literal here, so the
+// round-trip assertion cannot agree with a broken read model.
+const organizationDisplayName = "Nordwind Logistik"
+
+func displayName() *string {
+	name := organizationDisplayName
+	return &name
+}
+
 // newOrganizationEnv is an organization with one administrator (testuser1),
 // one ordinary member (testuser6), a provisioned primary team root, and a
 // personal account elsewhere on the instance.
@@ -61,7 +76,7 @@ func newOrganizationEnv(t *testing.T, seatsPurchased *int) (*managedEnv, int64) 
 	t.Helper()
 
 	env := newManagedEnv(t)
-	env.grantSeats(testuser1.ID, true, seatsPurchased)
+	env.grantSeatsNamed(testuser1.ID, true, seatsPurchased, displayName())
 	env.grantSeats(testuser6.ID, false, nil)
 
 	// The personal account is granted into a DIFFERENT organization, and that
@@ -71,7 +86,7 @@ func newOrganizationEnv(t *testing.T, seatsPurchased *int) (*managedEnv, int64) 
 	// test counts - it would count three, the assertion would say two, and the
 	// comment explaining why would be false. A subject in nobody else's
 	// organization is what "a personal account on this instance" actually is.
-	env.grantProjection(testuser2.ID, entitlement.EditionPersonal, false, nil, nil, otherOrganization, nil)
+	env.grantProjection(testuser2.ID, entitlement.EditionPersonal, false, nil, nil, nil, otherOrganization, nil)
 
 	// The primary team and its root are provisioned with the organization. It
 	// is the team the removal test must refuse, and the one team every
@@ -160,6 +175,12 @@ func TestTheOrganizationReadModelCountsSeatsAndTeams(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), organization))
 
 	assert.Equal(t, managedTestOrganization, organization.ID)
+	// The registered display name, carried on the administrator's projection
+	// and served so no screen has to show the org_ identifier (BRA-1439
+	// Story 2). Asserted against the fixture literal, not against anything the
+	// product computed.
+	require.NotNil(t, organization.Name)
+	assert.Equal(t, organizationDisplayName, *organization.Name)
 	// testuser1 and testuser6, and NOT the personal account - which holds an
 	// active projection on this same instance, for a different organization.
 	// That is what makes this an assertion about the organization filter rather
@@ -193,19 +214,19 @@ func TestTheOrganizationReadModelCountsSeatsAndTeams(t *testing.T) {
 	assert.Equal(t, testuser1.ID, organization.Administrator.UserID)
 }
 
-// TestTeamCreationIsRefusedBeyondPurchasedSeats is AC2's arithmetic, and the
-// refusal AC2 asks to be actionable.
+// TestTeamCreationIsNeverRefusedForSeats is Sebastian's decision of
+// 2026-08-26 (BRA-1439 Story 9), asserted where the old rule used to bite.
+// The fixture holds SIX seats and one team; under the removed rule a second
+// team was exactly affordable and a third exactly not, so the third creation
+// is the edge that proves the refusal is gone rather than merely moved.
 //
-// The fixture buys SIX seats and already holds one team, so a second team is
-// exactly affordable and a third is exactly not. Both edges are asserted,
-// because a rule that is off by one passes whichever single case you pick.
-//
-// WHAT MAKES IT FAIL: make models.CanCreateTeam return true unconditionally,
-// and the refusal below becomes a 201.
-func TestTeamCreationIsRefusedBeyondPurchasedSeats(t *testing.T) {
+// WHAT MAKES IT FAIL: put the old `purchased >= 3 x (teams + 1)` refusal back
+// into models.CreateOrganizationTeam, and the third creation below answers
+// 409 again.
+func TestTeamCreationIsNeverRefusedForSeats(t *testing.T) {
 	env, _ := newOrganizationEnv(t, seats(6))
 
-	t.Run("the second team fits in six seats", func(t *testing.T) {
+	t.Run("the second team is created", func(t *testing.T) {
 		rec := env.request(http.MethodPut, organizationTeamsPath, `{"name":"Vertrieb"}`, &testuser1)
 		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 	})
@@ -221,56 +242,39 @@ func TestTeamCreationIsRefusedBeyondPurchasedSeats(t *testing.T) {
 		assert.False(t, organization.Teams[1].Primary, "a team created later never becomes it")
 	})
 
-	t.Run("and the third does not", func(t *testing.T) {
+	t.Run("and so is the third, which the old seat rule refused", func(t *testing.T) {
 		rec := env.request(http.MethodPut, organizationTeamsPath, `{"name":"Technik"}`, &testuser1)
-		require.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	})
 
-		refusal := struct {
-			SeatsPurchased *int `json:"seats_purchased"`
-			TeamsUsed      int  `json:"teams_used"`
-			SeatsNeeded    *int `json:"seats_needed"`
-		}{}
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &refusal))
+	t.Run("and the read model keeps saying a team can be created", func(t *testing.T) {
+		// Three teams on six seats - the old allowance was two - and the server
+		// still answers true, because the page renders the server's decision
+		// and no screen may refuse a team for want of seats.
+		rec := env.request(http.MethodGet, organizationPath, "", &testuser1)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
-		// The guidance a customer acts on: they hold 6, they have 2 teams, and
-		// a third needs 9. Literal numbers, not a recomputation of the rule.
-		require.NotNil(t, refusal.SeatsPurchased)
-		assert.Equal(t, 6, *refusal.SeatsPurchased)
-		assert.Equal(t, 2, refusal.TeamsUsed)
-		require.NotNil(t, refusal.SeatsNeeded)
-		assert.Equal(t, 9, *refusal.SeatsNeeded)
+		organization := &models.Organization{}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), organization))
+		assert.Equal(t, 3, organization.TeamsUsed)
+		assert.True(t, organization.CanCreateTeam)
 	})
 }
 
-// TestTeamCreationIsRefusedWhenTheSeatCountIsMissing is the contract decision
-// that absence refuses, checked where it bites.
+// TestTeamCreationSucceedsWhenTheSeatCountIsMissing pins the other half of the
+// same decision. The old doctrine read an absent count as a refusal because a
+// capacity decision was taken against it; there is no capacity decision any
+// more, so a projection minted before `seats_purchased` existed no longer
+// stops a team. The count is display and billing input now - the commercial
+// service computes the rise from its own records either way.
 //
-// `seats_purchased` is optional, and this is the one member where the
-// `valid_to` doctrine inverts: an absent end date read as "no end" would grant
-// time nobody bought, so absence there is unsafe - where an absent count read
-// as "no limit" would grant capacity nobody bought, so absence here must
-// refuse. A projection minted before the member existed does not become
-// unenforceable; it becomes a refusal.
-//
-// WHAT MAKES IT FAIL: change the `seatsPurchased == nil` branch in
-// models.CanCreateTeam from false to true, and this 409 becomes a 201.
-func TestTeamCreationIsRefusedWhenTheSeatCountIsMissing(t *testing.T) {
+// WHAT MAKES IT FAIL: re-introduce any refusal of a nil seat count on the
+// creation path.
+func TestTeamCreationSucceedsWhenTheSeatCountIsMissing(t *testing.T) {
 	env, _ := newOrganizationEnv(t, nil)
 
 	rec := env.request(http.MethodPut, organizationTeamsPath, `{"name":"Vertrieb"}`, &testuser1)
-	require.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
-
-	refusal := struct {
-		SeatsPurchased *int `json:"seats_purchased"`
-		SeatsNeeded    *int `json:"seats_needed"`
-	}{}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &refusal))
-
-	// Null, not zero. "Nobody told us" and "they bought none" are different
-	// facts with different remedies, and a customer sent to buy seats they
-	// already own is being sent by a product that guessed.
-	assert.Nil(t, refusal.SeatsPurchased)
-	assert.Nil(t, refusal.SeatsNeeded)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 }
 
 // TestASecondAdministratorStopsTheOrganizationSurface is the fork's half of
@@ -410,4 +414,106 @@ func teamRootProject(t *testing.T, teamID int64) int64 {
 	require.NoError(t, err)
 	require.True(t, has, "creating a team must provision its Team root")
 	return root.ProjectID
+}
+
+// TestTheOrganizationNameIsNullUntilTheProducerSendsOne pins the read model's
+// answer for a projection minted before `state.organization_name` existed:
+// null, never an invented name and never the identifier dressed up as one. The
+// page renders its own "no name recorded" sentence for null (BRA-1439
+// Story 2), so a value fabricated here would ship to a screen.
+//
+// WHAT MAKES IT FAIL: derive a fallback name in models.OrganizationFor - from
+// the organization id, from the administrator's username, from anything.
+func TestTheOrganizationNameIsNullUntilTheProducerSendsOne(t *testing.T) {
+	env := newManagedEnv(t)
+	env.grantSeats(testuser1.ID, true, seats(9))
+
+	rec := env.request(http.MethodGet, organizationPath, "", &testuser1)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	organization := &models.Organization{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), organization))
+	assert.Nil(t, organization.Name)
+}
+
+// TestATeamCreationReportsTheNewTeamCountForTheSeatRise is the fork's half of
+// the BRA-1439 Story 9 seam: after a creation commits, the new team count is
+// reported to the commercial seat-ensure endpoint with the shared service
+// credential, and the body carries exactly the two members the commercial half
+// declared on the ticket - the organization id and the count AFTER the
+// creation.
+//
+// WHAT MAKES IT FAIL: delete the seats.EnsureOrganizationSeats call from
+// BraznCreateOrganizationTeam - the creation still answers 201 and nothing
+// ever reaches the endpoint, which is precisely the "guard whose input has no
+// producer" shape this repository keeps finding, caught here from the
+// producing side.
+func TestATeamCreationReportsTheNewTeamCountForTheSeatRise(t *testing.T) {
+	env, _ := newOrganizationEnv(t, seats(3))
+
+	type report struct {
+		authorization string
+		body          string
+		// readErr crosses back to the test goroutine and is asserted THERE:
+		// testifylint's go-require rule forbids require inside an http handler,
+		// because a require failure calls t.FailNow from the wrong goroutine.
+		readErr error
+	}
+	received := make(chan report, 1)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		received <- report{
+			authorization: r.Header.Get("Authorization"),
+			body:          string(body),
+			readErr:       err,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"organization_id":"` + managedTestOrganization + `","outcome":"changed"}`))
+	}))
+	defer server.Close()
+
+	setConfigForTest(t, config.BraznSeatsEnsureURL, server.URL)
+	setConfigForTest(t, config.BraznServiceToken, "test-service-credential")
+
+	rec := env.request(http.MethodPut, organizationTeamsPath, `{"name":"Vertrieb"}`, &testuser1)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+	select {
+	case got := <-received:
+		require.NoError(t, got.readErr)
+		// The shared service credential, as a bearer - the same one the signup
+		// redemption presents, per the seam contract on the ticket.
+		assert.Equal(t, "Bearer test-service-credential", got.authorization)
+		// The whole body: the fixture held one team, the creation added one, so
+		// the count reported is 2. JSONEq so a third member sneaking in fails
+		// too - the endpoint accepts nothing else.
+		assert.JSONEq(t, `{"organization_id":"`+managedTestOrganization+`","active_teams":2}`, got.body)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the team was created and nothing reported the new count to the seat-ensure endpoint")
+	}
+}
+
+// TestATeamCreationSurvivesAnUnreachableSeatEndpoint is the other half of the
+// same decision: the report never gates the creation. A team that has
+// committed is a fact; a missed report is logged and converged by the next
+// one, because the endpoint is a converging ensure.
+//
+// WHAT MAKES IT FAIL: make BraznCreateOrganizationTeam return an error when
+// seats.EnsureOrganizationSeats does - the creation below answers something
+// other than 201, which is a seat-shaped refusal wearing a transport failure.
+func TestATeamCreationSurvivesAnUnreachableSeatEndpoint(t *testing.T) {
+	env, _ := newOrganizationEnv(t, seats(3))
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	endpoint := server.URL
+	// Closed BEFORE the creation, so the configured URL points at a port
+	// nothing listens on any more - the transport failure, not a slow answer.
+	server.Close()
+
+	setConfigForTest(t, config.BraznSeatsEnsureURL, endpoint)
+	setConfigForTest(t, config.BraznServiceToken, "test-service-credential")
+
+	rec := env.request(http.MethodPut, organizationTeamsPath, `{"name":"Vertrieb"}`, &testuser1)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 }

@@ -44,15 +44,15 @@
       }
     },
     "deletion": {
-      "title": "Delete your Brazn Tasks Account",
+      "title": "Delete your ONE Tasks Account",
       "text1": "The deletion of your account is permanent and cannot be undone. We will delete all your projects, tasks and everything associated with it.",
       "confirm": "Delete my account",
       "requestSuccess": "The request was successful. You'll receive an email with further instructions."
     },
     "export": {
-      "title": "Export your Brazn Tasks data",
-      "request": "Request a copy of my Brazn Tasks Data",
-      "success": "You've successfully requested your Brazn Tasks Data! We will send you an email once it's ready to download."
+      "title": "Export your ONE Tasks data",
+      "request": "Request a copy of my ONE Tasks Data",
+      "success": "You've successfully requested your ONE Tasks Data! We will send you an email once it's ready to download."
     }
   },
   "task": {
@@ -433,6 +433,7 @@
       "renameOrgAria": "Edit organization name",
       "renameTeamAria": "Edit {team} name",
       "renameOrgTitle": "Organization name",
+      "nameUnknown": "Your organization's name has not been recorded here yet.",
       "yourProjects": "Your projects",
       "administratorText": "The administrator can manage teams, members, seats and organization settings.",
       "membersSubtitle": "Manage who belongs to this team.",
@@ -454,7 +455,7 @@
       "inviteEmailPlaceholder": "name{'@'}example.com",
       "inviteSeatNotice": "The invitation reserves one seat immediately for {team}.",
       "sendInvitation": "Send invitation",
-      "pendingInvitations": "Pending invitations",
+      "pendingInvitations": "Requests to join the team",
       "invitePending": "Invitation pending",
       "seatReserved": "Seat reserved",
       "subscriptionActionRequired": "Subscription action required",
@@ -482,6 +483,19 @@
         "publicName": "Public",
         "publicDesc": "Work visible across the organization."
       }
+    },
+    "join": {
+      "title": "Join your organization",
+      "lead": "You have been invited to a team on ONE Tasks.",
+      "explain": "Sign in to accept the invitation. If you do not have a password yet, set one first — your account already exists — or sign in with Google from the sign-in page.",
+      "signIn": "Sign in",
+      "setPassword": "Set a password",
+      "accepting": "Accepting your invitation…",
+      "accepted": "You have joined your organization. Welcome aboard.",
+      "alreadyMember": "You already hold a seat in this organization, so nothing needed to change.",
+      "openApp": "Open ONE Tasks",
+      "refusedLead": "The invitation could not be accepted.",
+      "missingLink": "This link is incomplete. Open the link from your invitation email, or ask the person who invited you to send a new one."
     },
     "deny": {
       "personalEdition": "This is part of ONE Teams.",
@@ -533,10 +547,11 @@
       "favoriteRemoved": "Removed from favorites.",
       "colorUpdated": "The task color was updated.",
       "seatAdded": "A seat was added.",
-      "invitationSent": "Invitation sent. One seat is reserved.",
+      "invitationSent": "Invitation sent.",
       "alreadyMember": "That person is already in your organization. Nothing was sent and no seat was used.",
       "invitationRevoked": "The invitation was revoked.",
       "adminTransferSubmitted": "The administrator transfer was submitted.",
+      "organizationRenamed": "The organization's name was changed.",
       "exportDownloaded": "The export was downloaded.",
       "commentUpdated": "The comment was updated."
     }

@@ -42,7 +42,7 @@ assertions actually read. Trace from the assertion backwards, not from the inten
 * **No Playwright spec, for `/v1` or for fork routes** (ruling C7). Nothing below may be reported
   as evidence that a commercial route works; CI starts no commercial service.
 
-## Seven files
+## Eight files
 
 **No case counts are recorded here, deliberately.** An earlier version of this file carried
 them and they went stale inside one afternoon — `api.commercial.test.ts` was listed at 16 while
@@ -61,6 +61,7 @@ source that cannot be wrong.
 | `app.gating.test.ts` | the role matrix through `decideGate`, fact derivation, routing, the login hand-off, the action registry |
 | `app.seats.test.ts` | the seat formula against the literal contract `3 * (teams_used + 1)` |
 | `app.dom.test.ts` | the DOM applier, the one shared refusal path, hydration, organization/roster facts |
+| `join.test.ts` | the invitation acceptance page (BRA-1439 Story 5): the query/fragment parsers, the five surfaces, and the boot flow against a stubbed fetch — including the return-leg marker and the `signupToken` hand-off key |
 
 ---
 
@@ -113,7 +114,7 @@ naming one branch is true for five of the seventeen operations or for twelve, ne
 | `to_user_id` goes on the wire **unchanged**, number or string | Add a `Number()` coercion to `transferAdministrator`. The seam must not hide the type: a `<select>` value is a string, so a call site passing `fieldValue(...)` straight through sends `"42"`, and ruling C17's reasoning covers the value shape as much as the field name |
 | Every invitation carries an `idempotency_key` | Remove the default from `inviteOrganizationMember`. `parseInvite` requires the key unconditionally and UUID-checks it (`percy-http-27c95232.ts:1602`), and a null parse is a bare 400 — so an invitation without one is a guaranteed 400 that CI can never see |
 | An invitation carrying `team_id` throws and issues no request | Delete the `'team_id' in body` assertion from `inviteOrganizationMember` (ruling C17). **Corrected claim:** the field is NOT invented — `parseInvite` allowlists it at `percy-http-27c95232.ts:1598` and forwards it at :2841. It is not sent because the prototype has no team picker (bar 10), and the row is written that way now |
-| No rename-organization call is exported at all | Add any `renameOrganization*` export to `api.js` — ruling C8.1 needs its absence to keep "renders disabled, issues no request" testable |
+| The rename sends exactly `{organization_id, organization_name, idempotency_key}`, key defaulted | **A reversed negative, recorded as such (BRA-1439 Story 2).** This row used to pin that NO rename-organization export existed — ruling C8.1's "read-only until POST /v1/organizations/rename lands" made the absence the testable property. The route landed with BRA-1439's commercial half, so the positive counterpart took over. Mutation now: remove the key default, or add any field to the body — `toEqual` pins the whole body. The descriptor is `absent`-shaped against the landed handler's real success body (`{organization_id, organization_name}`, no `outcome` — http.ts:3684-3689); it briefly assumed a `renamed` union off a log line, which independent QA traced false before merge, and the OPERATIONS refusal row now pins that log word as refused |
 | The three bases stay apart (`/api/v1`, `/api/v2`, `/v1`) | Point any of `forkV1Url` / `forkV2Url` / `commercialV1Url` at another base |
 | A leading slash on the path does not double up | Delete `stripLeadingSlash` |
 | The commercial URL is ROOT-relative even when the base carries a path | Drop the leading slash from `commercialV1Url`'s `/v1/${path}` template — from `/one/task.html` it becomes `/one/v1/…` |
@@ -133,6 +134,7 @@ naming one branch is true for five of the seventeen operations or for twelve, ne
 | Team create goes to `PUT /api/v1/brazn/organization/teams`, the only route that works | Point `createOrganizationTeam` at `forkV2Url('teams')`, which is service-managed and 403s for everyone |
 | Renaming a team issues BOTH writes, team then root project | **The mutation is true of the helper and the helper is NOT the shipped journey.** Deleting either call from `renameTeamEverywhere` does redden this row — but `renameTeamEverywhere` has no caller in `app.js`, `view-task.js` or `view-settings.js`. The `save-team` action calls `api.renameTeam` and `api.renameTeamRootProject` separately and says why, so deleting either of THOSE two calls reddens nothing at all. The brief lists "rename team needs two writes" as a mis-wired call that must be corrected, and the correction as shipped is unguarded. See "Deliberately NOT tested" for why that gap is not closed here |
 | Team members are addressed by username, task assignees by numeric id | Swap either identifier — the `{user}` path segment means different things on the two routes |
+| `searchUsers` builds `GET /api/v2/users?q=` and never the fork v1 base | Point it at `forkV1Url('users')` with `s` — the sibling route is real (both have shared one search since 5807f2e7b), which is exactly why the base has to be pinned: ruling C18 caps v1 at its two documented uses (BRA-1439 Story 8) |
 | `personal-cloud` is read from the `brazn_edition` claim | Change the `PERSONAL_EDITION` comparison |
 | Any other edition value, and absence, is unrestricted | Whitelist `teams-cloud` instead of testing for `personal-cloud` — the failure that costs a customer access |
 | Write restriction must be exactly `true` | Relax `claims[…] === true` to a truthy test — `'true'` would read as restricted, as would every legacy token |
@@ -184,6 +186,8 @@ followed it in `app.dom.test.ts` (see the header) — §4's warning is not theor
 | The `/login` hand-off happens once and then refuses to loop | Delete `if (marker === true) return false` from `shouldHandOffToLogin`. `/login` is a vue-router path the restricted-UI lockout redirects back to this page, so an unconditional hand-off is `ERR_TOO_MANY_REDIRECTS` on exactly the instance the lockout exists for |
 | A user-pressed Sign in still hands off | Drop the `force` short-circuit — the terminal surface's only control would do nothing |
 | With storage unusable, `redirectCount > 0` stands in for the marker | Return `true` unconditionally for a null marker — every storage-less browser loops again |
+| `pendingJoinRedirect` resumes only a fresh, well-formed join marker (BRA-1439 Story 5) | Drop the age check (a shared machine resumes somebody else's invitation tomorrow); default a missing `at` to now (an unprovable marker moves the browser); return the id for malformed JSON. The one-shot property lives in the impure wrapper (remove-before-navigate) and is pinned from `join.test.ts`'s side instead |
+| `PENDING_JOIN_KEY` stays outside the `one.` namespace | Rename it into `one.` — the fork-guards sweep would report a storage key as a missing translation forever |
 | Edition comes from the JWT claim, never from the organization read | Source `personalEdition` from the organization payload (SPEC-UI §5.4) — with no organization loaded the fact would be false (ruling C1) |
 | Absence of the claim means "no edition to name", not personal | Default a missing claim to `personal-cloud` — every CI session and every legacy token restricted |
 | Any non-personal edition is Teams, including an unseen one | Switch `editionMessageKey` to a `=== 'teams-cloud'` test |
@@ -249,6 +253,27 @@ been evaluated.
 | Every enumerated bare status (401/402/403/404/409/5xx) renders a sentence, and NEVER the number | Empty `COMMERCIAL_STATUS_MESSAGE_KEY`. The `messageParams`/`not.toContain(status)` half is what stops the number coming back by any route, including a new key whose value interpolates it. The 403 sentence is asserted NOT to name the organization administrator: this function has no operation handle, so it cannot tell an organization-scoped 403 from an account-scoped one, and naming a cause on a coin-flip is worse than naming none |
 | A bodiless FORK refusal gets its own sentence, from its own table | Point `describeForkError` at `COMMERCIAL_STATUS_MESSAGE_KEY` — its 403 says "the subscription service would not allow that", which names the wrong service for a refusal that came from the fork's managed gate. The two tables are separate because a bare 403 means different things on the two sides |
 | Every `COMMERCIAL_OUTCOME_MESSAGE_KEY` value resolves to real English through `t()` | Rename any value without adding the key — `t()` returns the dotted path, and a refusal surface renders a raw key. The sibling assertion in `app.gating.test.ts` proves the key EXISTS; this one proves the loaded catalogue resolves it |
+
+## `join.test.ts`
+
+The invitation acceptance page (BRA-1439 Story 5). Unlike the two view modules, `join.js` ships
+a `join.d.ts` and its boot is small enough to drive whole against a stubbed fetch, so the gap
+recorded under "Deliberately NOT tested" for `view-*.js` does not extend to it. i18n stays
+unloaded in these tests (the global fetch rejects), so assertions match key paths — which also
+pins that the page stays legible when no catalogue can load.
+
+| Behaviour | Mutation that must make it fail |
+| -- | -- |
+| `?i=` is the only source of the invitation id; empty and absent are null | Default a missing id to `''` — the page POSTs an empty `invitation_id` instead of rendering the missing-link sentence |
+| The signup token is read from the FRAGMENT only, never a query string | Make `signupTokenFromHash` (or its caller) also read `location.search` — the security property (no browser transmits a fragment) invites the token into proxy logs the moment the query works too |
+| `admitted` and `already_member` are two different sentences | Collapse `acceptedOutcome` to always `'accepted'` — "you have joined" for a seat that was always theirs is bar 8's fake-success direction one level below the guard |
+| Each surface carries its own sentence and controls; an unknown state falls back to missing-link | Swap any surface's key, or make the fallback render `choices` |
+| The refusal sentence renders as TEXT | Interpolate `state.sentence` without `esc()` — server text reaches the reader as elements |
+| A session boot accepts through `/v1/organizations/invitations/accept` with `{invitation_id}` alone | Add any second body field — `parseAcceptInvitation` allowlists exactly one and the route answers 400 |
+| Every terminal outcome consumes the return-leg marker | Delete `clearPendingJoin()` from `accept()` — every later settings-page visit bounces back here |
+| A no-session boot writes the marker and renders the choices | Drop `writePendingJoin()` — a recipient who had to sign in lands on the settings page with the invitation unaccepted, silently |
+| The fragment token lands under the Vue helper's `signupToken` key and the fragment is stripped | Rename either side's literal (the two bundles cannot share a constant), or strip before storing — an unstorable token would be lost instead of travelling on in the fragment |
+| A link with no id renders missing-link and issues NO request | Probe the session anyway — a mail scanner's fetch of a half-link would cost a refresh round-trip for nothing |
 
 ---
 

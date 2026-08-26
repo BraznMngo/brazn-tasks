@@ -4,7 +4,9 @@
 			<dt class="has-text-weight-bold">
 				{{ $t('organization.general.name') }}
 			</dt>
-			<dd>{{ organization?.id }}</dd>
+			<!-- The registered name, never the org_ identifier: a missing name
+			     gets its own sentence (BRA-1439 Story 2). -->
+			<dd>{{ organization?.organizationName ?? $t('organization.general.nameUnknown') }}</dd>
 		</dl>
 
 		<!--

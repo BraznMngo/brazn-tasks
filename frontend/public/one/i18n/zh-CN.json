@@ -44,15 +44,15 @@
       }
     },
     "deletion": {
-      "title": "删除您的 Brazn Tasks 帐户",
+      "title": "删除您的 ONE Tasks 帐户",
       "text1": "您账户的删除是永久性的且无法撤消。 我们将删除您的所有项目、任务以及与之相关的所有内容。",
       "confirm": "删除我的帐户",
       "requestSuccess": "请求成功。您将收到一封包含更多说明的电子邮件。"
     },
     "export": {
-      "title": "导出 Brazn Tasks 数据",
-      "request": "请求我的 Brazn Tasks 数据副本",
-      "success": "已成功请求您的 Brazn Tasks 数据！一旦准备好下载，我们将向您发送一封电子邮件。"
+      "title": "导出 ONE Tasks 数据",
+      "request": "请求我的 ONE Tasks 数据副本",
+      "success": "已成功请求您的 ONE Tasks 数据！一旦准备好下载，我们将向您发送一封电子邮件。"
     }
   },
   "task": {
@@ -433,6 +433,7 @@
       "renameOrgAria": "编辑组织名称",
       "renameTeamAria": "编辑 {team} 的名称",
       "renameOrgTitle": "组织名称",
+      "nameUnknown": "你的组织名称尚未同步到这里。",
       "yourProjects": "你的项目",
       "administratorText": "管理员可以管理团队、成员、席位和组织设置。",
       "membersSubtitle": "管理此团队的成员。",
@@ -454,7 +455,7 @@
       "inviteEmailPlaceholder": "name{'@'}example.com",
       "inviteSeatNotice": "该邀请会立即为 {team} 预留一个席位。",
       "sendInvitation": "发送邀请",
-      "pendingInvitations": "待处理的邀请",
+      "pendingInvitations": "加入团队的申请",
       "invitePending": "邀请待处理",
       "seatReserved": "已预留席位",
       "subscriptionActionRequired": "订阅需要你处理",
@@ -482,6 +483,19 @@
         "publicName": "公开",
         "publicDesc": "整个组织都可以看到的工作内容。"
       }
+    },
+    "join": {
+      "title": "加入你的组织",
+      "lead": "你已受邀加入 ONE Tasks 上的一个团队。",
+      "explain": "请登录以接受邀请。如果你还没有设置密码，请先设置密码（你的账户已经创建），也可以在登录页面使用 Google 登录。",
+      "signIn": "登录",
+      "setPassword": "设置密码",
+      "accepting": "正在接受邀请…",
+      "accepted": "你已加入组织。欢迎加入。",
+      "alreadyMember": "你已在该组织中拥有席位，无需任何更改。",
+      "openApp": "打开 ONE Tasks",
+      "refusedLead": "无法接受邀请。",
+      "missingLink": "此链接不完整。请打开邀请邮件中的链接，或请邀请你的人重新发送一个。"
     },
     "deny": {
       "personalEdition": "此功能属于 ONE Teams。",
@@ -533,10 +547,11 @@
       "favoriteRemoved": "已从收藏中移除。",
       "colorUpdated": "任务颜色已更新。",
       "seatAdded": "已添加一个席位。",
-      "invitationSent": "邀请已发送，已预留一个席位。",
+      "invitationSent": "邀请已发送。",
       "alreadyMember": "该用户已在你的组织中。未发送邀请，也未占用席位。",
       "invitationRevoked": "邀请已撤销。",
       "adminTransferSubmitted": "管理员转让请求已提交。",
+      "organizationRenamed": "组织名称已更改。",
       "exportDownloaded": "导出文件已下载。",
       "commentUpdated": "评论已更新。"
     }

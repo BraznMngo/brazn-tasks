@@ -22,6 +22,13 @@ const FRAGMENT_KEY = 'signup_token'
 // entirely and comes back on a different page, and rather than localStorage
 // because it must not outlive the tab: a token left behind would be offered by
 // the next person to register on a shared machine.
+//
+// MUST MATCH `SIGNUP_TOKEN_STORAGE_KEY` in frontend/public/one/join.js BYTE
+// FOR BYTE. The invitation acceptance page (BRA-1439 Story 5) stores the
+// token it finds in its own fragment under this key so the flows here pick it
+// up after the hand-off; the two files are separate bundles that may not
+// import each other, so there is no shared constant and no test to catch a
+// drift — grep for the literal there before renaming this.
 const STORAGE_KEY = 'signupToken'
 
 /**

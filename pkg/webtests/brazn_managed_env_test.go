@@ -101,7 +101,7 @@ func (env *managedEnv) grantUntil(
 ) {
 	env.t.Helper()
 
-	env.grantProjection(userID, edition, organizationAdmin, validTo, nil, managedTestOrganization, nil)
+	env.grantProjection(userID, edition, organizationAdmin, validTo, nil, nil, managedTestOrganization, nil)
 }
 
 // grantWriteAccess writes a projection carrying the contract's optional
@@ -118,7 +118,7 @@ func (env *managedEnv) grantUntil(
 func (env *managedEnv) grantWriteAccess(userID int64, edition string, writeAccess *string) {
 	env.t.Helper()
 
-	env.grantProjection(userID, edition, false, nil, nil, managedTestOrganization, writeAccess)
+	env.grantProjection(userID, edition, false, nil, nil, nil, managedTestOrganization, writeAccess)
 }
 
 // grantSeats writes an administrator's projection carrying an organization's
@@ -130,7 +130,24 @@ func (env *managedEnv) grantSeats(userID int64, organizationAdmin bool, seatsPur
 	env.t.Helper()
 
 	env.grantProjection(userID, entitlement.EditionTeams, organizationAdmin, nil, seatsPurchased,
-		managedTestOrganization, nil)
+		nil, managedTestOrganization, nil)
+}
+
+// grantSeatsNamed is grantSeats carrying `state.organization_name`, the
+// organization's registered display name. Like the seat count it rides the
+// administrator's projection only (BRA-1439 Story 2), and it is a pointer for
+// the same reason: a projection minted before the member existed carries none,
+// and the read model must answer null for it rather than an invented name.
+func (env *managedEnv) grantSeatsNamed(
+	userID int64,
+	organizationAdmin bool,
+	seatsPurchased *int,
+	organizationName *string,
+) {
+	env.t.Helper()
+
+	env.grantProjection(userID, entitlement.EditionTeams, organizationAdmin, nil, seatsPurchased,
+		organizationName, managedTestOrganization, nil)
 }
 
 // grantIn is grantSeats for a NAMED organization, which is what makes a
@@ -140,7 +157,7 @@ func (env *managedEnv) grantSeats(userID int64, organizationAdmin bool, seatsPur
 func (env *managedEnv) grantIn(userID int64, organization string, seatsPurchased *int) {
 	env.t.Helper()
 
-	env.grantProjection(userID, entitlement.EditionTeams, true, nil, seatsPurchased, organization, nil)
+	env.grantProjection(userID, entitlement.EditionTeams, true, nil, seatsPurchased, nil, organization, nil)
 }
 
 func (env *managedEnv) grantProjection(
@@ -149,6 +166,7 @@ func (env *managedEnv) grantProjection(
 	organizationAdmin bool,
 	validTo *time.Time,
 	seatsPurchased *int,
+	organizationName *string,
 	organization string,
 	writeAccess *string,
 ) {
@@ -168,6 +186,7 @@ func (env *managedEnv) grantProjection(
 			OrganizationAdmin: organizationAdmin,
 			EffectiveState:    "active",
 			SeatsPurchased:    seatsPurchased,
+			OrganizationName:  organizationName,
 			WriteAccess:       writeAccess,
 			// Comfortably in the past, so no test below is accidentally about
 			// a window that has not opened yet.

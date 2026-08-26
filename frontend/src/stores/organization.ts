@@ -27,6 +27,13 @@ export interface IOrganizationTeam {
 export interface IOrganization {
 	id: string
 	edition: string
+	/**
+	 * The organization's registered display name (`organization_name` on the
+	 * wire). null when the administrator's projection does not carry one yet;
+	 * the surface renders its own sentence for null and never the org_
+	 * identifier (BRA-1439 Story 2).
+	 */
+	organizationName: string | null
 	administrator: IOrganizationMember | null
 	members: IOrganizationMember[]
 	teams: IOrganizationTeam[]

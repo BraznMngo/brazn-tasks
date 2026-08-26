@@ -388,3 +388,17 @@ export function shouldHandOffToLogin(input?: {
 	/** A person pressed Sign in. Always hands off. */
 	force?: boolean
 }): boolean
+
+/**
+ * The localStorage key /one/join.html writes a pending invitation under, and boot() resumes
+ * from — the join return leg (BRA-1439 Story 5). See app.js for why localStorage and what
+ * bounds it.
+ */
+export const PENDING_JOIN_KEY: string
+
+/**
+ * PURE decision for the join return leg: the stored marker string (or null) and the clock in,
+ * the invitation id to resume (or null) out. Malformed, incomplete and stale markers all
+ * answer null.
+ */
+export function pendingJoinRedirect(raw: string | null, now: number): string | null

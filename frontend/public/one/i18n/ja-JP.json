@@ -44,15 +44,15 @@
       }
     },
     "deletion": {
-      "title": "Brazn Tasksアカウントの削除",
+      "title": "ONE Tasksアカウントの削除",
       "text1": "アカウント削除は恒久的なものであり、元に戻すことはできません。あなたのプロジェクト、タスク、それらに関連するすべてを削除します。",
       "confirm": "アカウントの削除",
       "requestSuccess": "リクエストは成功しました。詳しい案内はメールでお知らせします。"
     },
     "export": {
-      "title": "Brazn Tasksデータのエクスポート",
-      "request": "Brazn Tasksデータのリクエスト",
-      "success": "Brazn Tasksデータのリクエストに成功しました！ダウンロードの準備が整い次第、メールでお知らせします。"
+      "title": "ONE Tasksデータのエクスポート",
+      "request": "ONE Tasksデータのリクエスト",
+      "success": "ONE Tasksデータのリクエストに成功しました！ダウンロードの準備が整い次第、メールでお知らせします。"
     }
   },
   "task": {
@@ -433,6 +433,7 @@
       "renameOrgAria": "組織名を編集",
       "renameTeamAria": "{team} のチーム名を編集",
       "renameOrgTitle": "組織名",
+      "nameUnknown": "組織名はまだここに登録されていません。",
       "yourProjects": "あなたのプロジェクト",
       "administratorText": "管理者はチーム、メンバー、ライセンス、組織の設定を管理できます。",
       "membersSubtitle": "このチームに所属するメンバーを管理します。",
@@ -454,7 +455,7 @@
       "inviteEmailPlaceholder": "name{'@'}example.com",
       "inviteSeatNotice": "招待を送信した時点で、{team} のライセンスを1件確保します。",
       "sendInvitation": "招待を送信",
-      "pendingInvitations": "保留中の招待",
+      "pendingInvitations": "チームへの参加リクエスト",
       "invitePending": "招待保留中",
       "seatReserved": "ライセンス確保済み",
       "subscriptionActionRequired": "サブスクリプションの対応が必要",
@@ -482,6 +483,19 @@
         "publicName": "パブリック",
         "publicDesc": "組織全体に公開される作業です。"
       }
+    },
+    "join": {
+      "title": "組織に参加",
+      "lead": "ONE Tasks のチームに招待されています。",
+      "explain": "ログインして招待を承諾してください。パスワードをまだ設定していない場合は、先にパスワードを設定してください（アカウントはすでに作成されています）。ログインページから Google でログインすることもできます。",
+      "signIn": "ログイン",
+      "setPassword": "パスワードを設定",
+      "accepting": "招待を承諾しています…",
+      "accepted": "組織に参加しました。ようこそ。",
+      "alreadyMember": "すでにこの組織のライセンスをお持ちのため、変更はありませんでした。",
+      "openApp": "ONE Tasks を開く",
+      "refusedLead": "招待を承諾できませんでした。",
+      "missingLink": "このリンクは不完全です。招待メールに記載されたリンクを開くか、招待した人に新しいリンクの送付を依頼してください。"
     },
     "deny": {
       "personalEdition": "これは ONE Teams の機能です。",
@@ -533,10 +547,11 @@
       "favoriteRemoved": "お気に入りから削除しました。",
       "colorUpdated": "タスクの色を更新しました。",
       "seatAdded": "ライセンスを1件追加しました。",
-      "invitationSent": "招待を送信しました。ライセンスを1件確保しました。",
+      "invitationSent": "招待を送信しました。",
       "alreadyMember": "このユーザーはすでに組織のメンバーです。何も送信されておらず、ライセンスも消費されていません。",
       "invitationRevoked": "招待を取り消しました。",
       "adminTransferSubmitted": "管理者の移譲を申請しました。",
+      "organizationRenamed": "組織名を変更しました。",
       "exportDownloaded": "エクスポートをダウンロードしました。",
       "commentUpdated": "コメントを更新しました。"
     }

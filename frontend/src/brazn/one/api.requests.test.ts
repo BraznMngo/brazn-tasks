@@ -258,6 +258,17 @@ describe('one/api.js request shaping', () => {
 		expect(calls[0].url).toBe('https://dev.tasks.brazn.one/api/v2/teams/3/members/ada')
 		expect(calls[1].url).toBe('https://dev.tasks.brazn.one/api/v2/tasks/7/assignees/42')
 	})
+
+	it('searches users on the v2 route, with q, and never on the fork v1 base', async () => {
+		await api.searchUsers('ada@example.com')
+
+		// BRA-1439 Story 8. GET /api/v2/users?q= has existed since 5dcc501d5 and shares its logic
+		// with v1's /users?s= — but ruling C18 caps the fork's v1 base at its two documented uses,
+		// so the v1 spelling must not appear here however real that route is.
+		// MUTATION: pointing searchUsers at forkV1Url('users') with `s` — the sibling route this
+		// call must not use — makes this red.
+		expect(calls[0].url).toBe('https://dev.tasks.brazn.one/api/v2/users?q=ada%40example.com')
+	})
 })
 
 describe('one/api.js JWT claims (ruling C1)', () => {

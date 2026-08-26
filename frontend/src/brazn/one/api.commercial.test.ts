@@ -291,6 +291,28 @@ const OPERATIONS: OpCase[] = [
 		},
 	},
 	{
+		name: 'rename organization (POST /v1/organizations/rename)',
+		op: api.COMMERCIAL_OPS.RENAME_ORGANIZATION,
+		shape: 'absent',
+		affirmative: [
+			// The landed handler writes the renamed record straight out, with no `outcome` member
+			// (one-apps cloud/service/src/http.ts:3684-3689); refusals are bare statuses.
+			{
+				label: 'the renamed record, with no outcome field',
+				body: {organization_id: 'org-1', organization_name: 'Nordwind Logistik'},
+			},
+		],
+		refusal: {
+			// THE OLD ASSUMPTION, PINNED AS THE REFUSAL IT ALWAYS WAS. This row first shipped as the
+			// AFFIRMATIVE `outcome: 'renamed'`, read off a log line while the handler was unpushed -
+			// independent QA caught that every real success would have opened the refusal modal. An
+			// `outcome` arriving on this operation is a vocabulary nothing has read, and refusing it
+			// is what would catch the same drift again from the other direction.
+			label: "the log word 'renamed', which is not a result field",
+			body: {outcome: 'renamed', organization_id: 'org-1', organization_name: 'Nordwind Logistik'},
+		},
+	},
+	{
 		name: 'decide team access request (POST /v1/team-access-requests/decide)',
 		op: api.COMMERCIAL_OPS.DECIDE_TEAM_ACCESS_REQUEST,
 		shape: 'required',
@@ -511,10 +533,12 @@ describe('one/api.js commercial guard - the per-operation outcome vocabulary', (
 		for (const entry of OPERATIONS) {
 			expect(entry.op.shape, entry.name).toBe(entry.shape)
 		}
-		// Five required, twelve absent. The counts keep a table-wide mistake (every row copied as
-		// 'absent', say) from passing as agreement.
+		// Five required, thirteen absent. The counts keep a table-wide mistake (every row copied
+		// as 'absent', say) from passing as agreement. RENAME_ORGANIZATION is the thirteenth
+		// absent row (BRA-1439) - it briefly sat on the required side of this line, on an assumed
+		// union independent QA traced false against the landed handler; see its own row.
 		expect(OPERATIONS.filter(entry => entry.shape === 'required')).toHaveLength(5)
-		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(12)
+		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(13)
 	})
 
 	for (const entry of OPERATIONS) {
@@ -847,13 +871,28 @@ describe('one/api.js commercial calls (bar 6, ruling C17)', () => {
 		expect(fetchStub).not.toHaveBeenCalled()
 	})
 
-	it('does not export a rename-organization call at all (ruling C8.1)', () => {
-		// The one control with no route anywhere: no commercial route, no service method, and
-		// models.Organization has no Name field. The absence of an export is the mechanism that
-		// makes "the field renders disabled and issues no request" testable.
-		// MUTATION: adding any renameOrganization export to api.js makes this red.
-		const surface = Object.keys(api)
-		expect(surface.filter(name => /rename/i.test(name) && /organi[sz]ation/i.test(name))).toEqual([])
+	it('sends the rename with exactly the three fields the route\'s grammar names', async () => {
+		// THE REVERSAL OF A NEGATIVE TEST, recorded as such. This case used to pin that api.js
+		// exported NO rename-organization call (ruling C8.1: the pencil was read-only "until
+		// POST /v1/organizations/rename lands"), and the absence was what made "renders disabled,
+		// issues no request" testable. The route landed with BRA-1439's commercial half, so the
+		// ruling's own condition is met and the positive counterpart takes over: the call exists,
+		// its grammar is `{organization_id, organization_name, idempotency_key}` (the ticket
+		// comment of 2026-08-26), and the key is defaulted at the api.js seam like the invite's.
+		// MUTATION: removing the key default, or adding any field to the body, makes this red -
+		// toEqual pins the whole body. The stubbed success is the handler's real one: the renamed
+		// record, no outcome member (http.ts:3684-3689).
+		queue = [jsonResponse({organization_id: 'org-1', organization_name: 'Nordwind'})]
+
+		const result = await api.renameOrganization({organization_id: 'org-1', organization_name: 'Nordwind'})
+
+		expect(calls[0].url).toBe('https://dev.tasks.brazn.one/v1/organizations/rename')
+		expect(JSON.parse(String(calls[0].init.body))).toEqual({
+			organization_id: 'org-1',
+			organization_name: 'Nordwind',
+			idempotency_key: 'idem-key-1',
+		})
+		expect(result.ok).toBe(true)
 	})
 })
 
