@@ -7,7 +7,8 @@
     "default": "默认",
     "download": "下载",
     "createdBy": "由 {0} 创建",
-    "cannotBeUndone": "此操作无法撤消！"
+    "cannotBeUndone": "此操作无法撤消！",
+    "closeDialog": "关闭对话框"
   },
   "navigation": {
     "settings": "设置"
@@ -56,15 +57,20 @@
   },
   "task": {
     "addReminder": "添加提醒...",
+    "removeReminder": "移除此提醒",
     "doneSuccess": "待办事项已标记为完成。",
     "undoneSuccess": "待办事项已标记为未完成。",
+    "movedToProject": "任务已移动到 {project}。",
     "detail": {
+      "title": "任务详情",
       "done": "标记为已完成",
       "undone": "标记为待办",
       "move": "将任务移动到另一个项目",
       "updated": "更新于 {0}",
       "updateSuccess": "该任务已保存",
       "deleteSuccess": "任务已删除",
+      "duplicateSuccess": "任务副本已成功创建。",
+      "removeRepeat": "移除重复间隔",
       "delete": {
         "header": "删除此任务",
         "text2": "这将删除与此任务相关的所有附件、提醒和关联，无法撤消！"
@@ -73,6 +79,7 @@
         "label": "添加标签",
         "relatedTasks": "添加关联",
         "moveProject": "移动",
+        "duplicate": "创建副本",
         "color": "设置颜色",
         "delete": "删除",
         "favorite": "添加至收藏",
@@ -109,6 +116,8 @@
     "comment": {
       "title": "评论",
       "comment": "评论",
+      "sortNewestFirst": "最新在前",
+      "sortOldestFirst": "最早在前",
       "addedSuccess": "评论已添加。",
       "deleteText1": "确实要删除此评论吗？",
       "deleteSuccess": "评论已删除。",
@@ -116,6 +125,7 @@
     },
     "label": {
       "placeholder": "输入以添加标签...",
+      "removeLabel": "移除标签 {label}",
       "addSuccess": "已成功添加标签。",
       "removeSuccess": "已成功移除标签。"
     },
@@ -182,13 +192,53 @@
       "member": "成员"
     }
   },
-  "one": {
-    "deny": {
-      "dueFollowsEnd": "截止日期跟随结束日期。请先清除结束日期，才能单独设置。"
+  "organization": {
+    "title": "组织",
+    "retry": "重试",
+    "members": {
+      "title": "成员",
+      "inUse": "已使用 {used} / {limit} 个席位",
+      "roleAdministrator": "组织管理员",
+      "roleMember": "成员"
     },
-    "toast": {
-      "taskAdded": "任务已添加。",
-      "commentUpdated": "评论已更新。"
+    "seats": {
+      "title": "席位",
+      "add": "添加席位",
+      "explanation": "移除成员后，其席位会立即释放；发送邀请前需要有一个空闲席位。"
+    },
+    "teams": {
+      "create": "创建团队",
+      "namePlaceholder": "团队名称",
+      "remove": "移除",
+      "capped": {
+        "title": "你已用完席位所允许的团队数量。",
+        "text": "再创建一个团队需要 {seats} 个已购席位。继续购买会立即增加容量，其他内容不会有任何变化。",
+        "unknown": "我们无法读取你已购买的席位数量，因此暂时无法创建新的团队。你的组织没有任何变化，此功能会自行恢复。"
+      }
+    },
+    "administration": {
+      "current": "组织管理员",
+      "transfer": {
+        "text": "组织的管理员由你付费的订阅服务记录，因此转让在那里办理，办理后在这里生效。转让完成的那一刻，你将失去全部管理权限，并且无法自行收回该角色。",
+        "action": "转让该角色"
+      }
+    },
+    "general": {
+      "name": "组织"
+    },
+    "unavailable": {
+      "title": "我们当前无法读取你的订阅。",
+      "text": "问题出在我们这边，不在你那边，你的组织没有任何变化。成员、团队和任务都能正常使用。只有依赖你所购版本的页面暂时无法访问，它们会自行恢复。"
+    },
+    "stale": {
+      "title": "此页面的内容在加载时是正确的，现在已经不是了。",
+      "text": "你的角色或你的组织在另一个窗口或另一台设备上发生了变化。你现在看到的操作选项是按更改前的状态显示的，此时操作会失败，而原因并不在你。重新加载后，你会回到与当前状态相符的页面。",
+      "action": "重新加载页面"
+    }
+  },
+  "one": {
+    "page": {
+      "title": "ONE Tasks"
     },
     "brand": {
       "logoAlt": "ONE",
@@ -200,24 +250,29 @@
       "teams": "ONE Teams",
       "withRole": "{edition} · {role}"
     },
-    "role": {
-      "personalUser": "个人用户",
-      "teamMember": "团队成员",
-      "administrator": "管理员"
-    },
-    "common": {
-      "add": "添加"
-    },
     "subscription": {
       "personal": "ONE Personal 订阅",
       "teams": "ONE Teams 订阅",
       "unknown": "此实例上没有为该账户记录任何订阅。",
       "help": "该账户登录时所属的版本。"
     },
-    "settings": {
-      "subscription": "你的订阅",
-      "currentEmail": "当前邮箱地址",
-      "emailUnavailable": "此实例不会返回你的邮箱地址，因此无法在此显示。"
+    "role": {
+      "personalUser": "个人用户",
+      "teamMember": "团队成员",
+      "administrator": "管理员"
+    },
+    "common": {
+      "none": "无",
+      "more": "更多",
+      "change": "更改",
+      "continue": "继续",
+      "add": "添加",
+      "search": "搜索",
+      "searching": "正在搜索…",
+      "you": "（你）",
+      "atUsername": "{'@'}{username}",
+      "separator": " · ",
+      "justNow": "刚刚"
     },
     "task": {
       "add": {
@@ -225,20 +280,22 @@
         "project": "项目",
         "titleRequired": "请先填写任务标题。未创建任何内容。"
       },
-      "comments": {
-        "edit": "编辑",
-        "editAria": "编辑你在 {date} 发表的评论",
-        "deleteAria": "删除你在 {date} 发表的评论",
-        "editing": "正在编辑此评论",
-        "sendHint": "按 Shift+Enter 发送",
-        "editLabel": "编辑评论"
-      },
-      "reminders": {
-        "customRequired": "请先选择日期和时间。未做任何更改。",
-        "typeDue": "到期日",
-        "typeStart": "开始日期",
-        "typeEnd": "结束日期"
-      },
+      "moreActions": "更多任务操作",
+      "unassigned": "未分配",
+      "progressManual": "手动",
+      "percent": "{percent}%",
+      "deleteTask": "删除任务",
+      "relationTarget": "任务",
+      "relationSearchPlaceholder": "搜索任务…",
+      "relationSearchResults": "匹配的任务",
+      "relationSearchScope": "正在显示 {project} 中的任务。",
+      "relationSearchScopeUnknown": "正在显示该任务所属项目中的任务。",
+      "relationSearchNoMatches": "此项目中没有匹配的任务。",
+      "relationChosen": "已选择：{task}",
+      "relationPickRequired": "请先从列表中选择一个任务。未做任何更改。",
+      "labelExample": "例如：发布",
+      "labelPlaceholder": "添加标签…",
+      "reminderCount": "{count} 个提醒 | {count} 个提醒",
       "statusOwnership": {
         "title": "状态与归属",
         "subtitle": "谁负责这项任务，优先级和进度如何"
@@ -247,14 +304,10 @@
         "title": "日程安排",
         "subtitle": "规划任务并接收提醒，还可以添加日期范围和重复设置。"
       },
-      "relationSearchPlaceholder": "搜索任务…",
-      "relationSearchResults": "匹配的任务",
-      "relationSearchScope": "正在显示 {project} 中的任务。",
-      "relationSearchScopeUnknown": "正在显示该任务所属项目中的任务。",
-      "relationSearchNoMatches": "此项目中没有匹配的任务。",
-      "relationChosen": "已选择：{task}",
-      "relationPickRequired": "请先从列表中选择一个任务。未做任何更改。",
       "repeat": {
+        "interval": "间隔",
+        "months": "个月",
+        "years": "年",
         "presetDaily": "每天",
         "presetWeekly": "每周",
         "presetMonthly": "每月",
@@ -263,14 +316,229 @@
         "unitOptionWeeks": "周",
         "unitOptionMonths": "个月",
         "unitOptionYears": "年",
+        "unitDays": "{count} 天 | {count} 天",
+        "unitWeeks": "{count} 周 | {count} 周",
+        "unitMonths": "{count} 个月 | {count} 个月",
+        "unitYears": "{count} 年 | {count} 年",
         "modeDefault": "从上一个截止日期开始",
         "modeDefaultHelp": "把间隔加到任务已有的日期上，因此原本周一到期的任务，即使你延后完成，仍然在周一到期。",
         "modeMonthly": "每月同一日期",
         "modeMonthlyHelp": "把所有日期向后推一个自然月，并保留当月的日号。下方的间隔会被忽略。",
         "modeCurrent": "从完成日期开始",
         "modeCurrentHelp": "把间隔加到你勾选完成的那一天，因此下一个截止日期从今天算起。",
-        "summaryMonthly": "在每个自然月的同一日期重复。"
+        "value": "每 {interval}",
+        "summary": "每 {interval}重复一次。",
+        "summaryMonthly": "在每个自然月的同一日期重复。",
+        "hint": "设置间隔或选择一个快捷预设，让此任务重复。"
+      },
+      "description": {
+        "subtitle": "支持 Markdown。列表、链接和清单会按你输入的样子保留。",
+        "placeholder": "输入描述信息。"
+      },
+      "resources": {
+        "title": "文件与关联",
+        "subtitle": "辅助材料和依赖关系会随任务一起保留。"
+      },
+      "attachments": {
+        "empty": "还没有附件。"
+      },
+      "comments": {
+        "subtitleTeams": "在团队任务中，使用 {'@'}username 提及某人。",
+        "subtitlePersonal": "评论将保留在此任务中。",
+        "placeholder": "写下评论…",
+        "edit": "编辑",
+        "editAria": "编辑你在 {date} 发表的评论",
+        "deleteAria": "删除你在 {date} 发表的评论",
+        "editing": "正在编辑此评论",
+        "sendHint": "按 Shift+Enter 发送",
+        "editLabel": "编辑评论"
+      },
+      "reminders": {
+        "empty": "未设置提醒。",
+        "hourBeforeDue": "到期日前 1 小时",
+        "dayBeforeDue": "到期日前 1 天",
+        "atDueTime": "到期时",
+        "dayBeforeStart": "开始日期前 1 天",
+        "customDateTime": "自定义日期和时间",
+        "unitMinutes": "{count} 分钟 | {count} 分钟",
+        "unitHours": "{count} 小时 | {count} 小时",
+        "unitDays": "{count} 天 | {count} 天",
+        "customRequired": "请先选择日期和时间。未做任何更改。",
+        "typeDue": "到期日",
+        "typeStart": "开始日期",
+        "typeEnd": "结束日期",
+        "atType": "{type}时",
+        "fallback": "提醒"
+      },
+      "move": {
+        "title": "移动任务",
+        "explanation": "任务的访问权限继承自它所在的项目。",
+        "destination": "目标项目"
+      },
+      "color": {
+        "blue": "蓝色",
+        "purple": "紫色",
+        "red": "红色",
+        "green": "绿色"
       }
+    },
+    "settings": {
+      "other": "其他",
+      "editName": "编辑名字",
+      "editProfile": "编辑个人资料",
+      "timezoneHelp": "用于到期日、提醒和重复任务。",
+      "subscription": "你的订阅",
+      "dataTitle": "你的任务数据",
+      "currentEmail": "当前邮箱地址",
+      "emailUnavailable": "此实例不会返回你的邮箱地址，因此无法在此显示。",
+      "updateEmail": "更新邮箱地址",
+      "updatePassword": "更新密码",
+      "connectedAccounts": {
+        "title": "登录方式",
+        "google": "Google",
+        "notConnected": "你使用密码登录。",
+        "connected": "你使用 Google 登录。此账户已无法使用密码登录。",
+        "connect": "切换为使用 Google 登录",
+        "confirmTitle": "要切换为使用 Google 登录吗？",
+        "confirmText": "此账户的密码将不再有效。之后你只能使用 Google 登录。此操作无法在此处撤消。",
+        "confirmAction": "切换为 Google",
+        "connectSuccess": "你现在使用 Google 登录。此账户的密码已不再有效。",
+        "unavailable": "此实例未配置 Google 登录。"
+      },
+      "export": {
+        "title": "导出 ONE Tasks 数据",
+        "text": "将你的项目、任务、评论和附件导出为一份便于迁移的存档文件。",
+        "action": "导出数据",
+        "modalText": "系统会在后台准备一份便于迁移的存档文件。",
+        "ready": "已有准备好的导出文件可供下载。",
+        "notReady": "当前没有已准备好的导出文件。",
+        "download": "下载当前副本",
+        "request": "请求导出"
+      },
+      "deleteAccount": {
+        "title": "删除账户",
+        "cancel": "取消删除计划",
+        "confirmTitle": "确认删除账户",
+        "confirmText": "要永久删除你的 ONE 账户吗？",
+        "successorTitle": "删除账户前，请选择接任的管理员。",
+        "successorText": "所选团队成员必须先成为组织管理员，才能提交删除请求。",
+        "requestedTitle": "已提交删除请求",
+        "requestedText": "只有在你打开我们邮件中的确认链接后，我们才会安排删除。"
+      }
+    },
+    "org": {
+      "teamLabel": "团队",
+      "teamManagement": "团队管理",
+      "teamManagementSubtitle": "团队、成员、席位与管理员转让。",
+      "renameOrgAria": "编辑组织名称",
+      "renameTeamAria": "编辑 {team} 的名称",
+      "renameOrgTitle": "组织名称",
+      "yourProjects": "你的项目",
+      "administratorText": "管理员可以管理团队、成员、席位和组织设置。",
+      "membersSubtitle": "管理此团队的成员。",
+      "membersEmpty": "此团队还没有成员。添加一位成员即可开始。",
+      "addMember": "添加成员",
+      "newAdministrator": "新管理员",
+      "selectMember": "选择一位团队成员…",
+      "teamNameExample": "例如：产品",
+      "organizationMembers": "组织成员",
+      "noOrganizationMembers": "没有可添加的组织成员。",
+      "findExternal": "查找组织外的人员",
+      "findExternalHint": "添加外部人员时，需要输入完整的邮箱地址或用户名才能找到对方。",
+      "searchPlaceholder": "完整的用户名或邮箱地址",
+      "noExternalMatch": "未找到完全匹配的外部人员。",
+      "inTeam": "已在团队中",
+      "external": "外部",
+      "inviteNewUser": "新用户",
+      "addExisting": "添加现有成员",
+      "inviteEmailPlaceholder": "name{'@'}example.com",
+      "inviteSeatNotice": "该邀请会立即为 {team} 预留一个席位。",
+      "sendInvitation": "发送邀请",
+      "pendingInvitations": "待处理的邀请",
+      "invitePending": "邀请待处理",
+      "seatReserved": "已预留席位",
+      "subscriptionActionRequired": "订阅需要你处理",
+      "noPendingInvitations": "此团队没有待处理的邀请。",
+      "revoke": "撤销",
+      "removeMemberTitle": "要将 {name} 从 {team} 中移除吗？",
+      "removeMemberLead": "此操作将取消其团队访问权限。",
+      "removeMemberText": "该用户仍然属于此组织，并保留其所属其他团队的访问权限。",
+      "removeFromTeam": "从团队中移除",
+      "seats": {
+        "inSubscription": "你的订阅中有 {count} 个席位 | 你的订阅中有 {count} 个席位",
+        "afterInvitation": "接受此邀请后共 {count} 个席位 | 接受此邀请后共 {count} 个席位",
+        "required": "需要 {count} 个席位 | 需要 {count} 个席位",
+        "members": "{count} 位成员 | {count} 位成员",
+        "pending": "{count} 个待处理的邀请 | {count} 个待处理的邀请",
+        "teams": "{count} 个团队 | {count} 个团队"
+      },
+      "tile": {
+        "privateKind": "私人",
+        "privateName": "你的任务",
+        "privateDesc": "你的私人任务空间，只有你可以访问。",
+        "teamDesc": "此团队共享的工作内容。",
+        "youAreMember": "你是其中的成员。",
+        "publicKind": "全组织",
+        "publicName": "公开",
+        "publicDesc": "整个组织都可以看到的工作内容。"
+      }
+    },
+    "deny": {
+      "personalEdition": "此功能属于 ONE Teams。",
+      "writeRestricted": "你的账户当前为只读状态。",
+      "notAdministrator": "只有组织管理员才能更改此项。",
+      "renameOrg": "重命名组织的功能尚未开放。",
+      "noRoute": "此功能尚未开放。",
+      "rosterUnavailable": "我们当前无法读取此团队的成员。",
+      "noTeams": "此组织还没有团队。请先创建一个团队。",
+      "dueFollowsEnd": "截止日期跟随结束日期。请先清除结束日期，才能单独设置。",
+      "commercial": "我们无法连接订阅服务，未做任何更改。",
+      "taskMove": "在项目之间移动任务属于 ONE Teams。",
+      "forkForbidden": "你没有权限在此执行该操作。未做任何更改。",
+      "forkNotFound": "我们找不到该内容。未做任何更改。",
+      "forkConflict": "该操作与当前状态不符，未做任何更改。"
+    },
+    "commercial": {
+      "notAuthenticated": "订阅服务未能确认你的登录状态，未做任何更改。",
+      "paymentRequired": "无法完成扣款，未做任何更改。",
+      "forbidden": "订阅服务不允许该操作，未做任何更改。",
+      "notFound": "订阅服务中没有该内容。未做任何更改。",
+      "conflict": "在你账户的当前状态下，订阅服务无法执行该操作。未做任何更改。",
+      "unavailable": "订阅服务当前不可用，未做任何更改。",
+      "notInvitable": "无法邀请该邮箱地址。该地址属于个人账户、其他组织，或已被删除的账户。未发送任何邀请。",
+      "invitationExpired": "该邀请已过期，未占用任何席位。",
+      "invitationRevoked": "该邀请已撤销，未占用任何席位。",
+      "noInvitation": "此账户没有对应的邀请，未占用任何席位。",
+      "atSeatCeiling": "此组织的席位数已达到产品所提供的上限，因此未占用任何席位。",
+      "notAMember": "该用户不是此组织的成员，未做任何更改。",
+      "stillAdministrator": "该用户仍在管理此组织。请先转让管理员角色，再将其移除。",
+      "notAdmitted": "申请已批准，但没有人获得席位。该申请仍处于待处理状态，问题解决后你可以再次批准。",
+      "belowUsers": "该席位数少于正在使用席位的人数。请先移除成员，再减少席位数量。",
+      "belowActiveTeams": "该席位数少于你现有团队所需的数量，未做任何更改。"
+    },
+    "error": {
+      "loadFailed": "此页面加载失败。",
+      "sessionExpired": "你的登录状态已失效。请重新登录以继续。",
+      "requestFailed": "操作未能完成。未做任何更改。",
+      "serverUnavailable": "服务器当前不可用，未做任何更改。",
+      "catalogue": "无法加载此页面的文本。"
+    },
+    "toast": {
+      "taskAdded": "任务已添加。",
+      "attachmentsAdded": "已添加 {count} 个附件 | 已添加 {count} 个附件",
+      "attachmentRemoved": "附件已删除。",
+      "relationAdded": "关联已添加。",
+      "relationRemoved": "关联已删除。",
+      "favoriteAdded": "已添加至收藏。",
+      "favoriteRemoved": "已从收藏中移除。",
+      "colorUpdated": "任务颜色已更新。",
+      "seatAdded": "已添加一个席位。",
+      "invitationSent": "邀请已发送，已预留一个席位。",
+      "alreadyMember": "该用户已在你的组织中。未发送邀请，也未占用席位。",
+      "invitationRevoked": "邀请已撤销。",
+      "adminTransferSubmitted": "管理员转让请求已提交。",
+      "exportDownloaded": "导出文件已下载。",
+      "commentUpdated": "评论已更新。"
     }
   }
 }

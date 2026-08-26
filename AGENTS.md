@@ -264,6 +264,8 @@ After adjusting the source string, you need to call the respective translation l
 
 **Do not add a new language from scratch or translate strings into other languages yourself.** Translations are managed through a dedicated workflow. If you are asked to add a new language, translate existing strings, or update translations for non-English locales, point the user to the translation guide instead: https://vikunja.io/docs/translations/
 
+**The ONE pages are the exception to the paragraph above.** The catalogues under `frontend/public/one/i18n/` belong to this fork alone: `crowdin.yml` does not list them, so the nightly Crowdin sync never reads or writes them, and upstream's translation guide cannot translate them because upstream does not have these pages. They are translated in-repo, in the same pull request as the change that adds their English keys, in all six launch languages (`frontend/public/one/i18n.js` names them). The two Crowdin-managed trees named above keep their rule unchanged.
+
 ## Key Files and Conventions
 
 **Configuration:**
