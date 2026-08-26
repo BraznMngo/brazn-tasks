@@ -44,15 +44,15 @@
       }
     },
     "deletion": {
-      "title": "Supprimer votre compte Brazn Tasks",
+      "title": "Supprimer votre compte ONE Tasks",
       "text1": "La suppression de votre compte est définitive et ne peut pas être annulée. Nous supprimerons tous vos projets, tâches et tout ce qui y est associé.",
       "confirm": "Supprimer mon compte",
       "requestSuccess": "La requête a abouti. Vous recevrez un courriel avec des instructions à suivre."
     },
     "export": {
-      "title": "Exporter vos données Brazn Tasks",
-      "request": "Demander une copie de mes données Brazn Tasks",
-      "success": "Vous avez bien demandé vos données Brazn Tasks ! Nous vous enverrons un courriel dès qu’elles seront prêtes à être téléchargées."
+      "title": "Exporter vos données ONE Tasks",
+      "request": "Demander une copie de mes données ONE Tasks",
+      "success": "Vous avez bien demandé vos données ONE Tasks ! Nous vous enverrons un courriel dès qu’elles seront prêtes à être téléchargées."
     }
   },
   "task": {

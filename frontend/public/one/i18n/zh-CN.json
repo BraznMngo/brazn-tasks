@@ -44,15 +44,15 @@
       }
     },
     "deletion": {
-      "title": "删除您的 Brazn Tasks 帐户",
+      "title": "删除您的 ONE Tasks 帐户",
       "text1": "您账户的删除是永久性的且无法撤消。 我们将删除您的所有项目、任务以及与之相关的所有内容。",
       "confirm": "删除我的帐户",
       "requestSuccess": "请求成功。您将收到一封包含更多说明的电子邮件。"
     },
     "export": {
-      "title": "导出 Brazn Tasks 数据",
-      "request": "请求我的 Brazn Tasks 数据副本",
-      "success": "已成功请求您的 Brazn Tasks 数据！一旦准备好下载，我们将向您发送一封电子邮件。"
+      "title": "导出 ONE Tasks 数据",
+      "request": "请求我的 ONE Tasks 数据副本",
+      "success": "已成功请求您的 ONE Tasks 数据！一旦准备好下载，我们将向您发送一封电子邮件。"
     }
   },
   "task": {

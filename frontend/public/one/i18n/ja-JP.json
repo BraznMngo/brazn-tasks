@@ -44,15 +44,15 @@
       }
     },
     "deletion": {
-      "title": "Brazn Tasksアカウントの削除",
+      "title": "ONE Tasksアカウントの削除",
       "text1": "アカウント削除は恒久的なものであり、元に戻すことはできません。あなたのプロジェクト、タスク、それらに関連するすべてを削除します。",
       "confirm": "アカウントの削除",
       "requestSuccess": "リクエストは成功しました。詳しい案内はメールでお知らせします。"
     },
     "export": {
-      "title": "Brazn Tasksデータのエクスポート",
-      "request": "Brazn Tasksデータのリクエスト",
-      "success": "Brazn Tasksデータのリクエストに成功しました！ダウンロードの準備が整い次第、メールでお知らせします。"
+      "title": "ONE Tasksデータのエクスポート",
+      "request": "ONE Tasksデータのリクエスト",
+      "success": "ONE Tasksデータのリクエストに成功しました！ダウンロードの準備が整い次第、メールでお知らせします。"
     }
   },
   "task": {

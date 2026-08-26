@@ -87,9 +87,21 @@ export function invitationIdFromSearch(search) {
   return value === null || value === '' ? null : value;
 }
 
-/** The signup token out of a URL fragment, or null. Pure; storage is the caller's. */
+/**
+ * The signup token out of a URL fragment, or null. Pure; storage is the
+ * caller's.
+ *
+ * A QUERY-SHAPED STRING IS REFUSED, not parsed: URLSearchParams strips a
+ * leading `?` itself, so without this guard a caller handing over
+ * `location.search` would find a token there and quietly legitimise moving it
+ * into the query — where every access log, proxy log and Referer header sees
+ * it. The fragment placement is the security property; the parser enforces it
+ * rather than trusting every future caller to.
+ */
 export function signupTokenFromHash(hash) {
-  const fragment = String(hash ?? '').replace(/^#/, '');
+  const raw = String(hash ?? '');
+  if (raw.startsWith('?')) return null;
+  const fragment = raw.replace(/^#/, '');
   if (fragment === '') return null;
   const token = new URLSearchParams(fragment).get(SIGNUP_TOKEN_FRAGMENT_KEY);
   return token === null || token === '' ? null : token;

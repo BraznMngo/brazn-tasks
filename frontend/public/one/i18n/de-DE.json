@@ -44,15 +44,15 @@
       }
     },
     "deletion": {
-      "title": "Lösche deinen Brazn Tasks-Account",
+      "title": "Lösche deinen ONE Tasks-Account",
       "text1": "Das Löschen deines Accounts ist dauerhaft und unwiderruflich. Alle Projekte, Aufgaben und zugehörige Daten werden gelöscht.",
       "confirm": "Meinen Account löschen",
       "requestSuccess": "Die Anfrage war erfolgreich. Du erhältst eine E-Mail mit weiteren Anweisungen."
     },
     "export": {
-      "title": "Exportiere deine Brazn Tasks-Daten",
-      "request": "Eine Kopie meiner Brazn Tasks Daten anfordern",
-      "success": "Du hast deine Daten bei Brazn Tasks erfolgreich angefordert! Wir schicken dir eine E-Mail, sobald sie zum Download bereitstehen."
+      "title": "Exportiere deine ONE Tasks-Daten",
+      "request": "Eine Kopie meiner ONE Tasks Daten anfordern",
+      "success": "Du hast deine Daten bei ONE Tasks erfolgreich angefordert! Wir schicken dir eine E-Mail, sobald sie zum Download bereitstehen."
     }
   },
   "task": {
