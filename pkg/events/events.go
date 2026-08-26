@@ -50,6 +50,38 @@ func WaitForPendingHandlers() {
 	activeHandlers.Wait()
 }
 
+// testingRouterStopped is closed once the router started by the most recent
+// InitEventsForTesting call has fully shut down, i.e. its Run has returned.
+// It is written only by InitEventsForTesting and read only by
+// WaitForTestingRouterShutdown; test setups call both sequentially.
+var testingRouterStopped chan struct{}
+
+// WaitForTestingRouterShutdown blocks until the event router started by the
+// most recent InitEventsForTesting call has fully shut down, meaning its
+// Run has returned. Watermill returns from Run only once every in-flight
+// handler invocation — including retries — has completed and the
+// subscription channels are closed (bounded by its CloseTimeout, 30s), so
+// after this returns no handler from that router is executing and none can
+// start. It returns immediately if no testing router was ever started.
+//
+// Test suites that run a real router per test (pkg/e2etests) call this at
+// the start of the next test's setup, before anything touches the database:
+// a test's `defer cancel()` only signals its router to stop, and lingering
+// asynchronous webhook deliveries otherwise keep reading the shared
+// in-memory SQLite database while fixture cleanup wants table locks —
+// SQLITE_LOCKED, "database table is locked: webhooks", which no busy
+// timeout can retry.
+//
+// WaitForPendingHandlers is not sufficient for that purpose: it waits on
+// the in-flight handler WaitGroup, which is momentarily zero between a
+// fan-out handler finishing and the per-delivery messages it published
+// being picked up, so it can return while deliveries are still queued.
+func WaitForTestingRouterShutdown() {
+	if testingRouterStopped != nil {
+		<-testingRouterStopped
+	}
+}
+
 // Event represents the event interface used by all events
 type Event interface {
 	Name() string
@@ -191,7 +223,10 @@ func InitEventsForTesting(ctx context.Context) (<-chan struct{}, error) {
 	}
 
 	ready := router.Running()
+	stopped := make(chan struct{})
+	testingRouterStopped = stopped
 	go func() {
+		defer close(stopped)
 		if err := router.Run(ctx); err != nil {
 			log.Errorf("Event system error: %s", err)
 		}
