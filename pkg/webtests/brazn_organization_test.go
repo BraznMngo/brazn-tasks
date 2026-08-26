@@ -454,15 +454,19 @@ func TestATeamCreationReportsTheNewTeamCountForTheSeatRise(t *testing.T) {
 	type report struct {
 		authorization string
 		body          string
+		// readErr crosses back to the test goroutine and is asserted THERE:
+		// testifylint's go-require rule forbids require inside an http handler,
+		// because a require failure calls t.FailNow from the wrong goroutine.
+		readErr error
 	}
 	received := make(chan report, 1)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
 		received <- report{
 			authorization: r.Header.Get("Authorization"),
 			body:          string(body),
+			readErr:       err,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"organization_id":"` + managedTestOrganization + `","outcome":"changed"}`))
@@ -477,6 +481,7 @@ func TestATeamCreationReportsTheNewTeamCountForTheSeatRise(t *testing.T) {
 
 	select {
 	case got := <-received:
+		require.NoError(t, got.readErr)
 		// The shared service credential, as a bearer - the same one the signup
 		// redemption presents, per the seam contract on the ticket.
 		assert.Equal(t, "Bearer test-service-credential", got.authorization)
@@ -500,7 +505,7 @@ func TestATeamCreationReportsTheNewTeamCountForTheSeatRise(t *testing.T) {
 func TestATeamCreationSurvivesAnUnreachableSeatEndpoint(t *testing.T) {
 	env, _ := newOrganizationEnv(t, seats(3))
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	endpoint := server.URL
 	// Closed BEFORE the creation, so the configured URL points at a port
 	// nothing listens on any more - the transport failure, not a slow answer.
