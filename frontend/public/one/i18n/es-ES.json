@@ -6,7 +6,9 @@
     "close": "Cerrar",
     "default": "Predeterminado",
     "download": "Descargar",
-    "cannotBeUndone": "¡No se puede deshacer!"
+    "createdBy": "Creado por {0}",
+    "cannotBeUndone": "¡No se puede deshacer!",
+    "closeDialog": "Cerrar diálogo"
   },
   "navigation": {
     "settings": "Ajustes"
@@ -20,11 +22,20 @@
     "settings": {
       "title": "Ajustes",
       "newPasswordTitle": "Actualiza tu contraseña",
+      "newPassword": "Nueva contraseña",
+      "currentPassword": "Contraseña actual",
       "updateEmailTitle": "Actualiza tu Dirección de Correo Electrónico",
+      "updateEmailNew": "Nueva dirección de correo electrónico",
       "updateEmailSuccess": "Tu dirección de correo electrónico se ha actualizado con éxito. Te hemos enviado un enlace para confirmarlo.",
       "passwordUpdateSuccess": "La contraseña se actualizó con éxito.",
       "general": {
+        "name": "Mi nombre",
+        "newName": "El nuevo nombre",
+        "timezone": "Zona horaria",
         "savedSuccess": "Ajustes actualizados con éxito."
+      },
+      "sections": {
+        "personalInformation": "Información personal"
       },
       "avatar": {
         "title": "Avatar",
@@ -45,15 +56,21 @@
     }
   },
   "task": {
+    "addReminder": "Añadir un recordatorio…",
+    "removeReminder": "Eliminar este recordatorio",
     "doneSuccess": "La tarea fue marcada con éxito como realizada.",
     "undoneSuccess": "La tarea fue marcada correctamente como incompleta.",
+    "movedToProject": "La tarea se ha movido a {project}.",
     "detail": {
+      "title": "Detalles de la tarea",
       "done": "Marcar tarea como ¡completada!",
       "undone": "Marcar como sin terminar",
       "move": "Mover tarea a un proyecto diferente",
       "updated": "Actualizado {0}",
       "updateSuccess": "La tarea se ha guardado con éxito.",
       "deleteSuccess": "La tarea se ha eliminado con éxito.",
+      "duplicateSuccess": "La tarea se ha duplicado con éxito.",
+      "removeRepeat": "Quitar intervalo de repetición",
       "delete": {
         "header": "Eliminar esta tarea",
         "text2": "También se eliminará todos los adjuntos, recordatorios y relaciones asociadas a esta tarea y ¡no se puede deshacer!"
@@ -62,6 +79,7 @@
         "label": "Añadir Etiquetas",
         "relatedTasks": "Añadir una Relación",
         "moveProject": "Mover",
+        "duplicate": "Duplicar",
         "color": "Definir Color",
         "delete": "Eliminar",
         "favorite": "Añadir a Favoritos",
@@ -98,12 +116,16 @@
     "comment": {
       "title": "Comentarios",
       "comment": "Comentar",
+      "sortNewestFirst": "Más recientes primero",
+      "sortOldestFirst": "Más antiguos primero",
       "addedSuccess": "El comentario fue añadido con éxito.",
       "deleteText1": "¿Está seguro que desea eliminar este comentario?",
       "deleteSuccess": "El comentario fue eliminado con éxito.",
       "delete": "Eliminar este comentario"
     },
     "label": {
+      "placeholder": "Escribe para añadir una etiqueta…",
+      "removeLabel": "Quitar etiqueta {label}",
       "addSuccess": "La etiqueta ha sido añadida con éxito.",
       "removeSuccess": "La etiqueta ha sido quitada con éxito."
     },
@@ -112,6 +134,7 @@
       "select": "Selecciona un tipo de relación",
       "noneYet": "Aún no hay tareas relacionadas.",
       "delete": "Eliminar Relación de Tarea",
+      "searchPlaceholder": "Busca una tarea para relacionarla…",
       "kinds": {
         "subtask": "Subtarea | Subtareas",
         "parenttask": "Tarea Padre | Tareas Padre",
@@ -133,7 +156,9 @@
     "repeat": {
       "everyDay": "Cada Día",
       "everyWeek": "Cada Semana",
+      "every30d": "Cada 30 días",
       "mode": "Modo de repetición",
+      "fromCurrentDate": "Desde la fecha de finalización",
       "each": "Cada",
       "days": "Días",
       "weeks": "Semanas"
@@ -167,13 +192,53 @@
       "member": "Miembro"
     }
   },
-  "one": {
-    "deny": {
-      "dueFollowsEnd": "La fecha de vencimiento sigue a la fecha de fin. Borra la fecha de fin para establecerla por separado."
+  "organization": {
+    "title": "Organización",
+    "retry": "Reintentar",
+    "members": {
+      "title": "Miembros",
+      "inUse": "{used} / {limit} puestos en uso",
+      "roleAdministrator": "Administrador de la organización",
+      "roleMember": "Miembro"
     },
-    "toast": {
-      "taskAdded": "La tarea se ha añadido.",
-      "commentUpdated": "El comentario se ha actualizado."
+    "seats": {
+      "title": "Puestos",
+      "add": "Añadir puestos",
+      "explanation": "Un puesto queda libre en cuanto quitas a alguien, y una invitación necesita uno libre para poder enviarse."
+    },
+    "teams": {
+      "create": "Crear un equipo",
+      "namePlaceholder": "Nombre del equipo",
+      "remove": "Quitar",
+      "capped": {
+        "title": "Has alcanzado el número de equipos que permiten tus puestos.",
+        "text": "Crear otro equipo requiere {seats} puestos comprados. Comprar más añade capacidad al momento y no cambia nada más.",
+        "unknown": "No podemos consultar cuántos puestos has comprado, así que no podemos dejar que se cree otro equipo. Nada de tu organización ha cambiado y esto se restablece solo."
+      }
+    },
+    "administration": {
+      "current": "Administrador de la organización",
+      "transfer": {
+        "text": "Quién administra la organización lo registra el servicio al que pagas, así que la transferencia se hace allí y surte efecto aquí. Pierdes todo control administrativo en el momento en que se completa y no puedes recuperar el rol por tu cuenta.",
+        "action": "Transferir el rol"
+      }
+    },
+    "general": {
+      "name": "Organización"
+    },
+    "unavailable": {
+      "title": "Ahora mismo no podemos consultar tu suscripción.",
+      "text": "El problema está en nuestro lado, no en el tuyo, y nada de tu organización ha cambiado. Los miembros, los equipos y las tareas siguen funcionando. Solo dejan de estar disponibles las páginas que dependen de lo que has pagado, y se restablecen solas."
+    },
+    "stale": {
+      "title": "Esta página era correcta cuando se cargó y ya no lo es.",
+      "text": "Tu rol o tu organización han cambiado en otra ventana o en otro dispositivo. Los controles que ves corresponden al estado anterior, así que usarlos ahora fallaría por motivos ajenos a ti. Al recargar vuelves a una vista que sí coincide.",
+      "action": "Recargar la página"
+    }
+  },
+  "one": {
+    "page": {
+      "title": "ONE Tasks"
     },
     "brand": {
       "logoAlt": "ONE",
@@ -185,24 +250,29 @@
       "teams": "ONE Teams",
       "withRole": "{edition} · {role}"
     },
-    "role": {
-      "personalUser": "Usuario personal",
-      "teamMember": "Miembro del equipo",
-      "administrator": "Administrador"
-    },
-    "common": {
-      "add": "Añadir"
-    },
     "subscription": {
       "personal": "Suscripción ONE Personal",
       "teams": "Suscripción ONE Teams",
       "unknown": "No hay ninguna suscripción registrada para esta cuenta en esta instancia.",
       "help": "La edición con la que ha iniciado sesión esta cuenta."
     },
-    "settings": {
-      "subscription": "Tu suscripción",
-      "currentEmail": "Dirección de correo electrónico actual",
-      "emailUnavailable": "Esta instancia no devuelve tu dirección de correo electrónico, por lo que no se puede mostrar aquí."
+    "role": {
+      "personalUser": "Usuario personal",
+      "teamMember": "Miembro del equipo",
+      "administrator": "Administrador"
+    },
+    "common": {
+      "none": "Ninguno",
+      "more": "Más",
+      "change": "Cambiar",
+      "continue": "Continuar",
+      "add": "Añadir",
+      "search": "Buscar",
+      "searching": "Buscando…",
+      "you": "(tú)",
+      "atUsername": "{'@'}{username}",
+      "separator": " · ",
+      "justNow": "hace un momento"
     },
     "task": {
       "add": {
@@ -210,20 +280,22 @@
         "project": "Proyecto",
         "titleRequired": "Ponle primero un título a la tarea. No se ha creado nada."
       },
-      "comments": {
-        "edit": "Editar",
-        "editAria": "Editar tu comentario del {date}",
-        "deleteAria": "Eliminar tu comentario del {date}",
-        "editing": "Editando este comentario",
-        "sendHint": "Mayús+Intro envía",
-        "editLabel": "Editar comentario"
-      },
-      "reminders": {
-        "customRequired": "Elige primero una fecha y una hora. No se ha cambiado nada.",
-        "typeDue": "Fecha Límite",
-        "typeStart": "Fecha de Inicio",
-        "typeEnd": "Fecha de Fin"
-      },
+      "moreActions": "Más acciones de la tarea",
+      "unassigned": "Sin asignar",
+      "progressManual": "Manual",
+      "percent": "{percent} %",
+      "deleteTask": "Eliminar tarea",
+      "relationTarget": "Tarea",
+      "relationSearchPlaceholder": "Buscar tareas…",
+      "relationSearchResults": "Tareas coincidentes",
+      "relationSearchScope": "Mostrando tareas de {project}.",
+      "relationSearchScopeUnknown": "Mostrando tareas del proyecto de esta tarea.",
+      "relationSearchNoMatches": "No hay tareas coincidentes en este proyecto.",
+      "relationChosen": "Seleccionada: {task}",
+      "relationPickRequired": "Elige primero una tarea de la lista. No se ha cambiado nada.",
+      "labelExample": "p. ej. Lanzamiento",
+      "labelPlaceholder": "Añadir etiqueta…",
+      "reminderCount": "{count} recordatorio | {count} recordatorios",
       "statusOwnership": {
         "title": "Estado y responsabilidad",
         "subtitle": "Quién se encarga de esta tarea, con qué prioridad y con qué progreso"
@@ -232,14 +304,10 @@
         "title": "Planificación",
         "subtitle": "Planifica la tarea y recibe recordatorios; también puedes añadir intervalos de fechas y repeticiones."
       },
-      "relationSearchPlaceholder": "Buscar tareas…",
-      "relationSearchResults": "Tareas coincidentes",
-      "relationSearchScope": "Mostrando tareas de {project}.",
-      "relationSearchScopeUnknown": "Mostrando tareas del proyecto de esta tarea.",
-      "relationSearchNoMatches": "No hay tareas coincidentes en este proyecto.",
-      "relationChosen": "Seleccionada: {task}",
-      "relationPickRequired": "Elige primero una tarea de la lista. No se ha cambiado nada.",
       "repeat": {
+        "interval": "Intervalo",
+        "months": "Meses",
+        "years": "Años",
         "presetDaily": "Diariamente",
         "presetWeekly": "Semanalmente",
         "presetMonthly": "Mensualmente",
@@ -248,14 +316,229 @@
         "unitOptionWeeks": "Semana(s)",
         "unitOptionMonths": "Mes(es)",
         "unitOptionYears": "Año(s)",
+        "unitDays": "{count} día | {count} días",
+        "unitWeeks": "{count} semana | {count} semanas",
+        "unitMonths": "{count} mes | {count} meses",
+        "unitYears": "{count} año | {count} años",
         "modeDefault": "Desde la fecha de vencimiento anterior",
         "modeDefaultHelp": "Suma el intervalo a las fechas que la tarea ya tiene, así que una tarea que vence un lunes sigue venciendo un lunes aunque la termines tarde.",
         "modeMonthly": "Cada mes, el mismo día",
         "modeMonthlyHelp": "Adelanta todas las fechas un mes natural y mantiene el día del mes. El intervalo de abajo se ignora.",
         "modeCurrent": "Desde la fecha de finalización",
         "modeCurrentHelp": "Suma el intervalo al día en que marcas la tarea como hecha, así que el próximo vencimiento se cuenta desde hoy.",
-        "summaryMonthly": "Se repite el mismo día de cada mes natural."
+        "value": "Cada {interval}",
+        "summary": "Se repite cada {interval}.",
+        "summaryMonthly": "Se repite el mismo día de cada mes natural.",
+        "hint": "Define un intervalo o usa una de las opciones rápidas para que esta tarea se repita."
+      },
+      "description": {
+        "subtitle": "Markdown. Las listas, los enlaces y las listas de comprobación se conservan tal y como los escribes.",
+        "placeholder": "Escribe una descripción."
+      },
+      "resources": {
+        "title": "Archivos y relaciones",
+        "subtitle": "El material de apoyo y las dependencias acompañan a la tarea."
+      },
+      "attachments": {
+        "empty": "Aún no hay adjuntos."
+      },
+      "comments": {
+        "subtitleTeams": "Usa {'@'}usuario para mencionar a alguien en una tarea de equipo.",
+        "subtitlePersonal": "Los comentarios se quedan en esta tarea.",
+        "placeholder": "Escribe un comentario…",
+        "edit": "Editar",
+        "editAria": "Editar tu comentario del {date}",
+        "deleteAria": "Eliminar tu comentario del {date}",
+        "editing": "Editando este comentario",
+        "sendHint": "Mayús+Intro envía",
+        "editLabel": "Editar comentario"
+      },
+      "reminders": {
+        "empty": "No hay recordatorios configurados.",
+        "hourBeforeDue": "1 hora antes de la fecha límite",
+        "dayBeforeDue": "1 día antes de la fecha límite",
+        "atDueTime": "A la hora de la fecha límite",
+        "dayBeforeStart": "1 día antes de la fecha de inicio",
+        "customDateTime": "Fecha y hora personalizadas",
+        "unitMinutes": "{count} minuto | {count} minutos",
+        "unitHours": "{count} hora | {count} horas",
+        "unitDays": "{count} día | {count} días",
+        "customRequired": "Elige primero una fecha y una hora. No se ha cambiado nada.",
+        "typeDue": "Fecha Límite",
+        "typeStart": "Fecha de Inicio",
+        "typeEnd": "Fecha de Fin",
+        "atType": "En la {type}",
+        "fallback": "Recordatorio"
+      },
+      "move": {
+        "title": "Mover tarea",
+        "explanation": "Quién puede acceder a una tarea depende del proyecto en el que está.",
+        "destination": "Proyecto de destino"
+      },
+      "color": {
+        "blue": "Azul",
+        "purple": "Morado",
+        "red": "Rojo",
+        "green": "Verde"
       }
+    },
+    "settings": {
+      "other": "Otros",
+      "editName": "Editar nombre",
+      "editProfile": "Editar perfil",
+      "timezoneHelp": "Se usa para las fechas límite, los recordatorios y las tareas que se repiten.",
+      "subscription": "Tu suscripción",
+      "dataTitle": "Tus datos de tareas",
+      "currentEmail": "Dirección de correo electrónico actual",
+      "emailUnavailable": "Esta instancia no devuelve tu dirección de correo electrónico, por lo que no se puede mostrar aquí.",
+      "updateEmail": "Actualizar correo electrónico",
+      "updatePassword": "Actualizar contraseña",
+      "connectedAccounts": {
+        "title": "Método de inicio de sesión",
+        "google": "Google",
+        "notConnected": "Inicias sesión con tu contraseña.",
+        "connected": "Inicias sesión con Google. El inicio de sesión con contraseña ya no está disponible en esta cuenta.",
+        "connect": "Cambiar al inicio de sesión con Google",
+        "confirmTitle": "¿Cambiar al inicio de sesión con Google?",
+        "confirmText": "Tu contraseña dejará de funcionar en esta cuenta. A partir de ese momento solo podrás iniciar sesión con Google. Esto no se puede deshacer desde aquí.",
+        "confirmAction": "Cambiar a Google",
+        "connectSuccess": "Ahora inicias sesión con Google. Tu contraseña ya no funciona en esta cuenta.",
+        "unavailable": "El inicio de sesión con Google no está configurado en esta instancia."
+      },
+      "export": {
+        "title": "Exportar los datos de ONE Tasks",
+        "text": "Exporta tus proyectos, tareas, comentarios y adjuntos en un archivo portátil.",
+        "action": "Exportar datos",
+        "modalText": "Se está preparando un archivo portátil en segundo plano.",
+        "ready": "Hay una exportación preparada disponible para descargar.",
+        "notReady": "Ahora mismo no hay ninguna exportación preparada.",
+        "download": "Descargar exportación",
+        "request": "Solicitar exportación"
+      },
+      "deleteAccount": {
+        "title": "Eliminar cuenta",
+        "cancel": "Cancelar eliminación programada",
+        "confirmTitle": "Confirmar eliminación de cuenta",
+        "confirmText": "¿Eliminar tu cuenta de ONE de forma permanente?",
+        "successorTitle": "Elige al administrador que tomará el relevo antes de eliminar tu cuenta.",
+        "successorText": "El miembro del equipo seleccionado debe convertirse en administrador de la organización antes de que se pueda solicitar la eliminación.",
+        "requestedTitle": "Eliminación solicitada",
+        "requestedText": "La eliminación no se programa hasta que abras el enlace de confirmación que te enviamos por correo electrónico."
+      }
+    },
+    "org": {
+      "teamLabel": "Equipo",
+      "teamManagement": "Gestión de equipos",
+      "teamManagementSubtitle": "Equipos, miembros, puestos y transferencia de administrador.",
+      "renameOrgAria": "Editar nombre de la organización",
+      "renameTeamAria": "Editar nombre de {team}",
+      "renameOrgTitle": "Nombre de la organización",
+      "yourProjects": "Tus proyectos",
+      "administratorText": "El administrador puede gestionar los equipos, los miembros, los puestos y los ajustes de la organización.",
+      "membersSubtitle": "Gestiona quién pertenece a este equipo.",
+      "membersEmpty": "Este equipo todavía no tiene miembros. Añade uno para empezar.",
+      "addMember": "Añadir miembro",
+      "newAdministrator": "Nuevo administrador",
+      "selectMember": "Selecciona un miembro del equipo…",
+      "teamNameExample": "p. ej. Producto",
+      "organizationMembers": "Miembros de la organización",
+      "noOrganizationMembers": "No hay ningún miembro de la organización disponible.",
+      "findExternal": "Busca a alguien de fuera de tu organización",
+      "findExternalHint": "Para añadir a alguien externo hay que buscarlo por su dirección de correo electrónico o su nombre de usuario completos.",
+      "searchPlaceholder": "Nombre de usuario o correo electrónico completos",
+      "noExternalMatch": "No se ha encontrado ninguna coincidencia exacta fuera de tu organización.",
+      "inTeam": "En el equipo",
+      "external": "Externo",
+      "inviteNewUser": "Nuevo usuario",
+      "addExisting": "Añadir miembro existente",
+      "inviteEmailPlaceholder": "nombre{'@'}ejemplo.com",
+      "inviteSeatNotice": "La invitación reserva un puesto para {team} de forma inmediata.",
+      "sendInvitation": "Enviar invitación",
+      "pendingInvitations": "Invitaciones pendientes",
+      "invitePending": "Invitación pendiente",
+      "seatReserved": "Puesto reservado",
+      "subscriptionActionRequired": "Acción necesaria en la suscripción",
+      "noPendingInvitations": "No hay invitaciones pendientes para este equipo.",
+      "revoke": "Revocar",
+      "removeMemberTitle": "¿Quitar a {name} de {team}?",
+      "removeMemberLead": "Esto le quita el acceso al equipo.",
+      "removeMemberText": "La persona sigue formando parte de la organización y conserva el acceso a los demás equipos a los que pertenezca.",
+      "removeFromTeam": "Quitar del equipo",
+      "seats": {
+        "inSubscription": "{count} puesto en tu suscripción | {count} puestos en tu suscripción",
+        "afterInvitation": "{count} puesto cuando se acepte esta invitación | {count} puestos cuando se acepte esta invitación",
+        "required": "{count} puesto necesario | {count} puestos necesarios",
+        "members": "{count} miembro | {count} miembros",
+        "pending": "{count} invitación pendiente | {count} invitaciones pendientes",
+        "teams": "{count} equipo | {count} equipos"
+      },
+      "tile": {
+        "privateKind": "Privado",
+        "privateName": "Tus tareas",
+        "privateDesc": "Tu espacio de tareas privado. Solo tú puedes acceder a él.",
+        "teamDesc": "Trabajo compartido de este equipo.",
+        "youAreMember": "Eres miembro.",
+        "publicKind": "Toda la organización",
+        "publicName": "Público",
+        "publicDesc": "Trabajo visible en toda la organización."
+      }
+    },
+    "deny": {
+      "personalEdition": "Esto forma parte de ONE Teams.",
+      "writeRestricted": "Ahora mismo tu cuenta es de solo lectura.",
+      "notAdministrator": "Solo el administrador de la organización puede cambiar esto.",
+      "renameOrg": "Cambiar el nombre de la organización todavía no está disponible.",
+      "noRoute": "Esto todavía no está disponible.",
+      "rosterUnavailable": "Ahora mismo no podemos consultar los miembros de este equipo.",
+      "noTeams": "Esta organización todavía no tiene equipos. Crea uno primero.",
+      "dueFollowsEnd": "La fecha de vencimiento sigue a la fecha de fin. Borra la fecha de fin para establecerla por separado.",
+      "commercial": "No hemos podido contactar con el servicio de suscripción, así que no se ha cambiado nada.",
+      "taskMove": "Mover tareas entre proyectos forma parte de ONE Teams.",
+      "forkForbidden": "No tienes permiso para hacer eso aquí. No se ha cambiado nada.",
+      "forkNotFound": "No hemos podido encontrar eso. No se ha cambiado nada.",
+      "forkConflict": "Eso no encaja con el estado actual, así que no se ha cambiado nada."
+    },
+    "commercial": {
+      "notAuthenticated": "El servicio de suscripción no ha aceptado tu sesión, así que no se ha cambiado nada.",
+      "paymentRequired": "No se ha podido procesar tu pago, así que no se ha cambiado nada.",
+      "forbidden": "El servicio de suscripción no lo ha permitido, así que no se ha cambiado nada.",
+      "notFound": "El servicio de suscripción no encuentra eso. No se ha cambiado nada.",
+      "conflict": "El servicio de suscripción no puede hacer eso con el estado actual de tu cuenta. No se ha cambiado nada.",
+      "unavailable": "El servicio de suscripción no está disponible ahora mismo, así que no se ha cambiado nada.",
+      "notInvitable": "No se puede invitar a esa dirección. Pertenece a una cuenta personal, a otra organización o a una cuenta que se ha eliminado. No se ha enviado nada.",
+      "invitationExpired": "Esa invitación ha caducado, así que no se ha ocupado ningún puesto.",
+      "invitationRevoked": "Esa invitación se ha revocado, así que no se ha ocupado ningún puesto.",
+      "noInvitation": "No hay ninguna invitación para esta cuenta, así que no se ha ocupado ningún puesto.",
+      "atSeatCeiling": "Esta organización ya tiene el número máximo de puestos que ofrece el producto, así que no se ha ocupado ningún puesto.",
+      "notAMember": "Esa persona no es miembro de esta organización, así que no se ha cambiado nada.",
+      "stillAdministrator": "Esa persona todavía administra esta organización. Transfiere primero el rol de administrador y después quítala.",
+      "notAdmitted": "La solicitud se ha aprobado, pero no se ha ocupado ningún puesto. Sigue abierta, así que podrás volver a aprobarla cuando se solucione el problema.",
+      "belowUsers": "Son menos puestos que las personas que ya los están usando. Quita primero a algunos miembros y después reduce el número de puestos.",
+      "belowActiveTeams": "Son menos puestos de los que necesitan tus equipos actuales, así que no se ha cambiado nada."
+    },
+    "error": {
+      "loadFailed": "Esta página no se ha cargado.",
+      "sessionExpired": "Tu sesión ha finalizado. Inicia sesión para continuar.",
+      "requestFailed": "Eso no ha funcionado. No se ha cambiado nada.",
+      "serverUnavailable": "El servidor no está disponible ahora mismo, así que no se ha cambiado nada.",
+      "catalogue": "No se ha podido cargar el texto de esta página."
+    },
+    "toast": {
+      "taskAdded": "La tarea se ha añadido.",
+      "attachmentsAdded": "{count} adjunto añadido | {count} adjuntos añadidos",
+      "attachmentRemoved": "El adjunto se ha eliminado.",
+      "relationAdded": "La relación se ha añadido.",
+      "relationRemoved": "La relación se ha eliminado.",
+      "favoriteAdded": "Se ha añadido a favoritos.",
+      "favoriteRemoved": "Se ha quitado de favoritos.",
+      "colorUpdated": "El color de la tarea se ha actualizado.",
+      "seatAdded": "Se ha añadido un puesto.",
+      "invitationSent": "Invitación enviada. Se ha reservado un puesto.",
+      "alreadyMember": "Esa persona ya está en tu organización. No se ha enviado nada ni se ha usado ningún puesto.",
+      "invitationRevoked": "La invitación se ha revocado.",
+      "adminTransferSubmitted": "Se ha enviado la transferencia de administrador.",
+      "exportDownloaded": "La exportación se ha descargado.",
+      "commentUpdated": "El comentario se ha actualizado."
     }
   }
 }

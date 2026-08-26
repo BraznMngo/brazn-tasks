@@ -57,6 +57,7 @@
   },
   "task": {
     "addReminder": "リマイダーを作成…",
+    "removeReminder": "このリマインダーを削除",
     "doneSuccess": "タスクを完了にしました。",
     "undoneSuccess": "タスクを未完了に戻しました。",
     "movedToProject": "タスクは {project} に移動しました。",
@@ -69,6 +70,7 @@
       "updateSuccess": "タスクは正常に保存されました。",
       "deleteSuccess": "タスクは正常に削除されました。",
       "duplicateSuccess": "タスクは正常に複製されました。",
+      "removeRepeat": "繰り返し間隔の削除",
       "delete": {
         "header": "タスクの削除",
         "text2": "このタスクに含まれるすべての添付ファイル、リマインダー、関連付けは削除されます。この操作は元に戻せません。"
@@ -123,6 +125,7 @@
     },
     "label": {
       "placeholder": "追加するラベルを入力…",
+      "removeLabel": "ラベル {label} を削除",
       "addSuccess": "ラベルは正常に追加されました。",
       "removeSuccess": "ラベルは正常に削除されました。"
     },
@@ -189,13 +192,53 @@
       "member": "メンバー"
     }
   },
-  "one": {
-    "deny": {
-      "dueFollowsEnd": "期限は終了日に従います。個別に設定するには終了日を消してください。"
+  "organization": {
+    "title": "組織",
+    "retry": "再試行",
+    "members": {
+      "title": "メンバー",
+      "inUse": "{used} / {limit} ライセンスを使用中",
+      "roleAdministrator": "組織管理者",
+      "roleMember": "メンバー"
     },
-    "toast": {
-      "taskAdded": "タスクを追加しました。",
-      "commentUpdated": "コメントを更新しました。"
+    "seats": {
+      "title": "ライセンス",
+      "add": "ライセンスを追加",
+      "explanation": "メンバーを削除するとライセンスはすぐに空きます。招待を送信するには、空きライセンスが1件必要です。"
+    },
+    "teams": {
+      "create": "チームを作成",
+      "namePlaceholder": "チーム名",
+      "remove": "削除",
+      "capped": {
+        "title": "ライセンス数で作成できるチーム数の上限に達しました。",
+        "text": "もう1つチームを作るには、購入済みのライセンスが {seats} 件必要です。追加で購入するとすぐに上限が増え、他には何も変わりません。",
+        "unknown": "購入済みのライセンス数を取得できないため、新しいチームを作成できません。組織の内容は何も変わっておらず、この状態は自然に復旧します。"
+      }
+    },
+    "administration": {
+      "current": "組織管理者",
+      "transfer": {
+        "text": "組織の管理者はお支払い先のサービスに記録されているため、移譲はそちらで行われ、その結果がここに反映されます。移譲が完了した時点であなたはすべての管理権限を失い、自分で役割を取り戻すことはできません。",
+        "action": "管理者の役割を移譲する"
+      }
+    },
+    "general": {
+      "name": "組織"
+    },
+    "unavailable": {
+      "title": "現在、サブスクリプションの情報を取得できません。",
+      "text": "これはこちら側の問題であり、あなたの操作が原因ではありません。組織の内容は何も変わっていません。メンバー、チーム、タスクはこれまでどおり利用できます。ご契約内容にかかわるページだけが一時的に利用できません。これらのページは自然に復旧します。"
+    },
+    "stale": {
+      "title": "このページは読み込んだ時点では正しい内容でしたが、現在は正しくありません。",
+      "text": "別のウィンドウまたは別の端末で、あなたの役割または組織が変更されました。画面に表示されている操作は変更前の状態をもとに描画されているため、いま操作しても、あなたに原因のない理由で失敗します。再読み込みすると、現在の状態に合った表示に戻ります。",
+      "action": "ページを再読み込み"
+    }
+  },
+  "one": {
+    "page": {
+      "title": "ONE Tasks"
     },
     "brand": {
       "logoAlt": "ONE",
@@ -207,30 +250,29 @@
       "teams": "ONE Teams",
       "withRole": "{edition}・{role}"
     },
-    "role": {
-      "personalUser": "個人ユーザー",
-      "teamMember": "チームメンバー",
-      "administrator": "管理者"
-    },
-    "common": {
-      "change": "変更",
-      "continue": "続ける",
-      "add": "追加",
-      "separator": "・"
-    },
     "subscription": {
       "personal": "ONE Personal サブスクリプション",
       "teams": "ONE Teams サブスクリプション",
       "unknown": "このインスタンスでは、このアカウントのサブスクリプションは登録されていません。",
       "help": "このアカウントがサインインしているエディションです。"
     },
-    "settings": {
-      "subscription": "あなたのサブスクリプション",
-      "currentEmail": "現在のメールアドレス",
-      "emailUnavailable": "このインスタンスはメールアドレスを返さないため、ここには表示できません。"
+    "role": {
+      "personalUser": "個人ユーザー",
+      "teamMember": "チームメンバー",
+      "administrator": "管理者"
     },
-    "org": {
-      "teamLabel": "チーム"
+    "common": {
+      "none": "なし",
+      "more": "その他",
+      "change": "変更",
+      "continue": "続ける",
+      "add": "追加",
+      "search": "検索",
+      "searching": "検索中…",
+      "you": "（あなた）",
+      "atUsername": "{'@'}{username}",
+      "separator": "・",
+      "justNow": "たった今"
     },
     "task": {
       "add": {
@@ -238,21 +280,22 @@
         "project": "プロジェクト",
         "titleRequired": "先にタスク名を入力してください。何も作成されていません。"
       },
+      "moreActions": "その他のタスク操作",
+      "unassigned": "担当者なし",
       "progressManual": "手動",
-      "comments": {
-        "edit": "編集",
-        "editAria": "{date} のコメントを編集",
-        "deleteAria": "{date} のコメントを削除",
-        "editing": "このコメントを編集中",
-        "sendHint": "Shift+Enter で送信",
-        "editLabel": "コメントを編集"
-      },
-      "reminders": {
-        "customRequired": "先に日付と時刻を選んでください。何も変更されていません。",
-        "typeDue": "期日",
-        "typeStart": "開始日",
-        "typeEnd": "終了日"
-      },
+      "percent": "{percent}%",
+      "deleteTask": "タスクの削除",
+      "relationTarget": "タスク",
+      "relationSearchPlaceholder": "タスクを検索…",
+      "relationSearchResults": "一致するタスク",
+      "relationSearchScope": "{project} のタスクを表示しています。",
+      "relationSearchScopeUnknown": "このタスクのプロジェクト内のタスクを表示しています。",
+      "relationSearchNoMatches": "このプロジェクトに一致するタスクはありません。",
+      "relationChosen": "選択中: {task}",
+      "relationPickRequired": "先にリストからタスクを選んでください。何も変更されていません。",
+      "labelExample": "例: リリース",
+      "labelPlaceholder": "ラベルを追加…",
+      "reminderCount": "リマインダー {count} 件 | リマインダー {count} 件",
       "statusOwnership": {
         "title": "ステータスと担当",
         "subtitle": "このタスクの担当者、優先度、進捗"
@@ -261,14 +304,10 @@
         "title": "スケジュール",
         "subtitle": "タスクを計画してリマインダーを受け取れます。期間や繰り返しの設定も追加できます。"
       },
-      "relationSearchPlaceholder": "タスクを検索…",
-      "relationSearchResults": "一致するタスク",
-      "relationSearchScope": "{project} のタスクを表示しています。",
-      "relationSearchScopeUnknown": "このタスクのプロジェクト内のタスクを表示しています。",
-      "relationSearchNoMatches": "このプロジェクトに一致するタスクはありません。",
-      "relationChosen": "選択中: {task}",
-      "relationPickRequired": "先にリストからタスクを選んでください。何も変更されていません。",
       "repeat": {
+        "interval": "間隔",
+        "months": "か月",
+        "years": "年",
         "presetDaily": "毎日",
         "presetWeekly": "毎週",
         "presetMonthly": "毎月",
@@ -277,14 +316,229 @@
         "unitOptionWeeks": "週",
         "unitOptionMonths": "か月",
         "unitOptionYears": "年",
+        "unitDays": "{count}日 | {count}日",
+        "unitWeeks": "{count}週間 | {count}週間",
+        "unitMonths": "{count}か月 | {count}か月",
+        "unitYears": "{count}年 | {count}年",
         "modeDefault": "前回の期限日から",
         "modeDefaultHelp": "タスクがすでに持っている日付に間隔を加算します。月曜が期限のタスクは、完了が遅れても期限は月曜のままです。",
         "modeMonthly": "毎月、同じ日付に",
         "modeMonthlyHelp": "すべての日付を暦の1か月分進め、日にちはそのまま保ちます。下の間隔は無視されます。",
         "modeCurrent": "完了した日から",
         "modeCurrentHelp": "タスクにチェックを入れた日に間隔を加算するため、次の期限は今日から数えます。",
-        "summaryMonthly": "暦上の毎月同じ日付に繰り返します。"
+        "value": "{interval}ごと",
+        "summary": "{interval}ごとに繰り返します。",
+        "summaryMonthly": "暦上の毎月同じ日付に繰り返します。",
+        "hint": "間隔を設定するか、プリセットを選ぶと、このタスクが繰り返されます。"
+      },
+      "description": {
+        "subtitle": "マークダウンに対応しています。リスト、リンク、チェックリストは入力したとおりに保持されます。",
+        "placeholder": "説明を入力…"
+      },
+      "resources": {
+        "title": "ファイルと関連タスク",
+        "subtitle": "参考資料と関連タスクは、タスクとともに保存されます。"
+      },
+      "attachments": {
+        "empty": "添付ファイルはまだありません。"
+      },
+      "comments": {
+        "subtitleTeams": "チームのタスクでは {'@'}ユーザー名 で相手にメンションできます。",
+        "subtitlePersonal": "コメントはこのタスクに保存されます。",
+        "placeholder": "コメントを入力…",
+        "edit": "編集",
+        "editAria": "{date} のコメントを編集",
+        "deleteAria": "{date} のコメントを削除",
+        "editing": "このコメントを編集中",
+        "sendHint": "Shift+Enter で送信",
+        "editLabel": "コメントを編集"
+      },
+      "reminders": {
+        "empty": "リマインダーは設定されていません。",
+        "hourBeforeDue": "期日の1時間前",
+        "dayBeforeDue": "期日の1日前",
+        "atDueTime": "期日の時刻に",
+        "dayBeforeStart": "開始日の1日前",
+        "customDateTime": "日時を指定",
+        "unitMinutes": "{count}分 | {count}分",
+        "unitHours": "{count}時間 | {count}時間",
+        "unitDays": "{count}日 | {count}日",
+        "customRequired": "先に日付と時刻を選んでください。何も変更されていません。",
+        "typeDue": "期日",
+        "typeStart": "開始日",
+        "typeEnd": "終了日",
+        "atType": "{type}に",
+        "fallback": "リマインダー"
+      },
+      "move": {
+        "title": "タスクの移動",
+        "explanation": "タスクのアクセス権は、そのタスクが属するプロジェクトから引き継がれます。",
+        "destination": "移動先のプロジェクト"
+      },
+      "color": {
+        "blue": "青",
+        "purple": "紫",
+        "red": "赤",
+        "green": "緑"
       }
+    },
+    "settings": {
+      "other": "その他",
+      "editName": "名前の編集",
+      "editProfile": "プロフィールの編集",
+      "timezoneHelp": "期日、リマインダー、繰り返しタスクに使用されます。",
+      "subscription": "あなたのサブスクリプション",
+      "dataTitle": "あなたのタスクデータ",
+      "currentEmail": "現在のメールアドレス",
+      "emailUnavailable": "このインスタンスはメールアドレスを返さないため、ここには表示できません。",
+      "updateEmail": "メールアドレスの更新",
+      "updatePassword": "パスワードの更新",
+      "connectedAccounts": {
+        "title": "ログイン方法",
+        "google": "Google",
+        "notConnected": "パスワードでログインしています。",
+        "connected": "Google でログインしています。このアカウントではパスワードでのログインは利用できません。",
+        "connect": "Google でのログインに切り替える",
+        "confirmTitle": "Google でのログインに切り替えますか？",
+        "confirmText": "このアカウントではパスワードが使えなくなります。以後は Google でのログインのみが可能になります。この操作はここでは元に戻せません。",
+        "confirmAction": "Google に切り替える",
+        "connectSuccess": "Google でログインするようになりました。このアカウントではパスワードは使えません。",
+        "unavailable": "このインスタンスでは Google でのログインが設定されていません。"
+      },
+      "export": {
+        "title": "ONE Tasks データのエクスポート",
+        "text": "プロジェクト、タスク、コメント、添付ファイルを、他のサービスでも利用できるアーカイブとしてエクスポートします。",
+        "action": "データをエクスポート",
+        "modalText": "他のサービスでも利用できるアーカイブをバックグラウンドで準備します。",
+        "ready": "準備済みのエクスポートをダウンロードできます。",
+        "notReady": "現在ダウンロードできるエクスポートはありません。",
+        "download": "ダウンロード",
+        "request": "エクスポートをリクエスト"
+      },
+      "deleteAccount": {
+        "title": "アカウントの削除",
+        "cancel": "削除予定を取り消す",
+        "confirmTitle": "アカウント削除の確認",
+        "confirmText": "ONE アカウントを完全に削除しますか？",
+        "successorTitle": "アカウントを削除する前に、引き継ぐ管理者を選んでください。",
+        "successorText": "削除をリクエストする前に、選択したチームメンバーが組織管理者になる必要があります。",
+        "requestedTitle": "削除をリクエストしました",
+        "requestedText": "メールでお送りする確認リンクを開くまで、削除は予定されません。"
+      }
+    },
+    "org": {
+      "teamLabel": "チーム",
+      "teamManagement": "チーム管理",
+      "teamManagementSubtitle": "チーム、メンバー、ライセンス、管理者の移譲。",
+      "renameOrgAria": "組織名を編集",
+      "renameTeamAria": "{team} のチーム名を編集",
+      "renameOrgTitle": "組織名",
+      "yourProjects": "あなたのプロジェクト",
+      "administratorText": "管理者はチーム、メンバー、ライセンス、組織の設定を管理できます。",
+      "membersSubtitle": "このチームに所属するメンバーを管理します。",
+      "membersEmpty": "このチームにはまだメンバーがいません。メンバーを追加して始めましょう。",
+      "addMember": "メンバーを追加",
+      "newAdministrator": "新しい管理者",
+      "selectMember": "チームメンバーを選択…",
+      "teamNameExample": "例: プロダクト",
+      "organizationMembers": "組織のメンバー",
+      "noOrganizationMembers": "追加できる組織のメンバーがいません。",
+      "findExternal": "組織外のユーザーを検索",
+      "findExternalHint": "組織外のユーザーを追加するには、完全なメールアドレスまたはユーザー名で検索する必要があります。",
+      "searchPlaceholder": "完全なユーザー名またはメールアドレス",
+      "noExternalMatch": "完全に一致する組織外のユーザーは見つかりませんでした。",
+      "inTeam": "チームに参加済み",
+      "external": "組織外",
+      "inviteNewUser": "新規ユーザー",
+      "addExisting": "既存メンバーを追加",
+      "inviteEmailPlaceholder": "name{'@'}example.com",
+      "inviteSeatNotice": "招待を送信した時点で、{team} のライセンスを1件確保します。",
+      "sendInvitation": "招待を送信",
+      "pendingInvitations": "保留中の招待",
+      "invitePending": "招待保留中",
+      "seatReserved": "ライセンス確保済み",
+      "subscriptionActionRequired": "サブスクリプションの対応が必要",
+      "noPendingInvitations": "このチームに保留中の招待はありません。",
+      "revoke": "取り消し",
+      "removeMemberTitle": "{name} を {team} から削除しますか？",
+      "removeMemberLead": "このチームへのアクセス権がなくなります。",
+      "removeMemberText": "このユーザーは組織のメンバーのままで、所属している他のチームへのアクセス権も保持します。",
+      "removeFromTeam": "チームから削除",
+      "seats": {
+        "inSubscription": "サブスクリプションのライセンス {count} 件 | サブスクリプションのライセンス {count} 件",
+        "afterInvitation": "この招待が承諾されると、ライセンス {count} 件 | この招待が承諾されると、ライセンス {count} 件",
+        "required": "ライセンス {count} 件が必要 | ライセンス {count} 件が必要",
+        "members": "メンバー {count} 人 | メンバー {count} 人",
+        "pending": "保留中の招待 {count} 件 | 保留中の招待 {count} 件",
+        "teams": "チーム {count} 件 | チーム {count} 件"
+      },
+      "tile": {
+        "privateKind": "プライベート",
+        "privateName": "マイタスク",
+        "privateDesc": "あなた専用のタスク領域です。他の人はアクセスできません。",
+        "teamDesc": "このチームで共有する作業です。",
+        "youAreMember": "あなたはメンバーとして参加しています。",
+        "publicKind": "組織全体",
+        "publicName": "パブリック",
+        "publicDesc": "組織全体に公開される作業です。"
+      }
+    },
+    "deny": {
+      "personalEdition": "これは ONE Teams の機能です。",
+      "writeRestricted": "現在、お使いのアカウントは読み取り専用です。",
+      "notAdministrator": "これを変更できるのは組織管理者だけです。",
+      "renameOrg": "組織名の変更はまだ利用できません。",
+      "noRoute": "この機能はまだ利用できません。",
+      "rosterUnavailable": "このチームのメンバーを現在取得できません。",
+      "noTeams": "この組織にはまだチームがありません。先にチームを作成してください。",
+      "dueFollowsEnd": "期限は終了日に従います。個別に設定するには終了日を消してください。",
+      "commercial": "サブスクリプションサービスに接続できなかったため、何も変更されていません。",
+      "taskMove": "プロジェクト間のタスク移動は ONE Teams の機能です。",
+      "forkForbidden": "ここではこの操作を行う権限がありません。何も変更されていません。",
+      "forkNotFound": "対象が見つかりませんでした。何も変更されていません。",
+      "forkConflict": "この操作は現在の状態では実行できないため、何も変更されていません。"
+    },
+    "commercial": {
+      "notAuthenticated": "サブスクリプションサービスがセッションを受け付けなかったため、何も変更されていません。",
+      "paymentRequired": "お支払いを処理できなかったため、何も変更されていません。",
+      "forbidden": "サブスクリプションサービスがこの操作を許可しなかったため、何も変更されていません。",
+      "notFound": "サブスクリプションサービスに該当するデータがありません。何も変更されていません。",
+      "conflict": "現在のアカウントの状態では、サブスクリプションサービスがこの操作を実行できません。何も変更されていません。",
+      "unavailable": "サブスクリプションサービスに現在アクセスできないため、何も変更されていません。",
+      "notInvitable": "このメールアドレスは招待できません。個人アカウント、他の組織、削除済みのアカウントのいずれかで使用されています。何も送信されていません。",
+      "invitationExpired": "この招待は有効期限が切れているため、ライセンスは消費されていません。",
+      "invitationRevoked": "この招待は取り消されているため、ライセンスは消費されていません。",
+      "noInvitation": "このアカウント宛ての招待がないため、ライセンスは消費されていません。",
+      "atSeatCeiling": "この組織は、保有できるライセンス数の上限にすでに達しているため、ライセンスは消費されていません。",
+      "notAMember": "このユーザーはこの組織のメンバーではないため、何も変更されていません。",
+      "stillAdministrator": "このユーザーはまだこの組織の管理者です。先に管理者の役割を移譲してから削除してください。",
+      "notAdmitted": "リクエストは承認されましたが、ライセンスを割り当てられませんでした。リクエストは未処理のまま残っているため、原因を解消してからもう一度承認できます。",
+      "belowUsers": "指定されたライセンス数は、すでに使用している人数を下回っています。先にメンバーを削除してから、ライセンス数を減らしてください。",
+      "belowActiveTeams": "指定されたライセンス数は、現在のチームに必要な数を下回るため、何も変更されていません。"
+    },
+    "error": {
+      "loadFailed": "このページを読み込めませんでした。",
+      "sessionExpired": "セッションが終了しました。続けるにはログインしてください。",
+      "requestFailed": "処理できませんでした。何も変更されていません。",
+      "serverUnavailable": "サーバーに現在アクセスできないため、何も変更されていません。",
+      "catalogue": "このページの表示テキストを読み込めませんでした。"
+    },
+    "toast": {
+      "taskAdded": "タスクを追加しました。",
+      "attachmentsAdded": "添付ファイル {count} 件を追加しました。 | 添付ファイル {count} 件を追加しました。",
+      "attachmentRemoved": "添付ファイルを削除しました。",
+      "relationAdded": "関連タスクを追加しました。",
+      "relationRemoved": "関連タスクを削除しました。",
+      "favoriteAdded": "お気に入りに追加しました。",
+      "favoriteRemoved": "お気に入りから削除しました。",
+      "colorUpdated": "タスクの色を更新しました。",
+      "seatAdded": "ライセンスを1件追加しました。",
+      "invitationSent": "招待を送信しました。ライセンスを1件確保しました。",
+      "alreadyMember": "このユーザーはすでに組織のメンバーです。何も送信されておらず、ライセンスも消費されていません。",
+      "invitationRevoked": "招待を取り消しました。",
+      "adminTransferSubmitted": "管理者の移譲を申請しました。",
+      "exportDownloaded": "エクスポートをダウンロードしました。",
+      "commentUpdated": "コメントを更新しました。"
     }
   }
 }
