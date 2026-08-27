@@ -202,6 +202,13 @@ jobs:
           #     already tells them apart -- this note exists so nobody "fixes"
           #     the URL to match the product.
           #
+          # The two names are searched separately, and this is not tidiness. The
+          # "Vikunja export" allowance has to apply to the upstream name only: the
+          # value it exists for is the import picker's, which reads "ONE / Vikunja
+          # export", and if that regressed to "Brazn Tasks / Vikunja export" then
+          # one grep with one allowance would drop the whole line and report
+          # nothing. It was written that way first and missed exactly that.
+          #
           # Percy is a live name: it is the assistant inside ONE, and "Percy
           # posted for you" would be correct copy. What is refused here is a
           # catalogue value carrying it at all, because today none does and no
@@ -216,8 +223,9 @@ jobs:
               failed=1
               continue
             fi
-            hits="$(grep -rnE '":.*([Vv]ikunja|[Bb]razn [Tt]asks|[Pp]ercy)' "${dir}" \
-              | grep -vF 'Vikunja export' || true)"
+            upstream="$(grep -rnE '":.*[Vv]ikunja' "${dir}" | grep -vF 'Vikunja export' || true)"
+            superseded="$(grep -rnE '":.*([Bb]razn [Tt]asks|[Pp]ercy)' "${dir}" || true)"
+            hits="$(printf '%s\n%s' "${upstream}" "${superseded}" | grep -v '^$' || true)"
             if [[ -n "${hits}" ]]; then
               echo "${hits}"
               failed=1
@@ -549,8 +557,12 @@ jobs:
           # a reverse-engineered contract, not the product naming itself. Adding
           # Percy to the code scan would red-fail every one of them, which is how
           # a correct check gets deleted rather than fixed.
-          hits="$(grep -rnE '":.*([Vv]ikunja|[Bb]razn [Tt]asks|[Pp]ercy)' "${dir}/i18n" \
-            | grep -vF 'Vikunja export' || true)"
+          # Searched separately for the same reason as the loop above: the
+          # "Vikunja export" allowance must not be able to hide a superseded name
+          # that shares a line with it.
+          upstream="$(grep -rnE '":.*[Vv]ikunja' "${dir}/i18n" | grep -vF 'Vikunja export' || true)"
+          superseded="$(grep -rnE '":.*([Bb]razn [Tt]asks|[Pp]ercy)' "${dir}/i18n" || true)"
+          hits="$(printf '%s\n%s' "${upstream}" "${superseded}" | grep -v '^$' || true)"
           if [[ -n "${hits}" ]]; then
             echo "${hits}"
             failed=1
