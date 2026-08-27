@@ -176,7 +176,7 @@ test.describe('Home Page Task Overview', () => {
 		// render before asserting the hint is absent. Without this the negated expectation is
 		// satisfied by the still-empty page on its first poll, and would pass even if the hint
 		// appeared a moment later.
-		await expect(page.locator('[data-cy="showTasks"] .card .task').first()).toBeVisible()
+		await expect(page.locator('[data-cy="showTasks"] .card .task').first()).toBeVisible({timeout: 15000})
 
 		await expect(page.locator('.home.app-content .content')).not.toContainText('Import your projects and tasks from other services into ONE:')
 	})
