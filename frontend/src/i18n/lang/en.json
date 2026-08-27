@@ -49,7 +49,7 @@
     "text": "The page you requested does not exist."
   },
   "ready": {
-    "loading": "Brazn Tasks is loading…",
+    "loading": "ONE is loading…",
     "errorOccured": "An error occurred:",
     "checkApiUrl": "Please check if the api url is correct.",
     "noApiUrlConfigured": "No API url was configured. Please set one below:"
@@ -935,7 +935,7 @@
     "showMenu": "Show the menu",
     "hideMenu": "Hide the menu",
     "forExample": "For example:",
-    "brandName": "One Tasks",
+    "brandName": "ONE",
     "brandTagline": "AI Powered Personal Assistant",
     "custom": "Custom",
     "id": "ID",

@@ -8,6 +8,8 @@ import {getNextWeekDate} from '@/helpers/time/getNextWeekDate'
 import {LINK_SHARE_HASH_PREFIX} from '@/constants/linkShareHash'
 import {REDIRECT_HASH_PREFIX} from '@/constants/redirectHash'
 import {AUTH_ROUTE_NAMES} from '@/constants/authRouteNames'
+import {readSignupTokenFromFragment} from '@/helpers/signupToken'
+import {accountCreationRedirect} from '@/helpers/accountCreationRedirect'
 import {PRO_FEATURE} from '@/constants/proFeatures'
 
 import {useAuthStore} from '@/stores/auth'
@@ -109,6 +111,50 @@ const router = createRouter({
 			component: Register,
 			meta: {
 				title: 'user.auth.createAccount',
+			},
+			// Somebody who asked for this address WITH NO TOKEN wants an account
+			// and cannot get one here: on a managed instance the server refuses
+			// POST /register, so before BRA-1444 they filled the form in and were
+			// told the operation is managed and not available, with nowhere to go
+			// next. They are sent to where accounts are actually made instead.
+			//
+			// THE TOKEN CASE IS THE WHOLE REASON THIS DECISION IS MADE HERE AND
+			// NOT ON THE SERVER. `/register#signup_token=…` is the handoff the
+			// commercial service uses for somebody who has already paid or been
+			// invited (BRA-1071, and see @/helpers/signupToken), and on that
+			// arrival this form is exactly right — the server accepts a
+			// registration carrying a good token. No browser sends a fragment to
+			// any server, which is precisely why the token rides in one, so the
+			// server cannot tell that arrival from a stray visit and must not try:
+			// redirecting there would break the paid customer's only way in.
+			//
+			// Reading it first also captures it. The helper stores the token for
+			// this tab and clears it from the address bar, and is safe to call
+			// twice, so Register.vue's own read still finds it — and an
+			// invitation that came through /one/join.html has already put one in
+			// storage, which this sees too.
+			//
+			// `window.location` rather than a route: checkout is a different
+			// product on a different host, so there is no route to push. Cancel
+			// the navigation as well, or the form renders behind the redirect
+			// for as long as the new page takes to load.
+			beforeEnter: async () => {
+				const signupToken = readSignupTokenFromFragment()
+
+				const baseStore = useBaseStore()
+				await baseStore.appReady
+
+				const url = accountCreationRedirect(
+					signupToken,
+					useConfigStore().accountCreationUrl,
+				)
+				if (url === null) {
+					return true
+				}
+
+				window.location.replace(url)
+
+				return false
 			},
 		},
 		// The Organization area (BRA-917). `requiresOrganizationAdmin` is checked

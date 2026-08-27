@@ -4,11 +4,14 @@ import {mount} from '@vue/test-utils'
 import Login from './Login.vue'
 import {globalMountOptions, settle, apiRejection} from './testSupport'
 
-const {loginMock, verifyEmailMock, setNeedsTotpPasscodeMock, pushMock} = vi.hoisted(() => ({
+const {loginMock, verifyEmailMock, setNeedsTotpPasscodeMock, pushMock, configState} = vi.hoisted(() => ({
 	loginMock: vi.fn(),
 	verifyEmailMock: vi.fn(),
 	setNeedsTotpPasscodeMock: vi.fn(),
 	pushMock: vi.fn(),
+	// Where this instance makes accounts: null on a self-hosted one, which is
+	// what these tests default to. Mutable so a test can be the managed case.
+	configState: {accountCreationUrl: null as string | null},
 }))
 
 vi.mock('vue-router', async (importOriginal) => ({
@@ -35,6 +38,9 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/stores/config', () => ({
 	useConfigStore: () => ({
+		get accountCreationUrl() {
+			return configState.accountCreationUrl
+		},
 		auth: {
 			local: {enabled: true, registrationEnabled: true},
 			ldap: {enabled: false},
@@ -81,6 +87,7 @@ describe('Login', () => {
 		pushMock.mockReset()
 		verifyEmailMock.mockReset()
 		verifyEmailMock.mockResolvedValue(false)
+		configState.accountCreationUrl = null
 	})
 
 	it('gives one message for a wrong username and a wrong password, and it is the same one', async () => {
@@ -187,6 +194,37 @@ describe('Login', () => {
 			.map(link => link.attributes('data-to'))
 
 		expect(destinations).toContain('user.password-reset.request')
+		expect(destinations).toContain('user.register')
+	})
+
+	// BRA-1444. On an instance whose accounts are made by the commercial service
+	// the registration form here cannot create one - the server refuses POST
+	// /register - so offering it is a dead end. The offer itself is right and
+	// stays; only where it goes changes.
+	it('sends somebody without an account to checkout, not to the registration form', () => {
+		configState.accountCreationUrl = 'https://brazn.one/checkout'
+
+		const wrapper = mountLogin()
+
+		const destinations = wrapper
+			.findAll('.router-link')
+			.map(link => link.attributes('data-to'))
+		expect(destinations).not.toContain('user.register')
+
+		const checkout = wrapper.findAll('a').find(a => a.attributes('href') === 'https://brazn.one/checkout')
+		expect(checkout).toBeDefined()
+		expect(checkout?.text()).toBe('Create account')
+	})
+
+	// The address is never invented here. An instance that has not been told
+	// where accounts are made offers what it has always offered.
+	it('keeps the registration link when no checkout address is configured', () => {
+		configState.accountCreationUrl = ''
+
+		const destinations = mountLogin()
+			.findAll('.router-link')
+			.map(link => link.attributes('data-to'))
+
 		expect(destinations).toContain('user.register')
 	})
 })

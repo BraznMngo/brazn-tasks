@@ -15,47 +15,40 @@
 				class="content"
 			>
 				<div>
-					<!-- Replaces <Logo> with the ONE mark on no-auth screens only; drops CUSTOM_LOGO_URL white-labeling here, unlike AppHeader/Navigation. Decorative icon, name beside it is the accessible text. -->
+					<!--
+						The real ONE logo, which the settings and task pages have
+						shown all along (frontend/public/one/settings.html). What
+						stood here was a hand-drawn circle — a lone "O" — beside
+						the product name in text, so the sign-in screens were the
+						only place a customer met a mark that is not the mark
+						(BRA-1444). Same two files rather than a copy, so the
+						sign-in screens and the ONE pages cannot drift apart.
+
+						Two images and not a <picture>: the palette is switched by
+						a `.dark` class on the root as well as by the media query,
+						and prefers-color-scheme alone cannot see that class. Same
+						three-state selectors the ONE stylesheet uses, for the
+						same reason.
+
+						Drops CUSTOM_LOGO_URL white-labeling here, unlike
+						AppHeader/Navigation.
+					-->
 					<div class="brand-header">
-						<span
-							class="brand-icon"
-							aria-hidden="true"
+						<img
+							class="brand-logo light"
+							src="/one/logo-light.v1.png"
+							width="155"
+							height="72"
+							:alt="$t('misc.brandName')"
 						>
-							<svg
-								viewBox="0 0 40 40"
-								fill="none"
-							>
-								<circle
-									cx="20"
-									cy="20"
-									r="13"
-									stroke="url(#brandIconGradient)"
-									stroke-width="5"
-								/>
-								<defs>
-									<linearGradient
-										id="brandIconGradient"
-										x1="4"
-										y1="8"
-										x2="36"
-										y2="32"
-									>
-										<stop
-											offset="0"
-											stop-color="#2563eb"
-										/>
-										<stop
-											offset="1"
-											stop-color="#7c3aed"
-										/>
-									</linearGradient>
-								</defs>
-							</svg>
-						</span>
-						<div class="brand-text">
-							<strong>{{ $t('misc.brandName') }}</strong>
-							<span>{{ $t('misc.brandTagline') }}</span>
-						</div>
+						<img
+							class="brand-logo dark"
+							src="/one/logo-dark.v1.png"
+							width="155"
+							height="72"
+							:alt="$t('misc.brandName')"
+						>
+						<span class="brand-tagline">{{ $t('misc.brandTagline') }}</span>
 					</div>
 					<h1
 						v-if="title"
@@ -79,6 +72,39 @@
 					<slot />
 				</div>
 				<div>
+					<!--
+						Choosing a language before signing in. Everything on these
+						screens is writing — what the form wants, why a refusal
+						happened, where accounts come from — and before BRA-1444
+						somebody who could not read it had no way to change it:
+						the only language control in the product sits in settings,
+						behind the sign-in they are stuck at.
+
+						A plain <select> with a real <label>: it is one control on
+						a page whose job is to get out of the way, it works with a
+						keyboard and a screen reader without any code of ours, and
+						it is what the ONE website's own footer uses.
+					-->
+					<div class="language-choice">
+						<label
+							class="language-label"
+							for="no-auth-language"
+						>{{ $t('user.settings.general.language') }}</label>
+						<select
+							id="no-auth-language"
+							class="language-select"
+							:value="currentLanguage"
+							@change="onLanguageChange"
+						>
+							<option
+								v-for="option in languageOptions"
+								:key="option.code"
+								:value="option.code"
+							>
+								{{ option.title }}
+							</option>
+						</select>
+					</div>
 					<Legal />
 					<!--
 						The AGPL section 13 source offer has to be reachable by anyone
@@ -108,6 +134,13 @@ import PoweredByLink from '@/components/home/PoweredByLink.vue'
 import { useTitle } from '@/composables/useTitle'
 import { useConfigStore } from '@/stores/config'
 import { isDesktopApp } from '@/helpers/desktopAuth'
+import {
+	ONE_LAUNCH_LOCALES,
+	SUPPORTED_LOCALES,
+	saveLanguage,
+	setLanguage,
+	type SupportedLocale,
+} from '@/i18n'
 
 const props = withDefaults(
 	defineProps<{
@@ -122,13 +155,26 @@ const props = withDefaults(
 
 const isDesktop = isDesktopApp()
 const hasStoredApiUrl = isDesktop && localStorage.getItem('API_URL') !== null
-const shouldShowApiConfig = computed(() => props.showApiConfig && (!isDesktop || hasStoredApiUrl))
 
 const configStore = useConfigStore()
 const motd = computed(() => configStore.motd)
 
+// Upstream's chooser for pointing this frontend at a different server — "Using
+// the installation at …, change". It is meaningful on a self-hosted copy, where
+// somebody really does run their own server and has to say where it is. On the
+// hosted product there is exactly one server, nobody may point the app at
+// another one, and the control offered a customer a choice that is not theirs
+// to make (BRA-1444). Hidden rather than refused: this is a capability the
+// person structurally does not have here, which Brazn-Tasks-Rules §1 renders
+// not at all.
+const shouldShowApiConfig = computed(() =>
+	props.showApiConfig &&
+	!configStore.braznManagedMode &&
+	(!isDesktop || hasStoredApiUrl),
+)
+
 const route = useRoute()
-const { t } = useI18n({ useScope: 'global' })
+const { t, locale } = useI18n({ useScope: 'global' })
 const title = computed(() =>
 	route.meta?.title ? t(route.meta.title as string) : '',
 )
@@ -142,6 +188,21 @@ const subtitle = computed(() =>
 	props.showSubtitle && route.meta?.subtitle ? t(route.meta.subtitle as string) : '',
 )
 useTitle(() => title.value)
+
+const currentLanguage = computed(() => locale.value)
+const languageOptions = ONE_LAUNCH_LOCALES.map(code => ({
+	code,
+	title: SUPPORTED_LOCALES[code],
+}))
+
+async function onLanguageChange(event: Event) {
+	const chosen = (event.target as HTMLSelectElement).value as SupportedLocale
+	await setLanguage(chosen)
+	// Remembered rather than merely applied: the very next thing that happens on
+	// this screen is a reload — signing in, or leaving for checkout — and a
+	// choice that does not survive it was never really offered.
+	saveLanguage(chosen)
+}
 </script>
 
 <style lang="scss" scoped>
@@ -240,46 +301,73 @@ useTitle(() => title.value)
 }
 
 .brand-header {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
+	display: grid;
+	justify-items: start;
+	gap: 0.5rem;
 	margin-block-end: 1.75rem;
 }
 
-.brand-icon {
-	inline-size: 44px;
-	block-size: 44px;
-	flex: none;
-	border-radius: 14px;
-	display: grid;
-	place-items: center;
-	background: var(--neumorphic-input-bg);
-	// The same raised neumorphic treatment as .noauth-container, scaled down -
-	// one visual language for every "soft surface" this screen introduces.
-	box-shadow:
-		4px 4px 10px var(--neumorphic-shadow-dark),
-		-4px -4px 10px var(--neumorphic-shadow-light);
+.brand-logo {
+	inline-size: 132px;
+	block-size: auto;
+	max-inline-size: 100%;
+}
 
-	svg {
-		inline-size: 22px;
-		block-size: 22px;
+// The theme-paired pair: light is the default and dark is revealed by either
+// the explicit `.dark` class or the media query, matching frontend/public/one/one.css.
+.brand-logo.dark {
+	display: none;
+}
+
+@media screen {
+	:root.dark .brand-logo.light {
+		display: none;
+	}
+
+	:root.dark .brand-logo.dark {
+		display: inline-block;
 	}
 }
 
-.brand-text {
-	display: grid;
+@media screen and (prefers-color-scheme: dark) {
+	:root:not(.light) .brand-logo.light {
+		display: none;
+	}
+
+	:root:not(.light) .brand-logo.dark {
+		display: inline-block;
+	}
+}
+
+.brand-tagline {
+	font-size: 0.75rem;
+	color: var(--grey-500);
 	line-height: 1.3;
+}
 
-	strong {
-		font-size: 0.95rem;
-		font-weight: 700;
-		color: var(--grey-800);
-	}
+.language-choice {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	margin-block-end: 0.75rem;
+}
 
-	span {
-		font-size: 0.75rem;
-		color: var(--grey-500);
-	}
+.language-label {
+	font-size: 0.75rem;
+	color: var(--grey-500);
+}
+
+// 44px minimum target size, the same floor Login.vue and Register.vue apply to
+// their own controls.
+.language-select {
+	min-block-size: 2.75rem;
+	padding-inline: 0.5rem;
+	border: 1px solid var(--grey-200);
+	border-radius: 8px;
+	background: var(--neumorphic-input-bg);
+	color: var(--grey-800);
+	font-size: 0.85rem;
 }
 
 .subtitle {

@@ -56,7 +56,7 @@ import ContentLinkShare from '@/components/home/ContentLinkShare.vue'
 import NoAuthWrapper from '@/components/misc/NoAuthWrapper.vue'
 import Ready from '@/components/misc/Ready.vue'
 
-import {DEFAULT_LANGUAGE, setLanguage} from '@/i18n'
+import {getPreferredLanguage, setLanguage} from '@/i18n'
 
 import {useAuthStore} from '@/stores/auth'
 import {useBaseStore} from '@/stores/base'
@@ -112,7 +112,19 @@ watch(accountDeletionConfirm, async (accountDeletionConfirm) => {
 	authStore.refreshUserInfo()
 }, { immediate: true })
 
-setLanguage(authStore.settings.language ?? DEFAULT_LANGUAGE)
+// A signed-in person's language is a property of their account and still wins.
+// Nobody else has an account for it to be a property of, and that is what
+// changed for BRA-1444: this used to read the setting either way, and for
+// somebody not signed in `settings` is a fresh UserSettingsModel whose language
+// defaults to the BROWSER's. So a language chosen on the sign-in screen applied,
+// the page reloaded, and the browser's language quietly replaced it — the choice
+// looked like it worked and never survived.
+//
+// `||` because an account with no language set carries '' rather than undefined,
+// and setLanguage throws on an empty string.
+setLanguage(authStore.authenticated
+	? (authStore.settings.language || getPreferredLanguage())
+	: getPreferredLanguage())
 useColorScheme()
 useTimeTrackingFavicon()
 </script>

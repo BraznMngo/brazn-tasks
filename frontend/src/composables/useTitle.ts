@@ -11,10 +11,14 @@ export function useTitle(
 ) {
 	const pageTitle = computed(() => toValue(newTitle))
 
+	// The product is ONE. "Brazn Tasks" is the name of the fork this is built
+	// from, and it belongs in the source offer in the footer, which is a
+	// statement about the software — not in the browser tab, which is a
+	// statement about the product (BRA-1444).
 	const completeTitle = computed(() =>
 		(typeof pageTitle.value === 'undefined' || pageTitle.value === '')
-			? 'Brazn Tasks'
-			: `${pageTitle.value} | Brazn Tasks`,
+			? 'ONE'
+			: `${pageTitle.value} | ONE`,
 	)
 
 	return useTitleVueUse(completeTitle, options)
