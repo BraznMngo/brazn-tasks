@@ -247,7 +247,7 @@ describe('one/i18n.js shipped catalogues', () => {
 		expect(total).toBeGreaterThan(800)
 	})
 
-	it('never names the product Vikunja', () => {
+	it('never names the product Vikunja, Brazn Tasks or Percy', () => {
 		for (const [locale, raw] of CATALOGUES) {
 			for (const value of values(JSON.parse(raw), [])) {
 				// Stricter than .github/workflows/fork-guards.yml, which allowlists "Vikunja export"
@@ -257,6 +257,20 @@ describe('one/i18n.js shipped catalogues', () => {
 				// "Export your Vikunja data" back into user.export.title in en.json - makes this
 				// red, and it is the same failure fork-guards catches on the upstream catalogues.
 				expect(value.toLowerCase(), `${locale}: ${value}`).not.toContain('vikunja')
+
+				// BRA-1444: the product has been called three things - Vikunja upstream, then
+				// Brazn Tasks, and now ONE - so a branch cut before the rename, a revert or an
+				// upstream merge can put either superseded name back, and both read as correct
+				// to anyone who has not been told otherwise.
+				// "brazn tasks" and not "brazn": brazn.one is the product's own address and may
+				// legitimately appear in a value. The old product name has a space where the
+				// address and the repository path have a dot and a hyphen.
+				// MUTATION: writing "Save to Brazn Tasks" into misc.save in en.json makes this
+				// red; so does "Percy" anywhere. Percy is the assistant's real name and stays
+				// correct for the assistant - if attribution copy ever lands in these six files,
+				// allow that string here deliberately rather than deleting the assertion.
+				expect(value.toLowerCase(), `${locale}: ${value}`).not.toContain('brazn tasks')
+				expect(value.toLowerCase(), `${locale}: ${value}`).not.toContain('percy')
 			}
 		}
 	})

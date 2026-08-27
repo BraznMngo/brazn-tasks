@@ -2,31 +2,31 @@
 	"notifications": {
 		"greeting": "Hei %[1]s!",
 		"email_confirm": {
-			"subject": "%[1]s, vennligst bekreft e-postadressen din på Brazn Tasks",
-			"subject_new": "%[1]s + Brazn Tasks = <3",
-			"welcome": "Velkommen til Brazn Tasks!",
+			"subject": "%[1]s, vennligst bekreft e-postadressen din på ONE",
+			"subject_new": "%[1]s + ONE = <3",
+			"welcome": "Velkommen til ONE!",
 			"confirm": "For å bekrefte din e-postadresse, klikk på linken nedenfor:"
 		},
 		"password": {
 			"changed": {
-				"subject": "Passordet ditt på Brazn Tasks ble endret",
+				"subject": "Passordet ditt på ONE ble endret",
 				"success": "Passordet ditt ble endret.",
 				"warning": "Hvis dette ikke var deg, kan det bety at noen kompromitterte kontoen din. I dette tilfellet må du kontakte administrator."
 			},
 			"reset": {
-				"subject": "Tilbakestill passordet ditt på Brazn Tasks",
+				"subject": "Tilbakestill passordet ditt på ONE",
 				"instructions": "Klikk på lenken nedenfor for å tilbakestille passordet:",
 				"valid_duration": "Denne lenken vil være gyldig i 24 timer."
 			}
 		},
 		"totp": {
 			"invalid": {
-				"subject": "Noen prøvde nettopp å logge inn på Brazn Tasks kontoen din, men mislyktes",
+				"subject": "Noen prøvde nettopp å logge inn på ONE kontoen din, men mislyktes",
 				"message": "Noen prøvde nettopp å logge inn på kontoen med riktig brukernavn og passord, men med feil TOTP-kode.",
 				"warning": "**Hvis dette ikke var deg, vet noen andre passordet ditt. Du bør velge et ny umiddelbart!**"
 			},
 			"account_locked": {
-				"subject": "Vi har deaktivert kontoen din på Brazn Tasks",
+				"subject": "Vi har deaktivert kontoen din på ONE",
 				"message": "Noen prøvde å logge inn med din legitimasjon, men kunne ikke oppgi en gyldig TOTP-kode.",
 				"disabled": "Etter 10 mislykkede forsøk har vi deaktivert kontoen din og tilbakestilt passordet ditt. For å angi et nytt passord må du følge instruksjonene i tilbakestillings-e-posten vi har sendt deg.",
 				"reset_instructions": "Hvis du ikke fikk en e-post med tilbakestillingsinstruksjoner kan du alltid be om en ny [%[1]s](%[2]s)."
@@ -34,7 +34,7 @@
 		},
 		"login": {
 			"failed": {
-				"subject": "Noen har nettopp prøvd å logge inn på Brazn Tasks-kontoen din, men kunne ikke å oppgi et riktig passord",
+				"subject": "Noen har nettopp prøvd å logge inn på ONE-kontoen din, men kunne ikke å oppgi et riktig passord",
 				"message": "Noen prøvde nettopp å logge inn på kontoen din med feil passord tre ganger på rad.",
 				"warning": "Hvis dette ikke var deg, kan dette være noen andre som prøver å bryte seg inn på kontoen din.",
 				"enhance_security": "For å forbedre sikkerheten på kontoen bør du sette et sterkere passord eller aktivere TOTP-autentisering i innstillingene:"
@@ -43,7 +43,7 @@
 		"account": {
 			"deletion": {
 				"confirm": {
-					"subject": "Bekreft sletting av Brazn Tasks-kontoen din",
+					"subject": "Bekreft sletting av ONE-kontoen din",
 					"request": "Du har bedt om sletting av kontoen din. For å bekrefte dette, klikk på lenken nedenfor:",
 					"valid_duration": "Denne lenken vil være gyldig i 24 timer.",
 					"schedule_info": "Når du bekrefter slettingen, gjennomføres slettingen av kontoen din om tre dager. Du får ytterligere en e-post om dette før den tid.",
@@ -51,16 +51,16 @@
 					"changed_mind": "Hvis du ikke har bedt om sletting eller du har endret mening, kan du bare ignorere denne e-posten."
 				},
 				"scheduled": {
-					"subject_days": "Brazn Tasks-kontoen din slettes om %[1]s dager",
-					"subject_tomorrow": "Brazn Tasks-kontoen din vil bli slettet i morgen",
-					"request_reminder": "Du har nylig bedt om sletting av Brazn Tasks-kontoen Brazn Tasks.",
+					"subject_days": "ONE-kontoen din slettes om %[1]s dager",
+					"subject_tomorrow": "ONE-kontoen din vil bli slettet i morgen",
+					"request_reminder": "Du har nylig bedt om sletting av ONE-kontoen ONE.",
 					"deletion_time_days": "Vi vil slette kontoen din om %[1]dager.",
 					"deletion_time_tomorrow": "Vi sletter kontoen din i morgen.",
 					"changed_mind": "Hvis du har endret mening klikker du på lenken nedenfor for å avbryte slettingen:"
 				},
 				"completed": {
-					"subject": "Din Brazn Tasks-konto er slettet",
-					"confirmation": "Som forespurt har vi slettet Brazn Tasks-kontoen din.",
+					"subject": "Din ONE-konto er slettet",
+					"confirmation": "Som forespurt har vi slettet ONE-kontoen din.",
 					"permanent": "Denne slettingen er permanent. Hvis det ikke er opprettet en sikkerhetskopi og trenger dataene dine tilbake nå, kontakt administrator."
 				}
 			}
@@ -93,25 +93,25 @@
 		},
 		"team": {
 			"member_added": {
-				"subject": "%[1]s har lagt deg til i gruppen \"%[2]s\" i Brazn Tasks",
-				"message": "%[1]s har lagt deg til i gruppen %[2] i Brazn Tasks."
+				"subject": "%[1]s har lagt deg til i gruppen \"%[2]s\" i ONE",
+				"message": "%[1]s har lagt deg til i gruppen %[2] i ONE."
 			}
 		},
 		"data_export": {
 			"ready": {
-				"subject": "Brazn Tasks dataeksporten er klar",
-				"message": "Brazn Tasks dataeksport er klar til å lastes ned. Klikk på knappen nedenfor for å laste den ned:",
+				"subject": "ONE dataeksporten er klar",
+				"message": "ONE dataeksport er klar til å lastes ned. Klikk på knappen nedenfor for å laste den ned:",
 				"availability": "Nedlasting vil være tilgjengelig de neste 7 dagene."
 			}
 		},
 		"migration": {
 			"done": {
-				"subject": "Migrasjonen fra %[1]s til Brazn Tasks ble fullført",
-				"imported": "Brazn Tasks har importert alle lister/prosjekter, oppgaver, notater, påminnelser og filer fra %[1]s du har tilgang til.",
+				"subject": "Migrasjonen fra %[1]s til ONE ble fullført",
+				"imported": "ONE har importert alle lister/prosjekter, oppgaver, notater, påminnelser og filer fra %[1]s du har tilgang til.",
 				"have_fun": "Ha det gøy med dine nye (og gamle) prosjekter!"
 			},
 			"failed": {
-				"subject": "Migrasjonen fra %[1]s til Brazn Tasks feilet",
+				"subject": "Migrasjonen fra %[1]s til ONE feilet",
 				"message": "Det ser ut som om flytting fra %[1]s ikke gikk som planlagt denne gangen.",
 				"retry": "Ingen grunn til bekymringer! Prøv en gang til.",
 				"error": "Det oppsto en liten feil på veien: `%[2]s`.",
@@ -123,7 +123,7 @@
 			"have_nice_day": "Ha en fin dag!",
 			"copy_url": "Hvis knappen over ikke fungerer, kopier nettadressen under og lim den inn i adresselinjen i nettleseren:",
 			"actions": {
-				"open_vikunja": "Åpne Brazn Tasks",
+				"open_vikunja": "Åpne ONE",
 				"open_project": "Åpne prosjekt",
 				"open_team": "Åpne gruppe",
 				"download": "Last ned",

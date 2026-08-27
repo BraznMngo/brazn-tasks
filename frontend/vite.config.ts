@@ -170,8 +170,8 @@ function getBuildConfig(env: Record<string, string>) {
 				injectRegister: false,
 				useCredentials: true,
 				manifest: {
-					name: 'Brazn Tasks',
-					short_name: 'Brazn Tasks',
+					name: 'ONE',
+					short_name: 'ONE',
 					theme_color: '#1973ff',
 					icons: [
 						{

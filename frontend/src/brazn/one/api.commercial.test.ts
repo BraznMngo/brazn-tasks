@@ -54,7 +54,7 @@ function noContentResponse(): Response {
 
 // What the fork's static handler actually returns for a path it has no route for: the SPA shell,
 // at 200, as text/html. This is the CI shape and the reason the content-type check exists.
-const SPA_INDEX_HTML = '<!DOCTYPE html><html lang="en"><head><title>Brazn Tasks</title>'
+const SPA_INDEX_HTML = '<!DOCTYPE html><html lang="en"><head><title>ONE</title>'
 	+ '</head><body><div id="app"></div><script type="module" src="/assets/index.js"></script></body></html>'
 
 describe('one/api.js commercial guard - transport and shape (bar 8, ruling C14)', () => {
