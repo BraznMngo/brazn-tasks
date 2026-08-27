@@ -254,6 +254,7 @@ const (
 	BraznEntitlementGrace    Key = `brazn.entitlementgrace`
 	BraznFeedbackOwner       Key = `brazn.feedbackowner`
 	BraznAccountURL          Key = `brazn.accounturl`
+	BraznCheckoutURL         Key = `brazn.checkouturl`
 	BraznSignupRedemptionURL Key = `brazn.signupredemptionurl`
 	BraznSeatsEnsureURL      Key = `brazn.seatsensureurl`
 	BraznServiceToken        Key = `brazn.servicetoken`
@@ -558,6 +559,20 @@ func InitDefaultConfig() {
 	// sent never needs a release, which is the standing rule for anything
 	// customer-facing that is not code.
 	BraznAccountURL.setDefault("")
+	// Where somebody is sent to GET an account. On a managed instance this
+	// product creates no accounts at all - the commercial service does, as part
+	// of a purchase or a trial - so the only honest thing the sign-in screen can
+	// offer somebody without an account is the address of that page.
+	//
+	// Configuration rather than a constant, and empty by default, for the same
+	// two reasons BraznAccountURL is: a self-hosted instance has no commercial
+	// service behind it and must offer nothing, and development and production
+	// sell from different addresses. EMPTY IS NOT A NEUTRAL VALUE HERE. It is
+	// what decides whether the sign-in screen offers a way to get an account at
+	// all, and on a managed instance an empty value leaves somebody with no
+	// account exactly where BRA-1444 found them - so a managed deployment that
+	// does not set this has not finished being deployed.
+	BraznCheckoutURL.setDefault("")
 	// Where a signup token is redeemed, and the credential presented when it
 	// is. Both empty by default, and both are required together: in managed
 	// mode an instance that cannot ask whether a token is good refuses every

@@ -13,6 +13,37 @@
 		>
 			{{ errorMessageFromQuery }}
 		</Message>
+
+		<!--
+			Every refusal on this screen ends the round trip somewhere the person
+			did not choose to be, with no control on the page at all: before
+			BRA-1444 a Google sign-in that found no account printed one sentence
+			and left them there. Both ways out are offered rather than one,
+			because this screen cannot tell which refusal it is showing — the
+			server answers 403 with a sentence and no code — and both are true on
+			an instance whose accounts are made elsewhere: the address may already
+			have an account reachable with a password, or it may have none yet.
+		-->
+		<p
+			v-if="hasError"
+			class="mbs-4 next-steps"
+		>
+			<RouterLink
+				:to="{ name: 'user.login' }"
+				class="inline-link"
+			>
+				{{ $t('user.auth.login') }}
+			</RouterLink>
+			<template v-if="accountCreationUrl">
+				<span aria-hidden="true"> · </span>
+				<a
+					:href="accountCreationUrl"
+					class="inline-link"
+				>
+					{{ $t('user.auth.createAccount') }}
+				</a>
+			</template>
+		</p>
 		<Message v-if="loading && !needsTotp">
 			{{ $t('user.auth.authenticating') }}
 		</Message>
@@ -79,6 +110,8 @@ const configStore = useConfigStore()
 const loading = computed(() => authStore.isLoading)
 const errorMessage = ref('')
 const errorMessageFromQuery = computed(() => route.query.error)
+const hasError = computed(() => errorMessage.value !== '' || typeof errorMessageFromQuery.value !== 'undefined')
+const accountCreationUrl = computed(() => configStore.accountCreationUrl)
 
 const needsTotp = ref(false)
 const totpPasscode = ref('')
@@ -286,3 +319,11 @@ async function submitTotpAndRestart() {
 
 onMounted(() => authenticateWithCode())
 </script>
+
+<style lang="scss" scoped>
+// Underline links sitting inside body text so they're not distinguished by
+// colour alone, matching Login.vue and Register.vue.
+.next-steps .inline-link {
+	text-decoration: underline;
+}
+</style>

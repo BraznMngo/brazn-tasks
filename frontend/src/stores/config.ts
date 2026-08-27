@@ -33,6 +33,18 @@ export interface ConfigState {
 	 */
 	braznAccountUrl: string,
 	/**
+	 * Where somebody without an account is sent to create one.
+	 *
+	 * This is the sign-in screen's answer to the only question a person with no
+	 * account can have. On a managed instance this product creates no accounts —
+	 * the commercial service does, at checkout — so the registration form here
+	 * cannot succeed and offering it is a dead end (BRA-1444).
+	 *
+	 * Empty means offer nothing, which is correct for a self-hosted instance
+	 * whose own registration form is the real answer.
+	 */
+	braznCheckoutUrl: string,
+	/**
 	 * Whether account lifecycle on this instance belongs to the commercial
 	 * service. When true, this product must not draw password, address,
 	 * second-factor or account-deletion controls: the managed gate refuses those
@@ -87,6 +99,7 @@ export const useConfigStore = defineStore('config', () => {
 		},
 		caldavEnabled: false,
 		braznAccountUrl: '',
+		braznCheckoutUrl: '',
 		braznManagedMode: false,
 		userDeletionEnabled: true,
 		taskCommentsEnabled: true,
@@ -113,6 +126,28 @@ export const useConfigStore = defineStore('config', () => {
 	})
 
 	const migratorsEnabled = computed(() => state.availableMigrators?.length > 0)
+
+	/**
+	 * Where this instance makes accounts, for the three screens somebody without
+	 * one can reach: the sign-in page, the registration address itself, and the
+	 * end of a Google round trip that found no account.
+	 *
+	 * Defined once, here, because those three have to agree. They did not before
+	 * BRA-1444: the sign-in page offered a registration form the server refuses,
+	 * and the Google callback said accounts are created by subscribing without
+	 * saying where that happens.
+	 *
+	 * `null` means this product makes its own accounts and its own registration
+	 * form is the answer — every self-hosted instance, which is why this is read
+	 * from the server rather than assumed.
+	 */
+	const accountCreationUrl = computed<string | null>(() => {
+		if (!state.braznManagedMode) {
+			return null
+		}
+
+		return state.braznCheckoutUrl || null
+	})
 	const apiBase = computed(() => {
 		const {host, protocol, pathname} = parseURL(window.API_URL)
 
@@ -147,6 +182,7 @@ export const useConfigStore = defineStore('config', () => {
 		...toRefs(state),
 
 		migratorsEnabled,
+		accountCreationUrl,
 		apiBase,
 		setConfig,
 		isProFeatureEnabled,

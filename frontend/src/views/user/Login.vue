@@ -132,8 +132,27 @@
 			>
 				{{ $t('user.auth.login') }}
 			</XButton>
+			<!--
+				Where somebody without an account is sent. On this instance that
+				is checkout, which is what actually creates the account, so the
+				link leaves the product entirely and is a plain anchor rather
+				than a route. On a self-hosted instance it is the registration
+				form here, unchanged. BRA-1444.
+			-->
 			<p
-				v-if="registrationEnabled"
+				v-if="accountCreationUrl"
+				class="mbs-2"
+			>
+				{{ $t('user.auth.noAccountYet') }}
+				<a
+					:href="accountCreationUrl"
+					class="inline-link"
+				>
+					{{ $t('user.auth.createAccount') }}
+				</a>
+			</p>
+			<p
+				v-else-if="registrationEnabled"
 				class="mbs-2"
 			>
 				{{ $t('user.auth.noAccountYet') }}
@@ -191,6 +210,7 @@ const configStore = useConfigStore()
 const {redirectIfSaved} = useRedirectToLastVisited()
 
 const registrationEnabled = computed(() => configStore.auth.local.registrationEnabled)
+const accountCreationUrl = computed(() => configStore.accountCreationUrl)
 const localAuthEnabled = computed(() => configStore.auth.local.enabled)
 const ldapAuthEnabled = computed(() => configStore.auth.ldap.enabled)
 

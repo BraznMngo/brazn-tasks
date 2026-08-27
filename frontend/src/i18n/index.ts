@@ -116,6 +116,54 @@ export async function setLanguage(lang: SupportedLocale): Promise<SupportedLocal
 	return lang
 }
 
+/**
+ * The six languages ONE ships in, and the list the sign-in screens offer.
+ *
+ * MUST MATCH `SUPPORTED_LOCALES` in frontend/public/one/i18n.js. That file is
+ * the fork's own declaration of what the ONE-branded surfaces are translated
+ * into; the much longer list above is upstream Vikunja's, translated by Crowdin
+ * for the application behind sign-in. Offering all of those here would advertise
+ * languages the screens around them are not written in.
+ */
+export const ONE_LAUNCH_LOCALES = ['en', 'de-DE', 'es-ES', 'fr-FR', 'ja-JP', 'zh-CN'] as const
+
+const LANGUAGE_STORAGE_KEY = 'language'
+
+/**
+ * Remembers a language chosen by somebody who is not signed in.
+ *
+ * A signed-in person's language is a property of their account and travels with
+ * them; somebody at the sign-in screen has no account to keep it in, so without
+ * this their choice lasts until the page reloads — which is immediately, since
+ * signing in reloads and so does leaving for checkout.
+ */
+export function saveLanguage(lang: SupportedLocale): void {
+	try {
+		localStorage.setItem(LANGUAGE_STORAGE_KEY, lang)
+	} catch {
+		// A browser refusing storage is not a reason to fail to change language.
+	}
+}
+
+/**
+ * The language to start in: one this person chose before, or the browser's.
+ * A signed-in person's own setting replaces it once their session has loaded.
+ */
+export function getPreferredLanguage(): SupportedLocale {
+	let stored: string | null = null
+	try {
+		stored = localStorage.getItem(LANGUAGE_STORAGE_KEY)
+	} catch {
+		// A browser refusing storage simply has nothing remembered.
+	}
+
+	if (stored !== null && stored in SUPPORTED_LOCALES) {
+		return stored as SupportedLocale
+	}
+
+	return getBrowserLanguage()
+}
+
 export function getBrowserLanguage(): SupportedLocale {
 	const browserLanguage = navigator.language
 

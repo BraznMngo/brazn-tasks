@@ -597,7 +597,7 @@ func fallbackSearchUsers(cl *claims, provider *Provider, idToken *oidc.IDToken) 
 // needs to be told.
 func errManagedNoSignUp() error {
 	return echo.NewHTTPError(http.StatusForbidden,
-		"There is no Brazn Tasks account for this sign-in. Accounts are created when you subscribe.")
+		"There is no ONE account for this sign-in. Accounts are created when you subscribe.")
 }
 
 // errManagedUsePassword is what somebody gets when they sign in with Google at
@@ -611,7 +611,7 @@ func errManagedNoSignUp() error {
 // their own address.
 func errManagedUsePassword() error {
 	return echo.NewHTTPError(http.StatusForbidden,
-		"This email address already has a Brazn Tasks account. Sign in with your password; you can add Google to your account afterwards.")
+		"This email address already has a ONE account. Sign in with your password; you can add Google to your account afterwards.")
 }
 
 // errManagedUnverifiedAddress refuses a sign-up whose provider will not say the
@@ -638,7 +638,7 @@ func errManagedUnverifiedAddress() error {
 // state, not with this caller's authorization.
 func errIdentityAlreadyLinked() error {
 	return echo.NewHTTPError(http.StatusConflict,
-		"This Google account is already connected to a different Brazn Tasks account.")
+		"This Google account is already connected to a different ONE account.")
 }
 
 // errAlreadyUsesProvider is what linkIdentity answers when the caller's own

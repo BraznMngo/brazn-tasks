@@ -47,7 +47,28 @@
 			v-if="baseStore.loading"
 			class="vikunja-loading"
 		>
-			<Logo class="logo" />
+			<!--
+				The real ONE logo, the same pair the sign-in screens and the ONE
+				pages use. What stood here was the placeholder "BT" app mark
+				(src/assets/logo.svg), which is still what the signed-in header
+				uses and is not this change's to touch — but the loading splash
+				is the first thing a customer sees, and it was showing them a
+				mark that is not the product's (BRA-1444).
+			-->
+			<img
+				class="logo light"
+				src="/one/logo-light.v1.png"
+				width="155"
+				height="72"
+				:alt="$t('misc.brandName')"
+			>
+			<img
+				class="logo dark"
+				src="/one/logo-dark.v1.png"
+				width="155"
+				height="72"
+				:alt="$t('misc.brandName')"
+			>
 			<p>
 				<span class="loader-container is-loading-small is-loading" />
 				{{ $t('ready.loading') }}
@@ -57,7 +78,6 @@
 </template>
 
 <script lang="ts" setup>
-import Logo from '@/assets/logo.svg?component'
 import ApiConfig from '@/components/misc/ApiConfig.vue'
 import Message from '@/components/misc/Message.vue'
 import CustomTransition from '@/components/misc/CustomTransition.vue'
@@ -93,8 +113,35 @@ const baseStore = useBaseStore()
 
 .logo {
 	margin-block-end: 1rem;
-	inline-size: 100px;
-	block-size: 100px;
+	inline-size: 132px;
+	block-size: auto;
+}
+
+// The theme-paired pair, same three-state selectors as NoAuthWrapper and
+// frontend/public/one/one.css: prefers-color-scheme alone cannot see the
+// `.dark` class the palette also switches on.
+.logo.dark {
+	display: none;
+}
+
+@media screen {
+	:root.dark .logo.light {
+		display: none;
+	}
+
+	:root.dark .logo.dark {
+		display: inline-block;
+	}
+}
+
+@media screen and (prefers-color-scheme: dark) {
+	:root:not(.light) .logo.light {
+		display: none;
+	}
+
+	:root:not(.light) .logo.dark {
+		display: inline-block;
+	}
 }
 
 .loader-container {

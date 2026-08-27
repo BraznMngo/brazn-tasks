@@ -61,6 +61,18 @@ type VikunjaInfos struct {
 	// commercial service is authoritative for and this product deliberately
 	// does not duplicate (BRA-917 AC5). Empty renders no link.
 	BraznAccountURL string `json:"brazn_account_url" doc:"Where the Organization area links out to for billing and membership. Empty when this instance has no commercial service behind it."`
+	// BraznCheckoutURL is where somebody without an account is sent to get one.
+	//
+	// It is published for the SIGN-IN screen, which is the one surface a person
+	// with no account can reach, and it is the answer to the only question they
+	// can have there. On a managed instance this API creates no accounts - POST
+	// /register is service-managed and refuses - so a client that offers its own
+	// registration form is offering something that cannot succeed, and a client
+	// that offers nothing at all strands them (BRA-1444).
+	//
+	// Empty means "offer nothing", which is correct for a self-hosted instance
+	// where the client's own registration form is the real answer.
+	BraznCheckoutURL string `json:"brazn_checkout_url" doc:"Where somebody without an account is sent to create one, on an instance whose accounts are created by the commercial service. Empty when this instance creates its own accounts."`
 	// BraznManagedMode reports that account lifecycle on this instance belongs
 	// to the commercial service rather than to this API. It is the same value
 	// the managed gate enforces on, published so a client can stop DRAWING the
@@ -140,6 +152,7 @@ func BuildInfo() VikunjaInfos {
 			PrivacyPolicyURL: config.LegalPrivacyURL.GetString(),
 		},
 		BraznAccountURL:  config.BraznAccountURL.GetString(),
+		BraznCheckoutURL: config.BraznCheckoutURL.GetString(),
 		BraznManagedMode: config.BraznManagedMode.GetBool(),
 		AuthInfo: AuthInfo{
 			Local: LocalAuthInfo{
