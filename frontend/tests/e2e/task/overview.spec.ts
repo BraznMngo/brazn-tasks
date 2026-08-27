@@ -5,7 +5,7 @@ import {TaskFactory} from '../../factories/task'
 import {BucketFactory} from '../../factories/bucket'
 import {updateUserSettings} from '../../support/updateUserSettings'
 import {createDefaultViews} from '../project/prepareProjects'
-import type {APIRequestContext} from '@playwright/test'
+import type {APIRequestContext, Page} from '@playwright/test'
 
 async function seedTasks(apiContext: APIRequestContext, numberOfTasks = 50, startDueDate = new Date()) {
 	const project = (await ProjectFactory.create())[0]
@@ -35,16 +35,34 @@ async function seedTasks(apiContext: APIRequestContext, numberOfTasks = 50, star
 }
 
 test.describe('Home Page Task Overview', () => {
+	// Both ordering tests below make the same single assertion, and the shape of it is the
+	// point. `toHaveText` given an array requires the page to hold exactly that many
+	// elements, each with exactly that text, in that order, and it retries until it does —
+	// so it waits for the list to render and it cannot be satisfied by a list that has not
+	// rendered.
+	//
+	// What it replaces read the elements into an array with `.all()` and looped over them.
+	// `.all()` does not wait, the array was empty every time, the loop body never ran, and
+	// both tests passed having compared nothing. Verified rather than reasoned about: with
+	// `order_by` in ShowTasks.vue changed from `['asc', 'desc']` to `['desc', 'desc']`, so
+	// that the page renders all fifty tasks in exactly the wrong order, the old pair still
+	// passed and this pair fails on the first entry.
+	//
+	// The comparison is against `.task-link`, which holds the title alone, rather than
+	// against the whole task row. The row also carries the project name and the due date,
+	// which forces a substring comparison, and a substring comparison cannot tell "Test
+	// Task 1" from "Test Task 19" — it would accept a partially wrong order.
+	const taskTitles = (page: Page) => page.locator('[data-cy="showTasks"] .card .task .task-link')
+
 	test('Should show tasks with a near due date first on the home page overview', async ({authenticatedPage: page, apiContext}) => {
 		const taskCount = 50
 		const {tasks} = await seedTasks(apiContext, taskCount)
 
 		await page.goto('/')
-		const taskElements = await page.locator('[data-cy="showTasks"] .card .task').all()
-		for (let index = 0; index < taskElements.length; index++) {
-			const taskText = await taskElements[index].innerText()
-			expect(taskText).toContain(tasks[index].title)
-		}
+
+		// Seeded in ascending due date order, so this array is also the order the page owes
+		// us: the task due soonest at the top.
+		await expect(taskTitles(page)).toHaveText(tasks.map(task => task.title), {timeout: 15000})
 	})
 
 	test('Should show overdue tasks first, then show other tasks', async ({authenticatedPage: page, apiContext}) => {
@@ -53,12 +71,20 @@ test.describe('Home Page Task Overview', () => {
 		const taskCount = 50
 		const {tasks} = await seedTasks(apiContext, taskCount, oldDate)
 
+		// This test earns its name only if the fixture holds both kinds of task. Due dates
+		// start in the past and step forward two days at a time, so the earliest of the
+		// fifty are already overdue and the rest are not. Pinning that here means a change
+		// to seedTasks that left nothing overdue is reported as the fixture problem it is,
+		// rather than passing as an ordering test that never saw an overdue task.
+		const overdue = tasks.filter(task => new Date(task.due_date) < now)
+		expect(overdue.length).toBeGreaterThan(0)
+		expect(overdue.length).toBeLessThan(taskCount)
+
 		await page.goto('/')
-		const taskElements = await page.locator('[data-cy="showTasks"] .card .task').all()
-		for (let index = 0; index < taskElements.length; index++) {
-			const taskText = await taskElements[index].innerText()
-			expect(taskText).toContain(tasks[index].title)
-		}
+
+		// The overdue tasks are the first entries of the seeded array, so asserting the
+		// whole order asserts that they come first and that what follows is still ordered.
+		await expect(taskTitles(page)).toHaveText(tasks.map(task => task.title), {timeout: 15000})
 	})
 
 	test('Should show a new task with a very soon due date at the top', async ({authenticatedPage: page, apiContext}) => {

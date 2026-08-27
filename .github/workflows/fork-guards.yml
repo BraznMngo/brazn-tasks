@@ -171,7 +171,7 @@ jobs:
           fi
           echo "Every Vikunja mention in ${spec} is an upstream reference or a contract identifier."
 
-      - name: No translation catalogue calls the product Vikunja, Brazn Tasks or Percy
+      - name: No translation catalogue calls the product or the subscription by a dead name
         shell: bash
         run: |
           set -euo pipefail
@@ -181,12 +181,14 @@ jobs:
           # a sync is a live route for "Welcome to Vikunja!" to come back — in a
           # language nobody here reads, in the first email a new customer receives.
           #
-          # BRA-1444 added the two superseded names. The product has been called
-          # three things: Vikunja upstream, then Brazn Tasks, and now ONE. The
+          # BRA-1444 added the superseded names. The product has been called three
+          # things: Vikunja upstream, then Brazn Tasks, and now ONE. What a
+          # customer buys has been called two: Percy Cloud, then Brazn Cloud, and
+          # since 2026-08-27 it is "your ONE subscription" [Ruled, Sebastian]. The
           # Crowdin route above can only bring the upstream name back, but a
-          # branch cut before the rename, a revert, or an upstream merge can bring
-          # back either of the other two, and those read as correct to anyone who
-          # has not been told otherwise. This is what reports all three.
+          # branch cut before a rename, a revert, or an upstream merge can bring
+          # back any of the others, and those read as correct to anyone who has
+          # not been told otherwise. This is what reports all of them.
           #
           # Only values are checked, never keys. open_vikunja, vikunja and
           # vikunjaFile are internal identifiers wired to call sites across both
@@ -202,20 +204,28 @@ jobs:
           #     already tells them apart -- this note exists so nobody "fixes"
           #     the URL to match the product.
           #
-          # The two names are searched separately, and this is not tidiness. The
-          # "Vikunja export" allowance has to apply to the upstream name only: the
-          # value it exists for is the import picker's, which reads "ONE / Vikunja
-          # export", and if that regressed to "Brazn Tasks / Vikunja export" then
-          # one grep with one allowance would drop the whole line and report
-          # nothing. It was written that way first and missed exactly that.
+          # The names are searched in three separate greps, and this is not
+          # tidiness. Each grep is the one that can acquire an allowance, and an
+          # allowance on a shared line drops the whole line for every name on it.
           #
-          # Percy is a live name: it is the assistant inside ONE, and "Percy
-          # posted for you" would be correct copy. What is refused here is a
-          # catalogue value carrying it at all, because today none does and no
-          # regex can tell the assistant from the old product name. When
-          # attribution copy does land, add that string to an allowlist here
-          # deliberately, the way the two above were added, rather than deleting
-          # the check.
+          # The "Vikunja export" allowance has to apply to the upstream name only:
+          # the value it exists for is the import picker's, which reads "ONE /
+          # Vikunja export", and if that regressed to "Brazn Tasks / Vikunja
+          # export" then one grep with one allowance would drop the whole line and
+          # report nothing. It was written that way first and missed exactly that.
+          #
+          # The dead names -- Brazn Tasks, Percy Cloud, Brazn Cloud -- are on their
+          # own grep and will never carry an allowance, because nothing a customer
+          # reads may name any of them again.
+          #
+          # Percy on its own is different, because it is a live name: it is the
+          # assistant inside ONE, and "Percy posted for you" would be correct copy.
+          # What is refused today is a catalogue value carrying it at all, because
+          # today none does. When attribution copy lands, the allowance goes on
+          # THIS grep and names the exact string -- and because "Percy Cloud" is
+          # matched by the dead-names grep above, no allowance written here can let
+          # the old subscription name back in. That is the whole reason the dead
+          # names and the live one are not on the same grep.
           failed=0
           for dir in pkg/i18n/lang frontend/src/i18n/lang; do
             if [[ ! -d "${dir}" ]]; then
@@ -224,8 +234,9 @@ jobs:
               continue
             fi
             upstream="$(grep -rnE '":.*[Vv]ikunja' "${dir}" | grep -vF 'Vikunja export' || true)"
-            superseded="$(grep -rnE '":.*([Bb]razn [Tt]asks|[Pp]ercy)' "${dir}" || true)"
-            hits="$(printf '%s\n%s' "${upstream}" "${superseded}" | grep -v '^$' || true)"
+            superseded="$(grep -rnE '":.*([Bb]razn [Tt]asks|[Pp]ercy [Cc]loud|[Bb]razn [Cc]loud)' "${dir}" || true)"
+            assistant="$(grep -rnE '":.*[Pp]ercy' "${dir}" | grep -viF 'percy cloud' || true)"
+            hits="$(printf '%s\n%s\n%s' "${upstream}" "${superseded}" "${assistant}" | grep -v '^$' || true)"
             if [[ -n "${hits}" ]]; then
               echo "${hits}"
               failed=1
@@ -233,13 +244,14 @@ jobs:
           done
           if [[ "${failed}" != 0 ]]; then
             echo "::error::The translated string(s) above name the product Vikunja," \
-                 "Brazn Tasks or Percy. Customer-facing copy says ONE in every language" \
-                 "(BRA-1444); only upstream attribution and the Vikunja export format" \
-                 "keep the upstream name. If this arrived from Crowdin, fix it there too" \
-                 "or the next sync reverts it."
+                 "Brazn Tasks or Percy, or the subscription Percy Cloud or Brazn Cloud." \
+                 "Customer-facing copy says ONE in every language, and what a customer" \
+                 "buys is \"your ONE subscription\" (BRA-1444); only upstream attribution" \
+                 "and the Vikunja export format keep the upstream name. If this arrived" \
+                 "from Crowdin, fix it there too or the next sync reverts it."
             exit 1
           fi
-          echo "No catalogue value in either directory names the product Vikunja, Brazn Tasks or Percy."
+          echo "No catalogue value in either directory names the product or the subscription by a dead name."
 
       # ---------------------------------------------------------------------
       # BRA-1357 / BRA-1358 — the ONE Tasks restricted views.
@@ -548,21 +560,23 @@ jobs:
           # loop above and for the same reason. A key is an identifier wired to
           # a call site; only a value is something a customer can read.
           #
-          # The two superseded product names are refused here as well (BRA-1444),
-          # on the same reasoning as the loop above. Note this covers the page's
-          # catalogues only, and deliberately not its markup and code below: the
-          # contract notes under frontend/public/one cite the service bundles
-          # they were read from by filename -- percy-service-*.ts and
+          # The superseded product and subscription names are refused here as well
+          # (BRA-1444), on the same reasoning as the loop above. Note this covers
+          # the page's catalogues only, and deliberately not its markup and code
+          # below: the contract notes under frontend/public/one cite the service
+          # bundles they were read from by filename -- percy-service-*.ts and
           # percy-http-*.ts, 123 times -- and those citations are provenance for
           # a reverse-engineered contract, not the product naming itself. Adding
           # Percy to the code scan would red-fail every one of them, which is how
           # a correct check gets deleted rather than fixed.
-          # Searched separately for the same reason as the loop above: the
-          # "Vikunja export" allowance must not be able to hide a superseded name
-          # that shares a line with it.
+          # Three greps for the same reason as the loop above: an allowance on a
+          # shared line drops that line for every name on it, and the dead names
+          # must not be droppable by the allowance the assistant's name will one
+          # day carry.
           upstream="$(grep -rnE '":.*[Vv]ikunja' "${dir}/i18n" | grep -vF 'Vikunja export' || true)"
-          superseded="$(grep -rnE '":.*([Bb]razn [Tt]asks|[Pp]ercy)' "${dir}/i18n" || true)"
-          hits="$(printf '%s\n%s' "${upstream}" "${superseded}" | grep -v '^$' || true)"
+          superseded="$(grep -rnE '":.*([Bb]razn [Tt]asks|[Pp]ercy [Cc]loud|[Bb]razn [Cc]loud)' "${dir}/i18n" || true)"
+          assistant="$(grep -rnE '":.*[Pp]ercy' "${dir}/i18n" | grep -viF 'percy cloud' || true)"
+          hits="$(printf '%s\n%s\n%s' "${upstream}" "${superseded}" "${assistant}" | grep -v '^$' || true)"
           if [[ -n "${hits}" ]]; then
             echo "${hits}"
             failed=1
@@ -597,12 +611,14 @@ jobs:
           fi
 
           if [[ "${failed}" != 0 ]]; then
-            echo "::error::The text above names Vikunja, Brazn Tasks or Percy on a" \
-                 "customer-facing page. This product is ONE everywhere a customer can see" \
-                 "(BRA-1444, CLAUDE.md section 7); upstream attribution lives in NOTICE.md" \
-                 "and the About page, not here. If a mention is genuinely required -- a" \
-                 "wire identifier or an attribution comment -- add it to this step's" \
-                 "allowlist deliberately rather than deleting the check."
+            echo "::error::The text above names Vikunja, Brazn Tasks or Percy, or the" \
+                 "subscription Percy Cloud or Brazn Cloud, on a customer-facing page." \
+                 "This product is ONE everywhere a customer can see, and what a customer" \
+                 "buys is \"your ONE subscription\" (BRA-1444, CLAUDE.md section 7);" \
+                 "upstream attribution lives in NOTICE.md and the About page, not here." \
+                 "If a mention is genuinely required -- a wire identifier or an" \
+                 "attribution comment -- add it to this step's allowlist deliberately" \
+                 "rather than deleting the check."
             exit 1
           fi
           echo "Nothing under ${dir} names the product by an old name outside the allowlist."

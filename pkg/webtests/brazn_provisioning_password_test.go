@@ -257,11 +257,11 @@ func TestBraznProvisioningWithPasswordNeverLogsThePassword(t *testing.T) {
 // whole point against the one config state that silently defeats it: with
 // mail configured, RegisterUser's ordinary path (used by /register) leaves a
 // brand-new account at StatusEmailConfirmationRequired and mails a token
-// nobody asked this account to need - Percy Cloud already proved the mailbox
-// works by reaching this signed call at all, so re-gating on a second proof
-// of the same fact would mean the customer lands on the login screen unable
-// to log in, which is the opposite of "the account is ready the moment they
-// open the task app."
+// nobody asked this account to need - the commercial service already proved
+// the mailbox works by reaching this signed call at all, so re-gating on a
+// second proof of the same fact would mean the customer lands on the login
+// screen unable to log in, which is the opposite of "the account is ready the
+// moment they open the task app."
 //
 // THE CHEAP CHECK: swap CreateProvisionedUserWithPassword's
 // RegisterUserConfirmLater + forced-active back to a plain RegisterUser call,

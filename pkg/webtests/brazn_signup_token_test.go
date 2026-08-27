@@ -38,7 +38,7 @@ import (
 // exactly 43 unpadded base64url characters, which is the only shape a token has.
 const conformanceSignupToken = "EXAMPLE_signup_token_43_chars_not_a_secret1"
 
-// signupRedemptionStub records what this build sent to Percy Cloud.
+// signupRedemptionStub records what this build sent to the commercial service.
 type signupRedemptionStub struct {
 	calls int
 }
@@ -91,11 +91,12 @@ func registrationBody(username, email, token string) string {
 }
 
 // TestManagedRegistrationIsClosedEntirely is BRA-1335's replacement for the
-// signup-token gate BRA-1071 built. Percy Cloud now provisions the Brazn Tasks
-// account synchronously at checkout, through the brazn provisioning channel's
-// create_user_with_password operation (pkg/models/brazn_provisioning.go,
-// CreateProvisionedUserWithPassword) - before the customer ever reaches this
-// instance - so /register has nothing left to do under managed mode.
+// signup-token gate BRA-1071 built. The commercial service now provisions the
+// Brazn Tasks account synchronously at checkout, through the brazn
+// provisioning channel's create_user_with_password operation
+// (pkg/models/brazn_provisioning.go, CreateProvisionedUserWithPassword) -
+// before the customer ever reaches this instance - so /register has nothing
+// left to do under managed mode.
 // route-classification.json now closes it outright ("service-managed"), the
 // same way an instance admin is refused every other account-lifecycle route:
 // unconditionally, before the handler runs, whatever token accompanies the
@@ -118,7 +119,7 @@ func TestManagedRegistrationIsClosedEntirely(t *testing.T) {
 
 		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
 		assert.Equal(t, 0, stub.calls,
-			"the gate must refuse before the handler ever asks Percy Cloud about the token")
+			"the gate must refuse before the handler ever asks the commercial service about the token")
 		db.AssertMissing(t, "users", map[string]interface{}{"username": "closed-with-a-token"})
 	})
 
@@ -165,8 +166,8 @@ func TestManagedRegistrationIsClosedEntirely(t *testing.T) {
 // broken by accident: a self-hosted instance of this fork must behave exactly
 // as upstream Vikunja does. No token, nothing new enforced, and - the
 // assertion that would catch a guard leaking out of managed mode - no call to
-// Percy Cloud at all. BRA-1335 does not touch this path: it only closes the
-// route Percy Cloud's own accounts no longer need.
+// the commercial service at all. BRA-1335 does not touch this path: it only
+// closes the route that service's own accounts no longer need.
 func TestSelfHostedRegistrationNeedsNoSignupToken(t *testing.T) {
 	e := managedModeEcho(t, false)
 	stub := stubSignupRedemption(t, http.StatusForbidden, `{"error":"token_unusable"}`)
