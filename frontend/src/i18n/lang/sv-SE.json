@@ -12,8 +12,8 @@
 		"addToHomeScreen": "Lägg till den här appen på din hemskärm för snabbare åtkomst och en förbättrad upplevelse.",
 		"goToOverview": "Gå till översikten",
 		"project": {
-			"importText": "Importera dina projekt och uppgifter från andra tjänster till Brazn Tasks:",
-			"import": "Importera din data till Brazn Tasks"
+			"importText": "Importera dina projekt och uppgifter från andra tjänster till ONE:",
+			"import": "Importera din data till ONE"
 		}
 	},
 	"demo": {
@@ -22,7 +22,7 @@
 		"accountWillBeDeleted": "Ditt konto raderas, inklusive alla projekt, uppgifter och bilagor som du kan ha skapat."
 	},
 	"ready": {
-		"loading": "Brazn Tasks laddar…",
+		"loading": "ONE laddar…",
 		"errorOccured": "Ett fel uppstod:",
 		"checkApiUrl": "Vänligen kontrollera om API:ns URL stämmer.",
 		"noApiUrlConfigured": "Ingen URL för API:n har konfigurerats. Vänligen ange en nedan:"
@@ -141,7 +141,7 @@
 			},
 			"caldav": {
 				"title": "CalDAV",
-				"more": "Mer information om CalDAV i Brazn Tasks",
+				"more": "Mer information om CalDAV i ONE",
 				"tokens": "CalDAV-token"
 			},
 			"avatar": {
@@ -160,7 +160,7 @@
 				"title": "Snabbtilläggning Magiskt Läge",
 				"disabled": "Inaktiverad",
 				"todoist": "Att göra-lista",
-				"vikunja": "Brazn Tasks"
+				"vikunja": "ONE"
 			},
 			"appearance": {
 				"title": "Färgschema",
@@ -175,7 +175,7 @@
 			},
 			"apiTokens": {
 				"title": "API-token",
-				"general": "API-token låter dig använda Brazn Taskss API utan användaruppgifter.",
+				"general": "API-token låter dig använda ONEs API utan användaruppgifter.",
 				"apiDocs": "Kolla in API-dokumentationen",
 				"createAToken": "Skapa en token",
 				"createToken": "Skapa token",
@@ -202,7 +202,7 @@
 			}
 		},
 		"deletion": {
-			"title": "Radera ditt Brazn Tasks-konto",
+			"title": "Radera ditt ONE-konto",
 			"text1": "Raderingen av ditt konto är permanent och kan inte ångras. Vi kommer att ta bort alla dina projekt, uppgifter och allt som är kopplat till det.",
 			"text2": "För att fortsätta, ange ditt lösenord. Du kommer att få ett e-postmeddelande med ytterligare instruktioner.",
 			"text3": "För att fortsätta, tryck på knappen nedan. Du kommer att få ett e-postmeddelande med ytterligare instruktioner.",
@@ -210,7 +210,7 @@
 			"requestSuccess": "Begäran lyckades. Du får ett e-postmeddelande med ytterligare instruktioner.",
 			"passwordRequired": "Vänligen ange ditt lösenord.",
 			"confirmSuccess": "Du har bekräftat raderingen av ditt konto. Vi kommer att ta bort ditt konto inom tre dagar.",
-			"scheduled": "Vi kommer att radera ditt Brazn Tasks-konto på {date} ({dateSince}).",
+			"scheduled": "Vi kommer att radera ditt ONE-konto på {date} ({dateSince}).",
 			"scheduledCancel": "För att avbryta raderingen av ditt konto, klicka här.",
 			"scheduledCancelText": "För att avbryta radering av ditt konto, ange ditt lösenord nedan:",
 			"scheduledCancelButton": "För att avbryta raderingen av ditt konto, vänligen tryck på knappen nedan:",
@@ -218,12 +218,12 @@
 			"scheduledCancelSuccess": "Vi kommer inte radera ditt konto."
 		},
 		"export": {
-			"title": "Exportera din Brazn Tasks-data",
-			"description": "Du kan begära en kopia av alla dina Brazn Tasks-data. Detta inkluderar projekt, uppgifter och allt som är kopplat till dem. Du kan importera dessa data i valfri Brazn Tasks genom flyttningsfunktionen.",
+			"title": "Exportera din ONE-data",
+			"description": "Du kan begära en kopia av alla dina ONE-data. Detta inkluderar projekt, uppgifter och allt som är kopplat till dem. Du kan importera dessa data i valfri ONE genom flyttningsfunktionen.",
 			"descriptionPasswordRequired": "Ange ditt lösenord för att fortsätta:",
-			"request": "Begär en kopia av min Brazn Tasks-data",
-			"success": "Du har begärt din Brazn Tasks-data! Vi kommer att skicka ett mejl till dig när den är klar för nedladdning.",
-			"downloadTitle": "Ladda ned dina exporterade Brazn Tasks-data",
+			"request": "Begär en kopia av min ONE-data",
+			"success": "Du har begärt din ONE-data! Vi kommer att skicka ett mejl till dig när den är klar för nedladdning.",
+			"downloadTitle": "Ladda ned dina exporterade ONE-data",
 			"ready": "Din export är klar för nedladdning. Du kan ladda ner den tills {0}.",
 			"requestNew": "Begär en annan export"
 		}
@@ -306,7 +306,7 @@
 			"links": {
 				"title": "Delningslänkar",
 				"what": "Vad är en delningslänk?",
-				"explanation": "Delningslänkar gör att du enkelt kan dela ett projekt med andra användare som inte har ett konto på Brazn Tasks.",
+				"explanation": "Delningslänkar gör att du enkelt kan dela ett projekt med andra användare som inte har ett konto på ONE.",
 				"create": "Skapa en länkdelning",
 				"name": "Namn (valfritt)",
 				"namePlaceholder": "t.ex. Lorem Ipsum",
@@ -530,18 +530,18 @@
 	},
 	"migrate": {
 		"title": "Importera från andra tjänster",
-		"titleService": "Importera din data från {name} till Brazn Tasks",
+		"titleService": "Importera din data från {name} till ONE",
 		"description": "Klicka på logotypen för en av nedanstående tredjepartstjänster för att komma igång.",
-		"descriptionDo": "Brazn Tasks kommer att importera alla listor, uppgifter, anteckningar, påminnelser och filer du har tillgång till.",
-		"authorize": "För att tillåta Brazn Tasks att komma åt ditt {name}konto, klicka på knappen nedan.",
+		"descriptionDo": "ONE kommer att importera alla listor, uppgifter, anteckningar, påminnelser och filer du har tillgång till.",
+		"authorize": "För att tillåta ONE att komma åt ditt {name}konto, klicka på knappen nedan.",
 		"getStarted": "Kom igång",
 		"inProgress": "Importering pågår…",
 		"alreadyMigrated1": "Det verkar som om du redan har importerat dina grejer från {name} den {date}.",
 		"alreadyMigrated2": "Det är möjligt att importera igen, men det kan skapa dubbletter. Är du säker?",
 		"confirm": "Jag är säker, börja migrera nu!",
-		"importUpload": "För att importera data från {name} till Brazn Tasks, klicka på knappen nedan för att välja en fil.",
+		"importUpload": "För att importera data från {name} till ONE, klicka på knappen nedan för att välja en fil.",
 		"upload": "Ladda upp fil",
-		"migrationStartedWillReciveEmail": "Brazn Tasks kommer nu att importera dina listor/projekt, uppgifter, anteckningar, påminnelser och filer från {service}. Eftersom detta kommer att ta ett tag, kommer vi att mejla dig när det är klart. Du kan stänga detta fönster nu.",
+		"migrationStartedWillReciveEmail": "ONE kommer nu att importera dina listor/projekt, uppgifter, anteckningar, påminnelser och filer från {service}. Eftersom detta kommer att ta ett tag, kommer vi att mejla dig när det är klart. Du kan stänga detta fönster nu.",
 		"migrationInProgress": "En migrering pågår. Vänta tills den är klar."
 	},
 	"label": {
@@ -727,7 +727,7 @@
 			"canuse": "Du kan använda datummatematik för att filtrera för relativa datum.",
 			"learnhow": "Kolla in hur det fungerar",
 			"title": "Datummatematik",
-			"intro": "Ange relativa datum som beräknas på språng av Brazn Tasks när du applicerar filtret.",
+			"intro": "Ange relativa datum som beräknas på språng av ONE när du applicerar filtret.",
 			"expression": "Varje datummatematikuttryck börjar med ett ankardatum, som antingen kan vara {0}, eller en datumsträng som slutar med {1}. Detta ankardatum kan eventuellt följas av ett eller flera matematiska uttryck.",
 			"similar": "Dessa uttryck liknar de som tillhandahålls av {0} och {1}.",
 			"add1Day": "Lägg till en dag",
@@ -975,7 +975,7 @@
 			"intro": "När du skapar en uppgift kan du använda speciella nyckelord för att direkt lägga till attribut till den nyskapade uppgiften. Detta gör det möjligt att lägga till vanliga attribut till uppgifter mycket snabbare.",
 			"multiple": "Du kan använda detta flera gånger.",
 			"label1": "För att lägga till en etikett behöver du bara ange namnet på etiketten med prefixet {prefix}.",
-			"label2": "Brazn Tasks kontrollerar först om etiketten redan finns och skapar den annars.",
+			"label2": "ONE kontrollerar först om etiketten redan finns och skapar den annars.",
 			"label3": "För att använda mellanslag, lägg bara till \" eller ' runt etikettens namn.",
 			"label4": "Till exempel: {prefix}\"Etikett med mellanslag\".",
 			"priority1": "För att sätta en uppgift prioritet, lägg till ett nummer 1-5, med en {prefix} före.",
@@ -1125,12 +1125,12 @@
 		"views": "Vyer"
 	},
 	"apiConfig": {
-		"url": "Brazn Taskss URL",
+		"url": "ONEs URL",
 		"urlPlaceholder": "t.ex. https://localhost:3456",
 		"change": "ändra",
-		"use": "Använder Brazn Tasks-installation på {0}",
-		"error": "Kunde inte hitta eller använda Brazn Tasks-installationen på \"{domain}\". Kontrollera att URL:en har rätt format och att den är nåbar när du går in på den direkt och försök igen.",
-		"success": "Använder Brazn Tasks-installation på \"{domain}\".",
+		"use": "Använder ONE-installation på {0}",
+		"error": "Kunde inte hitta eller använda ONE-installationen på \"{domain}\". Kontrollera att URL:en har rätt format och att den är nåbar när du går in på den direkt och försök igen.",
+		"success": "Använder ONE-installation på \"{domain}\".",
 		"urlRequired": "Det krävs en URL."
 	},
 	"loadingError": {

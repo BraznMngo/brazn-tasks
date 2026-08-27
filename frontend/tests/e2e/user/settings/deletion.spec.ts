@@ -40,8 +40,8 @@ test.describe('Account deletion', () => {
 		expect(confirm.ok()).toBe(true)
 
 		await gotoUserSettings(page, 'deletion')
-		// Scheduled-state copy: "We will delete your Brazn Tasks account at ..."
-		await expect(page.locator('.card')).toContainText(/we will delete your Brazn Tasks account/i)
+		// Scheduled-state copy: "We will delete your ONE account at ..."
+		await expect(page.locator('.card')).toContainText(/we will delete your ONE account/i)
 
 		await page.locator('#currentPasswordAccountDelete').fill(TEST_PASSWORD)
 		const cancel = page.waitForResponse(r => r.url().includes('/user/deletion/cancel'))
