@@ -156,10 +156,11 @@ func assertEmitted(t *testing.T, fixture []byte, rec *httptest.ResponseRecorder)
 //
 // THE FIXTURE MAKES THE TWO STORED ADDRESSES DIFFER, deliberately. This instance
 // holds the mailbox in two places - brazn_provisioned_users.email, which is the
-// key Percy Cloud provisioned against, and users.email, which is where the
-// person actually is now - and they diverge the moment somebody changes their
-// address. A fixture where the two happened to agree would pass against an
-// implementation reading either table, which is to say it would prove nothing.
+// key the commercial service provisioned against, and users.email, which is
+// where the person actually is now - and they diverge the moment somebody
+// changes their address. A fixture where the two happened to agree would pass
+// against an implementation reading either table, which is to say it would
+// prove nothing.
 //
 // Deleting the guard: the answer comes from the users row that MailboxForSubject
 // reads. Reading brazn_provisioned_users instead answers with the address the

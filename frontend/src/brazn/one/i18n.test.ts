@@ -247,7 +247,7 @@ describe('one/i18n.js shipped catalogues', () => {
 		expect(total).toBeGreaterThan(800)
 	})
 
-	it('never names the product Vikunja, Brazn Tasks or Percy', () => {
+	it('never names the product or the subscription by a dead name', () => {
 		for (const [locale, raw] of CATALOGUES) {
 			for (const value of values(JSON.parse(raw), [])) {
 				// Stricter than .github/workflows/fork-guards.yml, which allowlists "Vikunja export"
@@ -259,17 +259,26 @@ describe('one/i18n.js shipped catalogues', () => {
 				expect(value.toLowerCase(), `${locale}: ${value}`).not.toContain('vikunja')
 
 				// BRA-1444: the product has been called three things - Vikunja upstream, then
-				// Brazn Tasks, and now ONE - so a branch cut before the rename, a revert or an
-				// upstream merge can put either superseded name back, and both read as correct
-				// to anyone who has not been told otherwise.
-				// "brazn tasks" and not "brazn": brazn.one is the product's own address and may
-				// legitimately appear in a value. The old product name has a space where the
-				// address and the repository path have a dot and a hyphen.
+				// Brazn Tasks, and now ONE - and what a customer buys has been called two,
+				// Percy Cloud and then Brazn Cloud, before it became "your ONE subscription"
+				// [Ruled, Sebastian 2026-08-27]. A branch cut before a rename, a revert or an
+				// upstream merge can put any of them back, and every one reads as correct to
+				// anyone who has not been told otherwise.
+				// "brazn tasks" and "brazn cloud" and not "brazn": brazn.one is the product's
+				// own address and may legitimately appear in a value. The dead names have a
+				// space where the address and the repository path have a dot and a hyphen.
 				// MUTATION: writing "Save to Brazn Tasks" into misc.save in en.json makes this
-				// red; so does "Percy" anywhere. Percy is the assistant's real name and stays
-				// correct for the assistant - if attribution copy ever lands in these six files,
-				// allow that string here deliberately rather than deleting the assertion.
+				// red; so do "Brazn Cloud", "Percy Cloud" and "Percy" anywhere.
 				expect(value.toLowerCase(), `${locale}: ${value}`).not.toContain('brazn tasks')
+				expect(value.toLowerCase(), `${locale}: ${value}`).not.toContain('brazn cloud')
+
+				// The subscription's older name is asserted on its own line even though the
+				// bare "percy" line below already covers it, and that is deliberate. Percy is
+				// the assistant's real name and stays correct for the assistant, so the line
+				// below is the one that will one day be relaxed for attribution copy. This
+				// line is what stops that relaxation from letting the old subscription name
+				// back into a value a customer reads.
+				expect(value.toLowerCase(), `${locale}: ${value}`).not.toContain('percy cloud')
 				expect(value.toLowerCase(), `${locale}: ${value}`).not.toContain('percy')
 			}
 		}

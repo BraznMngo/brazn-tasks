@@ -157,17 +157,18 @@ func TestBraznResolveUserRecognisesAProvisionedMailbox(t *testing.T) {
 //
 // THE FIXTURE MAKES THE TWO STORED ADDRESSES DIFFER, deliberately, exactly as
 // the resolve_mailbox test does. This instance holds a mailbox in two places —
-// brazn_provisioned_users.email, the key Percy Cloud provisioned against, and
-// users.email, where the person is now — and they diverge the moment somebody
-// changes their address. A fixture where the two happened to agree would pass
-// against an implementation reading either table, which is to say it would prove
-// nothing.
+// brazn_provisioned_users.email, the key the commercial service provisioned
+// against, and users.email, where the person is now — and they diverge the
+// moment somebody changes their address. A fixture where the two happened to
+// agree would pass against an implementation reading either table, which is to
+// say it would prove nothing.
 //
 // Deleting the guard: the answer comes from the claim row that
 // models.ResolveUserByMailbox reads. Reading users.email instead answers
-// `unresolvable` for the address Percy sold to — which tells the commercial
-// layer to open a SECOND account for a customer it already has, BRA-1106's
-// defect from this side of the seam — and both assertions below invert.
+// `unresolvable` for the address the commercial service sold to — which tells
+// that service to open a SECOND account for a customer it already has,
+// BRA-1106's defect from this side of the seam — and both assertions below
+// invert.
 //
 // ⚠ THE SECOND HALF IS CASE 14 AND IS NOT A BUG HERE. Asked by the NEW address
 // the answer is `unresolvable`, so a customer who changes their address and later

@@ -326,8 +326,8 @@ func TestExplicitFullWriteAccessPermits(t *testing.T) {
 //
 // The commercial service agrees from its own side - writeAccessFor returns
 // "full" for a cancelled account BEFORE it evaluates any money condition - so
-// the block is keyed on what Percy Cloud actually sends and not on a state the
-// fork inferred.
+// the block is keyed on what that service actually sends and not on a state
+// the fork inferred.
 func TestCancelledAccountInsideItsPaidPeriodIsWritable(t *testing.T) {
 	env := newManagedEnv(t)
 	setConfigForTest(t, config.BraznEntitlementGrace, "0s")
