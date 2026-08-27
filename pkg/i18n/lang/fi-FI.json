@@ -2,38 +2,38 @@
 	"notifications": {
 		"greeting": "Moi %[1]s,",
 		"email_confirm": {
-			"subject": "%[1]s, ole hyvä ja vahvista sähköpostiosoitteesi Brazn Tasksssa",
-			"subject_new": "%[1]s + Brazn Tasks = <3",
-			"welcome": "Tervetuloa Brazn Tasksan!",
+			"subject": "%[1]s, ole hyvä ja vahvista sähköpostiosoitteesi ONEssa",
+			"subject_new": "%[1]s + ONE = <3",
+			"welcome": "Tervetuloa ONEan!",
 			"confirm": "Vahvistaaksesi sähköpostiosoitteesi, klikkaa alla olevaa linkkiä:"
 		},
 		"password": {
 			"changed": {
-				"subject": "Salasanasi Brazn Tasksssa vaihdettiin",
+				"subject": "Salasanasi ONEssa vaihdettiin",
 				"success": "Tilisi salasana vaihdettiin onnistuneesti.",
 				"warning": "Jos tämä et ollut sinä, se voi tarkoittaa sitä että joku on vaarantanut tilisi. Tässä tapauksessa ota yhteyttä palvelimesi ylläpitäjään."
 			},
 			"reset": {
-				"subject": "Palauta salasanasi Brazn Tasksssa",
+				"subject": "Palauta salasanasi ONEssa",
 				"instructions": "Palauttaaksesi salasanasi, klikkaa alla olevaa linkkiä:",
 				"valid_duration": "Tämä linkki on voimassa 24 tuntia."
 			}
 		},
 		"totp": {
 			"invalid": {
-				"subject": "Joku yritti juuri kirjautua Brazn Tasks-tilillesi, mutta ei onnistunut",
+				"subject": "Joku yritti juuri kirjautua ONE-tilillesi, mutta ei onnistunut",
 				"message": "Joku juuri yritti kirjautua tilillesi oikealla käyttäjätunnuksella ja salasanalla, mutta väärällä TOTP-koodilla.",
 				"warning": "**Jos tämä et ollut sinä, joku muu tietää salasanasi. Sinun tulisi asettaa uusi salasana välittömästi!**"
 			},
 			"account_locked": {
-				"subject": "Olemme poistaneet Brazn Tasks-tilisi käytöstä.",
+				"subject": "Olemme poistaneet ONE-tilisi käytöstä.",
 				"message": "Joku yritti kirjautua sisään käyttäjätunnuksillasi, mutta ei pystynyt antamaan kelvollista TOTP-koodia.",
 				"disabled": "Kymmenen epäonnistuneen yrityksen jälkeen olemme poistaneet tilisi käytöstä ja nollanneet salasanasi. Asettaaksesi uuden, noudata nollaussähköpostin ohjeita, jonka juuri lähetimme sinulle."
 			}
 		},
 		"login": {
 			"failed": {
-				"subject": "Joku juuri yritti kirjautua Brazn Tasks-tilillesi, mutta antoi väärän salasanan",
+				"subject": "Joku juuri yritti kirjautua ONE-tilillesi, mutta antoi väärän salasanan",
 				"message": "Joku yritti juuri kirjautua tilillesi väärällä salasanalla kolme kertaa peräkkäin.",
 				"warning": "Jos tämä et ollut sinä, joku muu saattaa yrittää murtautua tilillesi."
 			}
@@ -41,22 +41,22 @@
 		"account": {
 			"deletion": {
 				"confirm": {
-					"subject": "Ole hyvä ja vahvista Brazn Tasks-tilisi poistaminen",
+					"subject": "Ole hyvä ja vahvista ONE-tilisi poistaminen",
 					"request": "Olet pyytänyt tilisi poistamista. Vahvistaaksesi tämän, klikkaa alla olevaa linkkiä:",
 					"valid_duration": "Tämä linkki on voimassa 24 tuntia.",
 					"changed_mind": "Jos et ole pyytänyt poistoa tai olet muuttanut mielesi, voit yksinkertaisesti jättää tämän sähköpostin huomiotta."
 				},
 				"scheduled": {
-					"subject_days": "Brazn Tasks-tilisi poistetaan %[1]s päivässä",
-					"subject_tomorrow": "Brazn Tasks-tilisi poistetaan huomenna",
-					"request_reminder": "Olet äskettäin pyytänyt Brazn Tasks-tilisi poistamista.",
+					"subject_days": "ONE-tilisi poistetaan %[1]s päivässä",
+					"subject_tomorrow": "ONE-tilisi poistetaan huomenna",
+					"request_reminder": "Olet äskettäin pyytänyt ONE-tilisi poistamista.",
 					"deletion_time_days": "Poistamme tilisi %[1]s päivässä.",
 					"deletion_time_tomorrow": "Poistamme tilisi huomenna.",
 					"changed_mind": "Jos olet muuttanut mieltäsi, klikkaa alla olevaa linkkiä peruuttaaksesi poistamisen ja noudata siellä olevia ohjeita:"
 				},
 				"completed": {
-					"subject": "Brazn Tasks-tilisi on poistettu",
-					"confirmation": "Kuten pyydetty, olemme poistaneet Brazn Tasks-tilisi.",
+					"subject": "ONE-tilisi on poistettu",
+					"confirmation": "Kuten pyydetty, olemme poistaneet ONE-tilisi.",
 					"permanent": "Tämä poisto on pysyvä. Jos et luonut varmuuskopiota ja tarvitset tietosi takaisin nyt, keskustele järjestelmänvalvojasi kanssa."
 				}
 			}
@@ -75,7 +75,7 @@
 		},
 		"team": {
 			"member_added": {
-				"message": "%[1]s on juuri lisännyt sinut %[2]s tiimiin Brazn Tasksssa."
+				"message": "%[1]s on juuri lisännyt sinut %[2]s tiimiin ONEssa."
 			}
 		},
 		"data_export": {
@@ -95,7 +95,7 @@
 			"have_nice_day": "Hauskaa päivän jatkoa!",
 			"copy_url": "Jos yläpuolella oleva nappi ei toimi, kopioi seuraava osoite selaimesi osoitepalkkiin:",
 			"actions": {
-				"open_vikunja": "Avaa Brazn Tasks",
+				"open_vikunja": "Avaa ONE",
 				"open_project": "Avaa Projekti",
 				"open_team": "Avaa Tiimi",
 				"download": "Lataa",

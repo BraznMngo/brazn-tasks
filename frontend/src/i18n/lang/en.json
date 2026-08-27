@@ -467,7 +467,7 @@
       "scheduledCancelButton": "To cancel the deletion of your account, please press the button below:",
       "scheduledCancelConfirm": "Cancel the deletion of my account",
       "scheduledCancelSuccess": "We will not delete your account.",
-      "managedText1": "Deleting your account is permanent and cannot be undone. It removes your Brazn Cloud subscription, your organization membership, and every project and task this account holds.",
+      "managedText1": "Deleting your account is permanent and cannot be undone. It removes your ONE subscription, your organization membership, and every project and task this account holds.",
       "managedTextImmediate": "This happens immediately once you confirm — there is no confirmation email and no waiting period.",
       "managedSuccessorRequired": "You administer an organization with other members. Choose who should take over as administrator before you can delete your account.",
       "managedSuccessorLabel": "New administrator",

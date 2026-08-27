@@ -38,7 +38,7 @@ export async function fetchSuccessorCandidates(): Promise<SuccessorCandidate[]> 
  * The one call that destroys (BRA-1404). Immediate and irreversible — unlike
  * this fork's own gated `/user/deletion/request`, there is no mailed
  * confirmation and no scheduled grace period: success means the account, its
- * organization membership, its Brazn Cloud subscription, and every task this
+ * organization membership, its ONE subscription, and every task this
  * fork holds for it are already gone.
  *
  * `successorUserId` is required — the call answers 409 — only when

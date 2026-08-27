@@ -12,7 +12,7 @@
 		},
 		"password": {
 			"changed": {
-				"subject": "Dein Passwort bei Brazn Tasks wurde geändert",
+				"subject": "Dein Passwort bei ONE wurde geändert",
 				"success": "Dein Account-Passwort wurde erfolgreich geändert.",
 				"warning": "Falls das nicht du warst, könnte jemand Zugriff auf deinen Account haben. Wende dich in diesem Fall an den Administrator deines Servers."
 			},
@@ -26,12 +26,12 @@
 		},
 		"totp": {
 			"invalid": {
-				"subject": "Jemand hat gerade versucht, sich bei deinem Brazn Tasks-Account anzumelden, ist aber gescheitert",
+				"subject": "Jemand hat gerade versucht, sich bei deinem ONE-Account anzumelden, ist aber gescheitert",
 				"message": "Jemand hat gerade versucht, sich mit dem richtigen Anmeldenamen und Passwort, aber einem falschen TOTP-Code bei deinem Account anzumelden.",
 				"warning": "**Falls das nicht du warst, kennt jemand anderes dein Passwort. Du solltest es sofort ändern!**"
 			},
 			"account_locked": {
-				"subject": "Wir haben deinen Account bei Brazn Tasks deaktiviert",
+				"subject": "Wir haben deinen Account bei ONE deaktiviert",
 				"message": "Jemand hat versucht, sich mit deinen Zugangsdaten anzumelden, konnte aber keinen gültigen TOTP-Code angeben.",
 				"disabled": "Nach 10 fehlgeschlagenen Versuchen haben wir deinen Account deaktiviert und dein Passwort zurückgesetzt. Um ein neues zu setzen, folge den Anweisungen in der Zurücksetzungs-E-Mail, die wir dir gerade geschickt haben.",
 				"reset_instructions": "Falls du keine E-Mail mit Zurücksetzungsanweisungen erhalten hast, kannst du jederzeit eine neue unter [%[1]s](%[2]s) anfordern."
@@ -39,7 +39,7 @@
 		},
 		"login": {
 			"failed": {
-				"subject": "Jemand hat gerade versucht, sich bei deinem Brazn Tasks-Account anzumelden, konnte aber kein korrektes Passwort angeben",
+				"subject": "Jemand hat gerade versucht, sich bei deinem ONE-Account anzumelden, konnte aber kein korrektes Passwort angeben",
 				"message": "Jemand hat gerade dreimal hintereinander versucht, sich mit einem falschen Passwort bei deinem Account anzumelden.",
 				"warning": "Falls das nicht du warst, könnte jemand versuchen, in deinen Account einzudringen.",
 				"enhance_security": "Um die Sicherheit deines Accounts zu erhöhen, könntest du ein stärkeres Passwort einstellen oder die TOTP-Authentifizierung in den Einstellungen aktivieren:"
@@ -48,7 +48,7 @@
 		"account": {
 			"deletion": {
 				"confirm": {
-					"subject": "Bitte bestätige die Löschung deines Brazn Tasks-Accounts",
+					"subject": "Bitte bestätige die Löschung deines ONE-Accounts",
 					"request": "Du hast die Löschung deines Accounts beantragt. Um dies zu bestätigen, klicke bitte auf den Link unten:",
 					"valid_duration": "Dieser Link ist 24 Stunden gültig.",
 					"schedule_info": "Sobald du die Löschung bestätigst, planen wir die Löschung deines Accounts in drei Tagen und senden dir bis dahin eine weitere E-Mail.",
@@ -56,16 +56,16 @@
 					"changed_mind": "Falls du die Löschung nicht beantragt hast oder deine Meinung geändert hast, kannst du diese E-Mail einfach ignorieren."
 				},
 				"scheduled": {
-					"subject_days": "Dein Brazn Tasks-Account wird in %[1]s Tagen gelöscht",
-					"subject_tomorrow": "Dein Brazn Tasks-Account wird morgen gelöscht",
-					"request_reminder": "Du hast kürzlich die Löschung deines Brazn Tasks-Accounts beantragt.",
+					"subject_days": "Dein ONE-Account wird in %[1]s Tagen gelöscht",
+					"subject_tomorrow": "Dein ONE-Account wird morgen gelöscht",
+					"request_reminder": "Du hast kürzlich die Löschung deines ONE-Accounts beantragt.",
 					"deletion_time_days": "Wir werden deinen Account in %[1]s Tagen löschen.",
 					"deletion_time_tomorrow": "Wir werden deinen Account morgen löschen.",
 					"changed_mind": "Falls du deine Meinung geändert hast, klicke einfach auf den Link unten, um die Löschung abzubrechen, und folge den Anweisungen dort:"
 				},
 				"completed": {
-					"subject": "Dein Brazn Tasks-Account wurde gelöscht",
-					"confirmation": "Wie gewünscht haben wir deinen Brazn Tasks-Account gelöscht.",
+					"subject": "Dein ONE-Account wurde gelöscht",
+					"confirmation": "Wie gewünscht haben wir deinen ONE-Account gelöscht.",
 					"permanent": "Diese Löschung ist endgültig. Falls du kein Backup erstellt hast und jetzt deine Daten zurück benötigst, sprich mit deinem Administrator."
 				}
 			}
@@ -110,25 +110,25 @@
 		},
 		"team": {
 			"member_added": {
-				"subject": "%[1]s hat dich zum Team „%[2]s“ in Brazn Tasks hinzugefügt",
-				"message": "%[1]s hat dich gerade zum Team %[2]s in Brazn Tasks hinzugefügt."
+				"subject": "%[1]s hat dich zum Team „%[2]s“ in ONE hinzugefügt",
+				"message": "%[1]s hat dich gerade zum Team %[2]s in ONE hinzugefügt."
 			}
 		},
 		"data_export": {
 			"ready": {
-				"subject": "Dein Brazn Tasks-Datenexport ist fertig",
-				"message": "Dein Brazn Tasks-Datenexport ist zum Herunterladen bereit. Klicke auf den Button unten, um ihn herunterzuladen:",
+				"subject": "Dein ONE-Datenexport ist fertig",
+				"message": "Dein ONE-Datenexport ist zum Herunterladen bereit. Klicke auf den Button unten, um ihn herunterzuladen:",
 				"availability": "Der Download wird für die nächsten 7 Tage verfügbar sein."
 			}
 		},
 		"migration": {
 			"done": {
-				"subject": "Die Migration von %[1]s zu Brazn Tasks wurde abgeschlossen",
-				"imported": "Brazn Tasks hat alle Listen/Projekte, Aufgaben, Notizen, Erinnerungen und Dateien von %[1]s importiert, auf die du Zugriff hast.",
+				"subject": "Die Migration von %[1]s zu ONE wurde abgeschlossen",
+				"imported": "ONE hat alle Listen/Projekte, Aufgaben, Notizen, Erinnerungen und Dateien von %[1]s importiert, auf die du Zugriff hast.",
 				"have_fun": "Viel Spaß mit deinen neuen (alten) Projekten!"
 			},
 			"failed": {
-				"subject": "Die Migration von %[1]s zu Brazn Tasks ist fehlgeschlagen",
+				"subject": "Die Migration von %[1]s zu ONE ist fehlgeschlagen",
 				"message": "Sieht so aus, als ob der Wechsel von %[1]s diesmal nicht wie geplant geklappt hat.",
 				"retry": "Aber keine Sorge! Probiere es einfach genau so nochmal. Manchmal passieren diese Fehler aufgrund von Störungen auf Seiten von %[1]s, aber ein erneuter Versuch hilft oft.",
 				"error": "Wir sind auf einen kleinen Fehler gestoßen: `%[2]s`.",
@@ -153,8 +153,8 @@
 			"have_nice_day": "Hab einen schönen Tag!",
 			"copy_url": "Der Button funktioniert nicht? Kopiere diesen Link in die Adressleiste deines Browsers:",
 			"actions": {
-				"open_task": "Aufgabe in Brazn Tasks öffnen",
-				"open_vikunja": "Brazn Tasks öffnen",
+				"open_task": "Aufgabe in ONE öffnen",
+				"open_vikunja": "ONE öffnen",
 				"open_project": "Projekt öffnen",
 				"open_team": "Team öffnen",
 				"download": "Herunterladen",
@@ -181,7 +181,7 @@
 	},
 	"feeds": {
 		"notifications": {
-			"title": "Brazn Tasks Benachrichtigungen für %[1]s"
+			"title": "ONE Benachrichtigungen für %[1]s"
 		}
 	}
 }

@@ -60,7 +60,7 @@ export const MIGRATORS = {
 	// the importer genuinely reads upstream Vikunja exports as well as ours.
 	'vikunja-file': {
 		id: 'vikunja-file',
-		name: 'Brazn Tasks / Vikunja export',
+		name: 'ONE / Vikunja export',
 		nameKey: 'migrate.migrators.vikunjaFile',
 		icon: vikunjaFileIcon,
 		isFileMigrator: true,
