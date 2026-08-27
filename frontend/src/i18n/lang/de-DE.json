@@ -39,8 +39,8 @@
 		"addToHomeScreen": "Füge diese App deinem Startbildschirm hinzu, um schneller darauf zuzugreifen und das Erlebnis zu verbessern.",
 		"goToOverview": "Zur Übersicht",
 		"project": {
-			"importText": "Importiere deine Projekte und Aufgaben aus anderen Diensten in Brazn Tasks:",
-			"import": "Importiere deine Daten in Brazn Tasks"
+			"importText": "Importiere deine Projekte und Aufgaben aus anderen Diensten in ONE:",
+			"import": "Importiere deine Daten in ONE"
 		}
 	},
 	"demo": {
@@ -49,7 +49,7 @@
 		"accountWillBeDeleted": "Dein Account wird gelöscht, einschließlich aller Projekte, Aufgaben und Anhänge, die du möglicherweise erstellst."
 	},
 	"ready": {
-		"loading": "Brazn Tasks wird geladen…",
+		"loading": "ONE wird geladen…",
 		"errorOccured": "Es ist ein Fehler aufgetreten:",
 		"checkApiUrl": "Bitte überprüfe, ob die API-Url stimmt.",
 		"noApiUrlConfigured": "Es wurde keine API-Url konfiguriert. Bitte stelle unten eine ein:"
@@ -126,7 +126,7 @@
 			"name": "Organisation",
 			"pending": {
 				"title": "Die Schalter für Fußzeile und Empfehlungen gibt es hier noch nicht.",
-				"text": "Was die Percy-Fußzeile sagt, wer sie abschalten darf und ob sie pro Organisation oder pro Mitglied unterdrückt wird, ist noch nicht entschieden. Die Schalter kommen auf diese Seite und werden nicht gezeichnet, bevor sie etwas bewirken: ein Schalter, der nichts tut, ist schlimmer als einer, der fehlt."
+				"text": "Was die ONE-Fußzeile sagt, wer sie abschalten darf und ob sie pro Organisation oder pro Mitglied unterdrückt wird, ist noch nicht entschieden. Die Schalter kommen auf diese Seite und werden nicht gezeichnet, bevor sie etwas bewirken: ein Schalter, der nichts tut, ist schlimmer als einer, der fehlt."
 			}
 		},
 		"billing": {
@@ -179,7 +179,7 @@
 			"oauthMissingParams": "Erforderliche OAuth-Parameter fehlen: {params}",
 			"oauthRedirectedToApp": "Du wurdest zur App weitergeleitet. Du kannst diesen Tab jetzt schließen.",
 			"desktopCustomServer": "Eigene Server-URL",
-			"desktopCustomServerDescription": "Gib die URL deines Brazn Tasks Servers ein, um loszulegen.",
+			"desktopCustomServerDescription": "Gib die URL deines ONE Servers ein, um loszulegen.",
 			"desktopWaitingForAuth": "Warte auf Authentifizierung…",
 			"desktopOAuthError": "Authentifizierung fehlgeschlagen: {error}",
 			"logout": "Abmelden",
@@ -349,8 +349,8 @@
 			},
 			"caldav": {
 				"title": "CalDAV",
-				"howTo": "Du kannst Brazn Tasks mit CalDAV-Clients verbinden, um alle Aufgaben mit verschiedenen Clients anzuzeigen und zu verwalten. Gebe dazu diese URL in deinen Client ein:",
-				"more": "Weitere Informationen über CalDAV in Brazn Tasks",
+				"howTo": "Du kannst ONE mit CalDAV-Clients verbinden, um alle Aufgaben mit verschiedenen Clients anzuzeigen und zu verwalten. Gebe dazu diese URL in deinen Client ein:",
+				"more": "Weitere Informationen über CalDAV in ONE",
 				"tokens": "CalDAV-Token",
 				"tokensHowTo": "Für die CalDAV-Authentifizierung kannst du entweder dein normales Passwort oder einen CalDAV-Token verwenden.",
 				"createToken": "CalDAV-Token erstellen",
@@ -362,7 +362,7 @@
 			},
 			"feeds": {
 				"title": "Atom-Feed",
-				"howTo": "Du kannst deine Brazn Tasks-Benachrichtigungen von jedem Atom-kompatiblen Feed-Reader abonnieren. Benutze die folgende URL:",
+				"howTo": "Du kannst deine ONE-Benachrichtigungen von jedem Atom-kompatiblen Feed-Reader abonnieren. Benutze die folgende URL:",
 				"usernameIs": "Dein Anmeldename für das Feed lautet: {0}",
 				"apiTokenHint": "Authentifiziere dich mit einem API-Token mit der {scope} Berechtigung. Erstellen eins unter {link}.",
 				"tokenTitle": "Atom-Feed"
@@ -383,7 +383,7 @@
 				"title": "Quick Add Magic Modus",
 				"disabled": "Deaktiviert",
 				"todoist": "Todoist",
-				"vikunja": "Brazn Tasks"
+				"vikunja": "ONE"
 			},
 			"appearance": {
 				"title": "Farbschema",
@@ -402,7 +402,7 @@
 			},
 			"apiTokens": {
 				"title": "API-Tokens",
-				"general": "Mit API-Token kannst du die API von Brazn Tasks ohne Login-Daten verwenden.",
+				"general": "Mit API-Token kannst du die API von ONE ohne Login-Daten verwenden.",
 				"apiDocs": "Schaue dir die API-Dokumentation an",
 				"createAToken": "Token erstellen",
 				"createToken": "Token erstellen",
@@ -450,7 +450,7 @@
 			}
 		},
 		"deletion": {
-			"title": "Lösche deinen Brazn Tasks-Account",
+			"title": "Lösche deinen ONE-Account",
 			"text1": "Das Löschen deines Accounts ist dauerhaft und unwiderruflich. Alle Projekte, Aufgaben und zugehörige Daten werden gelöscht.",
 			"text2": "Zum Fortfahren gib bitte dein Passwort ein. Du erhältst eine E-Mail mit weiteren Anweisungen.",
 			"text3": "Klicks zum Fortfahren auf den Button unten. Du erhältst eine E-Mail mit weiteren Anweisungen.",
@@ -458,7 +458,7 @@
 			"requestSuccess": "Die Anfrage war erfolgreich. Du erhältst eine E-Mail mit weiteren Anweisungen.",
 			"passwordRequired": "Bitte gib dein Passwort ein.",
 			"confirmSuccess": "Du hast erfolgreich die Löschung deines Accounts bestätigt. Wir werden deinen Account innerhalb von drei Tagen löschen.",
-			"scheduled": "Wir werden deinen Brazn Tasks-Account am {date} ({dateSince}) löschen.",
+			"scheduled": "Wir werden deinen ONE-Account am {date} ({dateSince}) löschen.",
 			"scheduledCancel": "Um die Löschung deines Accounts abzubrechen, klicke hier.",
 			"scheduledCancelText": "Um die Löschung deines Accounts abzubrechen, gib bitte dein Passwort unten ein:",
 			"scheduledCancelButton": "Um die Löschung deines Accounts abzubrechen, klicke unten auf den Button:",
@@ -466,12 +466,12 @@
 			"scheduledCancelSuccess": "Wir werden deinen Account nicht löschen."
 		},
 		"export": {
-			"title": "Exportiere deine Brazn Tasks-Daten",
-			"description": "Du kannst eine Kopie deiner Daten bei Brazn Tasks anfordern. Dazu gehören Projekte, Aufgaben und alles, was damit zusammenhängt. Du kannst diese Daten dann in jeder Brazn Tasks-Instanz über die Migrationsfunktion importieren.",
+			"title": "Exportiere deine ONE-Daten",
+			"description": "Du kannst eine Kopie deiner Daten bei ONE anfordern. Dazu gehören Projekte, Aufgaben und alles, was damit zusammenhängt. Du kannst diese Daten dann in jeder ONE-Instanz über die Migrationsfunktion importieren.",
 			"descriptionPasswordRequired": "Bitte gib dein Passwort ein, um fortzufahren:",
-			"request": "Eine Kopie meiner Brazn Tasks Daten anfordern",
-			"success": "Du hast deine Daten bei Brazn Tasks erfolgreich angefordert! Wir schicken dir eine E-Mail, sobald sie zum Download bereitstehen.",
-			"downloadTitle": "Lade deine exportierten Brazn Tasks-Daten herunter",
+			"request": "Eine Kopie meiner ONE Daten anfordern",
+			"success": "Du hast deine Daten bei ONE erfolgreich angefordert! Wir schicken dir eine E-Mail, sobald sie zum Download bereitstehen.",
+			"downloadTitle": "Lade deine exportierten ONE-Daten herunter",
 			"ready": "Dein Export steht zum Download bereit. Du kannst ihn bis {0} herunterladen.",
 			"requestNew": "Einen weiteren Export anfordern"
 		}
@@ -556,7 +556,7 @@
 			"links": {
 				"title": "Linkfreigaben",
 				"what": "Was ist eine Linkfreigabe?",
-				"explanation": "Mit Linkfreigaben kannst du Projekte mit Benutzer:innen ohne Brazn Tasks-Account teilen.",
+				"explanation": "Mit Linkfreigaben kannst du Projekte mit Benutzer:innen ohne ONE-Account teilen.",
 				"create": "Erstelle eine Linkfreigabe",
 				"name": "Name (optional)",
 				"namePlaceholder": "z.B. Lorem Ipsum",
@@ -810,24 +810,24 @@
 	},
 	"migrate": {
 		"title": "Aus anderen Diensten importieren",
-		"titleService": "Importiere deine Daten von {name} in Brazn Tasks",
+		"titleService": "Importiere deine Daten von {name} in ONE",
 		"description": "Klicke auf das Logo eines der unten aufgeführten Drittanbieterdienste, um loszulegen.",
-		"descriptionDo": "Brazn Tasks importiert alle Listen, Aufgaben, Notizen, Erinnerungen und Dateien, auf die du Zugriff hast.",
-		"authorize": "Ermögliche Brazn Tasks den Zugriff auf deinen Account bei {name}, indem du auf die Schaltfläche unten klickst.",
+		"descriptionDo": "ONE importiert alle Listen, Aufgaben, Notizen, Erinnerungen und Dateien, auf die du Zugriff hast.",
+		"authorize": "Ermögliche ONE den Zugriff auf deinen Account bei {name}, indem du auf die Schaltfläche unten klickst.",
 		"getStarted": "Loslegen",
 		"inProgress": "Importiere…",
 		"alreadyMigrated1": "Es scheint, dass du schon von {name} am {date} importiert hast.",
 		"alreadyMigrated2": "Ein erneutes Importieren ist möglich, kann aber Duplikate erzeugen. Bist du sicher?",
 		"confirm": "Ich bin sicher, bitte starte mit der Migration!",
-		"importUpload": "Um Daten von {name} in Brazn Tasks zu importieren, klicke auf die Schaltfläche unten, um eine Datei auszuwählen.",
+		"importUpload": "Um Daten von {name} in ONE zu importieren, klicke auf die Schaltfläche unten, um eine Datei auszuwählen.",
 		"upload": "Datei hochladen",
-		"migrationStartedWillReciveEmail": "Brazn Tasks wird nun deine Listen/Projekte, Aufgaben, Notizen, Erinnerungen und Dateien von {service} importieren. Da dies eine Weile dauern wird, senden wir dir eine E-Mail, sobald der Import abgeschlossen ist. Du kannst dieses Fenster jetzt schließen.",
+		"migrationStartedWillReciveEmail": "ONE wird nun deine Listen/Projekte, Aufgaben, Notizen, Erinnerungen und Dateien von {service} importieren. Da dies eine Weile dauern wird, senden wir dir eine E-Mail, sobald der Import abgeschlossen ist. Du kannst dieses Fenster jetzt schließen.",
 		"migrationInProgress": "Ein Import wird gerade durchgeführt. Bitte warte, bis dieser abgeschlossen ist.",
 		"csv": {
 			"description": "Importiere Aufgaben aus einer CSV-Datei mit eigener Spaltenzuordnung.",
 			"uploadDescription": "Wähle eine CSV-Datei, um sie zu importieren. Die Datei sollte Aufgabendaten mit Kopfzeilen in der ersten Zeile enthalten.",
 			"selectFile": "CSV-Datei auswählen",
-			"columnMappingDescription": "Du kannst jede Spalte in der CSV-Datei einem Task-Attribut zu. Brazn Tasks hat die wahrscheinlichsten Zuordnungen automatisch erkannt. Die Vorschau unten wird automatisch aktualisiert, wenn Du die Einstellungen änderst.",
+			"columnMappingDescription": "Du kannst jede Spalte in der CSV-Datei einem Task-Attribut zu. ONE hat die wahrscheinlichsten Zuordnungen automatisch erkannt. Die Vorschau unten wird automatisch aktualisiert, wenn Du die Einstellungen änderst.",
 			"parsingOptions": "Parsing-Optionen",
 			"delimiter": "Trennzeichen",
 			"dateFormat": "Datumsformat",
@@ -887,7 +887,7 @@
 		"imprint": "Impressum",
 		"privacy": "Datenschutzerklärung",
 		"closeSidebar": "Seitenleiste schließen",
-		"home": "Brazn Tasks Startseite"
+		"home": "ONE Startseite"
 	},
 	"misc": {
 		"loading": "Wird geladen…",
@@ -1045,7 +1045,7 @@
 			"canuse": "Du kannst Datumsberechnung verwenden, um nach relativen Daten zu filtern.",
 			"learnhow": "Sieh dir an, wie es funktioniert",
 			"title": "Datumsberechnung",
-			"intro": "Du kannst relative Daten angeben, die bei der Anwendung des Filters von Brazn Tasks aufgelöst werden.",
+			"intro": "Du kannst relative Daten angeben, die bei der Anwendung des Filters von ONE aufgelöst werden.",
 			"expression": "Jeder Ausdruck der Datumsberechnung beginnt mit einem Datumswert, welcher entweder {0} sein kann oder mit {1} endet. Auf diesen Datumswert kann optional ein oder mehrere mathematische Ausdrücke folgen.",
 			"similar": "Diese Ausdrücke ähneln denen von {0} und {1}.",
 			"add1Day": "Einen Tag hinzufügen",
@@ -1310,12 +1310,12 @@
 		},
 		"quickAddMagic": {
 			"hint": "Verwende magische Präfixe, um Fälligkeitsdaten, Zuweisungen und andere Aufgabeneigenschaften zu definieren.",
-			"quickEntryHint": "Verwende magische Präfixe für Datum, Labels & mehr. Öffne die Hauptanwendung von Brazn Tasks und überprüfe den Tooltip bei der Aufgabeneingabe für weitere Details.",
+			"quickEntryHint": "Verwende magische Präfixe für Datum, Labels & mehr. Öffne die Hauptanwendung von ONE und überprüfe den Tooltip bei der Aufgabeneingabe für weitere Details.",
 			"title": "Quick Add Magic",
 			"intro": "Beim Erstellen einer Aufgabe kannst du spezielle Schlüsselwörter verwenden, um Attribute direkt zu der neu erstellten Aufgabe hinzuzufügen. Dadurch können häufig verwendete Attribute schneller zu Aufgaben hinzugefügt werden.",
 			"multiple": "Du kannst das mehrmals benutzen.",
 			"label1": "Um ein Label hinzuzufügen, gibt einfach den Name mit einem vorangestellten {prefix} ein.",
-			"label2": "Brazn Tasks prüft zuerst, ob das Label bereits vorhanden ist und erstellt es, falls nicht.",
+			"label2": "ONE prüft zuerst, ob das Label bereits vorhanden ist und erstellt es, falls nicht.",
 			"label3": "Um Leerzeichen zu verwenden, füge einfach ein \" oder ' um den Namen des Labels hinzu.",
 			"label4": "Zum Beispiel: {prefix}\"Label mit Leerzeichen\".",
 			"priority1": "Um die Priorität einer Aufgabe zu setzen, gibt eine Zahl zwischen 1 und 5 mit einem vorangestellten {prefix} ein.",
@@ -1465,12 +1465,12 @@
 		"views": "Ansichten"
 	},
 	"apiConfig": {
-		"url": "Brazn Tasks-URL",
+		"url": "ONE-URL",
 		"urlPlaceholder": "z.B. https://localhost:3456",
 		"change": "ändern",
-		"use": "Verwende die Brazn Tasks-Installation unter „{0}“",
-		"error": "Brazn Tasks Installation unter \"{domain}\" konnte nicht gefunden oder verwendet werden. Bitte prüfe, ob die URL das richtige Format hat und direkt darauf zugreifen kannst und versuche es erneut.",
-		"success": "Verwende die Brazn Tasks-Installation unter „{domain}“.",
+		"use": "Verwende die ONE-Installation unter „{0}“",
+		"error": "ONE Installation unter \"{domain}\" konnte nicht gefunden oder verwendet werden. Bitte prüfe, ob die URL das richtige Format hat und direkt darauf zugreifen kannst und versuche es erneut.",
+		"success": "Verwende die ONE-Installation unter „{domain}“.",
 		"urlRequired": "Eine Url ist erforderlich."
 	},
 	"loadingError": {
@@ -1487,7 +1487,7 @@
 		"subscribeFeed": "Benachrichtigungen über Atom-Feed abonnieren"
 	},
 	"quickActions": {
-		"notLoggedIn": "Bitte melde dich zuerst im Hauptfenster von Brazn Tasks an.",
+		"notLoggedIn": "Bitte melde dich zuerst im Hauptfenster von ONE an.",
 		"commands": "Befehle",
 		"placeholder": "Gib einen Befehl oder eine Suche ein …",
 		"hint": "Du kannst {project} verwenden, um die Suche auf ein Projekt zu beschränken. Kombiniere {project} oder {label} (Labels) mit einer Suchabfrage, um eine Aufgabe mit diesen Labels oder auf diesem Projekt zu suchen. Verwende {assignee}, um nur nach Teams zu suchen.",

@@ -12,8 +12,8 @@
 		"addToHomeScreen": "Thêm ứng dụng vào màn hình chính để truy cập nhanh hơn với trải nghiệm tốt hơn.",
 		"goToOverview": "Đến phần tổng quan",
 		"project": {
-			"importText": "Nhập các dự án và các tác vụ từ các ứng dụng khác vào Brazn Tasks:",
-			"import": "Nhập dữ liệu của bạn vào Brazn Tasks"
+			"importText": "Nhập các dự án và các tác vụ từ các ứng dụng khác vào ONE:",
+			"import": "Nhập dữ liệu của bạn vào ONE"
 		}
 	},
 	"demo": {
@@ -22,7 +22,7 @@
 		"accountWillBeDeleted": "Tài khoản của bạn sẽ bị xóa, bao gồm tất cả các dự án, tác vụ, và tệp đính kèm mà bạn đã tạo."
 	},
 	"ready": {
-		"loading": "Brazn Tasks đang tải…",
+		"loading": "ONE đang tải…",
 		"errorOccured": "Đã có lỗi xảy ra:",
 		"checkApiUrl": "Vui lòng kiểm tra lại url api.",
 		"noApiUrlConfigured": "Không có url API nào được cấu hình. Hãy đặt một cái:"
@@ -113,7 +113,7 @@
 			},
 			"caldav": {
 				"title": "CalDAV",
-				"more": "Tìm hiểu thêm về CalDAV trên Brazn Tasks",
+				"more": "Tìm hiểu thêm về CalDAV trên ONE",
 				"tokens": "CalDAV Tokens"
 			},
 			"avatar": {
@@ -131,7 +131,7 @@
 				"title": "Chế độ Quick Add Magic",
 				"disabled": "Vô hiệu hóa",
 				"todoist": "Todoist",
-				"vikunja": "Brazn Tasks"
+				"vikunja": "ONE"
 			},
 			"appearance": {
 				"title": "Phối màu",
@@ -142,7 +142,7 @@
 				}
 			},
 			"apiTokens": {
-				"general": "API tokens cho phép bạn sử dụng API của Brazn Tasks mà không cần user credentials.",
+				"general": "API tokens cho phép bạn sử dụng API của ONE mà không cần user credentials.",
 				"apiDocs": "Xem Api docs",
 				"createAToken": "Tạo mã token",
 				"createToken": "Tạo token",
@@ -185,12 +185,12 @@
 			"scheduledCancelSuccess": "Chúng tôi sẽ không xóa tài khoản của bạn nữa."
 		},
 		"export": {
-			"title": "Xuất dữ liệu Brazn Tasks của bạn",
-			"description": "Bạn có thể yêu cầu một bản sao tất cả dữ liệu Brazn Tasks của mình. Điều này bao gồm Dự Án, Tác vụ và mọi thứ liên quan. Bạn có thể nhập dữ liệu này vào bất kỳ phiên bản Brazn Tasks nào thông qua chức năng chuyển.",
+			"title": "Xuất dữ liệu ONE của bạn",
+			"description": "Bạn có thể yêu cầu một bản sao tất cả dữ liệu ONE của mình. Điều này bao gồm Dự Án, Tác vụ và mọi thứ liên quan. Bạn có thể nhập dữ liệu này vào bất kỳ phiên bản ONE nào thông qua chức năng chuyển.",
 			"descriptionPasswordRequired": "Vui lòng nhập mật khẩu của bạn để tiếp tục:",
-			"request": "Yêu cầu một bản sao Dữ liệu Brazn Tasks của tôi",
-			"success": "Bạn đã yêu cầu dữ liệu Brazn Tasks của mình thành công! Chúng tôi sẽ gửi cho bạn một email sau khi nó sẵn sàng để tải xuống.",
-			"downloadTitle": "Tải xuống dữ liệu Brazn Tasks đã xuất của bạn"
+			"request": "Yêu cầu một bản sao Dữ liệu ONE của tôi",
+			"success": "Bạn đã yêu cầu dữ liệu ONE của mình thành công! Chúng tôi sẽ gửi cho bạn một email sau khi nó sẵn sàng để tải xuống.",
+			"downloadTitle": "Tải xuống dữ liệu ONE đã xuất của bạn"
 		}
 	},
 	"project": {
@@ -465,16 +465,16 @@
 	},
 	"migrate": {
 		"title": "Nhập từ các thiết bị khác",
-		"titleService": "Nhập dữ liệu của bạn từ {name} vào Brazn Tasks",
+		"titleService": "Nhập dữ liệu của bạn từ {name} vào ONE",
 		"description": "Nhấp vào Logo của một trong các dịch vụ bên dưới để bắt đầu.",
-		"descriptionDo": "Brazn Tasks sẽ nhập tất cả danh sách, công việc, ghi chú, lời nhắc và tệp mà bạn có quyền truy cập.",
-		"authorize": "Để cho phép Brazn Tasks truy cập vào Tài khoản {name} của bạn, hãy nhấp vào nút bên dưới.",
+		"descriptionDo": "ONE sẽ nhập tất cả danh sách, công việc, ghi chú, lời nhắc và tệp mà bạn có quyền truy cập.",
+		"authorize": "Để cho phép ONE truy cập vào Tài khoản {name} của bạn, hãy nhấp vào nút bên dưới.",
 		"getStarted": "Bắt đầu",
 		"inProgress": "Đang nhập vào…",
 		"alreadyMigrated1": "Có vẻ như bạn đã nhập nội dung của mình từ {name} vào {date}.",
 		"alreadyMigrated2": "Nhập lại được luôn, nhưng có thể tạo ra các trùng lặp đấy. Bạn chắc chưa?",
 		"confirm": "Tôi chắc như đinh, hãy bắt đầu di chuyển thôi!",
-		"importUpload": "Để nhập dữ liệu từ {name} vào Brazn Tasks, hãy nhấp vào nút bên dưới để chọn tệp.",
+		"importUpload": "Để nhập dữ liệu từ {name} vào ONE, hãy nhấp vào nút bên dưới để chọn tệp.",
 		"upload": "Tải tệp lên",
 		"migrationStartedWillReciveEmail": "Vikuja hiện giờ sẽ nhập các danh sách/ dự án, tác vụ, ghi chú, nhắc nhở và thư mục của bạn từ {service}. Vì điều này có thể mất một khoảng thời gian, chúng tôi sẽ gửi một email tới bạn khi quá trình hoàn thành. Bạn hiện tại có thể đóng cửa sổ này.",
 		"migrationInProgress": "Quá trình nhập đang diễn ra. Vui lòng đợi đến khi hoàn thành."
@@ -895,7 +895,7 @@
 			"intro": "Khi tạo một tác vụ, bạn có thể sử dụng các từ khóa đặc biệt để thêm trực tiếp các thuộc tính cho tác vụ mới tạo. Điều này cho phép thêm các thuộc tính thường được sử dụng vào các tác vụ nhanh hơn nhiều.",
 			"multiple": "Bạn có thể sử dụng tác vụ này nhiều lần.",
 			"label1": "Để thêm một nhãn, chỉ cần đặt tiền tố tên nhãn bằng {prefix}.",
-			"label2": "Đầu tiên Brazn Tasks sẽ kiểm tra xem nhãn đã tồn tại chưa và tạo nó nếu chưa.",
+			"label2": "Đầu tiên ONE sẽ kiểm tra xem nhãn đã tồn tại chưa và tạo nó nếu chưa.",
 			"label3": "Để sử dụng dấu cách, chỉ cần thêm dấu \" hoặc ' xung quanh tên nhãn.",
 			"label4": "Ví dụ: {prefix} \"Nhãn có dấu cách\".",
 			"priority1": "Để đặt mức độ ưu tiên của công việc, hãy thêm số từ 1-5, có tiền tố là {prefix}.",
@@ -1024,12 +1024,12 @@
 		"views": "Chế độ xem"
 	},
 	"apiConfig": {
-		"url": "URL Brazn Tasks",
+		"url": "URL ONE",
 		"urlPlaceholder": "ví dụ: https://localhost:3456",
 		"change": "thay đổi",
-		"use": "Sử dụng cài đặt Brazn Tasks tại {0}",
-		"error": "Không thể tìm thấy hay sử dụng cài đặt Brazn Tasks tại \"{domain}\". Vui lòng kiểm tra url đúng định dạng và có thể truy cập được trực tiếp và thử lại.",
-		"success": "Sử dụng cài đặt Brazn Tasks tại \"{domain}\".",
+		"use": "Sử dụng cài đặt ONE tại {0}",
+		"error": "Không thể tìm thấy hay sử dụng cài đặt ONE tại \"{domain}\". Vui lòng kiểm tra url đúng định dạng và có thể truy cập được trực tiếp và thử lại.",
+		"success": "Sử dụng cài đặt ONE tại \"{domain}\".",
 		"urlRequired": "Cần có một url."
 	},
 	"loadingError": {

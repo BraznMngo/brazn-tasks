@@ -12,8 +12,8 @@
 		"addToHomeScreen": "Dodaj tę aplikację do ekranu głównego, aby uzyskać szybszy dostęp i lepsze wrażenia.",
 		"goToOverview": "Przejdź do podsumowania",
 		"project": {
-			"importText": "Importuj swoje projekty i zadania z innych usług do Brazn Tasks:",
-			"import": "Zaimportuj swoje dane do Brazn Tasks"
+			"importText": "Importuj swoje projekty i zadania z innych usług do ONE:",
+			"import": "Zaimportuj swoje dane do ONE"
 		}
 	},
 	"demo": {
@@ -22,7 +22,7 @@
 		"accountWillBeDeleted": "Twoje konto zostanie usunięte, wraz ze wszystkimi projektami, zadaniami i załącznikami, które możesz utworzyć."
 	},
 	"ready": {
-		"loading": "Brazn Tasks się ładuje…",
+		"loading": "ONE się ładuje…",
 		"errorOccured": "Wystąpił błąd:",
 		"checkApiUrl": "Sprawdź, czy adres URL interfejsu API jest poprawny.",
 		"noApiUrlConfigured": "Nie skonfigurowano adresu URL interfejsu API. Ustaw go poniżej:"
@@ -117,7 +117,7 @@
 				"title": "Tryb Quick Add Magic",
 				"disabled": "Wyłączony",
 				"todoist": "Todoist",
-				"vikunja": "Brazn Tasks"
+				"vikunja": "ONE"
 			},
 			"appearance": {
 				"title": "Schemat kolorów",
@@ -129,7 +129,7 @@
 			},
 			"apiTokens": {
 				"title": "Tokeny API",
-				"general": "Tokeny API pozwalają korzystać z API Brazn Tasks bez danych uwierzytelniających użytkownika.",
+				"general": "Tokeny API pozwalają korzystać z API ONE bez danych uwierzytelniających użytkownika.",
 				"apiDocs": "Sprawdź dokumentację API",
 				"createAToken": "Utwórz token",
 				"createToken": "Utwórz token",
@@ -155,7 +155,7 @@
 			}
 		},
 		"deletion": {
-			"title": "Usuń swoje konto Brazn Tasks",
+			"title": "Usuń swoje konto ONE",
 			"text1": "Usunięcie Twojego konta jest trwałe i nie można tego cofnąć. Usuniemy wszystkie Twoje projekty, zadania i wszystko, co z nimi powiązane.",
 			"text2": "Aby kontynuować, wprowadź swoje hasło. Otrzymasz wiadomość e-mail z dalszymi instrukcjami.",
 			"text3": "Aby kontynuować, naciśnij poniższy przycisk. Otrzymasz e-mail z dalszymi instrukcjami.",
@@ -163,7 +163,7 @@
 			"requestSuccess": "Żądanie powiodło się. Otrzymasz wiadomość e-mail z dalszymi instrukcjami.",
 			"passwordRequired": "Wprowadź hasło.",
 			"confirmSuccess": "Pomyślnie potwierdziłeś usunięcie swojego konta. Za trzy dni usuniemy Twoje konto.",
-			"scheduled": "Twoje konto Brazn Tasks zostanie usunięte w dniu {date} ({dateSince}).",
+			"scheduled": "Twoje konto ONE zostanie usunięte w dniu {date} ({dateSince}).",
 			"scheduledCancel": "Aby anulować usunięcie konta, kliknij tutaj.",
 			"scheduledCancelText": "Aby anulować usunięcie konta, wprowadź poniżej swoje hasło:",
 			"scheduledCancelButton": "Aby anulować usunięcie konta, naciśnij przycisk poniżej:",
@@ -171,12 +171,12 @@
 			"scheduledCancelSuccess": "Nie usuniemy Twojego konta."
 		},
 		"export": {
-			"title": "Eksportuj swoje dane Brazn Tasks",
-			"description": "Możesz zażądać kopii wszystkich swoich danych Brazn Tasks. Obejmuje to sekcje projekty, zadania i wszystko, co z nimi powiązane. Możesz zaimportować te dane do dowolnej instancji Brazn Tasks za pomocą funkcji migracji.",
+			"title": "Eksportuj swoje dane ONE",
+			"description": "Możesz zażądać kopii wszystkich swoich danych ONE. Obejmuje to sekcje projekty, zadania i wszystko, co z nimi powiązane. Możesz zaimportować te dane do dowolnej instancji ONE za pomocą funkcji migracji.",
 			"descriptionPasswordRequired": "Wprowadź hasło, aby kontynuować:",
-			"request": "Generuj kopię moich danych Brazn Tasks",
-			"success": "Pomyślnie zażądałeś danych Brazn Tasks! Wyślemy Ci e-mail, gdy będą gotowe do pobrania.",
-			"downloadTitle": "Pobierz wyeksportowane dane Brazn Tasks"
+			"request": "Generuj kopię moich danych ONE",
+			"success": "Pomyślnie zażądałeś danych ONE! Wyślemy Ci e-mail, gdy będą gotowe do pobrania.",
+			"downloadTitle": "Pobierz wyeksportowane dane ONE"
 		}
 	},
 	"project": {
@@ -251,7 +251,7 @@
 			"links": {
 				"title": "Udostępnij linki",
 				"what": "Co to jest udostępnianie linków?",
-				"explanation": "Udostępnianie linków umożliwia łatwe udostępnianie projektów innym użytkownikom, którzy nie mają konta na Brazn Tasks.",
+				"explanation": "Udostępnianie linków umożliwia łatwe udostępnianie projektów innym użytkownikom, którzy nie mają konta na ONE.",
 				"create": "Utwórz nowy link do udostępnienia",
 				"name": "Nazwa: (opcjonalnie)",
 				"namePlaceholder": "np. Lorem Ipsum",
@@ -437,18 +437,18 @@
 	},
 	"migrate": {
 		"title": "Importuj z innych usług",
-		"titleService": "Zaimportuj swoje dane z {name} do Brazn Tasks",
+		"titleService": "Zaimportuj swoje dane z {name} do ONE",
 		"description": "Aby rozpocząć, kliknij logo jednej z usług zewnętrznych.",
-		"descriptionDo": "Brazn Tasks zaimportuje wszystkie listy, zadania, notatki, przypomnienia i pliki, do których masz dostęp.",
-		"authorize": "Aby zezwolić Brazn Tasks na dostęp do Twojego konta {name}, kliknij przycisk poniżej.",
+		"descriptionDo": "ONE zaimportuje wszystkie listy, zadania, notatki, przypomnienia i pliki, do których masz dostęp.",
+		"authorize": "Aby zezwolić ONE na dostęp do Twojego konta {name}, kliknij przycisk poniżej.",
 		"getStarted": "Rozpocznij",
 		"inProgress": "Trwa importowanie…",
 		"alreadyMigrated1": "Wygląda na to, że zaimportowałeś już swoje komponenty z {name} w dniu {date}.",
 		"alreadyMigrated2": "Ponowne importowanie jest możliwe, ale proces ten utworzy duplikaty. Jesteś pewny?",
 		"confirm": "Jestem pewien, proszę rozpocząć migrację!",
-		"importUpload": "Aby zaimportować dane z {name} do Brazn Tasks, kliknij przycisk poniżej, aby wybrać plik.",
+		"importUpload": "Aby zaimportować dane z {name} do ONE, kliknij przycisk poniżej, aby wybrać plik.",
 		"upload": "Prześlij plik",
-		"migrationStartedWillReciveEmail": "Brazn Tasks zaimportuje teraz twoje listy/projekty, zadania, notatki, przypomnienia i pliki z {service}. Ponieważ zajmuje to trochę czasu, wyślemy Ci wiadomość e-mail, gdy skończymy. Możesz teraz zamknąć to okno.",
+		"migrationStartedWillReciveEmail": "ONE zaimportuje teraz twoje listy/projekty, zadania, notatki, przypomnienia i pliki z {service}. Ponieważ zajmuje to trochę czasu, wyślemy Ci wiadomość e-mail, gdy skończymy. Możesz teraz zamknąć to okno.",
 		"migrationInProgress": "Migracja jest w toku. Poczekaj, aż zostanie zakończona."
 	},
 	"label": {
@@ -629,7 +629,7 @@
 			"canuse": "Możesz użyć kalkulacji dat do względnego filtrowania dat.",
 			"learnhow": "Sprawdź jak to działa",
 			"title": "Kalkulacja daty",
-			"intro": "Określ względne daty, które są pobierane na bieżąco przez Brazn Tasks podczas stosowania filtra.",
+			"intro": "Określ względne daty, które są pobierane na bieżąco przez ONE podczas stosowania filtra.",
 			"expression": "Każde wyrażenie kalkulacji daty rozpoczyna się datą zakotwiczenia, którą może być {0} lub wyrażeniem daty zakończonym {1}. Po tej dacie zakotwiczenia opcjonalnie może następować jedno lub więcej wyrażeń matematycznych.",
 			"similar": "Te wyrażenia są podobne do tych dostarczonych przez {0} i {1}.",
 			"add1Day": "Dodaj jeden dzień",
@@ -865,7 +865,7 @@
 			"intro": "Podczas tworzenia zadania możesz użyć specjalnych słów kluczowych, aby bezpośrednio dodać atrybuty do nowo utworzonego zadania. Pozwala to na znacznie szybsze dodawanie powszechnie używanych atrybutów do zadań.",
 			"multiple": "Możesz użyć tego wielokrotnie.",
 			"label1": "Aby dodać etykietę, po prostu poprzedź nazwę etykiety przedrostkiem {prefix}.",
-			"label2": "Brazn Tasks najpierw sprawdzi, czy etykieta już istnieje, a jeśli nie, utworzy ją.",
+			"label2": "ONE najpierw sprawdzi, czy etykieta już istnieje, a jeśli nie, utworzy ją.",
 			"label3": "Aby użyć spacji, po prostu dodaj \" lub ' wokół nazwy etykiety.",
 			"label4": "Na przykład: {prefix}\"Etykieta ze spacjami\".",
 			"priority1": "Aby ustawić priorytet zadania, dodaj liczbę 1-5 poprzedzoną {prefix}.",
@@ -998,7 +998,7 @@
 		"urlPlaceholder": "np. https://localhost:3456",
 		"change": "zmień",
 		"use": "Użyj instalacji Vikunji z {0}",
-		"error": "Nie można znaleźć ani użyć instalacji Brazn Tasks w \"{domain}\". Sprawdź, czy adres URL ma poprawny format i możesz go uzyskać bezpośrednio i spróbować ponownie.",
+		"error": "Nie można znaleźć ani użyć instalacji ONE w \"{domain}\". Sprawdź, czy adres URL ma poprawny format i możesz go uzyskać bezpośrednio i spróbować ponownie.",
 		"success": "Używasz instalacji Vikunji z \"{domain}\".",
 		"urlRequired": "URL jest wymagany."
 	},
