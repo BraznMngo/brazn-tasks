@@ -156,7 +156,7 @@ test.describe('Home Page Task Overview', () => {
 		await expect(page.locator('[data-cy="showTasks"] .card .task').last()).toContainText(newTaskTitle, {timeout: 10000})
 	})
 
-	test('Should show the cta buttons for new project when there are no tasks', async ({authenticatedPage: page}) => {
+	test('Should show the import hint when there are no tasks', async ({authenticatedPage: page}) => {
 		// Need a project so that ShowTasks renders (which sets tasksLoaded=true),
 		// but no tasks so the ImportHint becomes visible.
 		const project = (await ProjectFactory.create())[0]
@@ -167,16 +167,17 @@ test.describe('Home Page Task Overview', () => {
 		await expect(page.locator('.home.app-content .content')).toContainText('Import your projects and tasks from other services into ONE:')
 	})
 
-	test('Should not show the cta buttons for new project when there are tasks', async ({authenticatedPage: page, apiContext}) => {
+	test('Should not show the import hint when there are tasks', async ({authenticatedPage: page, apiContext}) => {
 		await seedTasks(apiContext)
 
 		await page.goto('/')
 
-		await expect(page.locator('.home.app-content .content')).not.toContainText('You can create a new project for your new tasks:')
-		// This expectation begins "Or import", and no catalogue string does, so it is satisfied by
-		// any page at all and would be even if the hint were showing. It was already like that
-		// before the product was renamed; only the name was corrected here, because repairing the
-		// assertion could surface a real failure that belongs in its own change.
-		await expect(page.locator('.home.app-content .content')).not.toContainText('Or import your projects and tasks from other services into ONE:')
+		// The hint is only mounted once ShowTasks has reported its tasks, so wait for a task to
+		// render before asserting the hint is absent. Without this the negated expectation is
+		// satisfied by the still-empty page on its first poll, and would pass even if the hint
+		// appeared a moment later.
+		await expect(page.locator('[data-cy="showTasks"] .card .task').first()).toBeVisible({timeout: 15000})
+
+		await expect(page.locator('.home.app-content .content')).not.toContainText('Import your projects and tasks from other services into ONE:')
 	})
 })
