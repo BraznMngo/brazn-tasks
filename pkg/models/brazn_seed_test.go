@@ -242,6 +242,28 @@ func dbSession(t *testing.T) *xorm.Session {
 	return s
 }
 
+// accountsWithAnEmptyAddress returns every account whose email column holds the
+// empty string, in a session it closes before returning.
+//
+// CLOSING IT IMMEDIATELY IS THE POINT, and it is why this is not one more
+// dbSession call. dbSession keeps its session open until the test ends, which
+// is harmless for every other read in this file because they all happen after
+// seeding. This one has to happen BEFORE, to establish a precondition the seed
+// is then run against - and on SQLite an open read on `users` makes the seed's
+// insert into that same table fail with "database table is locked", which
+// reads as a fault in the code under test rather than in the test's own
+// plumbing.
+func accountsWithAnEmptyAddress(t *testing.T) map[int64]*user.User {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	found := map[int64]*user.User{}
+	require.NoError(t, s.Where("email = ?", "").Find(&found))
+	return found
+}
+
 // TestSeedingTwiceLeavesOneOfEachThing is the property that makes it safe to
 // run this on every boot, which is the only reason it can be a start-up step
 // at all.
@@ -563,10 +585,9 @@ func TestSeedingIgnoresAnEmptyStaffEntry(t *testing.T) {
 	// so it could not tell whether the state this test needs exists at all.
 	// Querying the column for the empty string is the exact question an empty
 	// entry asks.
-	emptyAddressed := map[int64]*user.User{}
-	require.NoError(t, dbSession(t).Where("email = ?", "").Find(&emptyAddressed))
+	emptyAddressed := accountsWithAnEmptyAddress(t)
 	require.NotEmpty(t, emptyAddressed,
-		"this test needs at least one account that `email = ''` actually matches, or it proves nothing")
+		"this test needs at least one account the empty-string query actually matches, or it proves nothing")
 
 	withStaffList(t, "", "user2")
 
