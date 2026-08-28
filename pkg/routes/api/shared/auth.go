@@ -43,7 +43,7 @@ type UserRegister struct {
 	// exact catalogue code ("de-DE") — see pkg/modules/brazn/locale, which backs
 	// the `language` validation tag and resolves the former onto the latter.
 	Language string `json:"language" valid:"language" doc:"The language of the new user as an IETF BCP 47 code: either a bare subtag (de) or an exact code this instance ships (de-DE). Anything else is rejected."`
-	// SignupToken is the token Percy Cloud issued to somebody who is entitled
+	// SignupToken is the token the commercial service issued to somebody who is entitled
 	// to an account here (BRA-1071). It is IGNORED unless this instance is in
 	// managed mode, so a self-hosted instance registers exactly as stock
 	// Vikunja does and this field is inert there.
@@ -61,7 +61,7 @@ type UserRegister struct {
 // validation; both v1 and v2 share this body.
 //
 // THE managed BRANCH BELOW IS NOW UNREACHABLE OVER HTTP AND DELIBERATELY LEFT
-// IN PLACE (BRA-1335). Percy Cloud provisions a password account directly
+// IN PLACE (BRA-1335). The commercial service provisions a password account directly
 // through the brazn provisioning channel's create_user_with_password operation
 // at checkout (pkg/models/brazn_provisioning.go,
 // CreateProvisionedUserWithPassword) - the account exists before the customer

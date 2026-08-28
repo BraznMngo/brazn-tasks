@@ -62,7 +62,7 @@ var ErrUserAlreadyProvisionedForAnotherMailbox = errors.New("the user this mailb
 // column brazn_provisioned_users.email, and the table name is inside both.
 const provisionedMailboxConstraint = "brazn_provisioned_users"
 
-// ProvisionedUser binds one mailbox to the Brazn Tasks user Percy Cloud
+// ProvisionedUser binds one mailbox to the Brazn Tasks user the commercial service
 // provisioned for it.
 //
 // IT EXISTS BECAUSE users.email IS NOT UNIQUE - it is `varchar(250) null` with
@@ -119,7 +119,7 @@ const mailboxProvisioningRetryDelay = 50 * time.Millisecond
 //
 // RETRIES ErrMailboxProvisioningLost IN PLACE (BRA-1207), rather than leaving
 // it for the caller. Nothing downstream of this — cloud/service/src/fork.ts
-// maps this route's 5xx to a retryable `unavailable`, but Percy Cloud's own
+// maps this route's 5xx to a retryable `unavailable`, but the commercial service's own
 // signup handler (web/lib/checkout.ts) does not retry it, it tells the
 // customer "unavailable" and waits for them to resubmit the form. A customer
 // who paid deserves better than depending on noticing an error and trying
@@ -253,7 +253,7 @@ func provisionUserForClaim(s *xorm.Session, claim *ProvisionedUser) (*user.User,
 	// StatusEmailConfirmationRequired, this re-read really does report it, and
 	// created:true with email_verified:false is now a reachable reply.
 	//
-	// Percy Cloud is the consumer that must care, because signUp copies
+	// The commercial service is the consumer that must care, because signUp copies
 	// email_verified into email_verified_at and requireVerifiedAccount reads it.
 	stored, err := userByID(s, created.ID)
 	if err != nil {
@@ -378,7 +378,7 @@ var ErrPasswordAccountEmailOrUsernameTaken = errors.New(
 
 // CreateProvisionedUserWithPassword is the create_user_with_password operation
 // (BRA-1335): a brand-new Brazn Tasks account for somebody who chose a
-// username and a password at Percy Cloud checkout, created synchronously so
+// username and a password at checkout in the commercial service, created synchronously so
 // the account exists the moment they open this instance rather than after a
 // second registration step.
 //
@@ -419,7 +419,7 @@ func CreateProvisionedUserWithPassword(ctx context.Context, email, username, pas
 
 	// RegisterUserConfirmLater rather than RegisterUser: a new account needs
 	// its Inbox and its default saved filters too (matching
-	// registerUserForMailbox below), but NOT a confirmation mail. Percy Cloud
+	// registerUserForMailbox below), but NOT a confirmation mail. The commercial service
 	// already required a working, receiving mailbox to reach this call at all
 	// - a checkout, or a trial start, both prove the address before this
 	// operation is ever signed - so re-gating the account on a second proof
@@ -480,7 +480,7 @@ func CreateProvisionedUserWithPassword(ctx context.Context, email, username, pas
 //
 // IT READS users.email AND NEVER brazn_provisioned_users.email, which is the one
 // thing this function exists to get right. The two are not copies of each other:
-// the claim row is the mailbox Percy Cloud provisioned AGAINST and is the
+// the claim row is the mailbox the commercial service provisioned AGAINST and is the
 // authoritative map from that mailbox to a user - see ProvisionedUser - while
 // the user row carries the address the person has NOW, and the two diverge the
 // moment somebody changes theirs. Both callers want the user row: contact has to
@@ -616,7 +616,7 @@ type UserResolution struct {
 }
 
 // ResolveUserByMailbox answers the recognition form of a resolve_user request:
-// which Brazn Tasks user did Percy Cloud provision for this mailbox, or none.
+// which Brazn Tasks user did the commercial service provision for this mailbox, or none.
 //
 // ⚠ IT READS brazn_provisioned_users.email AND NEVER users.email, which is the
 // OPPOSITE of the column MailboxForSubject reads and the one decision this
@@ -636,7 +636,7 @@ type UserResolution struct {
 //
 // IT DOES NOT CONTRADICT MailboxForSubject, because the two answer different
 // questions. resolve_mailbox asks where to SEND now, so it must follow the
-// person and reads the live user row. This asks which account Percy Cloud SOLD
+// person and reads the live user row. This asks which account the commercial service SOLD
 // to a mailbox, so it must be stable: the id it returns becomes an
 // accounts.user_id, a primary key on the commercial side with no update path,
 // and an id that moved when somebody edited their profile would repoint a paid
@@ -710,7 +710,7 @@ func ResolveUserBySubject(subject string) (*UserResolution, error) {
 // It reads the row the way MailboxForSubject does rather than through
 // user.GetUserByID, and that is not a shortcut: GetUserByID returns an error
 // for a disabled or a locked account, and treating that as absence would tell
-// Percy Cloud that a suspended customer is not a user here - which converges
+// The commercial service that a suspended customer is not a user here - which converges
 // nothing and would have their next signup open a second account. A locked
 // account is still the account for that mailbox, and its confirmation status is
 // still its own.

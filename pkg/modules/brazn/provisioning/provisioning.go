@@ -100,7 +100,7 @@ const (
 	// question this operation shares.
 	OperationRevokeSession = "revoke_session"
 	// OperationCreateUserWithPassword is BRA-1335: a brand-new Brazn Tasks
-	// account for somebody who chose a username and a password at Percy Cloud
+	// account for somebody who chose a username and a password at the commercial service
 	// checkout, so the account exists before they ever open this instance.
 	//
 	// IT IS A SEPARATE OPERATION FROM create_user AND MUST STAY ONE.
@@ -347,7 +347,7 @@ type RevokeSession struct {
 
 // CreateUserWithPassword is the whole signed payload of a
 // create_user_with_password operation (BRA-1335): a brand-new Brazn Tasks
-// account for somebody who set a username and a password at Percy Cloud
+// account for somebody who set a username and a password at the commercial service
 // checkout.
 //
 // It declares its own complete payload rather than embedding CreateUser's, for
