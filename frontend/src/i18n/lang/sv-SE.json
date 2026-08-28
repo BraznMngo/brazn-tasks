@@ -89,7 +89,6 @@
 				"discoverableByName": "Tillåt andra användare att lägga till mig som medlem i team eller projekt när de söker efter mitt namn",
 				"discoverableByEmail": "Tillåt andra användare att lägga till mig som medlem i team eller projekt när de söker efter min fullständiga e-postadress",
 				"playSoundWhenDone": "Spela upp ett ljud när du markerar uppgifter som färdiga",
-				"allowIconChanges": "Visa speciella logotyper vid vissa tidpunkter",
 				"alwaysShowBucketTaskCount": "Visa alltid antal uppgifter på Kanbankolumner",
 				"defaultTaskRelationType": "Förvald uppgiftsrelationstyp",
 				"weekStart": "Veckan börjar med",

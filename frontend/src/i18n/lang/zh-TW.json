@@ -89,7 +89,6 @@
 				"discoverableByName": "允許其他用户在搜索我的名字時將我添加為團隊或項目的成員",
 				"discoverableByEmail": "允許其他用户在搜索我的完整電子郵件時將我添加為團隊或項目的成員",
 				"playSoundWhenDone": "將任務標記為已完成時播放聲音",
-				"allowIconChanges": "在特定時間顯示特殊標誌",
 				"alwaysShowBucketTaskCount": "永遠顯示看板欄位的任務數量",
 				"defaultTaskRelationType": "預設任務關聯類型",
 				"weekStart": "一週起始日",

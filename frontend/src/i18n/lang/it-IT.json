@@ -89,7 +89,6 @@
 				"discoverableByName": "Permetti agli altri utenti di aggiungermi a gruppi o progetti cercando il mio nome",
 				"discoverableByEmail": "Permetti agli altri di aggiungermi a gruppi o progetti cercando il mio indirizzo email",
 				"playSoundWhenDone": "Riproduci un suono quando le attività vengono contrassegnate come completate",
-				"allowIconChanges": "Mostra loghi speciali durante determinati periodi",
 				"alwaysShowBucketTaskCount": "Mostra sempre il conteggio delle attività nelle colonne Kanban",
 				"defaultTaskRelationType": "Tipo di relazione attività predefinita",
 				"weekStart": "La settimana inizia di",

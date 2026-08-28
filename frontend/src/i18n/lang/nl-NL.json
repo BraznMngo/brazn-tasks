@@ -138,7 +138,6 @@
 				"discoverableByName": "Andere gebruikers toestaan mij als lid toe te voegen aan teams of projecten door mijn naam te zoeken",
 				"discoverableByEmail": "Andere gebruikers toestaan mij als lid toe te voegen aan teams of projecten door mijn volledige e-mail te zoeken",
 				"playSoundWhenDone": "Een geluid afspelen wanneer taken als voltooid gemarkeerd worden",
-				"allowIconChanges": "Toon speciale logo's op bepaalde momenten",
 				"alwaysShowBucketTaskCount": "Toon altijd aantal taken bij Kanban categorieën",
 				"defaultTaskRelationType": "Standaard taak relatietype",
 				"weekStart": "Week begint op",
