@@ -124,7 +124,11 @@ export default {
 import {computed, ref, shallowReactive} from 'vue'
 import {useI18n} from 'vue-i18n'
 
-import Logo from '@/assets/logo.svg?component'
+// The shared logo component, so this screen shows the real ONE logo rather than
+// the placeholder "BT" square mark it drew before (BRA-926 left that behind when
+// the upstream Vikunja artwork was removed). Same component as the header rather
+// than a second copy of the file names.
+import Logo from '@/components/home/Logo.vue'
 import Message from '@/components/misc/Message.vue'
 
 import AbstractMigrationService, {type MigrationConfig} from '@/services/migrator/abstractMigration'

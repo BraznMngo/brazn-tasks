@@ -89,7 +89,6 @@
 				"discoverableByName": "Tillat andre brukere å legge meg til som medlem i grupper eller prosjekter når det søkes etter mitt navn",
 				"discoverableByEmail": "Tillat andre brukere å legge meg til som medlem i grupper eller prosjekter når det søkes etter min e-postadresse",
 				"playSoundWhenDone": "Spill av en lyd når oppgaver markeres som ferdig",
-				"allowIconChanges": "Vis spesiallogoer i visse tidsrom",
 				"defaultTaskRelationType": "Standard type oppgaverelasjon",
 				"weekStart": "Uken starter på",
 				"weekStartSunday": "Søndag",

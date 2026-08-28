@@ -89,7 +89,6 @@
 				"discoverableByName": "Permitir que outros utilizadores me adicionem como membro a equipas ou projetos quando pesquisem pelo meu nome",
 				"discoverableByEmail": "Permitir que outros utilizadores me adicionem como membro a equipas ou projetos quando pesquisem pelos meu endereço de e-mail completo",
 				"playSoundWhenDone": "Tocar um som quando marcar tarefas como concluídas",
-				"allowIconChanges": "Mostrar logótipos especiais durante determinados períodos",
 				"alwaysShowBucketTaskCount": "Mostrar sempre contagem de tarefas nos conjuntos Kanban",
 				"defaultTaskRelationType": "Tipo de relação padrão da tarefa",
 				"weekStart": "A semana começa com",

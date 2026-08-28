@@ -90,7 +90,6 @@
 				"discoverableByName": "Umožnit ostatním uživatelům přidat mě jako člena do týmů nebo projektů, když hledají mé jméno",
 				"discoverableByEmail": "Umožnit ostatním uživatelům, aby mě přidali jako člena do týmů nebo projektů, když hledají můj úplný e-mail",
 				"playSoundWhenDone": "Přehrát zvuk při označení úkolů jako hotovo",
-				"allowIconChanges": "Zobrazit speciální loga v určitých časech",
 				"alwaysShowBucketTaskCount": "Vždy zobrazit počet úkolů ve sloupcích Kanbanu",
 				"defaultTaskRelationType": "Výchozí typ vztahu úkolů",
 				"weekStart": "První den týdne",

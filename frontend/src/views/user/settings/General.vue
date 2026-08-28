@@ -219,10 +219,6 @@
 				:label="$t('user.settings.general.playSoundWhenDone')"
 			/>
 			<FormCheckbox
-				v-model="settings.frontendSettings.allowIconChanges"
-				:label="$t('user.settings.general.allowIconChanges')"
-			/>
-			<FormCheckbox
 				v-model="settings.frontendSettings.alwaysShowBucketTaskCount"
 				:label="$t('user.settings.general.alwaysShowBucketTaskCount')"
 			/>
@@ -421,8 +417,6 @@ const settings = ref<IUserSettings>({
 		defaultView: authStore.settings.frontendSettings.defaultView ?? DEFAULT_PROJECT_VIEW_SETTINGS.FIRST,
 		// Add fallback for old settings that don't have the minimum priority set
 		minimumPriority: authStore.settings.frontendSettings.minimumPriority ?? PRIORITIES.MEDIUM,
-		// Add fallback for old settings that don't have the logo change setting set
-		allowIconChanges: authStore.settings.frontendSettings.allowIconChanges ?? true,
 		dateDisplay: authStore.settings.frontendSettings.dateDisplay ?? DATE_DISPLAY.RELATIVE,
 		// Add fallback for old settings that don't have the time format set
 		timeFormat: authStore.settings.frontendSettings.timeFormat ?? TIME_FORMAT.HOURS_12,
