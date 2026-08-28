@@ -61,34 +61,45 @@ const (
 
 // staffUsernames are the accounts put into the staff team on every boot.
 //
+// EACH ENTRY IS EITHER THE NAME SOMEBODY SIGNS IN WITH OR THEIR EMAIL ADDRESS,
+// whichever the person writing the list happens to know. That is not
+// convenience. Whoever adds a colleague here knows them as a person and knows
+// their address; which of the two strings the users table stores as the
+// username is a fact about the database that they would have to go and look
+// up, and a wrong guess is skipped in silence and looks exactly like a right
+// one. user.GetUserByUsernameOrEmail decides which form it was given.
+//
 // ADDING A COLLEAGUE IS ONE LINE HERE AND A DEPLOY. That is deliberate and it
 // is the cheaper half of a trade: a list in code cannot be edited by anyone
 // who can reach the database, and it is read back on every start-up, so a name
 // added here reaches the team the next time the server comes up rather than
 // needing somebody to remember to run something.
 //
-// A name this instance cannot make a member of - no account yet, or an account
-// that is disabled or locked - is skipped with a warning rather than failing
-// the boot, and the names after it are still added. Staff accounts are created
-// by people signing in for the first time, so a name will routinely be listed
-// here before its account exists; and taking the product down to enforce a
-// membership nobody is waiting on would be the more expensive failure. See
-// ensureStaffMembers.
+// An entry this instance cannot make a member of - no account yet, or an
+// account that is disabled or locked - is skipped with a warning rather than
+// failing the boot, and the entries after it are still added. Staff accounts
+// are created by people signing in for the first time, so an entry will
+// routinely be listed here before its account exists; and taking the product
+// down to enforce a membership nobody is waiting on would be the more
+// expensive failure. See ensureStaffMembers.
 //
-// AS SHIPPED, NO HUMAN CAN READ FEEDBACK, and that is stated here rather than
-// left to be discovered from a customer asking why nobody answered. The only
-// name below is the staff account itself, which by design has no usable
-// password and can never sign in (see ensureOneAdmin) - so the team this seed
-// creates has exactly one member, and that member is not a person. A customer
-// can file a report today and it will sit there unread.
-//
-// WHAT CLOSES THAT: add the account name each person signs in with, one string
-// per line, and deploy. The names have to be the ones on the LIVE instance, so
-// they are Sebastian's to supply and are deliberately not guessed here - a
-// wrong name is skipped in silence and looks exactly like a right one.
+// WHO CAN READ FEEDBACK, stated precisely, because the honest sentence and the
+// comfortable one differ. OneAdminUsername owns the project but is not a person
+// and can never sign in (see ensureOneAdmin), so it reads nothing. The address
+// below is Sebastian's, and it is the entry that makes a human reader possible
+// - BUT ONLY ON AN INSTANCE WHERE THAT ACCOUNT ALREADY EXISTS. Accounts are
+// created by signing in, so on an instance he has not yet signed in to, this
+// entry resolves to nothing, is skipped with a warning, and the team again has
+// no member who can read a customer's report. Whether feedback is readable is
+// therefore a fact about the deployment, not about this file, and the log line
+// ensureStaffMembers writes on a skip is where that fact is observable.
 var staffUsernames = []string{
 	OneAdminUsername,
-	// Add colleagues here, one per line.
+	// Sebastian, who reads customer feedback. This is the address the ONE Apps
+	// repository records as the one used for user resolution, in
+	// docs/tickets/TICKET-vikunja-pilot-config.md.
+	"sebastian@braznmngo.com",
+	// Add colleagues here, one per line, as a username or an email address.
 }
 
 // SeedInstanceStaff makes sure this instance has the staff account, the
@@ -270,16 +281,16 @@ func ensureStaffTeam(s *xorm.Session, admin *user.User, rootID int64) (int64, er
 	return team.ID, nil
 }
 
-// ensureStaffMembers puts every named colleague into the staff team.
+// ensureStaffMembers puts every listed colleague into the staff team.
 //
-// A NAME THIS INSTANCE CANNOT RESOLVE TO A USABLE ACCOUNT IS SKIPPED, and
+// AN ENTRY THIS INSTANCE CANNOT RESOLVE TO A USABLE ACCOUNT IS SKIPPED, and
 // someone already in the team is left alone. Both are ordinary rather than
 // exceptional: staffUsernames is edited by hand ahead of people signing in,
 // and this runs on every boot, so the second run of an unchanged list must do
 // nothing at all.
 //
 // THREE REFUSALS ARE SKIPPED, NOT ONE, and the two beyond "no such account"
-// were not obvious. TeamMember.Create resolves the name through
+// were not obvious. addStaffMember resolves the entry through
 // user.GetUserByUsername, which hands back ErrAccountDisabled or
 // ErrAccountLocked for an account that exists and cannot be used - the state a
 // colleague's account is left in when they leave. Returning either would abort
@@ -289,24 +300,50 @@ func ensureStaffTeam(s *xorm.Session, admin *user.User, rootID int64) (int64, er
 // instance on every boot, and the only trace would be a line in the log.
 //
 // The loop continues past a skip deliberately: giving up at the first
-// unresolvable name would look identical to skipping it, while quietly
+// unresolvable entry would look identical to skipping it, while quietly
 // dropping every colleague listed after it.
+//
+// THE WARNING NAMES THE ENTRY AS WRITTEN rather than whatever it resolved to,
+// because the reader of that line is somebody looking for which line of the
+// list to correct.
 func ensureStaffMembers(s *xorm.Session, admin *user.User, teamID int64) error {
-	for _, username := range staffUsernames {
-		member := &TeamMember{TeamID: teamID, Username: username}
-		err := member.Create(s, admin)
+	for _, entry := range staffUsernames {
+		err := addStaffMember(s, admin, teamID, entry)
 		switch {
 		case err == nil, IsErrUserIsMemberOfTeam(err):
 			continue
 		case user.IsErrUserDoesNotExist(err):
-			log.Warningf("%q is listed as staff but is not an account on this instance yet; skipping", username)
+			log.Warningf("%q is listed as staff but is not an account on this instance yet; skipping", entry)
 			continue
 		case user.IsErrAccountDisabled(err), user.IsErrAccountLocked(err):
-			log.Warningf("%q is listed as staff but the account is disabled or locked; skipping", username)
+			log.Warningf("%q is listed as staff but the account is disabled or locked; skipping", entry)
 			continue
 		default:
 			return err
 		}
 	}
 	return nil
+}
+
+// addStaffMember makes one listed entry a member of the staff team.
+//
+// IT RESOLVES THE ENTRY FIRST AND THEN HANDS ON THE USERNAME, which is what
+// lets the list hold an address. TeamMember.Create takes a username and only a
+// username, so an address given to it directly is simply an account that does
+// not exist.
+//
+// The second lookup inside Create is not waste. GetUserByUsernameOrEmail reads
+// the row and says nothing about whether the account can be used;
+// GetUserByUsername, which Create calls, is the reader that turns a disabled or
+// locked row into an error. Resolving here and letting Create re-read is
+// therefore what keeps the two refusals ensureStaffMembers skips on, rather
+// than re-implementing that check against a rule that lives in pkg/user.
+func addStaffMember(s *xorm.Session, admin *user.User, teamID int64, entry string) error {
+	resolved, err := user.GetUserByUsernameOrEmail(s, entry)
+	if err != nil {
+		return err
+	}
+
+	member := &TeamMember{TeamID: teamID, Username: resolved.Username}
+	return member.Create(s, admin)
 }
