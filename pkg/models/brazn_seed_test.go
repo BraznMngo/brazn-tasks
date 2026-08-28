@@ -102,11 +102,28 @@ func countRows(t *testing.T, bean interface{}, where string, args ...interface{}
 // was not being asked is the one here: starting from nothing, can a member of
 // staff read what a customer filed?
 //
-// DELETE-THE-GUARD: remove the grantTeamAccess call from seedInstanceStaff and
-// the last assertion fails while every existence check above it still passes -
-// the account, the project, the team and the report all exist, and no
-// colleague can see any of it. That is the exact shape of the defect this
-// ticket is fixing.
+// The colleague in this test is named in staffUsernames AND has an account on
+// the instance, which is the state a real deployment has to reach before
+// anybody can read a report. Both halves of that are asserted below: the name
+// becomes a membership row, and the membership becomes access.
+//
+// DELETE-THE-GUARD, and there are three, each failing in its own place:
+// remove the grantTeamAccess call from seedInstanceStaff and the last
+// assertion fails while every existence check above it still passes - the
+// account, the project, the team and the report all exist, and no colleague
+// can see any of it, which is the exact shape of the defect this ticket is
+// fixing. Remove the ensureStaffMembers call and the membership assertion
+// fails first, naming the earlier cause. Point OneAdminEmail at a different
+// address and the mailbox assertion fails, which it could not do while it was
+// reading a function that blanks the column.
+//
+// TRACED, because the obvious mutation for the mailbox is the wrong one:
+// dropping `Email` from the user handed to RegisterUserConfirmLater does NOT
+// redden the mailbox assertion. checkIfUserIsValid refuses an empty address
+// with ErrNoUsernamePassword before any row is written, so the seed itself
+// fails and runSeed's require stops the test several assertions earlier.
+// Changing the address is the mutation this assertion actually guards against,
+// and it is also the realistic one.
 func TestSeedingLeavesFeedbackReachableByStaff(t *testing.T) {
 	seededInstance(t)
 
@@ -125,7 +142,29 @@ func TestSeedingLeavesFeedbackReachableByStaff(t *testing.T) {
 	admin, err := user.GetUserByUsername(s, OneAdminUsername)
 	require.NoError(t, err)
 	assert.Equal(t, OneAdminName, admin.Name)
-	assert.Equal(t, OneAdminEmail, admin.Email)
+
+	// THE MAILBOX IS READ BACK THROUGH A DIFFERENT FUNCTION, and that is not a
+	// stylistic choice. Every ordinary reader in pkg/user - GetUserByUsername,
+	// GetUserByID, GetUsersByCond - funnels into getUser with `withEmail` false,
+	// and getUser assigns an EMPTY STRING over the column on its way out
+	// (pkg/user/user.go, `if !withEmail { userOut.Email = "" }`). So an
+	// assertion on `admin.Email` above cannot pass whatever the database holds,
+	// and cannot fail if the seed stopped storing an address either. It is the
+	// shape this project calls a test that is true where the difference is not
+	// yet decided: the value is normalised away between the row and the
+	// assertion. GetUserWithEmail is the one reader that returns the column.
+	stored, err := user.GetUserWithEmail(s, &user.User{Username: OneAdminUsername})
+	require.NoError(t, err)
+
+	// THE LITERAL, not OneAdminEmail. The address is a decision - a real
+	// mailbox somebody monitors - and a constant compared against itself is
+	// checked by nobody: renaming the mailbox in brazn_seed.go would move both
+	// sides of `assert.Equal(t, OneAdminEmail, ...)` together and stay green.
+	// Pinning the text is what makes this an assertion about the decision.
+	assert.Equal(t, "admin@braznmngo.com", stored.Email,
+		"the staff account must carry the monitored mailbox, because every notification it is sent goes there")
+	assert.Equal(t, OneAdminEmail, stored.Email,
+		"and the constant the seed writes must be that same address")
 
 	root, err := FeedbackProject(s)
 	require.NoError(t, err)
@@ -149,6 +188,24 @@ func TestSeedingLeavesFeedbackReachableByStaff(t *testing.T) {
 
 	colleague, err := user.GetUserByUsername(dbSession(t), "user2")
 	require.NoError(t, err)
+
+	// THE COLLEAGUE IS IN THE TEAM, asserted before the reachability below
+	// rather than left to be inferred from it. The two are separate failures
+	// with the same symptom: a name that never became a membership row, and a
+	// membership that never became access. Reading them apart is what says
+	// which one broke, and the first is the one that will break, because
+	// staffUsernames is edited by hand.
+	//
+	// The team is found through the grant row on Feedback, which is how
+	// ensureStaffTeam identifies it too - never by its title, which is a label
+	// anybody could rename.
+	grant := &TeamProject{}
+	hasGrant, err := dbSession(t).Where("project_id = ?", root.ProjectID).Get(grant)
+	require.NoError(t, err)
+	require.True(t, hasGrant, "seeding must leave a team grant on Feedback")
+	assert.Equal(t, int64(1),
+		countRows(t, &TeamMember{}, "team_id = ? AND user_id = ?", grant.TeamID, colleague.ID),
+		"a colleague named in staffUsernames who has an account must be put into the staff team")
 
 	reportedProject, err := GetProjectSimpleByID(dbSession(t), reported)
 	require.NoError(t, err)
@@ -242,7 +299,7 @@ func TestTheSeededStaffAccountIsNotALogin(t *testing.T) {
 		"password",
 		"12345678",
 	} {
-		assert.Error(t, user.CheckUserPassword(first, guess),
+		require.Error(t, user.CheckUserPassword(first, guess),
 			"the staff account must not accept %q as a password", guess)
 	}
 
@@ -282,4 +339,59 @@ func TestSeedingSkipsAStaffNameWithNoAccountYet(t *testing.T) {
 	assert.Equal(t, int64(1),
 		countRows(t, &TeamMember{}, "team_id = ? AND user_id = ?", team.ID, colleague.ID),
 		"a name the seed could not resolve must not stop the names after it")
+}
+
+// TestSeedingSkipsAStaffAccountThatCannotBeUsed covers the two refusals that
+// are NOT "no such account", and it is here because the cost of getting them
+// wrong is out of all proportion to how obscure they look.
+//
+// A colleague who leaves has their account disabled or locked rather than
+// deleted, and their name stays in staffUsernames until somebody removes it.
+// user.GetUserByUsername answers that state with ErrAccountDisabled or
+// ErrAccountLocked rather than with a user, so TeamMember.Create hands the
+// error straight back - and the whole seed runs in ONE TRANSACTION. Before
+// this was handled, one former colleague still listed would have rolled back
+// the Feedback project, the staff team and the grant on EVERY boot, leaving an
+// instance that looked seeded in code and was empty in the database.
+//
+// Both accounts are listed BEFORE the usable one, because the assertion that
+// matters is that the names after a skip are still added.
+//
+// DELETE-THE-GUARD: remove the ErrAccountDisabled / ErrAccountLocked case from
+// ensureStaffMembers and this fails - not on the membership count, but on
+// runSeed itself, which is the honest place for it to fail.
+func TestSeedingSkipsAStaffAccountThatCannotBeUsed(t *testing.T) {
+	seededInstance(t)
+
+	// user17 is disabled and user18 is locked in the shipped fixtures
+	// (pkg/db/fixtures/users.yml, status 2 and status 3).
+	staffUsernames = []string{"user17", "user18", "user2"}
+	t.Cleanup(func() { staffUsernames = []string{OneAdminUsername} })
+
+	runSeed(t)
+
+	admin := seededAdmin(t)
+	team := &Team{}
+	has, err := dbSession(t).Where("created_by_id = ?", admin.ID).Get(team)
+	require.NoError(t, err)
+	require.True(t, has, "an unusable staff account must not have rolled the seed back")
+
+	colleague, err := user.GetUserByUsername(dbSession(t), "user2")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1),
+		countRows(t, &TeamMember{}, "team_id = ? AND user_id = ?", team.ID, colleague.ID),
+		"a colleague listed after an unusable account must still be added")
+
+	// And the two that were skipped really were skipped, rather than added
+	// under an id the count above would never have looked at.
+	for _, username := range []string{"user17", "user18"} {
+		skipped, err := user.GetUsersByUsername(dbSession(t), []string{username}, false)
+		require.NoError(t, err)
+		require.Len(t, skipped, 1, "the fixture account %q must exist", username)
+		for id := range skipped {
+			assert.Equal(t, int64(0),
+				countRows(t, &TeamMember{}, "team_id = ? AND user_id = ?", team.ID, id),
+				"%q cannot be used, so it must not be in the staff team", username)
+		}
+	}
 }

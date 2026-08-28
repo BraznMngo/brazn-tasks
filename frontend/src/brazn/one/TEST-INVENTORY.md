@@ -42,7 +42,7 @@ assertions actually read. Trace from the assertion backwards, not from the inten
 * **No Playwright spec, for `/v1` or for fork routes** (ruling C7). Nothing below may be reported
   as evidence that a commercial route works; CI starts no commercial service.
 
-## Eight files
+## Nine files
 
 **No case counts are recorded here, deliberately.** An earlier version of this file carried
 them and they went stale inside one afternoon — `api.commercial.test.ts` was listed at 16 while
@@ -62,6 +62,7 @@ source that cannot be wrong.
 | `app.seats.test.ts` | the seat formula against the literal contract `3 * (teams_used + 1)` |
 | `app.dom.test.ts` | the DOM applier, the one shared refusal path, hydration, organization/roster facts |
 | `join.test.ts` | the invitation acceptance page (BRA-1439 Story 5): the query/fragment parsers, the five surfaces, and the boot flow against a stubbed fetch — including the return-leg marker and the `signupToken` hand-off key |
+| `view-task.naming.test.ts` | **every place the task page prints a project name (BRA-1414)**, driven through the shipped controls on a mounted shell rather than through the naming helper: the header chip, the Move picker, the relation scope line, that line again after a re-type, and `app.js`'s Add task picker |
 
 ---
 
@@ -288,9 +289,17 @@ pins that the page stays legible when no catalogue can load.
   is cross-origin — and not against fork routes either: nothing navigates to `/one/task.html`
   today, and funding a same-origin Playwright project would mean editing `playwright.config.ts`,
   an upstream file outside the patch surface.
-* **`view-task.js` / `view-settings.js` render output.** They ship no `.d.ts`, and their contract
-  with `app.js` (emit gated nodes, let `applyGates` decide) is asserted from the applier's side
-  instead. Named here so the gap is a decision rather than an oversight.
+* **`view-settings.js` render output, and most of `view-task.js`'s.** They ship no `.d.ts`, and
+  their contract with `app.js` (emit gated nodes, let `applyGates` decide) is asserted from the
+  applier's side instead. Named here so the gap is a decision rather than an oversight.
+
+  **`view-task.js` is no longer wholly outside this, and the exception is narrow.** BRA-1414 added
+  `view-task.d.ts` and `view-task.naming.test.ts`, which is the mounted-shell harness this entry
+  said was needed: it injects the shipped `task.html` shell, calls `boot()` against a refused
+  session to get the real delegated click listener, and then clicks shipped controls. It asserts
+  ONE property — that no print of a project name shows a customer the stored word "Inbox" — across
+  all five sites that print one. Everything else either module renders is still unasserted, and
+  the three named costs below are all `view-settings.js`'s, so none of them is closed by it.
 
   **This gap now has a named cost, recorded rather than left to be rediscovered.** Three
   behaviours live only in those modules and are therefore unguarded:
@@ -308,9 +317,9 @@ pins that the page stays legible when no catalogue can load.
      do not administer this organization" for an organization-scoped call, and stays generic for
      an account-scoped one, is unasserted.
 
-  Closing these needs a `view-settings.d.ts` and a mounted-shell harness for the two view
-  modules. That is a layout addition beyond the declared set (ruling C15), so it is reported
-  rather than smuggled in.
+  Closing these needs a `view-settings.d.ts` and the harness described above pointed at
+  `view-settings.js`. That is still a layout addition beyond the declared set (ruling C15), so it
+  stays reported rather than smuggled in; all three remain open.
 * **`boot()` end to end.** It is one-shot by design (i18n init, the formatters and the listeners
   are all one-shot) and re-entrancy machinery would be more code than the case it serves. Its
   parts — `initSession`, `initI18n`, `loadOrganization`, `loadTeams`, `applyGates` — are covered

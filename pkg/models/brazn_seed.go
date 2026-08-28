@@ -67,13 +67,28 @@ const (
 // added here reaches the team the next time the server comes up rather than
 // needing somebody to remember to run something.
 //
-// A name that is not an account on this instance is skipped with a warning
-// rather than failing the boot. Staff accounts are created by people signing
-// in for the first time, so a name will routinely be listed here before its
-// account exists, and refusing to start the web server over that would take
-// the product down to enforce a membership nobody is waiting on.
+// A name this instance cannot make a member of - no account yet, or an account
+// that is disabled or locked - is skipped with a warning rather than failing
+// the boot, and the names after it are still added. Staff accounts are created
+// by people signing in for the first time, so a name will routinely be listed
+// here before its account exists; and taking the product down to enforce a
+// membership nobody is waiting on would be the more expensive failure. See
+// ensureStaffMembers.
+//
+// AS SHIPPED, NO HUMAN CAN READ FEEDBACK, and that is stated here rather than
+// left to be discovered from a customer asking why nobody answered. The only
+// name below is the staff account itself, which by design has no usable
+// password and can never sign in (see ensureOneAdmin) - so the team this seed
+// creates has exactly one member, and that member is not a person. A customer
+// can file a report today and it will sit there unread.
+//
+// WHAT CLOSES THAT: add the account name each person signs in with, one string
+// per line, and deploy. The names have to be the ones on the LIVE instance, so
+// they are Sebastian's to supply and are deliberately not guessed here - a
+// wrong name is skipped in silence and looks exactly like a right one.
 var staffUsernames = []string{
 	OneAdminUsername,
+	// Add colleagues here, one per line.
 }
 
 // SeedInstanceStaff makes sure this instance has the staff account, the
@@ -257,10 +272,25 @@ func ensureStaffTeam(s *xorm.Session, admin *user.User, rootID int64) (int64, er
 
 // ensureStaffMembers puts every named colleague into the staff team.
 //
-// A NAME WITH NO ACCOUNT IS SKIPPED, and someone already in the team is left
-// alone. Both are ordinary rather than exceptional: staffUsernames is edited
-// by hand ahead of people signing in, and this runs on every boot, so the
-// second run of an unchanged list must do nothing at all.
+// A NAME THIS INSTANCE CANNOT RESOLVE TO A USABLE ACCOUNT IS SKIPPED, and
+// someone already in the team is left alone. Both are ordinary rather than
+// exceptional: staffUsernames is edited by hand ahead of people signing in,
+// and this runs on every boot, so the second run of an unchanged list must do
+// nothing at all.
+//
+// THREE REFUSALS ARE SKIPPED, NOT ONE, and the two beyond "no such account"
+// were not obvious. TeamMember.Create resolves the name through
+// user.GetUserByUsername, which hands back ErrAccountDisabled or
+// ErrAccountLocked for an account that exists and cannot be used - the state a
+// colleague's account is left in when they leave. Returning either would abort
+// this function, and because the whole seed runs in ONE TRANSACTION, the
+// rollback would take the Feedback project and the team's grant with it. One
+// former colleague still listed here would therefore have un-seeded the
+// instance on every boot, and the only trace would be a line in the log.
+//
+// The loop continues past a skip deliberately: giving up at the first
+// unresolvable name would look identical to skipping it, while quietly
+// dropping every colleague listed after it.
 func ensureStaffMembers(s *xorm.Session, admin *user.User, teamID int64) error {
 	for _, username := range staffUsernames {
 		member := &TeamMember{TeamID: teamID, Username: username}
@@ -270,6 +300,9 @@ func ensureStaffMembers(s *xorm.Session, admin *user.User, teamID int64) error {
 			continue
 		case user.IsErrUserDoesNotExist(err):
 			log.Warningf("%q is listed as staff but is not an account on this instance yet; skipping", username)
+			continue
+		case user.IsErrAccountDisabled(err), user.IsErrAccountLocked(err):
+			log.Warningf("%q is listed as staff but the account is disabled or locked; skipping", username)
 			continue
 		default:
 			return err

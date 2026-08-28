@@ -353,11 +353,21 @@ function joinMeta(parts) {
  * the task's own `identifier` (`PROJ-12` — pkg/models/tasks.go:475-480), and finally the numeric
  * project id. The prototype's third fallback is the literal `'Project ' + id` (747), which is an
  * untranslatable English string; the bare id is the same information with nothing to translate.
+ *
+ * THE FIRST SOURCE GOES THROUGH `projectTitle`, and this function is the funnel every project
+ * name on this page is printed from — the chip in the task header, the scope line under the
+ * relation search, and that line again when the search box is re-typed. It printed the stored
+ * column verbatim until BRA-1414, which meant a customer opening any task read "Inbox" in the
+ * header while the settings page called that same project "Your Tasks".
+ *
+ * ONLY THE FIRST SOURCE. The other two are not titles: the identifier's prefix is the project's
+ * short code and the last resort is its id, and neither can be the stored word the helper
+ * translates.
  */
 function projectLabel(state) {
   const id = state.task?.project_id;
   const found = state.projects.find((project) => String(project?.id) === String(id));
-  if (found) return String(found.title ?? '');
+  if (found) return projectTitle(found);
   const identifier = String(state.task?.identifier ?? '');
   const dash = identifier.lastIndexOf('-');
   if (dash > 0) return identifier.slice(0, dash);
