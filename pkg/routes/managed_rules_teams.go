@@ -120,7 +120,7 @@ func decideTeamsProjectUpdate(e *managedEval) error {
 		if protected.Kind == models.ProtectedKindTeamRoot {
 			return nil
 		}
-		return e.refuse("the Inbox, the Public root and Percy Feedback cannot be renamed")
+		return e.refuse("the Inbox, the Public root and Feedback cannot be renamed")
 	}
 
 	return e.requireManagedParent(wanted)
@@ -192,11 +192,11 @@ func decideTeamsMembership(e *managedEval) error {
 }
 
 // decideTeamsTaskMove allows a task into the member's own Inbox, into the
-// member's own Percy Feedback sub-project, or anywhere inside the
+// member's own Feedback sub-project, or anywhere inside the
 // collaborative topology - and nowhere else.
 //
 // THE PROTECTED LOOKUP WALKS TO THE ROOT (ProtectedRootOf), matching
-// decidePersonalTaskMove's own reasoning: a Percy Feedback destination is a
+// decidePersonalTaskMove's own reasoning: a Feedback destination is a
 // reporter's own sub-project (BRA-1180/A1), and only the root carries the
 // managed-topology registration - matching destination exactly, as this used
 // to, never finds it, since a sub-project carries no protected-entity row of
@@ -233,7 +233,7 @@ func decideTeamsTaskMove(e *managedEval) error {
 		if has {
 			return nil
 		}
-		return e.refuse("the destination is another reporter's Percy Feedback project")
+		return e.refuse("the destination is another reporter's Feedback project")
 	}
 	if protected != nil && protected.Kind == models.ProtectedKindInbox {
 		owns, err := e.ownsProject(destination)

@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	"code.vikunja.io/api/pkg/config"
+	"code.vikunja.io/api/pkg/models"
+	"code.vikunja.io/api/pkg/modules/auth"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,9 +47,15 @@ type feedbackProjectResponse struct {
 // TestFeedbackProjectRouteMatchesProvisioning pins the route to the same
 // answer the product's own provisioning gives: calling it must not create a
 // second sub-project alongside the one ProvisionFeedbackAccess already made,
-// and must not hand one reporter another reporter's - and it doubles as the
-// "provisions on first use" case, since neither reporter here has been
-// provisioned by anything other than the call under test.
+// and must not hand one reporter another reporter's.
+//
+// IT IS NOT THE "PROVISIONS ON FIRST USE" CASE, whatever an earlier version of
+// this comment said - both reporters are provisioned two lines down, before the
+// route is called at all, so what this observes is the route agreeing with
+// provisioning that already happened. First use is carried by
+// TestFeedbackProjectRouteIsIdempotent below, which calls the route on an
+// account nothing has provisioned; deleting that test would take the case with
+// it and this one would go on passing.
 func TestFeedbackProjectRouteMatchesProvisioning(t *testing.T) {
 	env, _ := newTeamsEnv(t)
 	setConfigForTest(t, config.BraznFeedbackOwner, feedbackOwnerUsername)
@@ -119,6 +127,44 @@ func TestFeedbackProjectRouteAnswersNullWithoutAResolvableOwner(t *testing.T) {
 			assert.Nil(t, body.ProjectID)
 		})
 	}
+}
+
+// TestFeedbackProjectRouteRefusesALinkShare pins the guard that keeps this
+// route to accounts.
+//
+// A LINK SHARE IS NOT SOMEBODY, and this route provisions. Without the refusal
+// the handler carries a nil *user.User into ProvisionFeedbackAccessRetrying and
+// dereferences it, so the guard is not tidiness: deleting it turns an
+// anonymous, unauthenticated visitor holding a share link into a 500 on a path
+// that writes.
+//
+// THE ASSERTION IS ON THE SENTENCE AND NOT ONLY ON THE STATUS, deliberately. A
+// managed instance has several reasons to answer 403, and a test that accepted
+// any of them would pass just as happily if this guard were gone and something
+// else refused first - which is the shape where the refusal observed comes from
+// somewhere other than the code under test.
+func TestFeedbackProjectRouteRefusesALinkShare(t *testing.T) {
+	env := newFeedbackEnv(t)
+
+	// The fixture link share api_tokens_test.go uses, so the token is one the
+	// authentication middleware genuinely accepts and the refusal below can
+	// only come from the handler.
+	token, err := auth.NewLinkShareJWTAuthtoken(&models.LinkSharing{
+		ID:          2,
+		Hash:        "test2",
+		ProjectID:   2,
+		Permission:  models.PermissionWrite,
+		SharingType: models.SharingTypeWithoutPassword,
+		SharedByID:  1,
+	})
+	require.NoError(t, err)
+
+	rec := humaRequest(t, env.e, http.MethodGet, feedbackProjectPath, "", token, "")
+
+	assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	assert.Contains(t, rec.Body.String(), "link shares",
+		"the refusal must be this handler's own, not another guard answering first")
+	assert.Zero(t, countFeedbackEntities(t), "a refused call must have provisioned nothing")
 }
 
 // TestFeedbackProjectRouteAnswersNullOutsideManagedMode pins the same

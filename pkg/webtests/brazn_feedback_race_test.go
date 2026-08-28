@@ -73,17 +73,33 @@ func TestFeedbackRootClaimCannotBeHeldTwice(t *testing.T) {
 }
 
 // TestFeedbackReporterClaimCannotBeHeldTwice is the same property for one
-// reporter's own sub-project.
+// reporter's own sub-project, and it takes its shape from the root test above
+// for the same reason.
+//
+// THE FIRST CLAIM IS TAKEN BY THE PRODUCT. The version this replaces stored
+// both rows itself, so it exercised the unique index and nothing else: deleting
+// ensureFeedbackSubProject's own claim insert left the whole suite green, which
+// made the reporter half of the race fix pinned by nothing at all. The comment
+// on TestProvisionFeedbackAccessRetryingRecoversFromAConflict claimed a
+// compile-time backstop here, and that was wrong too - it only bites if the
+// FeedbackReporterClaim TYPE is deleted, which removing the call does not do.
+//
+// Provisioning first means the row this collides with is the row
+// ensureFeedbackSubProject wrote, so deleting that insert makes this fail on
+// the collision that never comes.
 func TestFeedbackReporterClaimCannotBeHeldTwice(t *testing.T) {
-	newManagedEnv(t)
+	env := newFeedbackEnv(t)
+	env.provisionFeedback(&testuser1)
 
 	s := db.NewSession()
 	defer s.Close()
 
-	_, err := s.Insert(&models.FeedbackReporterClaim{UserID: 1, ProjectID: 10})
-	require.NoError(t, err)
-
-	_, err = s.Insert(&models.FeedbackReporterClaim{UserID: 1, ProjectID: 20})
+	// What a second concurrent call for this same reporter builds, having also
+	// read "no sub-project yet". The user id is the literal the product would
+	// have written for testuser1, not a value read back out of the claim above,
+	// so a product that stopped keying the claim on the reporter cannot make
+	// this agree with itself.
+	_, err := s.Insert(&models.FeedbackReporterClaim{UserID: testuser1.ID, ProjectID: 20})
 	require.Error(t, err, "one reporter's claim is keyed by their own user id, and a second must not be stored")
 	assert.True(t, db.IsUniqueConstraintError(err, "brazn_feedback_reporters"),
 		"the refusal must come from the unique index, not from something else: %v", err)
@@ -96,12 +112,15 @@ func TestFeedbackReporterClaimCannotBeHeldTwice(t *testing.T) {
 // comment above). It then asserts the retrying call resolves to that existing
 // project rather than erroring or creating a second one.
 //
-// THE CHEAP CHECK: revert ensureFeedbackSubProject to check-then-insert (no
-// claim row) and this test still passes on its own - the constructed state
-// already has a sub-project ensureFeedbackSubProject's own read would find -
-// but TestFeedbackReporterClaimCannotBeHeldTwice above would fail to compile
-// once FeedbackReporterClaim is removed, which is what actually pins the
-// mechanism this test exercises the retry loop around.
+// THE CHEAP CHECK, AND WHAT IT IS NOT: revert ensureFeedbackSubProject to
+// check-then-insert and this test still passes on its own, because the
+// constructed state already holds a sub-project its own read would find. So
+// this test does not pin the claim, and an earlier version of this comment
+// claimed a compile-time backstop that does not exist - removing the claim
+// INSERT leaves the FeedbackReporterClaim type in place and every reference to
+// it compiling. TestFeedbackReporterClaimCannotBeHeldTwice above is what
+// actually pins it, by provisioning through the product first so that deleting
+// the insert removes the row this collides with.
 func TestProvisionFeedbackAccessRetryingRecoversFromAConflict(t *testing.T) {
 	env := newFeedbackEnv(t)
 	owner := env.provisioningOwner(t)

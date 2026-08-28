@@ -140,6 +140,8 @@ func IssueUserToken(ctx context.Context, u *user.User, deviceInfo, ipAddress str
 		log.Errorf("Could not dispatch login succeeded event: %s", err)
 	}
 
+	provisionFeedbackOnSignIn(ctx, u)
+
 	cookieMaxAge := int(config.ServiceJWTTTL.GetInt64())
 	if long {
 		cookieMaxAge = int(config.ServiceJWTTTLLong.GetInt64())
@@ -150,6 +152,48 @@ func IssueUserToken(ctx context.Context, u *user.User, deviceInfo, ipAddress str
 		RefreshToken: session.RefreshToken,
 		CookieMaxAge: cookieMaxAge,
 	}, nil
+}
+
+// provisionFeedbackOnSignIn gives the person who has just signed in their own
+// Feedback project, if this instance has an owner configured and they do not
+// have one yet (BRA-1414).
+//
+// WITHOUT IT, "A CUSTOMER WHO SIGNED UP BEFORE THIS WORK ALSO HAS ONE" HAS NO
+// MECHANISM, AND EVERY CUSTOMER WE HAVE SIGNED UP BEFORE THIS WORK. The other
+// two paths that provision only ever run for an account that does not exist
+// yet: CreateNewProjectForUser at registration, and the commercial
+// create_personal_inbox operation, which the commercial service sends once when
+// it creates the account. The lookup route added by this same ticket can
+// provision an existing account, but nothing calls it - wiring the desktop
+// client to call it is BRA-1415 and has not been started - so on its own it
+// leaves the outcome waiting on a client that does not exist.
+//
+// IssueUserToken IS THE ONE PLACE EVERY INTERACTIVE SIGN-IN PASSES THROUGH, and
+// that is why the call sits here rather than in each handler. Its three callers
+// are the v1 response helper (NewUserAuthTokenResponse), the v2 password login
+// and the v2 OpenID callback, which between them are every way a person signs
+// in. Refreshing a session does NOT come through here - RefreshSession mints its
+// own token - so this runs once per sign-in rather than once per token.
+//
+// IT IS AFTER THE COMMIT AND IT CANNOT FAIL THE SIGN-IN. The session and the
+// token are already durable by this line, and a customer must be able to get
+// into the product whether or not a feedback project can be made for them:
+// ProvisionFeedbackAccess's own comment gives skipping as the safe direction to
+// be wrong in, because no project means no feedback channel where a refusal
+// here would mean no login. A failure is logged and nothing else.
+//
+// It is cheap on the ordinary path: ensureFeedbackSubProject looks the reporter
+// up before it creates anything, so an account that already has one costs a
+// single indexed read per sign-in. An instance with no owner configured costs a
+// string comparison, because ProvisionFeedbackAccessRetrying answers on the
+// config before it opens a session.
+func provisionFeedbackOnSignIn(ctx context.Context, u *user.User) {
+	if !config.BraznManagedMode.GetBool() {
+		return
+	}
+	if _, err := models.ProvisionFeedbackAccessRetrying(ctx, u); err != nil {
+		log.Errorf("could not provision the Feedback project for user %d on sign-in: %s", u.ID, err)
+	}
 }
 
 // WriteUserAuthCookies sets the HttpOnly refresh-token cookie and the

@@ -544,9 +544,9 @@ func InitDefaultConfig() {
 	// the protocol. Zero is a legitimate value and means the entitlement stops
 	// exactly when it says it does.
 	BraznEntitlementGrace.setDefault("24h")
-	// The Brazn staff account that owns Percy Feedback. Empty by default, and
+	// The Brazn staff account that owns Feedback. Empty by default, and
 	// an empty value provisions nothing: an instance nobody configured has no
-	// Percy Feedback project, which is the same shape a self-hosted instance
+	// Feedback project, which is the same shape a self-hosted instance
 	// has. See models.ProvisionFeedbackAccess.
 	BraznFeedbackOwner.setDefault("")
 	// Where the Organization area sends an administrator for everything this

@@ -239,6 +239,16 @@ func loadSettingsWritableRoutes() map[string]struct{} {
 // gate's ("is this a write, so must it be refused") are the same question, and
 // two copies of it could come to disagree - leaving a route the inventory
 // covers and the restriction does not.
+//
+// "BY CONTRACT" IS A PROMISE THE HANDLERS MAKE AND ONE OF THEM NOW BREAKS.
+// GET /api/v2/brazn/feedback/project (BRA-1414) creates the caller's feedback
+// project on first use, so it is a read by method and a write in fact: this
+// function answers true for it, the harness never asks anybody to classify it,
+// and refuseRestrictedWrite lets it through. The reasoning is written out in
+// route-classification.json's own notes, which is where somebody looking at the
+// inventory will be standing. Nothing here should be relaxed to accommodate it
+// - the value of this definition is that every other read is trustworthy
+// without being listed.
 func IsReadOnlyMethod(method string) bool {
 	return method == http.MethodGet || method == http.MethodHead ||
 		method == http.MethodOptions || method == "PROPFIND" || method == "REPORT"
