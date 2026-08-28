@@ -416,8 +416,9 @@ jobs:
           # THE `//` IS REQUIRED, and matching a bare `https?:` instead is wrong.
           # An origin needs the authority component; without it there is nothing
           # to be cross-origin to. A bare scheme match also hits ordinary prose:
-          # a source citation of the form `percy-http:2856` contains `http:` and
-          # names no host at all, which failed this step on the first run.
+          # a source citation of the form `client-http-27c95232:2856` names no
+          # host at all, and an earlier spelling of that same citation carried a
+          # bare `http:` and failed this step on its first run.
           # Protocol-relative subresources are still caught by the second
           # alternative below.
           offenders="$(grep -rnE 'https?://|(src|href)=["'\'']?//' \
@@ -561,14 +562,19 @@ jobs:
           # a call site; only a value is something a customer can read.
           #
           # The superseded product and subscription names are refused here as well
-          # (BRA-1444), on the same reasoning as the loop above. Note this covers
-          # the page's catalogues only, and deliberately not its markup and code
-          # below: the contract notes under frontend/public/one cite the service
-          # bundles they were read from by filename -- percy-service-*.ts and
-          # percy-http-*.ts, 123 times -- and those citations are provenance for
-          # a reverse-engineered contract, not the product naming itself. Adding
-          # Percy to the code scan would red-fail every one of them, which is how
-          # a correct check gets deleted rather than fixed.
+          # (BRA-1444), on the same reasoning as the loop above.
+          #
+          # This used to cover the page's catalogues only, and deliberately not
+          # its markup and code below, because the contract notes under
+          # frontend/public/one cited the service bundles they were read from by
+          # their private-repository filenames 119 times, and scanning the code
+          # for the assistant's name would have red-failed every one of them.
+          # BRA-1414 rewrote those citations to carry the bundle's build hash
+          # and no source path, so the exemption has nothing left to protect and
+          # the code scan below now covers the name too. That matters more than
+          # the tidiness: the .d.ts files in this directory are served as plain
+          # text to anyone who asks for one by name, so a private source path in
+          # a comment there is fetchable over the web.
           # Three greps for the same reason as the loop above: an allowance on a
           # shared line drops that line for every name on it, and the dead names
           # must not be droppable by the allowance the assistant's name will one
@@ -607,6 +613,21 @@ jobs:
             | grep -viE "${allowed}" || true)"
           if [[ -n "${offenders}" ]]; then
             echo "${offenders}"
+            failed=1
+          fi
+
+          # The assistant's name, in the same files and with no allowlist. It
+          # gets its own grep rather than joining the alternation above so that
+          # the Vikunja allowlist -- which admits a wire header and an
+          # attribution comment -- can never be widened into an allowance for
+          # this one by accident. There is no legitimate mention here: this
+          # directory is the restricted interface a customer downloads, the
+          # product is ONE everywhere they can see it, and the source citations
+          # that used to make this scan impossible were rewritten by BRA-1414.
+          assistant="$(grep -rIoiE '.{0,60}percy.{0,60}' \
+            --include='*.html' --include='*.js' --include='*.ts' "${dir}" || true)"
+          if [[ -n "${assistant}" ]]; then
+            echo "${assistant}"
             failed=1
           fi
 

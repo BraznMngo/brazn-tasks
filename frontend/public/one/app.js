@@ -42,7 +42,7 @@
 'use strict';
 
 import * as api from './api.js';
-import {t, init as initI18n, currentLocale} from './i18n.js';
+import {t, init as initI18n, currentLocale, projectTitle} from './i18n.js';
 
 /* ------------------------------------------------------------------ *
  * 1. Vocabulary — the frozen literals a test asserts against
@@ -302,7 +302,7 @@ export function setViewState(ns, patch) {
  * ------------------------------------------------------------------ */
 
 /**
- * Query parameters, not a hash. Percy opens this page with
+ * Query parameters, not a hash. The desktop app opens this page with
  * `tauri_plugin_opener::open_url` (system browser, top-level navigation), and a query survives
  * every link-rewriting layer between here and there; a fragment does not reliably.
  *
@@ -314,8 +314,8 @@ export function setViewState(ns, patch) {
  *                             `settings` otherwise
  *   ?tab=account|organization|team   selects the settings tab
  *
- * A MISSING OR NON-NUMERIC ?task= RENDERS SETTINGS, NOT AN ERROR. Percy is the only thing that
- * builds these links; a malformed one is a bug on that side and the user gets a working page
+ * A MISSING OR NON-NUMERIC ?task= RENDERS SETTINGS, NOT AN ERROR. The desktop app is the only
+ * thing that builds these links; a malformed one is a bug on that side and the user gets a working page
  * rather than a stack trace about someone else's mistake.
  *
  * @param {string} search a `location.search`-shaped string, with or without the leading `?`
@@ -876,18 +876,18 @@ function existingRefusalNode(el) {
  * alone, and the result carries no operation handle, so a per-operation table would need a second
  * argument threaded through every call site. It is not needed: every value below means the same
  * thing in every operation
- * that declares it. `not_invitable` is ONE definition on purpose — percy-model-27c95232.ts:1550-1558
+ * that declares it. `not_invitable` is ONE definition on purpose — client-model-27c95232:1550-1558
  * says so in as many words ("ONE definition, on purpose … two hand-written copies of one rule is
  * how the two quietly diverge") — and it is the only value that appears in two unions
- * (`MemberInvitation.outcome` at percy-service-27c95232.ts:581 and `SeatAdmissionOutcome` at
- * percy-model-27c95232.ts:1500-1507). If a future union ever reuses a value for a different fact,
+ * (`MemberInvitation.outcome` at client-service-27c95232:581 and `SeatAdmissionOutcome` at
+ * client-model-27c95232:1500-1507). If a future union ever reuses a value for a different fact,
  * this map has to become per-operation and the call sites have to pass the descriptor; that is
  * written down here so the change is a decision rather than a surprise.
  *
  * WHAT IS DELIBERATELY ABSENT. `not_administrator` and `unknown_request` are declared members of
- * `TeamAccessDecisionResult.outcome` (percy-service-27c95232.ts:690-695) but can NEVER arrive in
+ * `TeamAccessDecisionResult.outcome` (client-service-27c95232:690-695) but can NEVER arrive in
  * a body: the handler converts them to a bare 403 and a bare 404 before it projects anything
- * (percy-http-27c95232.ts:3243-3250), so they arrive as `COMMERCIAL_REFUSAL.HTTP` and are handled
+ * (client-http-27c95232:3243-3250), so they arrive as `COMMERCIAL_REFUSAL.HTTP` and are handled
  * on that path. Listing them here as well would be two entries nothing can reach. Every
  * affirmative value —
  * `invited`, `already_member`, `admitted`, `removed`, `approved`, `declined`, `changed`,
@@ -898,11 +898,11 @@ function existingRefusalNode(el) {
  * value nobody has classified must not be given a sentence somebody guessed.
  */
 export const COMMERCIAL_OUTCOME_MESSAGE_KEY = Object.freeze({
-  /* MemberInvitation.outcome — percy-service-27c95232.ts:581, prose at :577-579.
-     Also SeatAdmissionOutcome — percy-model-27c95232.ts:1506, prose at :1468-1474. */
+  /* MemberInvitation.outcome — client-service-27c95232:581, prose at :577-579.
+     Also SeatAdmissionOutcome — client-model-27c95232:1506, prose at :1468-1474. */
   not_invitable: 'one.commercial.notInvitable',
 
-  /* SeatAdmissionOutcome — percy-model-27c95232.ts:1500-1507. */
+  /* SeatAdmissionOutcome — client-model-27c95232:1500-1507. */
   invitation_expired: 'one.commercial.invitationExpired',
   invitation_revoked: 'one.commercial.invitationRevoked',
   no_invitation: 'one.commercial.noInvitation',
@@ -911,15 +911,15 @@ export const COMMERCIAL_OUTCOME_MESSAGE_KEY = Object.freeze({
   // "upgrade" would offer something that does not exist.
   at_seat_ceiling: 'one.commercial.atSeatCeiling',
 
-  /* MemberRemovalOutcome — percy-model-27c95232.ts:1541, prose at :1533-1539. */
+  /* MemberRemovalOutcome — client-model-27c95232:1541, prose at :1533-1539. */
   not_a_member: 'one.commercial.notAMember',
   still_administrator: 'one.commercial.stillAdministrator',
 
-  /* TeamAccessDecisionResult.outcome — percy-service-27c95232.ts:690-695, prose at :682-687.
+  /* TeamAccessDecisionResult.outcome — client-service-27c95232:690-695, prose at :682-687.
      The request is left OPEN so the same approval can be made again, which the sentence says. */
   not_admitted: 'one.commercial.notAdmitted',
 
-  /* SeatPurchaseOutcome — percy-model-27c95232.ts:1153, prose at :1130-1147. */
+  /* SeatPurchaseOutcome — client-model-27c95232:1153, prose at :1130-1147. */
   below_users: 'one.commercial.belowUsers',
   below_active_teams: 'one.commercial.belowActiveTeams',
 });
@@ -928,13 +928,14 @@ export const COMMERCIAL_OUTCOME_MESSAGE_KEY = Object.freeze({
  * HTTP status -> the sentence a person reads, for a `/v1` refusal that arrived with NO body.
  *
  * A BARE STATUS IS THE NORMAL SHAPE HERE, NOT AN EDGE CASE. `bare(response, …)` writes a status
- * line with no content type at all (percy-http-27c95232.ts:728-731), so `readServerMessage`
+ * line with no content type at all (client-http-27c95232:728-731), so `readServerMessage`
  * returns null every time, and api.js's descriptors cite thirteen sites that answer that way —
  * `not_administrator` on invite, the join-request queue, decide, the whole subscription family's
  * "bare 403/402/409/503", erasure, and every `/v1` 401.
  *
  * These used to render as the literal string `HTTP 403`. The asymmetry that made it worse: where
- * the commercial service is NOT routed (CI, and any instance without Percy in front of it) the
+ * the commercial service is NOT routed (CI, and any instance without the desktop app in front
+ * of it) the
  * content-type check answers `not-json` and the user got the graceful "we could not reach the
  * subscription service" — so raw developer output appeared ONLY in the environment where the
  * call is real. No status code reaches a rendered string any more.
@@ -955,7 +956,7 @@ export const COMMERCIAL_OUTCOME_MESSAGE_KEY = Object.freeze({
 const COMMERCIAL_STATUS_MESSAGE_KEY = Object.freeze({
   // Every `/v1` call whose bearer the service does not accept.
   401: 'one.commercial.notAuthenticated',
-  // The auto-renewal payment refusal (percy-http-27c95232.ts:2299-2367).
+  // The auto-renewal payment refusal (client-http-27c95232:2299-2367).
   402: 'one.commercial.paymentRequired',
   403: 'one.commercial.forbidden',
   404: 'one.commercial.notFound',
@@ -979,7 +980,7 @@ const COMMERCIAL_STATUS_MESSAGE_KEY = Object.freeze({
  * message verbatim wherever we have one, never paraphrase a refusal. The outcome table below is
  * consulted only when the body carried no sentence, which for the routes read at 27c95232 is
  * every single time (the invite handler projects four fields and none of them is a message:
- * percy-http-27c95232.ts:2854-2884). That it is reached always today is a fact about the service
+ * client-http-27c95232:2854-2884). That it is reached always today is a fact about the service
  * as it stands, not a licence to stop preferring its words if it starts sending them.
  *
  * FOUR SOURCES FOR ONE SENTENCE, in this order and no other: the service's own words; the
@@ -1028,7 +1029,7 @@ export function describeCommercialRefusal(result) {
  *
  * `invitation_outcome` is read FIRST for `not_admitted`, and that is the whole reason this is a
  * function rather than one lookup. `POST /v1/team-access-requests/decide` projects two fields —
- * `{outcome, invitation_outcome}` (percy-http-27c95232.ts:3261-3264) — and the handler's own
+ * `{outcome, invitation_outcome}` (client-http-27c95232:3261-3264) — and the handler's own
  * comment at :3257-3260 says the second is "the half that matters": an administrator told only
  * "not admitted" cannot tell "this address belongs to another organization" from the seat
  * ceiling. The nested value is a `SeatAdmissionOutcome`, so it resolves through the same table.
@@ -2003,7 +2004,7 @@ async function openAddTask() {
   }
 
   const options = projects.map((project) => `<option value="${escapeHtml(project?.id)}"
-    >${escapeHtml(project?.title ?? '')}</option>`).join('');
+    >${escapeHtml(projectTitle(project))}</option>`).join('');
 
   const confirm = options === ''
     ? `<button class="btn primary is-refused" data-action="confirm-add-task" aria-disabled="true"

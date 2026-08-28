@@ -193,7 +193,7 @@ func TestEndedEntitlementLeavesOrdinaryWorkAlone(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	// And the guarded operation is refused.
-	feedback := env.newProject(&testuser1, "Percy Feedback", 0)
+	feedback := env.newProject(&testuser1, "Feedback", 0)
 	env.protect(models.ProtectedKindFeedback, feedback, 0)
 	rec = env.requestWith(http.MethodPost, "/api/v1/tasks/1",
 		fmt.Sprintf(`{"id":1,"title":"task #1","project_id":%d}`, feedback), token)
@@ -215,7 +215,7 @@ func TestEndedEntitlementLeavesOrdinaryWorkAlone(t *testing.T) {
 func TestGuardedRequestDecidesFromTheTokenNotTheDatabase(t *testing.T) {
 	env := newManagedEnv(t)
 	env.grant(testuser1.ID, entitlement.EditionPersonal, false)
-	feedback := env.newProject(&testuser1, "Percy Feedback", 0)
+	feedback := env.newProject(&testuser1, "Feedback", 0)
 	env.protect(models.ProtectedKindFeedback, feedback, 0)
 
 	// Issued while the entitlement is on record.
@@ -244,7 +244,7 @@ func TestGuardedRequestDecidesFromTheTokenNotTheDatabase(t *testing.T) {
 func TestTokenWithoutEntitlementIsRefusedDespiteTheDatabase(t *testing.T) {
 	env := newManagedEnv(t)
 	env.grant(testuser1.ID, entitlement.EditionPersonal, false)
-	feedback := env.newProject(&testuser1, "Percy Feedback", 0)
+	feedback := env.newProject(&testuser1, "Feedback", 0)
 	env.protect(models.ProtectedKindFeedback, feedback, 0)
 
 	// The same request with an entitled token is allowed, which is what makes

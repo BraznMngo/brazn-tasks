@@ -286,7 +286,7 @@ sentence, and there are exactly four sources, tried in this order:
    `still_administrator`, `not_admitted`, `below_users`, `below_active_teams` — to a `t()` key,
    each cited to the union that declares it. A `not_admitted` decision reads its nested
    `invitation_outcome` first, because that is the half that distinguishes "buy more seats" from
-   "that address belongs to another organization" (`percy-http-27c95232.ts:3251-3264`).
+   "that address belongs to another organization" (`client-http-27c95232:3251-3264`).
 3. **The HTTP status**, for a bodiless refusal. `COMMERCIAL_STATUS_MESSAGE_KEY` covers 401, 402,
    403, 404, 409 and 5xx; the fork has its own separate table, because a bare 403 there is the
    managed gate rather than `not_administrator` and one shared sentence would be wrong on
@@ -310,7 +310,7 @@ directions.
 
 **One honest limitation, because it changes how source 1 should be read.** At `27c95232` **no
 `/v1` route sends `message`, `detail` or `title` at all.** The commercial service has three body
-writers — `json` (`percy-http-27c95232.ts:717`), `bare` (`:728`, a status line with no content
+writers — `json` (`client-http-27c95232:717`), `bare` (`:728`, a status line with no content
 type) and `fail` (`:1778`) — and `fail`'s only JSON bodies are `{error: <code>}` for a
 provisioning failure (`:1785`, whose comment says the optional message is "deliberately never
 emitted"), the frozen `upgrade_required` shape at 402 (`:1795`), and `{error, debug}` behind an
@@ -500,7 +500,7 @@ Same rule, same reason, and these four used to be listed as shipped controls in 
 
 Two commercial exports go further and are unreachable **by construction**, not by choice:
 `confirmTeamAccessRequest` and `resumeCheckout` both check the percy.works relay's shared service
-credential (`percy-http-27c95232.ts:3278` and `:2172`), so a user bearer is 401 unconditionally.
+credential (`client-http-27c95232:3278` and `:2172`), so a user bearer is 401 unconditionally.
 They are kept because they are part of the contract this page is written against, and because a
 descriptor that is honest about the wire shape is better than one that pretends the call can
 work. **This is the disposition of the "drop the export" recommendation their comments refer
@@ -586,12 +586,12 @@ into one control. Surfacing the organization-level one is a product decision and
 ### The successor picker shows an opaque id, and cannot do better from the browser
 
 `GET /v1/account/successor-candidates` projects `{candidates: [{user_id}]}` and nothing else
-(`percy-http-27c95232.ts:2986-2988`) — `AccountRecord` carries no name and no mailbox, which is
+(`client-http-27c95232:2986-2988`) — `AccountRecord` carries no name and no mailbox, which is
 also why erasure genuinely destroys an address rather than leaving a copy behind. The page used
 to join those ids against the organization roster to put a name on each row. **That join could
 never match**, and removing it is the fix:
 
-* the candidate id is the **commercial** account id (`percy-service-27c95232.ts:522` — "A
+* the candidate id is the **commercial** account id (`client-service-27c95232:522` — "A
   commercial id, never the fork's");
 * `Organization.Members[].user_id` is `u.ID`, **this instance's own row id**
   (`pkg/models/brazn_organization.go:478`), and `pkg/modules/auth/entitlement.go:193-195` states

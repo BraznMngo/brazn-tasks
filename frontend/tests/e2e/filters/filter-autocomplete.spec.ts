@@ -59,8 +59,10 @@ test.describe('Filter Autocomplete', () => {
 		test('should replace single-word project name via autocomplete', async ({authenticatedPage: page}) => {
 			await page.goto('/filters/new')
 
-			// Wait for projects to be loaded
-			await expect(page.getByRole('link', {name: 'Inbox', exact: true})).toBeVisible({timeout: 10000})
+			// Wait for projects to be loaded. The project is STORED as 'Inbox' above, which is
+			// what the filter expressions below have to name, but the sidebar renders it through
+			// getProjectTitle and so shows the customer-facing 'Your Tasks' (BRA-1414).
+			await expect(page.getByRole('link', {name: 'Your Tasks', exact: true})).toBeVisible({timeout: 10000})
 
 			// Fill in filter name
 			await page.locator('input#Title').fill('Inbox Filter')
@@ -120,8 +122,10 @@ test.describe('Filter Autocomplete', () => {
 		test('should handle autocomplete after logical operator', async ({authenticatedPage: page}) => {
 			await page.goto('/filters/new')
 
-			// Wait for projects to be loaded
-			await expect(page.getByRole('link', {name: 'Inbox', exact: true})).toBeVisible({timeout: 10000})
+			// Wait for projects to be loaded. The project is STORED as 'Inbox' above, which is
+			// what the filter expressions below have to name, but the sidebar renders it through
+			// getProjectTitle and so shows the customer-facing 'Your Tasks' (BRA-1414).
+			await expect(page.getByRole('link', {name: 'Your Tasks', exact: true})).toBeVisible({timeout: 10000})
 
 			await page.locator('input#Title').fill('Complex Filter')
 

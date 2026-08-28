@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"testing"
 
-	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/user"
@@ -30,18 +29,52 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// feedbackOwnerUsername stands in for the Brazn staff account that owns Percy
-// Feedback. user10 owns no fixture project and appears in no fixture share, so
-// anything this file observes about that account was put there by provisioning
-// and not by the fixture set.
-const feedbackOwnerUsername = "user10"
-
+// newFeedbackEnv is a personal instance that has the staff account Feedback
+// resolves through, and nothing else Feedback-shaped.
+//
+// IT CREATES AN ACCOUNT RATHER THAN POINTING A SETTING AT A FIXTURE USER,
+// because BRA-1414 replaced `brazn.feedbackowner` with a constant: the owner
+// is now whichever account carries models.OneAdminUsername, and an instance
+// without one has no Feedback at all.
+//
+// It creates the account DIRECTLY rather than running the product's start-up
+// seed, deliberately. Every test below asserts on what provisioning creates
+// from nothing - the first count in this file requires the instance to hold no
+// Feedback project at all - and a seeded project would make those assertions
+// pass whatever provisioning did. What the seed itself produces is asserted in
+// pkg/models/brazn_seed_test.go, where the whole chain is built.
 func newFeedbackEnv(t *testing.T) *managedEnv {
 	t.Helper()
 
 	env := newPersonalEnv(t)
-	setConfigForTest(t, config.BraznFeedbackOwner, feedbackOwnerUsername)
+	createStaffAccount(t)
 	return env
+}
+
+// createStaffAccount puts the account models.OneAdminUsername names into the
+// users table. It owns no project and appears in no share, so anything these
+// tests observe about it was put there by provisioning.
+//
+// user.CreateUserConfirmLater rather than models.RegisterUser, because
+// RegisterUser would create this account's Inbox and - in managed mode - run
+// Feedback provisioning for it, which is exactly the state these tests need to
+// start without.
+func createStaffAccount(t *testing.T) *user.User {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	created, _, err := user.CreateUserConfirmLater(s, &user.User{
+		Username: models.OneAdminUsername,
+		Name:     models.OneAdminName,
+		Email:    models.OneAdminEmail,
+		Password: "a password no assertion in this package depends on",
+		Issuer:   user.IssuerLocal,
+	})
+	require.NoError(t, err)
+	require.NoError(t, s.Commit())
+	return created
 }
 
 // provisionFeedback runs the product's own provisioning for one member and
@@ -54,7 +87,7 @@ func (env *managedEnv) provisionFeedback(member *user.User) int64 {
 
 	projectID, err := models.ProvisionFeedbackAccess(s, member)
 	require.NoError(env.t, err)
-	require.NotZero(env.t, projectID, "provisioning must leave a Percy Feedback sub-project behind")
+	require.NotZero(env.t, projectID, "provisioning must leave a Feedback sub-project behind")
 	require.NoError(env.t, s.Commit())
 
 	return projectID
@@ -94,7 +127,7 @@ func projectMemberships(t *testing.T, userID int64) []*models.ProjectUser {
 }
 
 // TestFeedbackProvisioningMakesOneProjectTheCustomerDoesNotOwn covers the two
-// properties that make Percy Feedback an exemption rather than a category.
+// properties that make Feedback an exemption rather than a category.
 //
 // ONE PROJECT: provisioning runs on every registration, so it runs many times
 // on any real instance. It has to converge on the single project it made the
@@ -112,18 +145,18 @@ func TestFeedbackProvisioningMakesOneProjectTheCustomerDoesNotOwn(t *testing.T) 
 	env := newFeedbackEnv(t)
 
 	require.Zero(t, countFeedbackEntities(t),
-		"the instance must start with no Percy Feedback project, or this proves nothing")
+		"the instance must start with no Feedback project, or this proves nothing")
 
 	first := env.provisionFeedback(&testuser1)
 	second := env.provisionFeedback(&testuser1)
 
 	assert.Equal(t, first, second, "a second registration must find the first project, not make another")
-	assert.Equal(t, int64(1), countFeedbackEntities(t), "there must be exactly one Percy Feedback project")
+	assert.Equal(t, int64(1), countFeedbackEntities(t), "there must be exactly one Feedback project")
 
-	owner, err := user.GetUserByUsername(dbSessionForTest(t), feedbackOwnerUsername)
+	owner, err := user.GetUserByUsername(dbSessionForTest(t), models.OneAdminUsername)
 	require.NoError(t, err)
 	assert.Equal(t, owner.ID, projectOwnerID(t, first),
-		"Percy Feedback belongs to Brazn; a customer who owned it would have two owned projects")
+		"Feedback belongs to Brazn; a customer who owned it would have two owned projects")
 	assert.NotEqual(t, testuser1.ID, projectOwnerID(t, first))
 }
 
@@ -144,7 +177,7 @@ func TestFeedbackProvisioningMakesOneProjectTheCustomerDoesNotOwn(t *testing.T) 
 func TestFeedbackOwnerReprovisioningDoesNotDuplicateTheirOwnSubProject(t *testing.T) {
 	env := newFeedbackEnv(t)
 
-	owner, err := user.GetUserByUsername(dbSessionForTest(t), feedbackOwnerUsername)
+	owner, err := user.GetUserByUsername(dbSessionForTest(t), models.OneAdminUsername)
 	require.NoError(t, err)
 
 	first := env.provisionFeedback(owner)
@@ -165,7 +198,7 @@ func TestFeedbackOwnerReprovisioningDoesNotDuplicateTheirOwnSubProject(t *testin
 // TestFeedbackExemptionFollowsTheProjectIDAndNotTheTitle is the leak BRA-764
 // exists to prevent, stated as a test.
 //
-// The decoy carries the EXACT title the product gives Percy Feedback and is
+// The decoy carries the EXACT title the product gives Feedback and is
 // owned by the account doing the submitting, so it out-privileges the real
 // thing on every axis except the one that decides: there is no
 // brazn_protected_entities row pointing at it. Ownership being the customer's
@@ -252,7 +285,7 @@ func TestFeedbackEnrolmentGrantsNothingBeyondTheOneProject(t *testing.T) {
 	after := projectMemberships(t, testuser1.ID)
 
 	require.Len(t, after, len(before)+1,
-		"enrolment must add exactly one membership, and it must be the Percy Feedback one")
+		"enrolment must add exactly one membership, and it must be the Feedback one")
 
 	added := map[int64]models.Permission{}
 	for _, membership := range after {
@@ -264,7 +297,7 @@ func TestFeedbackEnrolmentGrantsNothingBeyondTheOneProject(t *testing.T) {
 
 	require.Len(t, added, 1)
 	permission, enrolled := added[feedback]
-	require.True(t, enrolled, "the added membership must be on the provisioned Percy Feedback project")
+	require.True(t, enrolled, "the added membership must be on the provisioned Feedback project")
 	assert.Equal(t, models.PermissionWrite, permission,
 		"the least permission that can submit a task, and no more")
 }
@@ -303,7 +336,7 @@ func TestFeedbackMembersEndpointIsNotACrossOrganisationDirectory(t *testing.T) {
 	require.NotNil(t, root)
 	feedback := root.ProjectID
 
-	owner, err := user.GetUserByUsername(s, feedbackOwnerUsername)
+	owner, err := user.GetUserByUsername(s, models.OneAdminUsername)
 	require.NoError(t, err)
 
 	for _, reporter := range []*user.User{&testuser1, &testuser2} {
@@ -334,7 +367,7 @@ func TestFeedbackMembersEndpointIsNotACrossOrganisationDirectory(t *testing.T) {
 
 // TestFeedbackSubProjectsAreIsolatedPerReporter pins BRA-1180 (A1)'s core
 // acceptance criterion, over the real route and against a genuine second
-// reporter: a reporter reaches only their own Percy Feedback sub-project.
+// reporter: a reporter reaches only their own Feedback sub-project.
 //
 // The two provisioned ids being different IS the structural claim this ticket
 // makes - isolation is a property of there being two projects, not of a
@@ -378,7 +411,7 @@ func TestFeedbackSubProjectsAreIsolatedPerReporter(t *testing.T) {
 // another reporter's sub-project still is not.
 func TestTeamsFeedbackSubProjectsAreIsolatedPerReporter(t *testing.T) {
 	env, _ := newTeamsEnv(t)
-	setConfigForTest(t, config.BraznFeedbackOwner, feedbackOwnerUsername)
+	createStaffAccount(t)
 
 	feedbackA := env.provisionFeedback(&testuser1)
 	feedbackB := env.provisionFeedback(&testuser6)
@@ -399,40 +432,41 @@ func TestTeamsFeedbackSubProjectsAreIsolatedPerReporter(t *testing.T) {
 }
 
 // TestFeedbackIsNotProvisionedWithoutAResolvableOwner records the fail-safe
-// direction, in both the ways the owner can be absent.
+// direction on an instance that has not created its staff account.
 //
-// Neither is an error. brazn.feedbackowner is empty on a stock instance and may
-// name an account an operator has not created yet, and a customer signing up
-// must not fail because of either. Skipping is also the safe direction to be
-// wrong in: no project means no access, where refusing here would mean no
-// account.
+// It used to cover two cases, an empty `brazn.feedbackowner` and a setting
+// naming an account nobody had made. BRA-1414 deleted the setting, so there is
+// now exactly one way for the owner to be absent - the account is not here -
+// and this is it. Nothing was relaxed: the assertions are the ones the second
+// case always made, and the case that disappeared is the one that can no
+// longer occur.
 //
-// The empty case is additionally what every other managed-mode test in this
-// package runs under, so it pins that this change left them alone.
+// It is not an error, and a customer registering must not fail because of it.
+// An instance can genuinely be in this state: a database restored under a
+// build whose web server has not started yet has had no seeding run against
+// it. Skipping is also the safe direction to be wrong in: no project means no
+// access, where refusing here would mean no account.
+//
+// It is additionally what every other managed-mode test in this package runs
+// under - none of them creates the staff account - so it pins that Feedback
+// still leaves them alone.
 func TestFeedbackIsNotProvisionedWithoutAResolvableOwner(t *testing.T) {
-	for _, c := range []struct {
-		name  string
-		owner string
-	}{
-		{"no owner configured", ""},
-		{"an owner that is not an account here", "brazn-staff-account-that-does-not-exist"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			newPersonalEnv(t)
-			setConfigForTest(t, config.BraznFeedbackOwner, c.owner)
+	newPersonalEnv(t)
 
-			before := len(projectMemberships(t, testuser1.ID))
+	_, err := user.GetUserByUsername(dbSessionForTest(t), models.OneAdminUsername)
+	require.True(t, user.IsErrUserDoesNotExist(err),
+		"this instance must not have the staff account, or the test proves nothing")
 
-			s := db.NewSession()
-			defer s.Close()
+	before := len(projectMemberships(t, testuser1.ID))
 
-			projectID, err := models.ProvisionFeedbackAccess(s, &testuser1)
-			require.NoError(t, err, "an unresolvable owner must not fail the registration it runs inside")
-			require.NoError(t, s.Commit())
+	s := db.NewSession()
+	defer s.Close()
 
-			assert.Zero(t, projectID, "no owner means no sub-project either")
-			assert.Zero(t, countFeedbackEntities(t), "no owner means no project")
-			assert.Len(t, projectMemberships(t, testuser1.ID), before, "and no enrolment")
-		})
-	}
+	projectID, err := models.ProvisionFeedbackAccess(s, &testuser1)
+	require.NoError(t, err, "an unresolvable owner must not fail the registration it runs inside")
+	require.NoError(t, s.Commit())
+
+	assert.Zero(t, projectID, "no owner means no sub-project either")
+	assert.Zero(t, countFeedbackEntities(t), "no owner means no project")
+	assert.Len(t, projectMemberships(t, testuser1.ID), before, "and no enrolment")
 }

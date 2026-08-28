@@ -39,7 +39,7 @@
 'use strict';
 
 import * as api from './api.js';
-import {t, currentLocale} from './i18n.js';
+import {t, currentLocale, projectTitle} from './i18n.js';
 import {
   DENY,
   applyGates,
@@ -1448,7 +1448,7 @@ const cancelButton = () => `<button class="btn" data-action="modal-close">${esc(
 function moveModal(state) {
   const current = String(state.task?.project_id ?? '');
   const options = state.projects.map((project) => `<option value="${esc(project?.id)}"${
-    String(project?.id) === current ? ' selected' : ''}>${esc(project?.title ?? '')}</option>`).join('');
+    String(project?.id) === current ? ' selected' : ''}>${esc(projectTitle(project))}</option>`).join('');
 
   // The projects read is `allSettled` on load, so an empty list means it failed rather than that
   // the account has no projects — every account has an Inbox. A picker with nothing in it must

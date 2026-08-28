@@ -27,9 +27,9 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// BraznFeedbackProjectResponse is the caller's Percy Feedback sub-project
-// (BRA-1414), or a defined "not available on this instance" answer when
-// brazn.feedbackowner is unset / unresolvable.
+// BraznFeedbackProjectResponse is the caller's Feedback sub-project
+// (BRA-1414), or a defined "not available on this instance" answer when the
+// staff account that owns Feedback is not on this instance.
 //
 // project_id is the id tasks_create / tasks_list must use. Title alone is never
 // identity — see models.FeedbackProjectTitle.
@@ -40,17 +40,17 @@ type BraznFeedbackProjectResponse struct {
 	Message   string `json:"message,omitempty"`
 }
 
-const braznFeedbackUnavailable = "Percy Feedback is not available on this instance."
+const braznFeedbackUnavailable = "Feedback is not available on this instance."
 
-// BraznGetFeedbackProject resolves the authenticated user's Percy Feedback
+// BraznGetFeedbackProject resolves the authenticated user's Feedback
 // sub-project, ensuring it exists first (idempotent ProvisionFeedbackAccess).
 //
-// When the instance has no brazn.feedbackowner, ProvisionFeedbackAccess returns
-// 0 with no error by design. This handler turns that into a defined response
-// rather than a bare 0 or a 500.
+// When the staff account that owns Feedback is not on this instance,
+// ProvisionFeedbackAccess returns 0 with no error by design. This handler turns
+// that into a defined response rather than a bare 0 or a 500.
 //
-// @Summary Resolve the caller's Percy Feedback project
-// @Description Returns the project id ONE / Brazn Tasks clients should file feedback into. Ensures the per-user sub-project exists when the instance has feedback configured.
+// @Summary Resolve the caller's Feedback project
+// @Description Returns the project id ONE / Brazn Tasks clients should file feedback into. Ensures the per-user sub-project exists when this instance has its staff account.
 // @tags brazn
 // @Produce json
 // @Security JWTKeyAuth
@@ -61,11 +61,11 @@ const braznFeedbackUnavailable = "Percy Feedback is not available on this instan
 func BraznGetFeedbackProject(c *echo.Context) error {
 	a, err := auth.GetAuthFromClaims(c)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusForbidden, "You do not have access to Percy Feedback.")
+		return echo.NewHTTPError(http.StatusForbidden, "You do not have access to Feedback.")
 	}
 	u, isUser := a.(*user.User)
 	if !isUser {
-		return echo.NewHTTPError(http.StatusForbidden, "You do not have access to Percy Feedback.")
+		return echo.NewHTTPError(http.StatusForbidden, "You do not have access to Feedback.")
 	}
 
 	s := db.NewSession()
@@ -74,7 +74,7 @@ func BraznGetFeedbackProject(c *echo.Context) error {
 	projectID, err := models.ProvisionFeedbackAccess(s, u)
 	if err != nil {
 		_ = s.Rollback()
-		return echo.NewHTTPError(http.StatusInternalServerError, "Percy Feedback could not be resolved.").Wrap(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Feedback could not be resolved.").Wrap(err)
 	}
 	if projectID == 0 {
 		_ = s.Rollback()
@@ -85,7 +85,7 @@ func BraznGetFeedbackProject(c *echo.Context) error {
 	}
 	if err := s.Commit(); err != nil {
 		_ = s.Rollback()
-		return echo.NewHTTPError(http.StatusInternalServerError, "Percy Feedback could not be saved.").Wrap(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Feedback could not be saved.").Wrap(err)
 	}
 
 	return c.JSON(http.StatusOK, BraznFeedbackProjectResponse{

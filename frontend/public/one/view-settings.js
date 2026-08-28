@@ -1102,7 +1102,7 @@ function memberRow(member, teamId) {
  * `one.org.seatReserved` IS NOT EMITTED ON THESE ROWS, and its absence is the fix rather than an
  * omission. A pending invitation reserves nothing: "Pending invitations deliberately reserve no
  * seat (and under this model they need not), so two invitations outstanding at once will each say
- * they add one" (percy-service-27c95232.ts:610-613). The seat is taken at ACCEPTANCE, under the
+ * they add one" (client-service-27c95232:610-613). The seat is taken at ACCEPTANCE, under the
  * organization lock, by `admitInvitedMember`. Printing "Seat reserved" beside a row asserted a
  * commercial fact the service explicitly denies — the same fake-success direction bar 8 guards,
  * one level below the guard. "Invitation pending" is the whole of what this page read.
@@ -1137,7 +1137,7 @@ function pendingInvitationsCard() {
  * source is the fork organization endpoint and stays that way (brief, "Mis-wired calls"). What
  * this line says is narrower and is what `SeatNotice` is for — the position at the moment that
  * invitation was sent, which the service itself calls "ADVISORY, like the eligibility check beside
- * it, and for the same reason" (percy-service-27c95232.ts:606-617).
+ * it, and for the same reason" (client-service-27c95232:606-617).
  *
  * Only the two counts that are true in the PRESENT tense are rendered: `seats` is "Seats PURCHASED
  * today" (:620-621) and `users` is "People holding one today" (:622-623). `seats_after` and
@@ -1384,7 +1384,7 @@ function secretValue(id) {
  * `COMMERCIAL_OUTCOME_MESSAGE_KEY` for a refused `outcome` — including `not_invitable`, the only
  * refusal `POST /v1/organizations/invitations` can return — and then
  * `COMMERCIAL_STATUS_MESSAGE_KEY` for the bare statuses `bare()` writes with no body at all
- * (percy-http-27c95232.ts:728-731). Nothing here needs to know which operation was refused: a
+ * (client-http-27c95232:728-731). Nothing here needs to know which operation was refused: a
  * bare 403 is `not_administrator` on every route that sends one, and a bare 404 is "the
  * subscription service does not have that", which is true both for a handle it does not know and
  * for a §16 route that has not landed — a distinction the status alone cannot support, so the
@@ -1696,7 +1696,7 @@ registerActions({
    *   * `ok` with an EMPTY list         → **also confirm straight away.** An empty list is a real
    *     answer, not a refusal: `listSuccessorCandidates` "returns [] for a missing account, a
    *     non-administrator and an organization of one alike, because the question is 'must I offer
-   *     a choice' and the true answer to all three is no" (percy-http-27c95232.ts:2979-2984), and
+   *     a choice' and the true answer to all three is no" (client-http-27c95232:2979-2984), and
    *     `parseErasure` names the case in as many words — "'nobody' is a real, common and lawful
    *     answer — it is what the sole-member administrator has" (:1745-1746). api.js says the same
    *     at its `listSuccessorCandidates` export: `ok` and `candidates.length === 0` are two
@@ -1757,8 +1757,8 @@ registerActions({
       const successor = fieldValue('deleteSuccessor');
       if (successor === '') return;
       // A STRING, and deliberately so: `to_user_id` is declared `string`
-      // (percy-service-27c95232.ts:537) and `isId` rejects anything that is not one
-      // (percy-http-27c95232.ts:1448-1450), so coercing it to a number would be a 400.
+      // (client-service-27c95232:537) and `isId` rejects anything that is not one
+      // (client-http-27c95232:1448-1450), so coercing it to a number would be a 400.
       const transfer = await api.transferAdministrator(organization.id, successor);
       if (!transfer.ok) {
         refuseModal(describeCommercialRefusal(transfer));
@@ -1768,7 +1768,7 @@ registerActions({
 
     // `POST /v1/account/erasure` is LIVE, and its 404 is a real answer about a real account —
     // "eraseAccount raises for a missing account, because 'destroy this' has no honest answer when
-    // there is nothing there" (percy-http-27c95232.ts:2981-2984). `one.commercial.notFound` says
+    // there is nothing there" (client-http-27c95232:2981-2984). `one.commercial.notFound` says
     // exactly that and claims nothing about a missing route, which is why one shared sentence
     // serves both this call and the §16 ones.
     const erasure = await api.eraseAccount();
@@ -1938,7 +1938,7 @@ registerActions({
     // THE QUOTE HAS NO `message` FIELD, and reading one was inventing a response field — the
     // mirror of ruling C17's request-field discipline. `SeatIncreaseQuote` is
     // `{organization_id, seats, seats_after, proration}` and nothing else
-    // (percy-service-27c95232.ts:895-912); api.js:2019-2021 already said so in its own words.
+    // (client-service-27c95232:895-912); api.js:2019-2021 already said so in its own words.
     //
     // `seats_after` is the SERVER'S echo of what the purchase becomes (:899-900) and is what
     // `confirm-seats` now sends, rather than the number this page computed a moment earlier:
@@ -1949,7 +1949,7 @@ registerActions({
     // filled with a guess — and it is emphatically not read as a failure signal: `null` is an
     // ordinary answer meaning this costs nothing now, "a perfectly ordinary answer and never an
     // error" (:906-909), so no branch here treats it as one. But `SeatProration` is declared in the
-    // service's `billing.ts` (percy-service-27c95232.ts:122 imports it from there), which is not
+    // service's `billing.ts` (client-service-27c95232:122 imports it from there), which is not
     // among the extracted sources, so its field names are unknown and bar 7 forbids inventing them
     // to put an amount on screen. The figure is reported as the remaining half of BRA-1075.
     const body = quote.body ?? {};
@@ -1986,7 +1986,7 @@ registerActions({
    * candidate list is an ORDINARY answer and not a refusal: `listSuccessorCandidates` "returns []
    * for a missing account, a non-administrator and an organization of one alike, because the
    * question is 'must I offer a choice' and the true answer to all three is no"
-   * (percy-http-27c95232.ts:2979-2984). Rendering it as `commercial-unavailable` behind a dead
+   * (client-http-27c95232:2979-2984). Rendering it as `commercial-unavailable` behind a dead
    * button told the sole-member administrator that the subscription service could not be reached,
    * which is a machine reason that is simply false — the service answered, and its answer was
    * "there is nobody to hand over to". That one gets its own shape: the fact, and a Close.
@@ -2068,14 +2068,14 @@ registerActions({
    * M10. `POST /v1/organizations/invitations` with `{organization_id, email}`.
    *
    * NO `team_id`. The field is not invented — `parseInvite` allowlists it and the handler forwards
-   * it (percy-http-27c95232.ts:1598 and :2841), and absent means "the organization's primary team"
+   * it (client-http-27c95232:1598 and :2841), and absent means "the organization's primary team"
    * (:1603-1606). It is left off because THE PROTOTYPE HAS NO TEAM PICKER and the prototype is the
    * scope bar (bar 10); ruling C17's discipline then keeps a field nobody chose out of the body.
    * api.js asserts on it so it cannot come back by accident.
    *
    * BAR 8 IS LOAD-BEARING TWICE HERE. `readCommercialResult` decides `ok`, and then the AFFIRMATIVE
    * SET ITSELF HAS TWO MEMBERS: `invited` and `already_member` are both non-refusals
-   * (percy-service-27c95232.ts:581, and api.js's `INVITE_MEMBER` descriptor), and they are not the
+   * (client-service-27c95232:581, and api.js's `INVITE_MEMBER` descriptor), and they are not the
    * same event. The declaration's own prose at :575-577 says `already_member` means the invitee
    * "holds a seat here already, so nothing was offered and nothing was sent". Toasting "Invitation
    * sent" for it, and appending a pending row for an invitation that does not exist, is a fake
@@ -2090,9 +2090,9 @@ registerActions({
     const result = await api.inviteOrganizationMember({organization_id: organization.id, email});
     if (!result.ok) {
       // BOTH HALVES OF THE VOCABULARY REACH A SENTENCE HERE. A bare 403 is the service saying "you
-      // do not administer this organization" in as many words (percy-http-27c95232.ts:2844-2852),
+      // do not administer this organization" in as many words (client-http-27c95232:2844-2852),
       // and a 200 carrying `outcome: "not_invitable"` — the only refusal this route can return
-      // (percy-service-27c95232.ts:581) — resolves through app.js's outcome table to the sentence
+      // (client-service-27c95232:581) — resolves through app.js's outcome table to the sentence
       // naming its three causes. Neither is a status code on screen any more.
       refuseModal(describeCommercialRefusal(result));
       return;
@@ -2110,18 +2110,18 @@ registerActions({
     }
 
     // NESTED, not top-level: the projection is `{outcome, invited_user_id, invitation:{
-    // invitation_id, status, expires_at}, seat_notice}` (percy-http-27c95232.ts:2854-2884). There
+    // invitation_id, status, expires_at}, seat_notice}` (client-http-27c95232:2854-2884). There
     // is no top-level `invitation_id` and no `id`, so reading either one made `invitationId` null
     // on every successful invite and M14's Revoke button could never render.
-    // `invitation` is null when nothing was recorded (percy-service-27c95232.ts:583) — that is the
+    // `invitation` is null when nothing was recorded (client-service-27c95232:583) — that is the
     // honest no-Revoke case, and the only one.
     const invitationId = result.body?.invitation?.invitation_id ?? null;
     const invites = [...(scratch().pendingInvites ?? []), {email, invitationId}];
     // `seat_notice` IS THE ADMINISTRATOR'S ANSWER AND WAS BEING DROPPED ON THE FLOOR. The handler
     // passes it through "as the service composed it" and its own comment calls it "an
     // administrator being told what they are about to commit their organization to, which is the
-    // whole of BRA-1075" (percy-http-27c95232.ts:2871-2883). It is declared
-    // `{seats, users, seats_after, proration}` (percy-service-27c95232.ts:619-636) — four
+    // whole of BRA-1075" (client-http-27c95232:2871-2883). It is declared
+    // `{seats, users, seats_after, proration}` (client-service-27c95232:619-636) — four
     // numbers, no provider handle, no customer reference — and it rides the ADMINISTRATOR's
     // reply, never the invitation mail (:598-600).
     //
@@ -2306,7 +2306,7 @@ function renderRenameOrgModal(name) {
  * invitation reserves one seat immediately for {team}" (`one.org.inviteSeatNotice`, :1154). This
  * modal has no team picker (bar 10 — the prototype has none either), so the invite this page sends
  * carries no `team_id` and the service reads that as the organization's PRIMARY team, which is not
- * necessarily the team the Team-management tab is pointed at (percy-http-27c95232.ts:1603-1606).
+ * necessarily the team the Team-management tab is pointed at (client-http-27c95232:1603-1606).
  * Naming a team in the sentence would therefore be a promise the request does not make. The
  * organization-scoped seat sentence is the true one.
  */
@@ -2438,7 +2438,7 @@ function memberPickerRow(member, teamId, alreadyInTeam) {
  * stringifying both cannot make them meet:
  *
  *   * `GET /v1/account/successor-candidates` projects the COMMERCIAL account id
- *     (percy-http-27c95232.ts:2986-2988), and percy-service-27c95232.ts:522 says of the sibling
+ *     (client-http-27c95232:2986-2988), and client-service-27c95232:522 says of the sibling
  *     field "A commercial id, never the fork's."
  *   * `Organization.Members[].user_id` is `u.ID`, this instance's own row id
  *     (pkg/models/brazn_organization.go:478 — `UserID: u.ID`, `json:"user_id"`, an int64). The
@@ -2467,7 +2467,7 @@ function readCandidates(body) {
   return list.map((entry) => {
     const id = entry?.user_id ?? entry?.id ?? null;
     if (id === null || id === undefined || id === '') return null;
-    // `user_id` AND NOTHING ELSE is projected (percy-http-27c95232.ts:2986-2988) — `AccountRecord`
+    // `user_id` AND NOTHING ELSE is projected (client-http-27c95232:2986-2988) — `AccountRecord`
     // carries no name and no mailbox, which is also why erasure genuinely destroys an address
     // rather than leaving a copy there. There is nothing else on the row to label it with.
     return {id, label: String(id)};

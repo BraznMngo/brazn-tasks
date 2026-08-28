@@ -252,7 +252,6 @@ const (
 	BraznManagedMode         Key = `brazn.managedmode`
 	BraznEntitlementKeys     Key = `brazn.entitlementkeys`
 	BraznEntitlementGrace    Key = `brazn.entitlementgrace`
-	BraznFeedbackOwner       Key = `brazn.feedbackowner`
 	BraznAccountURL          Key = `brazn.accounturl`
 	BraznCheckoutURL         Key = `brazn.checkouturl`
 	BraznSignupRedemptionURL Key = `brazn.signupredemptionurl`
@@ -544,11 +543,6 @@ func InitDefaultConfig() {
 	// the protocol. Zero is a legitimate value and means the entitlement stops
 	// exactly when it says it does.
 	BraznEntitlementGrace.setDefault("24h")
-	// The Brazn staff account that owns Percy Feedback. Empty by default, and
-	// an empty value provisions nothing: an instance nobody configured has no
-	// Percy Feedback project, which is the same shape a self-hosted instance
-	// has. See models.ProvisionFeedbackAccess.
-	BraznFeedbackOwner.setDefault("")
 	// Where the Organization area sends an administrator for everything this
 	// product is deliberately not authoritative for: payment, invoices, plan,
 	// seats, invitations, and the administrator role itself.

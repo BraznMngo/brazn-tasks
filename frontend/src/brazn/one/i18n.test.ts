@@ -1,6 +1,6 @@
 import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
 
-import {t, init, negotiateLanguage, currentLocale, supportedLocales} from '../../../public/one/i18n.js'
+import {t, init, negotiateLanguage, currentLocale, supportedLocales, projectTitle} from '../../../public/one/i18n.js'
 
 // The six shipped catalogues, as TEXT. `?raw` keeps them out of the module graph as data rather
 // than as code, so the audit at the bottom reads exactly the bytes the browser will fetch. The
@@ -200,6 +200,63 @@ describe('one/i18n.js fallback chain', () => {
 		// ja-JP writes single-branch values for the relation kinds, so a value with no '|' must
 		// pass through untouched even when a count is supplied.
 		expect(t('organization.members.inUse', {used: 1, limit: 1, count: 1})).toBe('1 / 1 seats in use')
+	})
+})
+
+describe('one/i18n.js project titles', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals()
+	})
+
+	// The word "Inbox" is a value in a database column, not customer-facing copy. The server
+	// writes it into every account's own project on registration and the managed rules identify
+	// that project by its immutable id, so the column cannot be renamed - which is exactly why
+	// the page has to translate it on the way out.
+	//
+	// MUTATION: print `project.title` at either picker instead of calling this, and a customer
+	// reading the move dialog or the add-task dialog is offered a project called "Inbox" while
+	// the settings page two clicks away calls the same project "Your Tasks".
+	it('shows the stored Inbox as the name the customer knows it by', async () => {
+		serve({en: {one: {org: {tile: {privateName: 'Your Tasks'}}}}})
+		await init('en', ['en'])
+
+		expect(projectTitle({title: 'Inbox'})).toBe('Your Tasks')
+	})
+
+	// The name is TRANSLATED rather than substituted for a second English literal, which is the
+	// whole reason it resolves through the catalogue instead of through a constant.
+	it('translates it, rather than swapping one English word for another', async () => {
+		serve({
+			en: {one: {org: {tile: {privateName: 'Your Tasks'}}}},
+			'de-DE': {one: {org: {tile: {privateName: 'Deine Aufgaben'}}}},
+		})
+		await init('de-DE', ['de-DE'])
+
+		expect(projectTitle({title: 'Inbox'})).toBe('Deine Aufgaben')
+	})
+
+	// Only that one stored value is replaced. A customer who names a project "inbox", or
+	// "Inbox archive", owns an ordinary project and must see the name they chose - the swap keys
+	// on the exact literal the server writes and on nothing looser.
+	it('leaves every other title exactly as the customer wrote it', async () => {
+		serve({en: {one: {org: {tile: {privateName: 'Your Tasks'}}}}})
+		await init('en', ['en'])
+
+		expect(projectTitle({title: 'Feedback'})).toBe('Feedback')
+		expect(projectTitle({title: 'inbox'})).toBe('inbox')
+		expect(projectTitle({title: 'Inbox archive'})).toBe('Inbox archive')
+		expect(projectTitle({title: 'My Inbox'})).toBe('My Inbox')
+	})
+
+	// A project read that failed leaves a row with no title, and a picker built from it must show
+	// an empty option rather than the string "undefined" or a thrown TypeError.
+	it('renders nothing rather than debug text for a project with no title', async () => {
+		serve({en: {one: {org: {tile: {privateName: 'Your Tasks'}}}}})
+		await init('en', ['en'])
+
+		expect(projectTitle(undefined)).toBe('')
+		expect(projectTitle(null)).toBe('')
+		expect(projectTitle({})).toBe('')
 	})
 })
 
