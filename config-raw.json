@@ -488,7 +488,7 @@
                 {
                     "key": "brazningestlimit",
                     "default_value": "300",
-                    "comment": "The number of requests per minute allowed to the Brazn entitlement and provisioning ingest routes\n(/brazn/entitlements and /brazn/provisioning), the doors through which Percy Cloud writes commercial\nstate into this instance. This limit cannot be disabled and applies independently of \"enabled\" above."
+                    "comment": "The number of requests per minute allowed to the Brazn entitlement and provisioning ingest routes\n(/brazn/entitlements and /brazn/provisioning), the doors through which the commercial service writes commercial\nstate into this instance. This limit cannot be disabled and applies independently of \"enabled\" above."
                 }
             ]
         },

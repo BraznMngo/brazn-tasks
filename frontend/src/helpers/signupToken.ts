@@ -1,4 +1,4 @@
-// The signup token Percy Cloud hands a customer who is entitled to an account
+// The signup token the commercial service hands a customer who is entitled to an account
 // here (BRA-1071, contract BRA-1080).
 //
 // IT ARRIVES IN THE URL FRAGMENT and never in a query parameter:

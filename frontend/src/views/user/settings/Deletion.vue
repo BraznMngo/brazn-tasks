@@ -7,7 +7,7 @@
 			Managed accounts (BRA-1404) never reach the form below — this fork's
 			own `/user/deletion/request` is deliberately gated on a managed
 			instance (route-classification.json's `service-managed` class), so a
-			managed account's ONLY working path is Percy Cloud's own erasure
+			managed account's ONLY working path is the commercial service's own erasure
 			(`services/accountErasure.ts`): immediate, no mailed confirmation, and
 			carrying the successor handover a community account's flow never
 			needed. `deletionScheduledAt` never fires for a managed account either
@@ -180,7 +180,7 @@ const managedError = ref<string | null>(null)
 const successorOptions = computed<SelectOption[]>(() => {
 	// Names are resolved from the Organization area's own member list, loaded
 	// alongside the candidate ids below — a picker showing bare numeric ids
-	// would be correct and unusable. `String(...)`: Percy Cloud's ids are
+	// would be correct and unusable. `String(...)`: the commercial service's ids are
 	// this fork's own numeric user id, serialized as a string
 	// (`adoptAccountUserId`), so the comparison has to cross that back.
 	const members = organizationStore.organization?.members ?? []

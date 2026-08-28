@@ -55,7 +55,7 @@ type Callback struct {
 	// Clients must restart the OIDC flow and populate this field after
 	// receiving a 412 with error code 1017. See GHSA-8jvc-mcx6-r4cg.
 	TOTPPasscode string `json:"totp_passcode"`
-	// SignupToken carries a Percy Cloud signup token through the provider
+	// SignupToken carries a the commercial service signup token through the provider
 	// round trip, so that registering with Google and registering with a
 	// password are gated by the same thing (BRA-1071). It is IGNORED unless
 	// this instance is in managed mode, and it is ignored for a sign-in: only
@@ -699,7 +699,7 @@ func decideManagedFallbackMatch(matched bool) error {
 // an address; then an address that already has an account here, so a valid
 // token can never be spent joining one; and only then the token itself.
 //
-// The token check is its SHAPE only. Whether it is real is Percy Cloud's
+// The token check is its SHAPE only. Whether it is real is the commercial service's
 // answer, and asking costs a user id that does not exist yet - so the refusal
 // for a token that is merely absent is given here, and the one that decides is
 // redeemManagedSignUp.

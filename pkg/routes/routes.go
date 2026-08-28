@@ -538,7 +538,7 @@ func registerAPIRoutes(a *echo.Group) {
 	// unrelated switch (ratelimit.enabled) happens to be on is a protection
 	// nobody can rely on. Not ur itself - ur's limit is sized for humans
 	// guessing a password, and every request on these two routes legitimately
-	// arrives from one address (Percy Cloud), so a per-human-guesser budget
+	// arrives from one address (the commercial service), so a per-human-guesser budget
 	// would throttle the one real caller long before it bothered an attacker.
 	bi := a.Group("")
 	braznIngestRate := limiter.Rate{
@@ -613,7 +613,7 @@ func registerAPIRoutes(a *echo.Group) {
 	// about how a service-plane route is classified.
 	//
 	// This is the recorded exception to AGENTS.md's v1-freeze: it is a
-	// signature-authenticated service-plane channel for Percy Cloud, not a
+	// signature-authenticated service-plane channel for the commercial service, not a
 	// JWT-authenticated resource for product clients, so new operations land
 	// here rather than on /api/v2.
 	bi.POST("/brazn/provisioning", apiv1.BraznProvision)

@@ -275,7 +275,7 @@ func provisionUser(c *echo.Context, payload json.RawMessage) error {
 
 // provisionUserWithPassword is the create_user_with_password operation
 // (BRA-1335): a brand-new Brazn Tasks account for somebody who chose a
-// username and a password at Percy Cloud checkout.
+// username and a password at the commercial service checkout.
 //
 // IT NEVER ADOPTS, unlike provisionUser above. See
 // models.CreateProvisionedUserWithPassword and

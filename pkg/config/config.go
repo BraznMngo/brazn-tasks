@@ -160,7 +160,7 @@ const (
 	RateLimitNoAuthRoutesLimit Key = `ratelimit.noauthlimit`
 	// RateLimitBraznIngestLimit bounds the entitlement and provisioning ingest
 	// routes (BRA-1208), independently of RateLimitEnabled: those two routes
-	// are the doors through which Percy Cloud writes commercial state into
+	// are the doors through which the commercial service writes commercial state into
 	// this fork, and a protection that only exists when an unrelated switch
 	// is on is a protection nobody can rely on. Not on the same limiter as
 	// RateLimitNoAuthRoutesLimit either — that one is sized for humans
@@ -476,7 +476,7 @@ func InitDefaultConfig() {
 	RateLimitPeriod.setDefault(60)
 	RateLimitStore.setDefault("memory")
 	RateLimitNoAuthRoutesLimit.setDefault(10)
-	// 300/minute: generous for the one legitimate caller (Percy Cloud), and
+	// 300/minute: generous for the one legitimate caller (the commercial service), and
 	// still a real bound against a flood or a bug that turned into one.
 	RateLimitBraznIngestLimit.setDefault(300)
 	// Files

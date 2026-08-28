@@ -1,7 +1,7 @@
 import {AuthenticatedHTTPFactory} from '@/helpers/fetcher'
 
 /**
- * Percy Cloud's own self-service account erasure (BRA-1404) — the complete
+ * the commercial service's own self-service account erasure (BRA-1404) — the complete
  * GDPR Art. 17 flow (successor handover, subscription cancellation, this
  * fork's own task data erasure, all in one call) that `/user/deletion/request`
  * on this backend is deliberately gated away from on a managed instance

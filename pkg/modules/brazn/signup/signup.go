@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package signup redeems the signup token Percy Cloud issues to somebody who is
+// Package signup redeems the signup token the commercial service issues to somebody who is
 // entitled to a Brazn Tasks account, and reports the user this instance created
 // for them.
 //
@@ -33,7 +33,7 @@
 //
 // VALIDATION IS ONLINE. Nothing here verifies a signature and nothing here
 // knows what a token means. Expiry, revocation, the entitlement behind it and
-// the address an invitation was bound to are all Percy Cloud's answer; this
+// the address an invitation was bound to are all the commercial service's answer; this
 // package's whole job is to ask and to refuse safely when it cannot.
 //
 // The wire contract is cloud/contracts/v1/signup/ in the Percy repository
@@ -162,7 +162,7 @@ func CanBeRedeemed(token string) bool {
 }
 
 // Redeem consumes the token and binds it to the user this instance has just
-// created. It returns nil only when Percy Cloud answered `redeemed`, which is
+// created. It returns nil only when the commercial service answered `redeemed`, which is
 // the only condition under which the caller may commit.
 //
 // email is the address the user was actually registered with - what they typed,
@@ -171,7 +171,7 @@ func CanBeRedeemed(token string) bool {
 // token carries an address binding at all: an optional field would let whoever
 // holds a forwarded invitation strip the comparison by omitting it.
 //
-// NOTHING HERE LOGS THE TOKEN. Percy Cloud stores only its SHA-256 hash, and a
+// NOTHING HERE LOGS THE TOKEN. The commercial service stores only its SHA-256 hash, and a
 // value in a log line is a value in a backup.
 func Redeem(ctx context.Context, token string, userID int64, email string) error {
 	if !CanBeRedeemed(token) {

@@ -28,7 +28,7 @@ import (
 // subject: their account and, through DeleteUser, every category of their data.
 //
 // This is step 5 of the commercial service's erasure sequence (GDPR Art. 17,
-// BRA-805 scope 2), reached over the provisioning channel. Percy Cloud has by
+// BRA-805 scope 2), reached over the provisioning channel. The commercial service has by
 // this point redacted its own record, revoked the credentials it holds and
 // suppressed the mailbox; the tasks, projects and content live here, and nothing
 // in the commercial layer can reach them except through this call.
