@@ -528,8 +528,8 @@ func TestTheShippedStaffListNamesAHumanReader(t *testing.T) {
 // THE TEST WRITES THE EMPTY ADDRESS RATHER THAN TRUSTING A FIXTURE TO HOLD ONE,
 // and that is the load-bearing part of the setup. Bot accounts ship with no
 // email key in pkg/db/fixtures/users.yml, but the column is `varchar(250) null`
-// and an absent key is inserted as NULL - and `email = ''` does not match NULL
-// in SQL. A version of this test that merely pointed at a bot would therefore
+// and an absent key is inserted as NULL - and a query for the empty string does
+// not match NULL in SQL. A test that merely pointed at a bot would therefore
 // have passed against a build with no guard at all, proving nothing while
 // reading as the most valuable assertion in the file. Setting the column to the
 // empty string makes the fixture at least as hostile as the state production
@@ -561,7 +561,8 @@ func TestSeedingIgnoresAnEmptyStaffEntry(t *testing.T) {
 	// AGAINST, not with a value comparison on the column. Reading the row back
 	// and calling it empty would pass for a NULL scanned into a string as "",
 	// so it could not tell whether the state this test needs exists at all.
-	// Asking `email = ''` is asking the exact question an empty entry asks.
+	// Querying the column for the empty string is the exact question an empty
+	// entry asks.
 	emptyAddressed := map[int64]*user.User{}
 	require.NoError(t, dbSession(t).Where("email = ?", "").Find(&emptyAddressed))
 	require.NotEmpty(t, emptyAddressed,

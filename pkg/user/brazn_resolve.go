@@ -40,11 +40,12 @@ import (
 // refused.
 //
 // AN EMPTY STRING IS AN ABSENCE RATHER THAN A QUERY, and the guard is
-// load-bearing rather than defensive. `email = ''` is a row that exists: bot
-// accounts are created with no address, so an empty line in an operator's list
-// would otherwise resolve to whichever bot the database returned first and make
-// it a colleague. GetUserByUsername guards its own argument the same way and
-// for a milder version of the same reason.
+// load-bearing rather than defensive. An account whose email column holds the
+// empty string is a row that can exist - bot accounts are created with no
+// address - so an empty argument would otherwise resolve to whichever such
+// account the database returned first and make it a colleague.
+// GetUserByUsername guards its own argument the same way, and for a milder
+// version of the same reason.
 func GetUserByUsernameOrEmail(s *xorm.Session, usernameOrEmail string) (*User, error) {
 	if usernameOrEmail == "" {
 		return nil, ErrUserDoesNotExist{}
