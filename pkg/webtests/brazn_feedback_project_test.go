@@ -38,9 +38,9 @@ import (
 // a contract. These tests are about what the route itself answers, not about
 // what a client draws from it.
 
-const feedbackProjectPath = "/api/v2/brazn/feedback/project"
+const feedbackProjectV2Path = "/api/v2/brazn/feedback/project"
 
-type feedbackProjectResponse struct {
+type feedbackProjectV2Response struct {
 	ProjectID *int64 `json:"project_id"`
 }
 
@@ -63,16 +63,16 @@ func TestFeedbackProjectRouteMatchesProvisioning(t *testing.T) {
 	expectedA := env.provisionFeedback(&testuser1)
 	expectedB := env.provisionFeedback(&testuser6)
 
-	rec := env.request(http.MethodGet, feedbackProjectPath, "", &testuser1)
+	rec := env.request(http.MethodGet, feedbackProjectV2Path, "", &testuser1)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	bodyA := feedbackProjectResponse{}
+	bodyA := feedbackProjectV2Response{}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &bodyA))
 	require.NotNil(t, bodyA.ProjectID)
 	assert.Equal(t, expectedA, *bodyA.ProjectID)
 
-	rec = env.request(http.MethodGet, feedbackProjectPath, "", &testuser6)
+	rec = env.request(http.MethodGet, feedbackProjectV2Path, "", &testuser6)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	bodyB := feedbackProjectResponse{}
+	bodyB := feedbackProjectV2Response{}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &bodyB))
 	require.NotNil(t, bodyB.ProjectID)
 	assert.Equal(t, expectedB, *bodyB.ProjectID)
@@ -87,15 +87,15 @@ func TestFeedbackProjectRouteMatchesProvisioning(t *testing.T) {
 func TestFeedbackProjectRouteIsIdempotent(t *testing.T) {
 	env := newFeedbackEnv(t)
 
-	first := env.request(http.MethodGet, feedbackProjectPath, "", &testuser1)
+	first := env.request(http.MethodGet, feedbackProjectV2Path, "", &testuser1)
 	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
-	firstBody := feedbackProjectResponse{}
+	firstBody := feedbackProjectV2Response{}
 	require.NoError(t, json.Unmarshal(first.Body.Bytes(), &firstBody))
 	require.NotNil(t, firstBody.ProjectID)
 
-	second := env.request(http.MethodGet, feedbackProjectPath, "", &testuser1)
+	second := env.request(http.MethodGet, feedbackProjectV2Path, "", &testuser1)
 	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
-	secondBody := feedbackProjectResponse{}
+	secondBody := feedbackProjectV2Response{}
 	require.NoError(t, json.Unmarshal(second.Body.Bytes(), &secondBody))
 	require.NotNil(t, secondBody.ProjectID)
 
@@ -119,10 +119,10 @@ func TestFeedbackProjectRouteAnswersNullWithoutAResolvableOwner(t *testing.T) {
 			env := newPersonalEnv(t)
 			setConfigForTest(t, config.BraznFeedbackOwner, c.owner)
 
-			rec := env.request(http.MethodGet, feedbackProjectPath, "", &testuser1)
+			rec := env.request(http.MethodGet, feedbackProjectV2Path, "", &testuser1)
 			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
-			body := feedbackProjectResponse{}
+			body := feedbackProjectV2Response{}
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Nil(t, body.ProjectID)
 		})
@@ -159,7 +159,7 @@ func TestFeedbackProjectRouteRefusesALinkShare(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	rec := humaRequest(t, env.e, http.MethodGet, feedbackProjectPath, "", token, "")
+	rec := humaRequest(t, env.e, http.MethodGet, feedbackProjectV2Path, "", token, "")
 
 	assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
 	assert.Contains(t, rec.Body.String(), "link shares",
@@ -178,10 +178,10 @@ func TestFeedbackProjectRouteAnswersNullOutsideManagedMode(t *testing.T) {
 
 	before := len(projectMemberships(t, testuser1.ID))
 
-	rec := env.request(http.MethodGet, feedbackProjectPath, "", &testuser1)
+	rec := env.request(http.MethodGet, feedbackProjectV2Path, "", &testuser1)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
-	body := feedbackProjectResponse{}
+	body := feedbackProjectV2Response{}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.Nil(t, body.ProjectID)
 	assert.Len(t, projectMemberships(t, testuser1.ID), before, "an unmanaged instance must provision nothing")
