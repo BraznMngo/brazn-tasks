@@ -138,7 +138,6 @@
 				"discoverableByName": "他のユーザーが名前で検索したときチームやプロジェクトのメンバーとして追加できるようにする",
 				"discoverableByEmail": "他のユーザーがメールアドレスで検索したときチームやプロジェクトのメンバーとして追加できるようにする",
 				"playSoundWhenDone": "タスクを完了したとき音を鳴らす",
-				"allowIconChanges": "特定の期間中に特別なロゴを表示",
 				"alwaysShowBucketTaskCount": "バケットのタスク数を常に表示",
 				"defaultTaskRelationType": "デフォルトのタスクの関係タイプ",
 				"weekStart": "週の始まり",
