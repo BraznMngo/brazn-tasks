@@ -136,6 +136,26 @@ function interpolate(value, params) {
  });
 }
 
+// The stored title of the project every account gets on registration is the English word
+// "Inbox", and no customer may ever see it. The server writes that literal
+// (models.InboxProjectTitle) and the managed rules identify the project by its immutable id and
+// never by its title, so the stored word is not customer-facing text at all - it is a value in a
+// column. What the customer reads is "Your Tasks", which is what the settings page has always
+// called it (one.org.tile.privateName).
+//
+// EVERY RAW PRINT OF A PROJECT TITLE GOES THROUGH HERE. A page that printed the column directly
+// in one place and this in another would show a customer two different names for one project.
+//
+// The comparison is against the English literal deliberately, and is not localised: the column
+// holds that one value for every account on every instance, whatever language the person reads
+// the page in.
+const STORED_INBOX_TITLE = 'Inbox';
+
+export function projectTitle(project) {
+ const stored = String(project?.title ?? '');
+ return stored === STORED_INBOX_TITLE ? t('one.org.tile.privateName') : stored;
+}
+
 // Fallback chain, in order: negotiated language -> en -> the key path itself.
 // The key path is the documented last resort and is always accompanied by a console warning so it
 // is findable; a blank label would be worse than an English one, and worse than the key.

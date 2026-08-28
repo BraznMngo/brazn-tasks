@@ -49,3 +49,10 @@ export declare function init(
  * Returning the key is the last resort and always warns; it never returns an empty string.
  */
 export declare function t(key: string, params?: TranslationParams): string
+
+/**
+ * The name to show for a project. A project whose stored title is the literal `'Inbox'` — the
+ * one the server gives every account on registration — reads as the translated "Your Tasks";
+ * anything else is its own title. Use this at every place a project title is printed.
+ */
+export declare function projectTitle(project: {title?: string | null} | null | undefined): string

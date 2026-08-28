@@ -14,7 +14,7 @@ import * as api from '../../../public/one/api.js'
  * THE OUTCOME VOCABULARY IS PER-OPERATION. There is no `'success'` anywhere in the commercial
  * service; each operation declares its own union, several carry no `outcome` field whatsoever,
  * and one answers 204 with no body. Every value asserted below is one api.js cites against
- * `percy-service-27c95232.ts` / `percy-http-27c95232.ts`, and the point of these cases is that a
+ * `client-service-27c95232` / `client-http-27c95232`, and the point of these cases is that a
  * value drifting away from the operation it belongs to is caught here rather than in production.
  *
  * Nothing here is evidence that any /v1 route works. These are stubbed-fetch unit tests of OUR
@@ -151,7 +151,7 @@ describe('one/api.js commercial guard - transport and shape (bar 8, ruling C14)'
 
 	it('reports a non-2xx as an HTTP refusal and keeps the server sentence', async () => {
 		// `not_administrator` never arrives as an outcome on any of these routes: the service answers
-		// it as a BARE 403 (percy-http-27c95232.ts:2850-2853 for invite, :2936-2939 for removal), so
+		// it as a BARE 403 (client-http-27c95232:2850-2853 for invite, :2936-2939 for removal), so
 		// res.ok is what carries it.
 		const result = await api.readCommercialResult(
 			jsonResponse({message: 'You are not the organization administrator.'}, 403),
@@ -207,7 +207,7 @@ describe('one/api.js commercial guard - transport and shape (bar 8, ruling C14)'
  * refusal case is one that unexpectedly carries one.
  *
  * `body` values are the real projections, taken from the `json(response, 200, {...})` call in
- * percy-http-27c95232.ts for each route.
+ * client-http-27c95232 for each route.
  */
 interface OpCase {
 	name: string
@@ -498,7 +498,7 @@ const OPERATIONS: OpCase[] = [
 		],
 		refusal: {
 			// `transferred` and `not_applicable` are the log words on either side of the return at
-			// percy-service-27c95232.ts:4332 / :4323. AdminTransferResult itself has no outcome.
+			// client-service-27c95232:4332 / :4323. AdminTransferResult itself has no outcome.
 			label: 'the log word "transferred", which is not a result field',
 			body: {organization_id: 'org-1', outcome: 'transferred'},
 		},
@@ -521,7 +521,7 @@ describe('one/api.js commercial guard - the per-operation outcome vocabulary', (
 
 	it('agrees with each descriptor about which SHAPE the operation answers in', () => {
 		// The shapes in this table are transcribed by hand from each route's own projection in
-		// percy-http-27c95232.ts; `op.shape` is what api.js believes. They are two independent
+		// client-http-27c95232; `op.shape` is what api.js believes. They are two independent
 		// copies on purpose, because the two shapes fail closed in two DIFFERENT branches of
 		// readCommercialResult and a descriptor that quietly changed shape would move an operation
 		// from one branch to the other with every case below still green.
@@ -603,7 +603,7 @@ describe('one/api.js commercial guard - the per-operation outcome vocabulary', (
 		// CORRECTED CASE, and the correction is the point. This used to assert
 		// `{outcome: 'not_invitable', message: 'That address belongs to another organization.'}` -
 		// a body `POST /v1/organizations/invitations` cannot send. The handler projects exactly
-		// four fields and none of them is a message (percy-http-27c95232.ts:2854-2884), so the
+		// four fields and none of them is a message (client-http-27c95232:2854-2884), so the
 		// old case documented a shape the source contradicts, on the ONLY coverage of the invite
 		// refusal path. That is CLAUDE.md section 4's "a test that cannot fail for the reason it
 		// claims to", and it is why the missing refusal sentences were invisible for a round.
@@ -643,7 +643,7 @@ describe('one/api.js commercial guard - the per-operation outcome vocabulary', (
 
 		// STATED PLAINLY SO NOBODY READS THE CASE ABOVE AS A CLAIM ABOUT THE SERVICE: at 27c95232
 		// NO /v1 route sends `message`, `detail` or `title`. There are three body writers -
-		// `json` (percy-http-27c95232.ts:717), `bare` (:728, a status line with no content type at
+		// `json` (client-http-27c95232:717), `bare` (:728, a status line with no content type at
 		// all) and `fail` (:1778), whose only JSON bodies are `{error: <code>}` for a provisioning
 		// failure (:1785, whose comment says the optional message is "deliberately never emitted"),
 		// the frozen `upgrade_required` shape at 402 (:1795), and `{error, debug}` behind the
@@ -705,7 +705,7 @@ describe('one/api.js commercial guard - 204, the bodiless success', () => {
 
 		const result = await api.readCommercialResult(res, api.COMMERCIAL_OPS.ERASE_ACCOUNT)
 
-		// POST /v1/account/erasure answers 204 with nothing (percy-http-27c95232.ts:3071-3076).
+		// POST /v1/account/erasure answers 204 with nothing (client-http-27c95232:3071-3076).
 		// MUTATION: deleting the 204 branch makes this red - reason becomes 'not-json', and a
 		// COMPLETED account erasure is reported to the user as "the service is unavailable" on the
 		// one call they cannot retry to find out what really happened.
@@ -839,7 +839,7 @@ describe('one/api.js commercial calls (bar 6, ruling C17)', () => {
 
 	it('sends every invitation with an idempotency_key, because the route requires one', async () => {
 		// parseInvite requires the key UNCONDITIONALLY and before the optional team_id branch
-		// (percy-http-27c95232.ts:1602, UUID_PATTERN at :625), and a null parse is a bare 400
+		// (client-http-27c95232:1602, UUID_PATTERN at :625), and a null parse is a bare 400
 		// (:2833-2834). A body of {organization_id, email} therefore cannot parse: every
 		// invitation sent without one is a guaranteed 400, and CI cannot see it because CI never
 		// reaches /v1 (bar 9). The key is defaulted at the api.js seam, the same place
@@ -859,7 +859,7 @@ describe('one/api.js commercial calls (bar 6, ruling C17)', () => {
 	it('does not send team_id on an invitation, and issues no request when one is offered', async () => {
 		// THE FIELD IS REAL, and saying otherwise here would be the false citation this project
 		// treats as a defect in its own right (bar 7): parseInvite allowlists `team_id`
-		// (percy-http-27c95232.ts:1598), isIds it (:1607), and :1603-1606 documents that absent
+		// (client-http-27c95232:1598), isIds it (:1607), and :1603-1606 documents that absent
 		// means the organization's primary team. It is not sent because the PROTOTYPE HAS NO TEAM
 		// PICKER and the prototype is the scope bar (bar 10) - no control on this page can produce
 		// a value for it, so a value arriving here came from somewhere that should not exist yet.

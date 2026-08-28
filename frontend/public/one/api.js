@@ -524,13 +524,13 @@ export function isWriteRestricted() {
  * at all (bar 9).
  *
  * Every value below is read from the service's own declared result type and
- * cited as `percy-service-27c95232.ts:<line>`. An uncited value is a guess and
+ * cited as `client-service-27c95232:<line>`. An uncited value is a guess and
  * bar 7 forbids guesses, so anything this file cannot cite is treated as a
  * refusal — the direction that costs a wasted click rather than a fake success.
  *
  * TWO FALSE FRIENDS, both rejected here on purpose:
  *
- *   * `outcome: "succeeded" | "failed"` at percy-service-27c95232.ts:778 is
+ *   * `outcome: "succeeded" | "failed"` at client-service-27c95232:778 is
  *     `interface PaymentReport` — what a payment provider said about one payment
  *     attempt. It is an internal type and never an HTTP response field.
  *   * The `outcome:` key inside every `log({...})` call in the service is an
@@ -567,7 +567,7 @@ const OUTCOME_ABSENT = 'absent';
  *   verified commit. It is declared HERE rather than left implicit because the
  *   two things that answer such a call today are indistinguishable from real
  *   refusals to a caller reading `status` alone: a bare 404 where the commercial
- *   service IS routed (percy-http-27c95232.ts:2905 for revoke, :3335 for the
+ *   service IS routed (client-http-27c95232:2905 for revoke, :3335 for the
  *   other three), and the SPA's index.html at 200 where it is not. A UI that
  *   renders `status` verbatim therefore tells an administrator "404" for a
  *   feature that has simply not shipped. This flag is what lets `app.js` word
@@ -592,10 +592,10 @@ export const COMMERCIAL_OPS = Object.freeze({
   /**
    * POST /v1/organizations/invitations.
    * Body: `{outcome, invited_user_id, invitation, seat_notice}`
-   * (percy-http-27c95232.ts:2854-2884, projecting `MemberInvitation`).
+   * (client-http-27c95232:2854-2884, projecting `MemberInvitation`).
    *
    * The union is DECLARED, all three values in one place:
-   * percy-service-27c95232.ts:581 — `"invited" | "already_member" | "not_invitable"`.
+   * client-service-27c95232:581 — `"invited" | "already_member" | "not_invitable"`.
    *
    *   * `invited` — affirmative. Constructed at :4665.
    *   * `already_member` — AFFIRMATIVE, and this is the judgement call the
@@ -613,24 +613,24 @@ export const COMMERCIAL_OPS = Object.freeze({
    *     guard, which is the direction bar 8 exists to prevent. `invited` gets
    *     the sent wording and a pending row; `already_member` gets its own
    *     sentence and NO pending row, and arrives with `invitation: null`
-   *     (percy-service-27c95232.ts:583) because nothing was recorded.
+   *     (client-service-27c95232:583) because nothing was recorded.
    *   * `not_invitable` — refusal. Constructed at :4556; :577-579 says the
    *     address belongs to a Personal customer, to another organization, or to
    *     an erased account. Nothing was sent and nothing will be.
    *
    * `not_administrator` never arrives here: it is a bare 403 with no body
-   * (percy-http-27c95232.ts:2850-2853), caught by the `res.ok` check.
+   * (client-http-27c95232:2850-2853), caught by the `res.ok` check.
    */
   INVITE_MEMBER: commercialOp(OUTCOME_REQUIRED, ['invited', 'already_member']),
 
   /**
    * POST /v1/organizations/invitations/accept.
-   * Body: `{outcome, organization_id}` (percy-http-27c95232.ts:2896-2899,
+   * Body: `{outcome, organization_id}` (client-http-27c95232:2896-2899,
    * projecting `InvitationAcceptance`).
    *
    * `InvitationAcceptance.outcome` is typed `SeatAdmissionOutcome`
-   * (percy-service-27c95232.ts:640), and that alias is declared in full at
-   * percy-model-27c95232.ts:1500-1507:
+   * (client-service-27c95232:640), and that alias is declared in full at
+   * client-model-27c95232:1500-1507:
    *
    *     "admitted" | "already_member" | "invitation_expired"
    *     | "invitation_revoked" | "no_invitation" | "not_invitable"
@@ -661,11 +661,11 @@ export const COMMERCIAL_OPS = Object.freeze({
   /**
    * POST /v1/organizations/members/removal.
    * Body: `{outcome, organization_id, member_user_id}`
-   * (percy-http-27c95232.ts:2947-2951, projecting `MemberRemovalResult`).
+   * (client-http-27c95232:2947-2951, projecting `MemberRemovalResult`).
    *
    * `MemberRemovalResult.outcome` is typed `MemberRemovalOutcome`
-   * (percy-service-27c95232.ts:713), declared in full at
-   * percy-model-27c95232.ts:1541 as
+   * (client-service-27c95232:713), declared in full at
+   * client-model-27c95232:1541 as
    * `"removed" | "not_a_member" | "still_administrator"`. Only `removed` is
    * affirmative; `still_administrator` is called "a REFUSAL and the one
    * judgement call in this ticket" at :1533, because removing the sole
@@ -709,7 +709,7 @@ export const COMMERCIAL_OPS = Object.freeze({
   /**
    * GET /v1/team-access-requests.
    * Body: `{requests: [{request_id, requester_email, message, team_id,
-   * requested_at, verified_at}]}` (percy-http-27c95232.ts:3170-3197).
+   * requested_at, verified_at}]}` (client-http-27c95232:3170-3197).
    * A list projection with no `outcome` field. `not_administrator` is a bare 403
    * (:3166-3169), so `res.ok` carries that refusal.
    */
@@ -717,9 +717,9 @@ export const COMMERCIAL_OPS = Object.freeze({
 
   /**
    * POST /v1/team-access-requests/decide.
-   * Body: `{outcome, invitation_outcome}` (percy-http-27c95232.ts:3261-3264).
+   * Body: `{outcome, invitation_outcome}` (client-http-27c95232:3261-3264).
    *
-   * The union is DECLARED at percy-service-27c95232.ts:690-695 —
+   * The union is DECLARED at client-service-27c95232:690-695 —
    * `"approved" | "declined" | "not_administrator" | "unknown_request" | "not_admitted"`.
    *
    *   * `approved` — affirmative (:5217, :5222).
@@ -733,17 +733,17 @@ export const COMMERCIAL_OPS = Object.freeze({
    *     approval can be made again. `invitation_outcome` carries why, and the
    *     caller should render it.
    *   * `not_administrator` → bare 403 and `unknown_request` → bare 404
-   *     (percy-http-27c95232.ts:3243-3250), so neither reaches this check.
+   *     (client-http-27c95232:3243-3250), so neither reaches this check.
    */
   DECIDE_TEAM_ACCESS_REQUEST: commercialOp(OUTCOME_REQUIRED, ['approved', 'declined']),
 
   /**
    * POST /v1/team-access-requests/confirm — 204 with no body at all
-   * (percy-http-27c95232.ts:3306-3308); an unusable handle is a bare 404.
+   * (client-http-27c95232:3306-3308); an unusable handle is a bare 404.
    *
    * THIS ROUTE IS NOT REACHABLE FROM THIS PAGE. Its block checks
-   * `sameSecret(offered, serviceToken)` (percy-http-27c95232.ts:3278) — the
-   * percy.works relay's shared service credential — so a user bearer is 401
+   * `sameSecret(offered, serviceToken)` (client-http-27c95232:3278) — the
+   * relay's own shared service credential — so a user bearer is 401
    * unconditionally. The descriptor is honest about the wire shape rather than
    * pretending the call can work.
    *
@@ -761,8 +761,8 @@ export const COMMERCIAL_OPS = Object.freeze({
   /**
    * POST /v1/subscription/cancellation.
    * Body: `{user_id, cancelled_at, access_ends_at}` — all three fields of
-   * `CancellationResult`, named one by one (percy-http-27c95232.ts:2474-2478).
-   * `CancellationResult` is declared at percy-service-27c95232.ts:740-746 and
+   * `CancellationResult`, named one by one (client-http-27c95232:2474-2478).
+   * `CancellationResult` is declared at client-service-27c95232:740-746 and
    * has NO `outcome` field. Every refusal on this route is a bare status
    * (404/409/403 at :2405-2455), so `res.ok` is the whole guard.
    */
@@ -770,9 +770,9 @@ export const COMMERCIAL_OPS = Object.freeze({
 
   /**
    * POST /v1/subscription/auto-renewal.
-   * Body: `{auto_renewal: true}` (percy-http-27c95232.ts:2375). The service
+   * Body: `{auto_renewal: true}` (client-http-27c95232:2375). The service
    * method answers a bare subscription handle — `startAutoRenewal(userId):
-   * Promise<string>` at percy-service-27c95232.ts:1681 — which the route
+   * Promise<string>` at client-service-27c95232:1681 — which the route
    * deliberately drops (:2368-2372). No `outcome` exists anywhere on this path.
    * The five refusals are bare 403/402/409/503 (:2299-2367).
    */
@@ -780,20 +780,20 @@ export const COMMERCIAL_OPS = Object.freeze({
 
   /**
    * POST /v1/subscription/renewal-consent.
-   * Body: `{renewal_consent_at}` — ONE field (percy-http-27c95232.ts:2270).
+   * Body: `{renewal_consent_at}` — ONE field (client-http-27c95232:2270).
    * `recordRenewalConsent(userId): Promise<AccountRecord>`
-   * (percy-service-27c95232.ts:1667) — an account row, which carries no
+   * (client-service-27c95232:1667) — an account row, which carries no
    * `outcome`. The one refusal is a bare 404 (:2259-2262).
    */
   GIVE_RENEWAL_CONSENT: commercialOp(OUTCOME_ABSENT),
 
   /**
    * POST /v1/checkout/resume.
-   * Body: `{user_id, payment}` (percy-http-27c95232.ts:2211 and :2229). No
+   * Body: `{user_id, payment}` (client-http-27c95232:2211 and :2229). No
    * `outcome`; `no_open_charge` is a log word beside a bare 409 (:2196, :2224).
    *
    * THIS ROUTE IS NOT REACHABLE FROM THIS PAGE either: it checks
-   * `sameSecret(offered, serviceToken)` at percy-http-27c95232.ts:2172, so a
+   * `sameSecret(offered, serviceToken)` at client-http-27c95232:2172, so a
    * user bearer is 401 unconditionally. Kept for the same settled reason as
    * `CONFIRM_TEAM_ACCESS_REQUEST` above, and called by nothing.
    */
@@ -802,8 +802,8 @@ export const COMMERCIAL_OPS = Object.freeze({
   /**
    * GET /v1/entitlements.
    * Body: the `Entitlements` projection, written straight out
-   * (percy-http-27c95232.ts:2803). `projectEntitlements` composes it at
-   * percy-service-27c95232.ts:1992-2015 — `edition`, `locale`, `seats`,
+   * (client-http-27c95232:2803). `projectEntitlements` composes it at
+   * client-service-27c95232:1992-2015 — `edition`, `locale`, `seats`,
    * `limits`, `footer`, `referral` — and there is no `outcome` among them. The
    * `outcome: "ok"` at :7019 is the log line beside it.
    */
@@ -811,19 +811,19 @@ export const COMMERCIAL_OPS = Object.freeze({
 
   /**
    * GET /v1/account/successor-candidates.
-   * Body: `{candidates: [{user_id}]}` (percy-http-27c95232.ts:2986-2988), from
+   * Body: `{candidates: [{user_id}]}` (client-http-27c95232:2986-2988), from
    * `listSuccessorCandidates`, which answers an account array. No `outcome`, and
    * an empty list is an ordinary 200 rather than a refusal
-   * (percy-http-27c95232.ts:2976-2984) — so `ok:true` with zero candidates is a
+   * (client-http-27c95232:2976-2984) — so `ok:true` with zero candidates is a
    * real answer the caller must handle as "no choice has to be offered".
    */
   LIST_SUCCESSOR_CANDIDATES: commercialOp(OUTCOME_ABSENT),
 
   /**
    * POST /v1/account/erasure — **204 NO CONTENT, and no body at all**
-   * (percy-http-27c95232.ts:3071-3076: "the absence of a body is deliberate").
+   * (client-http-27c95232:3071-3076: "the absence of a body is deliberate").
    * `eraseAccount` answers the redacted account record
-   * (percy-service-27c95232.ts:1726) and the route deliberately projects none of
+   * (client-service-27c95232:1726) and the route deliberately projects none of
    * it. The three caller-fixable refusals are bare 404/409 (:3025-3067).
    *
    * `noContent` is what stops a SUCCESSFUL erasure being reported as a failure:
@@ -843,7 +843,7 @@ export const COMMERCIAL_OPS = Object.freeze({
    * Until a handler lands, what actually answers depends on whether the
    * commercial service is routed at this origin, and the guard refuses either
    * way: routed, all four are a bare 404 (revoke via the invitations prefix
-   * block at percy-http-27c95232.ts:2819 falling to :2905, the other three via
+   * block at client-http-27c95232:2819 falling to :2905, the other three via
    * the listener's final :3335) and `res.ok` carries it; unrouted — CI, bar 9 —
    * the fork's static handler answers the SPA's index.html at 200 and the
    * content-type check carries it. §16 sets this out in full.
@@ -851,7 +851,7 @@ export const COMMERCIAL_OPS = Object.freeze({
 
   /**
    * POST /v1/organizations/invitations/revoke.
-   * `revokeMemberInvitation` (percy-service-27c95232.ts:4762-4785) answers
+   * `revokeMemberInvitation` (client-service-27c95232:4762-4785) answers
    * `Promise<OrganizationInvitationRecord | null>` — an invitation row, with NO
    * `outcome` field. Null means "you do not administer this organization", which
    * the sibling routes answer as a bare 403.
@@ -868,7 +868,7 @@ export const COMMERCIAL_OPS = Object.freeze({
   /**
    * GET /v1/organizations/seats/quote.
    * `quoteSeatIncrease` answers `SeatIncreaseQuote | null`
-   * (percy-service-27c95232.ts:5350-5378), declared at :895-912 as
+   * (client-service-27c95232:5350-5378), declared at :895-912 as
    * `{organization_id, seats, seats_after, proration}`. No `outcome`, and
    * `proration: null` is explicitly "a perfectly ordinary answer and never an
    * error" (:906). Null from the method is the non-administrator case.
@@ -878,9 +878,9 @@ export const COMMERCIAL_OPS = Object.freeze({
   /**
    * POST /v1/organizations/seats.
    * `changeOrganizationSeats` answers `SeatPurchaseResult | null`
-   * (percy-service-27c95232.ts:5455-5501), declared at :865-885 with
+   * (client-service-27c95232:5455-5501), declared at :865-885 with
    * `outcome: SeatPurchaseOutcome` (:867). The alias is declared in full at
-   * percy-model-27c95232.ts:1153:
+   * client-model-27c95232:1153:
    *
    *     "changed" | "unchanged" | "below_users" | "below_active_teams"
    *
@@ -888,7 +888,7 @@ export const COMMERCIAL_OPS = Object.freeze({
    *     `change.outcome === "changed"` at :5490 to open the pro-rated charge,
    *     which is the seat actually moving.
    *   * `unchanged` — AFFIRMATIVE, and the model says so in as many words at
-   *     percy-model-27c95232.ts:1149-1151: "a request that named the quantity
+   *     client-model-27c95232:1149-1151: "a request that named the quantity
    *     already held. Not a refusal and not a no-op to hide". Nothing is
    *     written, so `updated_at` does not move. Treating it as a refusal — which
    *     this descriptor did while `model.ts` was unextracted — shows an
@@ -905,7 +905,7 @@ export const COMMERCIAL_OPS = Object.freeze({
   /**
    * POST /v1/organizations/admin-transfer.
    * `transferOrganizationAdministration` answers `AdminTransferResult | null`
-   * (percy-service-27c95232.ts:4299-4390). `AdminTransferResult` is declared at
+   * (client-service-27c95232:4299-4390). `AdminTransferResult` is declared at
    * :541-547 as `{organization_id, from_user_id, to_user_id}` — NO `outcome`.
    * `"transferred"` (:4332) and `"not_applicable"` (:4323) are the log words on
    * either side of it, and `not_applicable` corresponds to the null result a
@@ -975,7 +975,7 @@ export const COMMERCIAL_REFUSAL = Object.freeze({
  * can only ever render one sentence for every declined invitation, and the
  * service went to the trouble of distinguishing three actionable causes —
  * `not_invitable` is a Personal customer, somebody in another organization, or
- * an erased account (percy-service-27c95232.ts:577-579). Lifting the value out
+ * an erased account (client-service-27c95232:577-579). Lifting the value out
  * makes "WHICH refusal happened" a first-class fact instead of one buried at
  * `result.body.outcome`, which is also the path a bare-status refusal has no
  * body for.
@@ -1016,7 +1016,7 @@ export async function readCommercialResult(res, op = COMMERCIAL_OPS.UNKNOWN) {
 
   // A documented bodiless success, and only for an operation that declares one.
   // `POST /v1/account/erasure` answers 204 with nothing at all
-  // (percy-http-27c95232.ts:3076); read through the JSON check below it would
+  // (client-http-27c95232:3076); read through the JSON check below it would
   // refuse a completed account erasure as `not-json` — the CI-absence reason —
   // on the one call a user cannot retry to find out what really happened.
   if (res.status === 204 && op.noContent) {
@@ -1090,7 +1090,7 @@ function readOutcome(body) {
  * being re-derived at each call site. Two things they deliberately do NOT do:
  *
  *   * THEY NAME NO FIELD THIS REPOSITORY CANNOT READ (bar 7). `proration` is
- *     typed `SeatProration`, which percy-service-27c95232.ts:115-125 imports
+ *     typed `SeatProration`, which client-service-27c95232:115-125 imports
  *     from `./billing.ts` — a file that is NOT among the three extracted at
  *     27c95232. Its members are therefore unknown, and a reader that reached
  *     inside it would be guessing at the one shape on this surface that carries
@@ -1109,7 +1109,7 @@ function numberOrNull(value) {
 /**
  * A declared string field, or null. Ids, statuses and ISO timestamps all arrive
  * as strings here — every id on this service is one (`isId`,
- * percy-http-27c95232.ts:1448) — so a non-string in any of these slots is a
+ * client-http-27c95232:1448) — so a non-string in any of these slots is a
  * shape this file has not read and is dropped rather than rendered.
  */
 function stringOrNull(value) {
@@ -1123,8 +1123,8 @@ function objectOrNull(value) {
 /**
  * The seat position an administrator is committing to, off an INVITE result.
  *
- * `SeatNotice` is declared at percy-service-27c95232.ts:619-636 and projected
- * verbatim by the handler (percy-http-27c95232.ts:2871-2883, which calls it
+ * `SeatNotice` is declared at client-service-27c95232:619-636 and projected
+ * verbatim by the handler (client-http-27c95232:2871-2883, which calls it
  * "an administrator being told what they are about to commit their organization
  * to, which is the whole of BRA-1075"). This is a LIVE route, so this payload
  * arrives today.
@@ -1141,7 +1141,7 @@ function objectOrNull(value) {
  *     been invoiced yet (:630-635). Opaque here, see the section header.
  *
  * The whole notice is null when the service could not read a seat utilisation
- * (percy-service-27c95232.ts:4441-4443), and on both non-`invited` outcomes
+ * (client-service-27c95232:4441-4443), and on both non-`invited` outcomes
  * (:4563, :4601) — nothing was offered, so there is nothing to commit to.
  *
  * ADVISORY, AND THE SERVICE SAYS SO IN AS MANY WORDS (:606-617): it is read at
@@ -1167,17 +1167,17 @@ export function readSeatNotice(result) {
  * The invitation row an invite result recorded, or null when it recorded none.
  *
  * THE HANDLE IS NESTED AND THERE IS NO TOP-LEVEL COPY. The handler projects
- * three fields of the record and not the record (percy-http-27c95232.ts:2863-2870):
+ * three fields of the record and not the record (client-http-27c95232:2863-2870):
  * `{invitation_id, status, expires_at}`. A caller reading `body.invitation_id`
  * or `body.id` gets undefined and can never offer a withdrawal.
  *
  * NULL IS THE HONEST "NOTHING TO WITHDRAW" CASE, not a failure: it is the shape
  * `already_member` arrives in, because nothing was recorded
- * (percy-service-27c95232.ts:583, :4601). `already_member` is affirmative — see
+ * (client-service-27c95232:583, :4601). `already_member` is affirmative — see
  * `COMMERCIAL_OPS.INVITE_MEMBER` — so `result.ok` is true and this is still
  * null, and those two facts together are exactly "the roster is already right".
  *
- * `status` is `InvitationStatus`, declared in full at percy-model-27c95232.ts:1302
+ * `status` is `InvitationStatus`, declared in full at client-model-27c95232:1302
  * as `"pending" | "accepted" | "revoked"` — THREE values and no `expired`,
  * because an expired invitation is a `pending` row whose `expires_at` has passed
  * (:1295-1301). A caller wanting to show "expired" must compare `expires_at`
@@ -1197,7 +1197,7 @@ export function readInvitationRecord(result) {
   };
 }
 
-/** The invitee's opaque commercial id off an invite result (percy-http:2856-2858). */
+/** The invitee's opaque commercial id off an invite result (client-http-27c95232:2856-2858). */
 export function readInvitedUserId(result) {
   return stringOrNull(result?.body?.invited_user_id);
 }
@@ -1205,7 +1205,7 @@ export function readInvitedUserId(result) {
 /**
  * The seat quote, off `GET /v1/organizations/seats/quote`. CONTRACT ONLY.
  *
- * `SeatIncreaseQuote` is declared at percy-service-27c95232.ts:895-912 as
+ * `SeatIncreaseQuote` is declared at client-service-27c95232:895-912 as
  * `{organization_id, seats, seats_after, proration}` and its doc at :887-893
  * says it "exists so an administrator can be shown the figure at the moment they
  * are deciding". **THERE IS NO `message` FIELD ON IT.** Reading one yields
@@ -1244,7 +1244,7 @@ export function readSeatQuote(result) {
  * **`null` AND `[]` ARE TWO DIFFERENT ANSWERS AND THIS IS THE WHOLE REASON THIS
  * READER EXISTS.** `null` is "the service did not answer" — a refusal, a
  * transport failure, the SPA shell in CI. `[]` is an ORDINARY 200
- * (percy-http-27c95232.ts:2976-2984): the service returns an empty list for a
+ * (client-http-27c95232:2976-2984): the service returns an empty list for a
  * sole-member administrator, for a non-administrator and for an account it does
  * not hold alike, "because the question is 'must I offer a choice' and the true
  * answer to all three is no".
@@ -1300,12 +1300,12 @@ export function readSuccessorCandidates(result) {
 /**
  * `invitation_outcome` off `POST /v1/team-access-requests/decide`.
  *
- * The body is `{outcome, invitation_outcome}` (percy-http-27c95232.ts:3261-3264).
+ * The body is `{outcome, invitation_outcome}` (client-http-27c95232:3261-3264).
  * When `outcome` is `not_admitted` — a refusal — the approval seated nobody and
  * the request is deliberately LEFT OPEN so the same approval can be made again
- * (percy-service-27c95232.ts:682-687); `invitation_outcome` is the field
+ * (client-service-27c95232:682-687); `invitation_outcome` is the field
  * carrying WHY, and it is a `SeatAdmissionOutcome`, declared in full at
- * percy-model-27c95232.ts:1500-1507.
+ * client-model-27c95232:1500-1507.
  *
  * Read alongside `result.outcome`, never instead of it: on `approved` and
  * `declined` this says how the seat moved, and on `not_admitted` it is the only
@@ -1322,11 +1322,11 @@ export function readInvitationOutcome(result) {
  *
  * A `/v1` 401 IS NOT EVIDENCE THE FORK SESSION EXPIRED. The commercial service
  * authenticates on its own authority and answers a bare 401 on every route when
- * `authenticator.authenticate(offered)` returns null (percy-http-27c95232.ts:2826-2828,
+ * `authenticator.authenticate(offered)` returns null (client-http-27c95232:2826-2828,
  * :2918-2920, :2999-3002, :3219-3222) — which happens for an account the
  * commercial service simply does not hold. Two of its routes go further and 401
- * a user bearer UNCONDITIONALLY, because they demand the percy.works relay's
- * shared service credential rather than a user token (:2172 checkout/resume,
+ * a user bearer UNCONDITIONALLY, because they demand the relay's own shared
+ * service credential rather than a user token (:2172 checkout/resume,
  * :3278 team-access-requests/confirm).
  *
  * Routed through `authedFetch`, every one of those became `markSessionLost()`
@@ -2441,7 +2441,7 @@ export function toggleTeamMemberAdmin(teamId, username) {
  * that any of these works.
  *
  * EVERY IDENTIFIER ON THIS SERVICE IS A STRING, never a number: `isId`
- * (percy-http-27c95232.ts:1448) requires `typeof value === "string"`, and every
+ * (client-http-27c95232:1448) requires `typeof value === "string"`, and every
  * grammar here — `organization_id`, `member_user_id`, `invitation_id`,
  * `request_id`, `successor_user_id`, `to_user_id`, `team_id` — is validated
  * through it. These ids come from the commercial service's own identity
@@ -2459,7 +2459,7 @@ export function toggleTeamMemberAdmin(teamId, username) {
  * POST /v1/organizations/invitations — invite by email.
  *
  * THE GRAMMAR IS CLOSED AND `idempotency_key` IS REQUIRED. `parseInvite`
- * (percy-http-27c95232.ts:1596-1609) allowlists exactly
+ * (client-http-27c95232:1596-1609) allowlists exactly
  * `["email", "idempotency_key", "organization_id", "team_id"]` and then demands
  * `UUID_PATTERN.test(idempotency_key)` at :1602 — BEFORE the optional `team_id`
  * branch, so the key is unconditional. A null parse is a bare 400 at :2833-2834.
@@ -2483,11 +2483,11 @@ export function toggleTeamMemberAdmin(teamId, username) {
  * page can produce a value for it. The assertion stays as the mechanism that
  * keeps that true and keeps SPEC-BACKEND's negative test writable; if a team
  * picker is ever added, remove the assertion and send `team_id` as a string
- * (`MemberInvitationRequest.team_id?: string`, percy-service-27c95232.ts:566).
+ * (`MemberInvitationRequest.team_id?: string`, client-service-27c95232:566).
  *
  * THE REPLY CARRIES FOUR FIELDS AND THE PAGE OWES THE ADMINISTRATOR THREE OF
  * THEM: `{outcome, invited_user_id, invitation: {invitation_id, status,
- * expires_at} | null, seat_notice}` (percy-http-27c95232.ts:2854-2884). Read
+ * expires_at} | null, seat_notice}` (client-http-27c95232:2854-2884). Read
  * them through §6b — `result.outcome`, `readInvitationRecord()`,
  * `readSeatNotice()`, `readInvitedUserId()` — each of which carries the meaning
  * of its own null. `seat_notice` in particular is not decoration: :2871-2883
@@ -2513,7 +2513,7 @@ export function inviteOrganizationMember(body, idempotencyKey) {
  * POST /v1/organizations/invitations/accept
  *
  * Body: `{invitation_id}` AND NOTHING ELSE, and NO idempotency key —
- * `parseAcceptInvitation` allowlists the single field (percy-http-27c95232.ts:1618-1624).
+ * `parseAcceptInvitation` allowlists the single field (client-http-27c95232:1618-1624).
  * Do not copy the invite's key onto this call: `keysWithin` would refuse the
  * whole body and the route would answer 400. `invitation_id` is a string
  * (`isId`, :1448) like every id on this service.
@@ -2536,7 +2536,7 @@ export function acceptOrganizationInvitation(body) {
  * them into one control later.
  *
  * Body: `{organization_id, member_user_id}`, both strings, and NO idempotency
- * key — `parseRemoval` allowlists exactly those two (percy-http-27c95232.ts:1644-1650).
+ * key — `parseRemoval` allowlists exactly those two (client-http-27c95232:1644-1650).
  * The removal grammar is closed the same way the invite's is, so adding a key
  * here to match the invite would turn every call into a 400.
  */
@@ -2597,7 +2597,7 @@ export function decideTeamAccessRequest(body) {
  * POST /v1/team-access-requests/confirm
  *
  * UNREACHABLE WITH A USER BEARER: the route demands the relay's shared service
- * credential (percy-http-27c95232.ts:3278), so this page is answered 401 every
+ * credential (client-http-27c95232:3278), so this page is answered 401 every
  * time. Kept only so the operation stays visible; nothing in the page calls it.
  */
 export function confirmTeamAccessRequest(body) {
@@ -2609,7 +2609,7 @@ export function confirmTeamAccessRequest(body) {
  *
  * `idempotency_key` IS REQUIRED AND IS THE ONLY PERMITTED FIELD:
  * `parseCancellation` allowlists `["idempotency_key"]` and demands a UUID
- * (percy-http-27c95232.ts:1692-1698), so the pass-through this used to be could
+ * (client-http-27c95232:1692-1698), so the pass-through this used to be could
  * only ever have produced a 400 — the same defect class as the invite, latent
  * because no control calls this yet. `user_id` is gone from the grammar on
  * purpose (:1679-1684): the subject is the resolved bearer.
@@ -2635,7 +2635,7 @@ export function cancelSubscription(idempotencyKey) {
  * POST /v1/subscription/auto-renewal — answers `{auto_renewal: true}`.
  *
  * THE ONLY VALID BODY IS `{}`, SO THERE IS NO PARAMETER. `parseSubjectless`
- * (percy-http-27c95232.ts:1723-1726) checks `keysWithin(body, NO_FIELDS)` — an
+ * (client-http-27c95232:1723-1726) checks `keysWithin(body, NO_FIELDS)` — an
  * empty allowed set — so ANY field refuses the whole body and the route answers
  * 400. A parameter documented as "must be left unset" is one an unlucky caller
  * sets; removing it is the same construction `cancelSubscription` above now
@@ -2661,14 +2661,14 @@ export function giveRenewalConsent() {
  * POST /v1/checkout/resume
  *
  * UNREACHABLE WITH A USER BEARER, exactly like the confirm route above: it
- * checks the shared service credential (percy-http-27c95232.ts:2172), so this
+ * checks the shared service credential (client-http-27c95232:2172), so this
  * page is answered 401 every time. Since `commercialFetch` no longer treats a
  * `/v1` 401 as a fork-session loss, wiring this by accident now costs a visible
  * refusal rather than logging the user out.
  *
  * Body: `{user_id}` and nothing else, with NO idempotency key — the operation
  * creates nothing, so a key would imply there was something to replay
- * (percy-http-27c95232.ts:1452-1466).
+ * (client-http-27c95232:1452-1466).
  */
 export function resumeCheckout(body) {
   return commercialPost('checkout/resume', COMMERCIAL_OPS.RESUME_CHECKOUT, body);
@@ -2683,14 +2683,14 @@ export function getEntitlements() {
  * GET /v1/account/successor-candidates — the admin-successor picker.
  *
  * An EMPTY list is an ordinary 200, not a refusal: it means no choice has to be
- * offered (percy-http-27c95232.ts:2976-2984). `ok` and `candidates.length === 0`
+ * offered (client-http-27c95232:2976-2984). `ok` and `candidates.length === 0`
  * are two different facts and the caller must not collapse them — an empty list
  * is a sole-member administrator or a non-administrator, and BOTH may still
  * erase (see `eraseAccount`). A control that disables itself on an empty list
  * makes the sole-member administrator's erasure impossible.
  *
  * `{candidates: [{user_id}]}` — THE ID AND NOTHING ELSE, deliberately
- * (percy-http-27c95232.ts:2986-2988).
+ * (client-http-27c95232:2986-2988).
  *
  * READ THE LIST THROUGH `readSuccessorCandidates()`, WHICH CARRIES THE WHOLE
  * WARNING. In short, and because the previous version of this comment got it
@@ -2713,12 +2713,12 @@ export function listSuccessorCandidates() {
  * `POST /api/v2/user/deletion/cancel` still works locally and stays a fork
  * call — see `cancelAccountDeletion`.
  *
- * SUCCESS IS 204 WITH NO BODY (percy-http-27c95232.ts:3071-3076), so
+ * SUCCESS IS 204 WITH NO BODY (client-http-27c95232:3071-3076), so
  * `result.body` is null on the happy path and a caller must not read anything
  * off it.
  *
  * Body: `{successor_user_id}` or nothing, and NO idempotency key —
- * `parseErasure` allowlists the single field (percy-http-27c95232.ts:1750-1759).
+ * `parseErasure` allowlists the single field (client-http-27c95232:1750-1759).
  *
  * "NOBODY" IS A LAWFUL AND COMMON ANSWER, not a missing input. An explicit
  * `null` and an omitted field mean the same thing (:1740-1748: "'nobody' is a
@@ -2750,7 +2750,7 @@ export function eraseAccount(body) {
  *
  *   * WHERE THE COMMERCIAL SERVICE IS ROUTED, its listener answers. Revoke is
  *     the odd one out: `POST /v1/organizations/invitations/revoke` IS claimed,
- *     by the prefix block at percy-http-27c95232.ts:2819
+ *     by the prefix block at client-http-27c95232:2819
  *     (`path.startsWith("/v1/organizations/invitations")`), matches neither
  *     inner path, and falls to `bare(response, 404)` at :2905. Seats, the seat
  *     quote and admin-transfer are claimed by nothing and reach the listener's
@@ -2779,7 +2779,7 @@ export function eraseAccount(body) {
  * an `outcome` arriving here is refused, which is the fail-closed residue.
  *
  * `invitationId` COMES FROM `inviteResult.body.invitation.invitation_id`, NESTED
- * (percy-http-27c95232.ts:2863-2870). There is no top-level `invitation_id` and
+ * (client-http-27c95232:2863-2870). There is no top-level `invitation_id` and
  * no `id` on the invite reply, so a caller reading either gets `null` and can
  * never offer this control. Both ids are strings (`isId`, :1448).
  */
@@ -2796,7 +2796,7 @@ export function revokeOrganizationInvitation(organizationId, invitationId) {
  * Answers `{organization_id, seats, seats_after, proration}`. READ IT THROUGH
  * `readSeatQuote()`, which states both traps: there is NO `message` field on
  * this body, and `proration: null` is an ordinary answer meaning the change
- * costs nothing now (percy-service-27c95232.ts:901-909) rather than a figure
+ * costs nothing now (client-service-27c95232:901-909) rather than a figure
  * that failed to arrive.
  */
 export function quoteSeats(organizationId, seats) {
@@ -2821,16 +2821,16 @@ export function purchaseSeats(organizationId, seats, idempotencyKey = newIdempot
  * `from_user_id` IS THE RESOLVED BEARER AND NEVER A BODY FIELD. There is no
  * parameter for it here on purpose: a caller cannot pass one, so it cannot be
  * sent. It is declared on the RESULT (`AdminTransferResult.from_user_id`,
- * percy-service-27c95232.ts:543) and on the service-layer request the handler
+ * client-service-27c95232:543) and on the service-layer request the handler
  * composes (`AdminTransferRequest`, :531-538) — never on the wire body.
  *
  * `toUserId` MUST BE A STRING. `AdminTransferRequest.to_user_id` is declared
- * `string` at percy-service-27c95232.ts:535, and every id grammar on this
+ * `string` at client-service-27c95232:535, and every id grammar on this
  * service goes through `isId`, which requires `typeof value === "string"`
- * (percy-http-27c95232.ts:1448). It is an opaque commercial-service account id,
+ * (client-http-27c95232:1448). It is an opaque commercial-service account id,
  * not the fork's numeric user id, and it round-trips: the value comes from
  * `GET /v1/account/successor-candidates`, which projects `{user_id}` and
- * nothing else (percy-http-27c95232.ts:2986-2988). Passing the string the
+ * nothing else (client-http-27c95232:2986-2988). Passing the string the
  * picker was populated with is correct; converting it to a number is what would
  * be wrong.
  */

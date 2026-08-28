@@ -80,21 +80,21 @@ func TestPersonalPolicyRefusesEveryTopologyChange(t *testing.T) {
 	}
 }
 
-// TestPersonalPolicyKeepsPercyFeedbackUsable pins the exemption to exactly one
+// TestPersonalPolicyKeepsFeedbackUsable pins the exemption to exactly one
 // project.
 //
 // The two destinations are owned by the same user and carry the same
 // permissions, so the only thing that differs is whether the project is
-// registered as Percy Feedback. If the exemption ever widened into a general
+// registered as Feedback. If the exemption ever widened into a general
 // "system project" category, the second case would start passing.
-func TestPersonalPolicyKeepsPercyFeedbackUsable(t *testing.T) {
+func TestPersonalPolicyKeepsFeedbackUsable(t *testing.T) {
 	env := newPersonalEnv(t)
 
-	feedback := env.newProject(&testuser1, "Percy Feedback", 0)
+	feedback := env.newProject(&testuser1, "Feedback", 0)
 	unregistered := env.newProject(&testuser1, "Somewhere else entirely", 0)
 	env.protect(models.ProtectedKindFeedback, feedback, 0)
 
-	t.Run("a task can be submitted to Percy Feedback", func(t *testing.T) {
+	t.Run("a task can be submitted to Feedback", func(t *testing.T) {
 		rec := env.request(http.MethodPost, "/api/v1/tasks/1",
 			fmt.Sprintf(`{"id":1,"title":"task #1","project_id":%d}`, feedback), &testuser1)
 		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -106,7 +106,7 @@ func TestPersonalPolicyKeepsPercyFeedbackUsable(t *testing.T) {
 		assert.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
 	})
 
-	t.Run("Percy Feedback itself cannot be renamed or shared", func(t *testing.T) {
+	t.Run("Feedback itself cannot be renamed or shared", func(t *testing.T) {
 		rec := env.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d", feedback),
 			`{"title":"mine now"}`, &testuser1)
 		assert.Equal(t, http.StatusForbidden, rec.Code)
@@ -173,7 +173,7 @@ func TestPersonalPolicyLeavesOrdinaryTaskWorkAlone(t *testing.T) {
 // policy allows.
 func TestPersonalPolicyFailsClosedWithoutEntitlement(t *testing.T) {
 	env := newPersonalEnv(t)
-	feedback := env.newProject(&testuser1, "Percy Feedback", 0)
+	feedback := env.newProject(&testuser1, "Feedback", 0)
 	env.protect(models.ProtectedKindFeedback, feedback, 0)
 	env.revoke(testuser1.ID)
 

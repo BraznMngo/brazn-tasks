@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"testing"
 
-	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/models"
+	"code.vikunja.io/api/pkg/user"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,13 +37,16 @@ type feedbackProjectResponse struct {
 	Message   string `json:"message"`
 }
 
-// TestFeedbackProjectRouteReturnsUnavailableWhenOwnerUnset is the BRA-1414
-// contract for an instance that has never pointed brazn.feedbackowner at a
-// staff account: the route must answer available=false, not 500 and not a
-// bare zero project id.
-func TestFeedbackProjectRouteReturnsUnavailableWhenOwnerUnset(t *testing.T) {
+// TestFeedbackProjectRouteReturnsUnavailableWithoutTheStaffAccount is the
+// BRA-1414 contract for an instance whose staff account has not been created:
+// the route must answer available=false, not 500 and not a bare zero project
+// id.
+func TestFeedbackProjectRouteReturnsUnavailableWithoutTheStaffAccount(t *testing.T) {
 	env := newPersonalEnv(t)
-	setConfigForTest(t, config.BraznFeedbackOwner, "")
+
+	_, err := user.GetUserByUsername(dbSessionForTest(t), models.OneAdminUsername)
+	require.True(t, user.IsErrUserDoesNotExist(err),
+		"this instance must not have the staff account, or the test proves nothing")
 
 	rec := env.request(http.MethodGet, feedbackProjectPath, "", &testuser1)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())

@@ -17,17 +17,13 @@
 package models
 
 import (
-	"strings"
-
-	"code.vikunja.io/api/pkg/config"
-	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/user"
 
 	"xorm.io/xorm"
 )
 
-// FeedbackProjectTitle is what this instance calls Percy Feedback when it
-// creates it.
+// FeedbackProjectTitle is what this instance calls the Feedback project when
+// it creates it.
 //
 // IT IS A LABEL AND NEVER AN IDENTITY. Nothing reads it back to decide
 // anything: the exemption is bound to a brazn_protected_entities row keyed by
@@ -35,9 +31,14 @@ import (
 // an ordinary project and is refused like one. See ProtectedKind for why a
 // title cannot be identity - it is neither unique nor stable, and a policy that
 // trusted one would hand the exemption to whoever typed the right words.
-const FeedbackProjectTitle = "Percy Feedback"
+//
+// That is also why renaming it was safe. The word customers used to see was
+// the desktop assistant's name, which this product no longer wears in front of
+// anybody, and changing it moved no exemption anywhere: every row already
+// written keeps pointing at the same project id it always did.
+const FeedbackProjectTitle = "Feedback"
 
-// FeedbackProject returns the protected entity for this instance's single Percy
+// FeedbackProject returns the protected entity for this instance's single
 // Feedback project, or nil when none has been provisioned.
 //
 // There is at most one row and ensureFeedbackProject is what keeps it that way:
@@ -60,9 +61,9 @@ func FeedbackProject(s *xorm.Session) (*ProtectedEntity, error) {
 	return protected, nil
 }
 
-// ProvisionFeedbackAccess makes sure this instance has its Percy Feedback
-// project and that u can submit into a project of their own beneath it,
-// returning that sub-project's id.
+// ProvisionFeedbackAccess makes sure this instance has its Feedback project
+// and that u can submit into a project of their own beneath it, returning that
+// sub-project's id.
 //
 // It mirrors the Inbox where the Inbox's reasoning carries over and departs
 // from it where it does not. Like the Inbox it is created at the single point
@@ -79,11 +80,13 @@ func FeedbackProject(s *xorm.Session) (*ProtectedEntity, error) {
 // customer-owned project" stays literally true - the second project in their
 // list is not theirs.
 //
-// A missing or unresolvable owner is not an error. brazn.feedbackowner names a
-// Brazn staff account, and an instance where the operator has not created it
-// yet must still be able to register customers. Skipping is also the safe
-// direction to be wrong in: no project means no access, where failing here
-// would mean no account. Returns 0 in that case.
+// AN UNRESOLVABLE OWNER IS NOT AN ERROR, and it returns 0. The owner is the
+// staff account SeedInstanceStaff creates on the web server's first boot, so
+// on any instance we run it is there before a customer can reach this. It can
+// still be absent - a database restored under a build whose web server has not
+// started yet - and registering customers has to keep working in that state.
+// Skipping is also the safe direction to be wrong in: no project means no
+// access, where failing here would mean no account.
 //
 // Enrolment is Write, which is the least permission that can file a task. Read
 // could submit nothing and Admin would hand the project to the customer.
@@ -101,23 +104,26 @@ func ProvisionFeedbackAccess(s *xorm.Session, u *user.User) (int64, error) {
 	return ensureFeedbackSubProject(s, rootID, owner, u)
 }
 
-// feedbackOwner resolves the Brazn account that owns Percy Feedback, or nil
-// when this instance has not been told about one.
+// feedbackOwner resolves the staff account that owns Feedback, or nil when
+// this instance has not created it yet.
 //
-// The config names the OWNER, not the project. Which project is Percy Feedback
-// is answered by the protected-entity row and by nothing else, so renaming or
-// repointing this key cannot move the exemption onto another project.
+// THE OWNER IS NAMED BY A CONSTANT AND NOT BY A SETTING, which is the whole of
+// BRA-1414. `brazn.feedbackowner` was an operator-supplied username, it was
+// never supplied on any deployment we run, so this returned nil on every call
+// and Feedback had never once worked in front of a customer. Nothing about
+// that was visible: the code was correct, the tests were green, and the only
+// symptom was a feature quietly answering "not available on this instance". A
+// value with exactly one correct setting everywhere we deploy belongs in the
+// build, where a release cannot forget it.
+//
+// It still names the OWNER rather than the project. Which project is Feedback
+// is answered by the protected-entity row and by nothing else, so changing
+// this constant cannot move the exemption onto another project - it can only
+// leave this instance unable to find an owner at all.
 func feedbackOwner(s *xorm.Session) (*user.User, error) {
-	username := strings.TrimSpace(config.BraznFeedbackOwner.GetString())
-	if username == "" {
-		return nil, nil
-	}
-
-	owner, err := user.GetUserByUsername(s, username)
+	owner, err := user.GetUserByUsername(s, OneAdminUsername)
 	if err != nil {
 		if user.IsErrUserDoesNotExist(err) {
-			log.Warningf("brazn.feedbackowner names %q, which is not an account on this instance; Percy Feedback was not provisioned",
-				username)
 			return nil, nil
 		}
 		return nil, err
@@ -125,8 +131,8 @@ func feedbackOwner(s *xorm.Session) (*user.User, error) {
 	return owner, nil
 }
 
-// ensureFeedbackProject returns the id of this instance's Percy Feedback
-// project, creating and registering it on first use.
+// ensureFeedbackProject returns the id of this instance's Feedback project,
+// creating and registering it on first use.
 //
 // The lookup comes first and is what makes this idempotent. Creating the
 // project and recording its role are two statements, so a version that created
@@ -157,7 +163,7 @@ func ensureFeedbackProject(s *xorm.Session, owner *user.User) (int64, error) {
 }
 
 // ensureFeedbackSubProject returns the id of u's own project beneath the
-// Percy Feedback root, creating it and granting u Write on first use.
+// Feedback root, creating it and granting u Write on first use.
 //
 // ONE SUB-PROJECT PER REPORTER IS THE WHOLE OF THEIR ISOLATION (BRA-1180/A1).
 // Vikunja's permissions are project-wide with no per-task layer, so "each
@@ -183,10 +189,10 @@ func ensureFeedbackProject(s *xorm.Session, owner *user.User) (int64, error) {
 // the Brazn account rather than the reporter creating it.
 //
 // SAME DISPLAY TITLE AS THE ROOT, deliberately, so a client that finds "the"
-// Percy Feedback project by title - the only way anything outside this
-// package has ever done so, since there is no dedicated lookup route -
-// keeps working unmodified: every reporter's own sub-project is the one
-// project so named that they can see.
+// Feedback project by title - the only way anything outside this package has
+// ever done so, since there is no dedicated lookup route - keeps working
+// unmodified: every reporter's own sub-project is the one project so named
+// that they can see.
 //
 // The lookup is the idempotence: CreateNewProjectForUser runs this on every
 // registration attempt an account makes, and a repeat must find the

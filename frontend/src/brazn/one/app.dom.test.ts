@@ -637,7 +637,7 @@ describe('one/app.js organization and roster facts', () => {
 		// sentence, and every 200-with-refusal rendered "That did not work. Nothing was changed."
 		//
 		// The body is the four fields POST /v1/organizations/invitations really projects
-		// (percy-http-27c95232.ts:2854-2884). There is NO `message` among them, which is precisely
+		// (client-http-27c95232:2854-2884). There is NO `message` among them, which is precisely
 		// why the outcome has to carry the sentence.
 		const notInvitable = describeCommercialRefusal({
 			reason: api.COMMERCIAL_REFUSAL.OUTCOME,
@@ -696,7 +696,7 @@ describe('one/app.js organization and roster facts', () => {
 	it('reads invitation_outcome on a not_admitted decision, which is the half that matters', () => {
 		// POST /v1/team-access-requests/decide projects TWO fields, and the handler says why:
 		// "an administrator told only 'not admitted' cannot tell 'buy more seats' from 'this
-		// address belongs to another organization'" (percy-http-27c95232.ts:3251-3264).
+		// address belongs to another organization'" (client-http-27c95232:3251-3264).
 		// MUTATION: dropping the `not_admitted` branch from commercialOutcomeMessageKey makes this
 		// red - the nested cause is discarded and the outer, causeless sentence is shown instead.
 		expect(describeCommercialRefusal({

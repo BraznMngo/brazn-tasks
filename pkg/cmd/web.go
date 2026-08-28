@@ -34,6 +34,7 @@ import (
 	"code.vikunja.io/api/pkg/initialize"
 	"code.vikunja.io/api/pkg/license"
 	"code.vikunja.io/api/pkg/log"
+	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/plugins"
 	"code.vikunja.io/api/pkg/routes"
 	"code.vikunja.io/api/pkg/utils"
@@ -144,6 +145,19 @@ var webCmd = &cobra.Command{
 
 		// Version notification
 		log.Infof("Brazn Tasks version %s", version.Version)
+
+		// The staff account, the Feedback project it owns, the staff team and
+		// that team's grant. Here rather than in PreRun's initialize.FullInit,
+		// because that initialiser is shared with the restore, health check,
+		// repair, dump and account commands - and asking an instance whether
+		// it is healthy must not write rows to it. Here rather than in a
+		// migration, because on a fresh database this fork's migration
+		// framework builds the tables from the current structs and marks every
+		// migration applied without running any of them. Migrations have
+		// already run by this point: FullInit does them before it opens the
+		// engines. See models.SeedInstanceStaff, which logs and returns rather
+		// than stopping the server.
+		models.SeedInstanceStaff()
 
 		// Start the webserver
 		e := routes.NewEcho()

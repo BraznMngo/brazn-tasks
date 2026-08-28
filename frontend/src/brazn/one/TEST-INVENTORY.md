@@ -42,7 +42,7 @@ assertions actually read. Trace from the assertion backwards, not from the inten
 * **No Playwright spec, for `/v1` or for fork routes** (ruling C7). Nothing below may be reported
   as evidence that a commercial route works; CI starts no commercial service.
 
-## Eight files
+## Nine files
 
 **No case counts are recorded here, deliberately.** An earlier version of this file carried
 them and they went stale inside one afternoon — `api.commercial.test.ts` was listed at 16 while
@@ -62,6 +62,7 @@ source that cannot be wrong.
 | `app.seats.test.ts` | the seat formula against the literal contract `3 * (teams_used + 1)` |
 | `app.dom.test.ts` | the DOM applier, the one shared refusal path, hydration, organization/roster facts |
 | `join.test.ts` | the invitation acceptance page (BRA-1439 Story 5): the query/fragment parsers, the five surfaces, and the boot flow against a stubbed fetch — including the return-leg marker and the `signupToken` hand-off key |
+| `view-task.naming.test.ts` | **every place the task page prints a project name (BRA-1414)**, driven through the shipped controls on a mounted shell rather than through the naming helper: the header chip, the Move picker, the relation scope line, that line again after a re-type, and `app.js`'s Add task picker |
 
 ---
 
@@ -107,13 +108,13 @@ naming one branch is true for five of the seventeen operations or for twelve, ne
 | `application/json; charset=utf-8` and `application/problem+json` are accepted | Tighten the test to `contentType === 'application/json'` — every real answer would become `not-json` |
 | Malformed JSON is `unparsable`; a bare JSON string `"success"` is too | Drop the `typeof body !== 'object'` check — the bare string reports `outcome` instead of `unparsable` |
 | A non-2xx is `http`, with the server sentence kept | Fold the non-2xx branch into the outcome branch |
-| `not_invitable` is refused **in the four-field body the invite handler really projects**, with `message: null` | **Corrected case.** It used to be asserted against `{outcome, message}` — a body `POST /v1/organizations/invitations` cannot send (percy-http-27c95232.ts:2854-2884 projects `outcome`, `invited_user_id`, `invitation`, `seat_notice` and nothing else). The old case passed, its own mutation traced, and it still documented a shape the source contradicts on the only coverage of the invite refusal path. Mutation now: add `not_invitable` to the affirmative list (the refusal half), or make `readServerMessage` fall back to any other field (the `message: null` half, which is what makes app.js's outcome table load-bearing) |
+| `not_invitable` is refused **in the four-field body the invite handler really projects**, with `message: null` | **Corrected case.** It used to be asserted against `{outcome, message}` — a body `POST /v1/organizations/invitations` cannot send (client-http-27c95232:2854-2884 projects `outcome`, `invited_user_id`, `invitation`, `seat_notice` and nothing else). The old case passed, its own mutation traced, and it still documented a shape the source contradicts on the only coverage of the invite refusal path. Mutation now: add `not_invitable` to the affirmative list (the refusal half), or make `readServerMessage` fall back to any other field (the `message: null` half, which is what makes app.js's outcome table load-bearing) |
 | **No `/v1` route sends `message`, `detail` or `title` at all**, so the verbatim path is defence rather than coverage | Stated, not asserted as service behaviour: the three body writers are `json` (:717), `bare` (:728 — a status line with no content type) and `fail` (:1778), whose only JSON bodies are `{error: <code>}` (:1785, "deliberately never emitted" of the optional message), the frozen 402 `upgrade_required` shape (:1795), and `{error, debug}` behind the off-by-default flag (:1827). The shared `readServerMessage` mechanism is still asserted; ruling C4's verbatim rule bites on the FORK's 409, which `app.dom.test.ts` covers |
 | A live call runs through the guard and is addressed `/v1/…` with NO `/api` | Build the path with `forkV1Url()` — `/api/v1/v1/entitlements`, the documented top mistake here |
 | `admin-transfer` sends exactly `{organization_id, to_user_id, idempotency_key}` | Add `from_user_id` to `transferAdministrator`'s payload — it is the resolved bearer, never a body field |
 | `to_user_id` goes on the wire **unchanged**, number or string | Add a `Number()` coercion to `transferAdministrator`. The seam must not hide the type: a `<select>` value is a string, so a call site passing `fieldValue(...)` straight through sends `"42"`, and ruling C17's reasoning covers the value shape as much as the field name |
-| Every invitation carries an `idempotency_key` | Remove the default from `inviteOrganizationMember`. `parseInvite` requires the key unconditionally and UUID-checks it (`percy-http-27c95232.ts:1602`), and a null parse is a bare 400 — so an invitation without one is a guaranteed 400 that CI can never see |
-| An invitation carrying `team_id` throws and issues no request | Delete the `'team_id' in body` assertion from `inviteOrganizationMember` (ruling C17). **Corrected claim:** the field is NOT invented — `parseInvite` allowlists it at `percy-http-27c95232.ts:1598` and forwards it at :2841. It is not sent because the prototype has no team picker (bar 10), and the row is written that way now |
+| Every invitation carries an `idempotency_key` | Remove the default from `inviteOrganizationMember`. `parseInvite` requires the key unconditionally and UUID-checks it (`client-http-27c95232:1602`), and a null parse is a bare 400 — so an invitation without one is a guaranteed 400 that CI can never see |
+| An invitation carrying `team_id` throws and issues no request | Delete the `'team_id' in body` assertion from `inviteOrganizationMember` (ruling C17). **Corrected claim:** the field is NOT invented — `parseInvite` allowlists it at `client-http-27c95232:1598` and forwards it at :2841. It is not sent because the prototype has no team picker (bar 10), and the row is written that way now |
 | The rename sends exactly `{organization_id, organization_name, idempotency_key}`, key defaulted | **A reversed negative, recorded as such (BRA-1439 Story 2).** This row used to pin that NO rename-organization export existed — ruling C8.1's "read-only until POST /v1/organizations/rename lands" made the absence the testable property. The route landed with BRA-1439's commercial half, so the positive counterpart took over. Mutation now: remove the key default, or add any field to the body — `toEqual` pins the whole body. The descriptor is `absent`-shaped against the landed handler's real success body (`{organization_id, organization_name}`, no `outcome` — http.ts:3684-3689); it briefly assumed a `renamed` union off a log line, which independent QA traced false before merge, and the OPERATIONS refusal row now pins that log word as refused |
 | The three bases stay apart (`/api/v1`, `/api/v2`, `/v1`) | Point any of `forkV1Url` / `forkV2Url` / `commercialV1Url` at another base |
 | A leading slash on the path does not double up | Delete `stripLeadingSlash` |
@@ -288,9 +289,17 @@ pins that the page stays legible when no catalogue can load.
   is cross-origin — and not against fork routes either: nothing navigates to `/one/task.html`
   today, and funding a same-origin Playwright project would mean editing `playwright.config.ts`,
   an upstream file outside the patch surface.
-* **`view-task.js` / `view-settings.js` render output.** They ship no `.d.ts`, and their contract
-  with `app.js` (emit gated nodes, let `applyGates` decide) is asserted from the applier's side
-  instead. Named here so the gap is a decision rather than an oversight.
+* **`view-settings.js` render output, and most of `view-task.js`'s.** They ship no `.d.ts`, and
+  their contract with `app.js` (emit gated nodes, let `applyGates` decide) is asserted from the
+  applier's side instead. Named here so the gap is a decision rather than an oversight.
+
+  **`view-task.js` is no longer wholly outside this, and the exception is narrow.** BRA-1414 added
+  `view-task.d.ts` and `view-task.naming.test.ts`, which is the mounted-shell harness this entry
+  said was needed: it injects the shipped `task.html` shell, calls `boot()` against a refused
+  session to get the real delegated click listener, and then clicks shipped controls. It asserts
+  ONE property — that no print of a project name shows a customer the stored word "Inbox" — across
+  all five sites that print one. Everything else either module renders is still unasserted, and
+  the three named costs below are all `view-settings.js`'s, so none of them is closed by it.
 
   **This gap now has a named cost, recorded rather than left to be rediscovered.** Three
   behaviours live only in those modules and are therefore unguarded:
@@ -308,9 +317,9 @@ pins that the page stays legible when no catalogue can load.
      do not administer this organization" for an organization-scoped call, and stays generic for
      an account-scoped one, is unasserted.
 
-  Closing these needs a `view-settings.d.ts` and a mounted-shell harness for the two view
-  modules. That is a layout addition beyond the declared set (ruling C15), so it is reported
-  rather than smuggled in.
+  Closing these needs a `view-settings.d.ts` and the harness described above pointed at
+  `view-settings.js`. That is still a layout addition beyond the declared set (ruling C15), so it
+  stays reported rather than smuggled in; all three remain open.
 * **`boot()` end to end.** It is one-shot by design (i18n init, the formatters and the listeners
   are all one-shot) and re-entrancy machinery would be more code than the case it serves. Its
   parts — `initSession`, `initI18n`, `loadOrganization`, `loadTeams`, `applyGates` — are covered

@@ -95,7 +95,7 @@ export function isWriteRestricted(): boolean
  * The outcome vocabulary is PER-OPERATION and there is no `'success'` anywhere
  * in the commercial service. Each descriptor names the shape that operation's
  * body has and the affirmative values it may carry, every one cited in api.js
- * against `percy-service-27c95232.ts`.
+ * against `client-service-27c95232`.
  */
 export interface CommercialOp {
 	/** `'required'`: the body must carry `outcome`. `'absent'`: it must not. */
@@ -392,7 +392,7 @@ export function toggleTeamMemberAdmin(teamId: number | string, username: string)
  * one thing they can throw is `SessionLostError`, and only when the fork's own
  * token refresh is refused. See `commercialFetch` in api.js.
  *
- * EVERY ID ON THIS SERVICE IS A STRING (`isId`, percy-http-27c95232.ts:1448) —
+ * EVERY ID ON THIS SERVICE IS A STRING (`isId`, client-http-27c95232:1448) —
  * an opaque commercial account id, not the fork's numeric user id. A number is
  * a bare 400.
  */
@@ -475,7 +475,7 @@ export function purchaseSeats(
  * No `from_user_id` parameter exists: it is the resolved bearer, never a body field.
  *
  * `toUserId` is a STRING on the wire — `AdminTransferRequest.to_user_id: string`
- * (percy-service-27c95232.ts:535), validated by `isId`. `number` is still
+ * (client-service-27c95232:535), validated by `isId`. `number` is still
  * accepted by this declaration only because `api.commercial.test.ts:673` passes
  * one; that test pins a shape the service would answer 400 for and should be
  * changed to `'42'`, after which this union narrows to `string`.
