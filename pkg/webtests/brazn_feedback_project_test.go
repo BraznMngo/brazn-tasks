@@ -125,7 +125,7 @@ func TestFeedbackProjectRouteAnswersNullWithoutAResolvableOwner(t *testing.T) {
 // self-hosted-stays-untouched guarantee CreateNewProjectForUser gives at
 // registration (pkg/models/project.go): an operator who has configured
 // brazn.feedbackowner but never turned managed mode on must not have this
-// route provision Percy Feedback behind their back.
+// route provision Feedback behind their back.
 func TestFeedbackProjectRouteAnswersNullOutsideManagedMode(t *testing.T) {
 	env := newFeedbackEnv(t)
 	setConfigForTest(t, config.BraznManagedMode, false)

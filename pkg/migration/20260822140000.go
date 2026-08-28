@@ -23,7 +23,7 @@ import (
 	"xorm.io/xorm"
 )
 
-// The two claims that make Percy Feedback provisioning an atomic step
+// The two claims that make Feedback provisioning an atomic step
 // (BRA-1414 follow-up), the same reason brazn_provisioned_users exists for
 // mailbox claims: ensureFeedbackProject/ensureFeedbackSubProject were
 // check-then-insert with nothing for a concurrent second call to conflict
@@ -73,7 +73,7 @@ func (braznFeedbackReporters20260822140000) TableName() string {
 func init() {
 	migrations = append(migrations, &xormigrate.Migration{
 		ID:          "20260822140000",
-		Description: "atomic claims for Percy Feedback's root project and each reporter's sub-project, closing a provisioning race",
+		Description: "atomic claims for Feedback's root project and each reporter's sub-project, closing a provisioning race",
 		Migrate: func(tx *xorm.Engine) error {
 			if err := tx.Sync(braznFeedbackRoot20260822140000{}); err != nil {
 				return err

@@ -31,7 +31,7 @@ import (
 // ensurePersonalInbox left: an account adopted through the commercial
 // create_personal_inbox operation (one Google sign-in created on the
 // development instance before managed mode existed) got an Inbox but never a
-// Percy Feedback sub-project, because that operation never called
+// Feedback sub-project, because that operation never called
 // ProvisionFeedbackAccess at all - only CreateNewProjectForUser's ordinary
 // registration path did.
 //
@@ -47,7 +47,7 @@ func TestBraznProvisioningPersonalInboxAlsoProvisionsFeedback(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	root := storedEntities(t, models.ProtectedKindFeedback)
-	require.Len(t, root, 1, "the shared Percy Feedback root must exist once this subject is provisioned")
+	require.Len(t, root, 1, "the shared Feedback root must exist once this subject is provisioned")
 
 	s := dbSessionForTest(t)
 	sub := &models.Project{}
@@ -56,7 +56,7 @@ func TestBraznProvisioningPersonalInboxAlsoProvisionsFeedback(t *testing.T) {
 		Where("projects.parent_project_id = ? AND users_projects.user_id = ?", root[0].ProjectID, 1).
 		Get(sub)
 	require.NoError(t, err)
-	assert.True(t, has, "the subject provisioned via create_personal_inbox must have their own Percy Feedback sub-project")
+	assert.True(t, has, "the subject provisioned via create_personal_inbox must have their own Feedback sub-project")
 }
 
 // TestBraznProvisioningPersonalInboxToleratesNoFeedbackOwner is the fail-safe

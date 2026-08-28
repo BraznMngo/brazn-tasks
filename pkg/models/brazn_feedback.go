@@ -19,6 +19,7 @@ package models
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"code.vikunja.io/api/pkg/config"
@@ -30,8 +31,16 @@ import (
 	"xorm.io/xorm"
 )
 
-// FeedbackProjectTitle is what this instance calls Percy Feedback when it
-// creates it.
+// FeedbackProjectTitle is the name a customer sees on the feedback project
+// this instance creates for them.
+//
+// IT SAYS "Feedback" AND NOT "Percy Feedback", AND THE THREE PLACES THAT NAME
+// IT HAVE TO AGREE (BRA-1414). The desktop client finds this project by title
+// and by nothing else - core/percy.config.json's connectors.vikunja
+// .feedbackProject in the ONE Apps repository - and that file has said
+// "Feedback" since the product was renamed, so a server creating "Percy
+// Feedback" created a project no client would ever match. The product is ONE,
+// so "Percy" is a stale customer-visible word in its own right.
 //
 // IT IS A LABEL AND NEVER AN IDENTITY. Nothing reads it back to decide
 // anything: the exemption is bound to a brazn_protected_entities row keyed by
@@ -39,9 +48,9 @@ import (
 // an ordinary project and is refused like one. See ProtectedKind for why a
 // title cannot be identity - it is neither unique nor stable, and a policy that
 // trusted one would hand the exemption to whoever typed the right words.
-const FeedbackProjectTitle = "Percy Feedback"
+const FeedbackProjectTitle = "Feedback"
 
-// FeedbackProject returns the protected entity for this instance's single Percy
+// FeedbackProject returns the protected entity for this instance's single
 // Feedback project, or nil when none has been provisioned.
 //
 // There is at most one row and ensureFeedbackProject is what keeps it that way:
@@ -64,7 +73,7 @@ func FeedbackProject(s *xorm.Session) (*ProtectedEntity, error) {
 	return protected, nil
 }
 
-// ProvisionFeedbackAccess makes sure this instance has its Percy Feedback
+// ProvisionFeedbackAccess makes sure this instance has its Feedback
 // project and that u can submit into a project of their own beneath it,
 // returning that sub-project's id.
 //
@@ -128,7 +137,7 @@ const (
 	feedbackReporterConstraint = "brazn_feedback_reporters"
 )
 
-// FeedbackRootClaim is the atomic claim on "the" Percy Feedback root project.
+// FeedbackRootClaim is the atomic claim on "the" Feedback root project.
 // Marker is always feedbackRootMarker, so a second concurrent INSERT collides
 // on that unique column instead of racing ensureFeedbackProject's own
 // read-then-create - see ProvisionFeedbackAccessRetrying for who relies on
@@ -144,7 +153,7 @@ type FeedbackRootClaim struct {
 	Created   time.Time `xorm:"created not null"`
 }
 
-// TableName is the table name for the Percy Feedback root claim.
+// TableName is the table name for the Feedback root claim.
 func (FeedbackRootClaim) TableName() string { return "brazn_feedback_root" }
 
 // FeedbackReporterClaim is the same atomic claim, one row per reporter,
@@ -156,7 +165,7 @@ type FeedbackReporterClaim struct {
 	Created   time.Time `xorm:"created not null"`
 }
 
-// TableName is the table name for Percy Feedback reporter claims.
+// TableName is the table name for Feedback reporter claims.
 func (FeedbackReporterClaim) TableName() string { return "brazn_feedback_reporters" }
 
 // maxFeedbackProvisioningAttempts and feedbackProvisioningRetryDelay mirror
@@ -166,11 +175,18 @@ func (FeedbackReporterClaim) TableName() string { return "brazn_feedback_reporte
 const maxFeedbackProvisioningAttempts = 3
 const feedbackProvisioningRetryDelay = 50 * time.Millisecond
 
-// ProvisionFeedbackAccessRetrying is ProvisionFeedbackAccess for a caller that can be asked for the same account's feedback access more than once, including concurrently - the on-demand lookup route (BRA-1414) and the commercial create_personal_inbox channel; CreateNewProjectForUser's registration-time call keeps using ProvisionFeedbackAccess directly, since CreateOrResolveUserForMailbox already serialises that call upstream.
+// ProvisionFeedbackAccessRetrying is ProvisionFeedbackAccess for a caller that
+// can be asked for the same account's feedback access more than once, and
+// possibly at the same time: the on-demand lookup route (BRA-1414) and the
+// commercial create_personal_inbox channel.
+//
+// CreateNewProjectForUser's registration-time call keeps using
+// ProvisionFeedbackAccess directly, because CreateOrResolveUserForMailbox
+// already serialises that call upstream.
 func ProvisionFeedbackAccessRetrying(ctx context.Context, u *user.User) (int64, error) {
 	// Every self-hosted or pre-rollout instance takes this path, so it is
 	// checked before opening a session at all rather than inside one.
-	if strings.TrimSpace(config.BraznFeedbackOwner.GetString()) == "" {
+	if configuredFeedbackOwner() == "" {
 		return 0, nil
 	}
 
@@ -218,14 +234,14 @@ func provisionFeedbackAccessOnce(ctx context.Context, u *user.User) (int64, bool
 	return projectID, false, nil
 }
 
-// feedbackOwner resolves the Brazn account that owns Percy Feedback, or nil
+// feedbackOwner resolves the Brazn account that owns Feedback, or nil
 // when this instance has not been told about one.
 //
-// The config names the OWNER, not the project. Which project is Percy Feedback
+// The config names the OWNER, not the project. Which project is Feedback
 // is answered by the protected-entity row and by nothing else, so renaming or
 // repointing this key cannot move the exemption onto another project.
 func feedbackOwner(s *xorm.Session) (*user.User, error) {
-	username := strings.TrimSpace(config.BraznFeedbackOwner.GetString())
+	username := configuredFeedbackOwner()
 	if username == "" {
 		return nil, nil
 	}
@@ -233,8 +249,8 @@ func feedbackOwner(s *xorm.Session) (*user.User, error) {
 	owner, err := user.GetUserByUsername(s, username)
 	if err != nil {
 		if user.IsErrUserDoesNotExist(err) {
-			log.Warningf("brazn.feedbackowner names %q, which is not an account on this instance; Percy Feedback was not provisioned",
-				username)
+			log.Warningf("brazn.feedbackowner names %q, which is not an account on this instance; no %s project was provisioned",
+				username, FeedbackProjectTitle)
 			return nil, nil
 		}
 		return nil, err
@@ -242,7 +258,51 @@ func feedbackOwner(s *xorm.Session) (*user.User, error) {
 	return owner, nil
 }
 
-// ensureFeedbackProject returns the id of this instance's Percy Feedback
+// configuredFeedbackOwner reads the configured owner's username, and says so at
+// warning level the first time it finds none.
+//
+// THE SILENCE THIS REPLACES IS WHAT HID BRA-1414 FOR SIX WEEKS. feedbackOwner
+// already warned when the setting NAMED an account this instance does not have,
+// which is a case that had never once occurred; the case that did occur - the
+// setting supplied on no environment at all - returned nothing and said
+// nothing. So a capability that had never run for a single customer was
+// indistinguishable, in the log and in the product, from one that was working,
+// and nobody could have found it by looking.
+//
+// It is the config read and not the provisioning that warns, so both callers
+// get the warning from one place: ProvisionFeedbackAccess through feedbackOwner,
+// and ProvisionFeedbackAccessRetrying through its own early return, which
+// deliberately answers before opening a database session.
+func configuredFeedbackOwner() string {
+	username := strings.TrimSpace(config.BraznFeedbackOwner.GetString())
+	if username == "" {
+		feedbackOwnerMissing.Do(func() {
+			log.Warningf(
+				"brazn.feedbackowner is empty, so no %s project is being provisioned for anybody on this "+
+					"instance; set it to the username of the account that is to own the shared %s project "+
+					"(the environment variable a container reads it from is VIKUNJA_BRAZN_FEEDBACKOWNER)",
+				FeedbackProjectTitle, FeedbackProjectTitle)
+		})
+	}
+	return username
+}
+
+// feedbackOwnerMissing keeps the warning above to ONE LINE PER PROCESS, rather
+// than one per account creation and one per call to the lookup route. A line on
+// every call is noise an operator scrolls past, and noise nobody reads is the
+// same silence this was written to end. Once, at warning level, is what somebody
+// finds when they go looking for why no customer has a feedback project.
+var feedbackOwnerMissing sync.Once
+
+// rearmFeedbackOwnerWarning lets a test observe the warning more than once.
+//
+// A sync.Once cannot be re-armed from outside the package, and the "once" above
+// is the behaviour the ticket asks for rather than an implementation detail, so
+// the seam is here rather than in a test double that would prove nothing about
+// the real path.
+func rearmFeedbackOwnerWarning() { feedbackOwnerMissing = sync.Once{} }
+
+// ensureFeedbackProject returns the id of this instance's Feedback
 // project, creating and registering it on first use.
 //
 // The lookup comes first and is what makes this idempotent. Creating the
@@ -288,7 +348,7 @@ func ensureFeedbackProject(s *xorm.Session, owner *user.User) (int64, error) {
 }
 
 // ensureFeedbackSubProject returns the id of u's own project beneath the
-// Percy Feedback root, creating it and granting u Write on first use.
+// Feedback root, creating it and granting u Write on first use.
 //
 // ONE SUB-PROJECT PER REPORTER IS THE WHOLE OF THEIR ISOLATION (BRA-1180/A1).
 // Vikunja's permissions are project-wide with no per-task layer, so "each
@@ -314,7 +374,7 @@ func ensureFeedbackProject(s *xorm.Session, owner *user.User) (int64, error) {
 // the Brazn account rather than the reporter creating it.
 //
 // SAME DISPLAY TITLE AS THE ROOT, deliberately, so a client still finding
-// "the" Percy Feedback project by title - the only way anything outside this
+// "the" Feedback project by title - the only way anything outside this
 // package did so before GET /brazn/feedback/project (BRA-1414) existed -
 // keeps working unmodified: every reporter's own sub-project is the one
 // project so named that they can see.

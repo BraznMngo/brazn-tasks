@@ -28,33 +28,33 @@ import (
 )
 
 // feedbackProjectBody is what a client needs in order to file into or list
-// from the caller's own Percy Feedback sub-project (BRA-1414).
+// from the caller's own Feedback sub-project (BRA-1414).
 type feedbackProjectBody struct {
 	Body struct {
-		// ProjectID is null when Percy Feedback is not provisioned on this
+		// ProjectID is null when Feedback is not provisioned on this
 		// instance - brazn.managedmode off, brazn.feedbackowner unset, or
 		// naming an account that does not exist here. A caller should read
 		// that as "the feature does not exist on this instance", not retry
 		// it.
-		ProjectID *int64 `json:"project_id" doc:"The caller's Percy Feedback sub-project id, or null if the feature is unavailable on this instance."`
+		ProjectID *int64 `json:"project_id" doc:"The caller's Feedback sub-project id, or null if the feature is unavailable on this instance."`
 	}
 }
 
 func init() { AddRouteRegistrar(RegisterFeedbackProjectRoutes) }
 
-// RegisterFeedbackProjectRoutes wires the Percy Feedback lookup.
+// RegisterFeedbackProjectRoutes wires the Feedback lookup.
 func RegisterFeedbackProjectRoutes(api huma.API) {
 	Register(api, huma.Operation{
 		OperationID: "feedback-project",
-		Summary:     "Resolve the caller's Percy Feedback sub-project",
-		Description: "Returns the id of the project a \"file feedback\" or \"list my feedback\" client should read and write, provisioning it first if this account has none yet. Null when Percy Feedback is not configured on this instance.",
+		Summary:     "Resolve the caller's Feedback sub-project",
+		Description: "Returns the id of the project a \"file feedback\" or \"list my feedback\" client should read and write, provisioning it first if this account has none yet. Null when Feedback is not configured on this instance.",
 		Method:      http.MethodGet,
 		Path:        "/brazn/feedback/project",
 		Tags:        []string{"brazn"},
 	}, feedbackProject)
 }
 
-// feedbackProject resolves the caller's own Percy Feedback sub-project,
+// feedbackProject resolves the caller's own Feedback sub-project,
 // provisioning it on first use so an account created before
 // brazn.feedbackowner was configured is not left without one.
 //
@@ -98,7 +98,7 @@ func feedbackProject(ctx context.Context, _ *struct{}) (*feedbackProjectBody, er
 	}
 	u, isUser := a.(*user.User)
 	if !isUser {
-		return nil, huma.Error403Forbidden("Percy Feedback is available to accounts, not to link shares.")
+		return nil, huma.Error403Forbidden("Feedback is available to accounts, not to link shares.")
 	}
 
 	projectID, err := models.ProvisionFeedbackAccessRetrying(ctx, u)

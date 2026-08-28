@@ -32,6 +32,27 @@ func IsInitialized() bool {
 	return logInstance != nil
 }
 
+// SwapLoggerForTest sends every later log line to l, and returns the function
+// that puts the previous logger back.
+//
+// IT EXISTS BECAUSE A LOG LINE IS SOMETIMES THE BEHAVIOUR ITSELF RATHER THAN A
+// SIDE EFFECT OF IT. BRA-1414 requires this server to SAY, at warning level,
+// that it has been told about no feedback owner and is therefore provisioning
+// nothing - a capability that shipped, ran for nobody, and said nothing about
+// it for six weeks is what that requirement is made of. With no seam here the
+// only thing a test can observe is that some injected function was called,
+// which proves something about the injection and nothing about the sentence an
+// operator has to be able to find.
+//
+// NOT SAFE FOR CONCURRENT USE. It writes the same package-level variable
+// InitLogger writes, with no synchronization, so call it only from a test that
+// is not running alongside anything that logs.
+func SwapLoggerForTest(l *slog.Logger) (restore func()) {
+	previous := logInstance
+	logInstance = l
+	return func() { logInstance = previous }
+}
+
 // logpath is the path in which log files will be written.
 // This value is a mere fallback for other modules that could but shouldn't be used before calling ConfigureLogger
 var logPath = "."

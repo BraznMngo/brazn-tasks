@@ -97,9 +97,12 @@ func ProvisionPersonalInbox(ctx context.Context, subject string) error {
 		return err
 	}
 
-	// Independent of the Inbox above, deliberately not the same transaction: Percy Feedback is optional, so a failure provisioning it must never undo, or be blamed on, an Inbox this call already gave the customer.
+	// Independent of the Inbox above, and deliberately not in the same
+	// transaction. The Feedback project is optional, so a failure to provision
+	// it must never undo an Inbox this call has already given the customer, and
+	// must never be reported as a failure to give them one.
 	if _, err := ProvisionFeedbackAccessRetrying(ctx, provisioned); err != nil {
-		log.Errorf("could not provision Percy Feedback for user %d after provisioning their Inbox: %s",
+		log.Errorf("could not provision Feedback for user %d after provisioning their Inbox: %s",
 			provisioned.ID, err)
 	}
 	return nil

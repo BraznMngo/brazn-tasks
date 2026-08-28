@@ -29,7 +29,7 @@ import (
 	"xorm.io/builder"
 )
 
-// The two claim tables (BRA-1414 follow-up) that make Percy Feedback
+// The two claim tables (BRA-1414 follow-up) that make Feedback
 // provisioning an atomic step, and ProvisionFeedbackAccessRetrying's own
 // recovery path when a claim is already taken.
 //
@@ -43,19 +43,33 @@ import (
 // TestFeedbackRootClaimCannotBeHeldTwice pins the constraint
 // ensureFeedbackProject relies on: two claims on the one root can never both
 // be stored.
+//
+// THE FIRST CLAIM IS TAKEN BY THE PRODUCT AND NOT BY THIS TEST, deliberately,
+// and that is the whole difference between this and the version it replaces.
+// That version stored two rows carrying the same explicit ID and asserted the
+// refusal came from the PRIMARY KEY - a collision ensureFeedbackProject can
+// never have, because it inserts with the id left to autoincrement and relies
+// on Marker alone. It also asserted precisely what the migration's own comment
+// rules out: MySQL and MariaDB name a duplicate-primary-key violation only
+// "for key 'PRIMARY'", so IsUniqueConstraintError's MySQL branch would never
+// have matched it. On SQLite, which is what the suite runs on, it passed
+// anyway. Provisioning first means the row this collides with is the row
+// production writes, carrying the marker production chose.
 func TestFeedbackRootClaimCannotBeHeldTwice(t *testing.T) {
-	newManagedEnv(t)
+	env := newFeedbackEnv(t)
+	env.provisionFeedback(&testuser1)
 
 	s := db.NewSession()
 	defer s.Close()
 
-	_, err := s.Insert(&models.FeedbackRootClaim{ID: 1, ProjectID: 10})
-	require.NoError(t, err)
-
-	_, err = s.Insert(&models.FeedbackRootClaim{ID: 1, ProjectID: 20})
-	require.Error(t, err, "the root claim's id is fixed, and a second claim on it must not be stored")
+	// The same fixed marker every caller uses - a second concurrent
+	// ensureFeedbackProject that also read "no root yet" builds exactly this
+	// row. Written as a literal rather than read back from the row above, so a
+	// marker the product stopped setting cannot make this agree with itself.
+	_, err := s.Insert(&models.FeedbackRootClaim{Marker: 1, ProjectID: 20})
+	require.Error(t, err, "there is one root for the instance, and a second claim on it must not be stored")
 	assert.True(t, db.IsUniqueConstraintError(err, "brazn_feedback_root"),
-		"the refusal must come from the primary key, not from something else: %v", err)
+		"the refusal must come from the unique marker, not from something else: %v", err)
 }
 
 // TestFeedbackReporterClaimCannotBeHeldTwice is the same property for one
