@@ -278,6 +278,7 @@
         "savedSuccess": "The settings were successfully updated.",
         "emailReminders": "Send me reminders for tasks via email",
         "overdueReminders": "Send me a summary of my undone overdue tasks every day",
+        "activityEmailsPaused": "Emails about comments, mentions, and assignments are currently paused for everyone until opt-out controls ship. Reminder emails above are under your control.",
         "discoverableByName": "Allow other users to add me as a member to teams or projects when they search for my name",
         "discoverableByEmail": "Allow other users to add me as a member to teams or projects when they search for my full email",
         "playSoundWhenDone": "Play a sound when marking tasks as done",

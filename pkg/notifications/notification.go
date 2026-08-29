@@ -19,6 +19,7 @@ package notifications
 import (
 	"encoding/json"
 
+	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/log"
 
@@ -119,6 +120,14 @@ func Notify(notifiable Notifiable, notification Notification, sessions ...*xorm.
 }
 
 func notifyMail(notifiable Notifiable, notification Notification) error {
+	// BRA-1468 Issue 3: activity product mail has no per-user opt-out yet.
+	// Switch it off via config until settings govern it. Transactional and
+	// security mail (user package) is not in this list and still sends.
+	if isActivityEmail(notification.Name()) && !config.ServiceEnableActivityEmails.GetBool() {
+		log.Debugf("Not mailing activity notification %s — service.enableactivityemails is off", notification.Name())
+		return nil
+	}
+
 	mail := notification.ToMail(notifiable.Lang())
 	if mail == nil {
 		return nil
@@ -141,6 +150,23 @@ func notifyMail(notifiable Notifiable, notification Notification) error {
 	}
 
 	return SendMail(mail, notifiable.Lang())
+}
+
+// Activity emails the person cannot currently turn off one-by-one. Reminders
+// and overdue digests are gated separately by service.enableemailreminders
+// and the per-user settings. Auth / security notifications are not listed.
+func isActivityEmail(name string) bool {
+	switch name {
+	case "task.comment",
+		"task.assigned",
+		"task.deleted",
+		"task.mentioned",
+		"project.created",
+		"team.member.added":
+		return true
+	default:
+		return false
+	}
 }
 
 // notifyDB inserts the notification row if the notification has a DB
