@@ -32,7 +32,10 @@
         "name": "Mein Name",
         "newName": "Neuer Name",
         "timezone": "Zeitzone",
-        "savedSuccess": "Die Einstellungen wurden erfolgreich aktualisiert."
+        "savedSuccess": "Die Einstellungen wurden erfolgreich aktualisiert.",
+        "emailReminders": "Erinnerungen an Aufgaben per E-Mail senden",
+        "overdueReminders": "Täglich eine Zusammenfassung meiner überfälligen unerledigten Aufgaben senden",
+        "activityEmailsPaused": "E-Mails zu Kommentaren, Erwähnungen und Zuweisungen sind derzeit für alle pausiert, bis Abschalt-Optionen verfügbar sind. Die Erinnerungen oben steuerst du selbst."
       },
       "sections": {
         "personalInformation": "Persönliche Angaben"
@@ -384,6 +387,7 @@
     },
     "settings": {
       "other": "Sonstiges",
+      "emailNotifications": "E-Mail-Benachrichtigungen",
       "editName": "Namen bearbeiten",
       "editProfile": "Profil bearbeiten",
       "timezoneHelp": "Wird für Fälligkeitsdaten, Erinnerungen und wiederkehrende Aufgaben verwendet.",

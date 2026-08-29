@@ -32,7 +32,10 @@
         "name": "My Name",
         "newName": "The new name",
         "timezone": "Time zone",
-        "savedSuccess": "The settings were successfully updated."
+        "savedSuccess": "The settings were successfully updated.",
+        "emailReminders": "Send me reminders for tasks via email",
+        "overdueReminders": "Send me a summary of my undone overdue tasks every day",
+        "activityEmailsPaused": "Emails about comments, mentions, and assignments are currently paused for everyone until opt-out controls ship. Reminder emails above are under your control."
       },
       "sections": {
         "personalInformation": "Personal Information"
@@ -384,6 +387,7 @@
     },
     "settings": {
       "other": "Other",
+      "emailNotifications": "Email notifications",
       "editName": "Edit name",
       "editProfile": "Edit profile",
       "timezoneHelp": "Used for due dates, reminders and repeating tasks.",

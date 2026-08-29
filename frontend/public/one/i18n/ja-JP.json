@@ -32,7 +32,10 @@
         "name": "名前",
         "newName": "新しい名前",
         "timezone": "タイムゾーン",
-        "savedSuccess": "設定の更新に成功しました。"
+        "savedSuccess": "設定の更新に成功しました。",
+        "emailReminders": "タスクのリマインダーをメールで送信する",
+        "overdueReminders": "未完了の期限切れタスクの要約を毎日送る",
+        "activityEmailsPaused": "コメント、メンション、割り当てに関するメールは、オプトアウト機能が用意されるまで全員分一時停止しています。上記のリマインダーは自分で制御できます。"
       },
       "sections": {
         "personalInformation": "あなたの情報"
@@ -424,7 +427,8 @@
         "successorText": "削除をリクエストする前に、選択したチームメンバーが組織管理者になる必要があります。",
         "requestedTitle": "削除をリクエストしました",
         "requestedText": "メールでお送りする確認リンクを開くまで、削除は予定されません。"
-      }
+      },
+      "emailNotifications": "メール通知"
     },
     "org": {
       "teamLabel": "チーム",
