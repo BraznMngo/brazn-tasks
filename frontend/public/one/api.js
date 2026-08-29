@@ -624,6 +624,13 @@ export const COMMERCIAL_OPS = Object.freeze({
   INVITE_MEMBER: commercialOp(OUTCOME_REQUIRED, ['invited', 'already_member']),
 
   /**
+   * GET /v1/organizations/invitations — BRA-1469.
+   * Body: `{invitations: [{invitation_id, status, expires_at, invited_user_id}]}`
+   * with no `outcome` field (same shape family as LIST_TEAM_ACCESS_REQUESTS).
+   */
+  LIST_INVITATIONS: commercialOp(OUTCOME_ABSENT),
+
+  /**
    * POST /v1/organizations/invitations/accept.
    * Body: `{outcome, organization_id}` (client-http-27c95232:2896-2899,
    * projecting `InvitationAcceptance`).
@@ -863,7 +870,7 @@ export const COMMERCIAL_OPS = Object.freeze({
    * the value must be read from that handler and added here. That is the
    * fail-closed residue, and it is reported rather than papered over.
    */
-  REVOKE_INVITATION: commercialOp(OUTCOME_ABSENT, [], {contractOnly: true}),
+  REVOKE_INVITATION: commercialOp(OUTCOME_ABSENT),
 
   /**
    * GET /v1/organizations/seats/quote.
@@ -2258,6 +2265,18 @@ export function searchUsers(q) {
   return forkGet(withQuery(forkV2Url('users'), {q}));
 }
 
+/**
+ * GET /api/v1/brazn/organization/users/lookup?email= — BRA-1469.
+ *
+ * Organization-administrator exact-email lookup. Bypasses discoverable_by_email
+ * because the administrator already typed the full address. Public
+ * `searchUsers` is unchanged. Answers `{user: {id, username, name, email} | null}`.
+ * A 403 from a non-administrator is the ordinary OrganizationFor refusal.
+ */
+export function lookupUserByEmail(email) {
+  return forkGet(withQuery(forkV1Url('brazn/organization/users/lookup'), {email}));
+}
+
 /* ------------------------------------------------------------------ *
  * 14. Fork — organization and teams
  * ------------------------------------------------------------------ */
@@ -2506,6 +2525,19 @@ export function inviteOrganizationMember(body, idempotencyKey) {
     idempotency_key: idempotencyKey ?? newIdempotencyKey(),
     // Spread last so an explicit key in the body wins over the default.
     ...body,
+  });
+}
+
+/**
+ * GET /v1/organizations/invitations?organization_id= — BRA-1469.
+ *
+ * Pending invitations for the organization the caller administers. The record
+ * holds no mailbox (only invited_user_id); the page shows invitation_id /
+ * pending status, and keeps any email known from this visit's send.
+ */
+export function listOrganizationInvitations(organizationId) {
+  return commercialGet('organizations/invitations', COMMERCIAL_OPS.LIST_INVITATIONS, {
+    organization_id: organizationId,
   });
 }
 

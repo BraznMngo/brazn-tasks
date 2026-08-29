@@ -83,6 +83,14 @@ describe('one/join.js surfaces', () => {
 		const choices = joinSurface({kind: 'choices'})
 		expect(choices).toContain('data-action="join-signin"')
 		expect(choices).toContain('data-action="join-set-password"')
+		expect(choices).toContain('data-action="join-create-account"')
+		expect(choices).toContain('one.join.setPasswordHint')
+
+		const withToken = joinSurface({kind: 'choices', hasSignupToken: true})
+		expect(withToken).toContain('one.join.explainWithToken')
+		expect(withToken).toContain('data-action="join-create-account"')
+		// With a token, create-account is the primary control.
+		expect(withToken.indexOf('join-create-account')).toBeLessThan(withToken.indexOf('join-signin'))
 
 		expect(joinSurface({kind: 'accepting'})).toContain('one.join.accepting')
 

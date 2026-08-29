@@ -21,6 +21,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/log"
@@ -228,4 +229,61 @@ func BraznDeleteOrganizationTeam(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "The team could not be removed.").Wrap(err)
 	}
 	return c.JSON(http.StatusOK, models.Message{Message: "The team was removed."})
+}
+
+// braznUserLookupResponse is the projection an administrator gets for one
+// exact-email hit (BRA-1469). Email is included because the caller already typed
+// it; public search deliberately strips addresses.
+type braznUserLookupResponse struct {
+	User *braznUserLookupBody `json:"user"`
+}
+
+type braznUserLookupBody struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+}
+
+// BraznLookupOrganizationUserByEmail finds a task-server user by full email for
+// an organization administrator (BRA-1469).
+//
+// This is NOT public discoverability. ListUsers / SearchUsers still require
+// discoverable_by_email. The gate here is OrganizationFor: only the single
+// organization administrator may look, and only by an exact whole address.
+// Incomplete addresses (missing "@", empty) return found:null rather than a
+// fuzzy match.
+//
+// @Summary Look up a user by exact email (organization administrator)
+// @Description Returns at most one user whose email equals the query. Requires organization administration. Does not enable public email search.
+// @tags brazn
+// @Produce json
+// @Security JWTKeyAuth
+// @Param email query string true "Full email address"
+// @Success 200 {object} braznUserLookupResponse "user is null when nobody matches"
+// @Failure 403 {object} web.HTTPError "The caller does not administer an organization."
+// @Router /brazn/organization/users/lookup [get]
+func BraznLookupOrganizationUserByEmail(c *echo.Context) error {
+	_, _, err := actingOrganization(c)
+	if err != nil {
+		return err
+	}
+
+	email := strings.TrimSpace(c.QueryParam("email"))
+	s := db.NewSession()
+	defer s.Close()
+
+	found, err := user.LookupByExactEmail(s, email)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "The lookup could not be completed.").Wrap(err)
+	}
+	if found == nil {
+		return c.JSON(http.StatusOK, braznUserLookupResponse{User: nil})
+	}
+	return c.JSON(http.StatusOK, braznUserLookupResponse{User: &braznUserLookupBody{
+		ID:       found.ID,
+		Username: found.Username,
+		Name:     found.Name,
+		Email:    found.Email,
+	}})
 }

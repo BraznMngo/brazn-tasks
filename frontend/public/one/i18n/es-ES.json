@@ -202,7 +202,8 @@
       "title": "Miembros",
       "inUse": "{used} / {limit} puestos en uso",
       "roleAdministrator": "Administrador de la organización",
-      "roleMember": "Miembro"
+      "roleMember": "Miembro",
+      "roleExternal": "Miembro externo"
     },
     "seats": {
       "title": "Puestos",
@@ -449,7 +450,7 @@
       "organizationMembers": "Miembros de la organización",
       "noOrganizationMembers": "No hay ningún miembro de la organización disponible.",
       "findExternal": "Busca a alguien de fuera de tu organización",
-      "findExternalHint": "Para añadir a alguien externo hay que buscarlo por su dirección de correo electrónico o su nombre de usuario completos.",
+      "findExternalHint": "Escriba un correo completo o el nombre de usuario exacto. La búsqueda por correo funciona para administradores sin que la persona se haya hecho localizable.",
       "searchPlaceholder": "Nombre de usuario o correo electrónico completos",
       "noExternalMatch": "No se ha encontrado ninguna coincidencia exacta fuera de tu organización.",
       "inTeam": "En el equipo",
@@ -459,7 +460,7 @@
       "inviteEmailPlaceholder": "nombre{'@'}ejemplo.com",
       "inviteSeatNotice": "La invitación reserva un puesto para {team} de forma inmediata.",
       "sendInvitation": "Enviar invitación",
-      "pendingInvitations": "Solicitudes para unirse al equipo",
+      "pendingInvitations": "Nuevos miembros pendientes",
       "invitePending": "Invitación pendiente",
       "seatReserved": "Puesto reservado",
       "subscriptionActionRequired": "Acción necesaria en la suscripción",
@@ -486,12 +487,19 @@
         "publicKind": "Toda la organización",
         "publicName": "Público",
         "publicDesc": "Trabajo visible en toda la organización."
-      }
+      },
+      "pendingInvitationsVisitOnly": "Las invitaciones enviadas en esta visita aparecen aquí. Recargar vacía la lista hasta que haya una lista en el servidor.",
+      "existingUserLead": "Esta persona ya tiene una cuenta de ONE Tasks.",
+      "existingUserText": " Envíe una invitación solo a alguien que nunca haya usado ONE Tasks. Añádala al equipo en su lugar: se une como miembro externo.",
+      "existingUserExternalNote": "Los miembros externos obtienen acceso al equipo sin ocupar un asiento de organización.",
+      "inviteDifferentEmail": "Usar otro correo",
+      "pendingInvitationsListed": "Invitaciones pendientes de esta organización. Recargar actualiza la lista desde el servidor.",
+      "invitePendingAnonymous": "Invitación {id}…"
     },
     "join": {
       "title": "Únete a tu organización",
       "lead": "Te han invitado a un equipo en ONE Tasks.",
-      "explain": "Inicia sesión para aceptar la invitación. Si todavía no tienes contraseña, establece una primero (tu cuenta ya existe) o inicia sesión con Google desde la página de inicio de sesión.",
+      "explain": "Inicie sesión si ya tiene una cuenta. Si es la primera vez, cree una — el enlace de invitación ya lo preparó todo. Establecer una contraseña solo funciona si ya existe una cuenta para su correo.",
       "signIn": "Iniciar sesión",
       "setPassword": "Establecer contraseña",
       "accepting": "Aceptando tu invitación…",
@@ -499,7 +507,10 @@
       "alreadyMember": "Ya tienes un puesto en esta organización, así que no ha hecho falta cambiar nada.",
       "openApp": "Abrir ONE Tasks",
       "refusedLead": "No se ha podido aceptar la invitación.",
-      "missingLink": "Este enlace está incompleto. Abre el enlace de tu correo de invitación o pide a la persona que te invitó que te envíe uno nuevo."
+      "missingLink": "Este enlace está incompleto. Abre el enlace de tu correo de invitación o pide a la persona que te invitó que te envíe uno nuevo.",
+      "explainWithToken": "Cree una cuenta para aceptar la invitación (Google o correo). Si ya se registró, inicie sesión. Establezca una contraseña solo si ya existe una cuenta.",
+      "createAccount": "Crear una cuenta",
+      "setPasswordHint": "«Establecer una contraseña» solo funciona si ya existe una cuenta para su correo. No crea una."
     },
     "deny": {
       "personalEdition": "Esto forma parte de ONE Teams.",

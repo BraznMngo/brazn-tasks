@@ -202,7 +202,8 @@
       "title": "Members",
       "inUse": "{used} / {limit} seats in use",
       "roleAdministrator": "Organization administrator",
-      "roleMember": "Member"
+      "roleMember": "Member",
+      "roleExternal": "External member"
     },
     "seats": {
       "title": "Seats",
@@ -449,7 +450,7 @@
       "organizationMembers": "Organization members",
       "noOrganizationMembers": "No organization members available.",
       "findExternal": "Find someone outside your organization",
-      "findExternalHint": "Adding someone external requires their full email or username to find them.",
+      "findExternalHint": "Type a full email address or exact username. Email lookup works for administrators without the person having made themselves findable.",
       "searchPlaceholder": "Full username or email",
       "noExternalMatch": "No exact external match found.",
       "inTeam": "In team",
@@ -459,7 +460,7 @@
       "inviteEmailPlaceholder": "name{'@'}example.com",
       "inviteSeatNotice": "The invitation reserves one seat immediately for {team}.",
       "sendInvitation": "Send invitation",
-      "pendingInvitations": "Requests to join the team",
+      "pendingInvitations": "Pending New Members",
       "invitePending": "Invitation pending",
       "seatReserved": "Seat reserved",
       "subscriptionActionRequired": "Subscription action required",
@@ -486,12 +487,19 @@
         "publicKind": "Organization-wide",
         "publicName": "Public",
         "publicDesc": "Work visible across the organization."
-      }
+      },
+      "pendingInvitationsVisitOnly": "Invitations sent in this browser visit appear here. Reload clears the list until a server list is available.",
+      "existingUserLead": "This person already has a ONE Tasks account.",
+      "existingUserText": " Send an invitation only for someone who has never used ONE Tasks. Add them to this team instead — they join as an external member.",
+      "existingUserExternalNote": "External members get team access without taking an organization seat.",
+      "inviteDifferentEmail": "Use a different email",
+      "pendingInvitationsListed": "Pending invitations for this organization. Reloading refreshes the list from the server.",
+      "invitePendingAnonymous": "Invitation {id}…"
     },
     "join": {
       "title": "Join your organization",
       "lead": "You have been invited to a team on ONE Tasks.",
-      "explain": "Sign in to accept the invitation. If you do not have a password yet, set one first — your account already exists — or sign in with Google from the sign-in page.",
+      "explain": "Sign in if you already have an account. If this is your first time, create an account — the invitation link already prepared everything. You can also set a password if an account was opened for your email.",
       "signIn": "Sign in",
       "setPassword": "Set a password",
       "accepting": "Accepting your invitation…",
@@ -499,7 +507,10 @@
       "alreadyMember": "You already hold a seat in this organization, so nothing needed to change.",
       "openApp": "Open ONE Tasks",
       "refusedLead": "The invitation could not be accepted.",
-      "missingLink": "This link is incomplete. Open the link from your invitation email, or ask the person who invited you to send a new one."
+      "missingLink": "This link is incomplete. Open the link from your invitation email, or ask the person who invited you to send a new one.",
+      "explainWithToken": "Create an account to claim this invitation (Google or email). If you already registered, sign in instead. Set a password only if an account already exists for your email.",
+      "createAccount": "Create an account",
+      "setPasswordHint": "Set a password only works when an account already exists for your email. It does not create one."
     },
     "deny": {
       "personalEdition": "This is part of ONE Teams.",
