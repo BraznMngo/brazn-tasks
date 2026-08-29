@@ -265,6 +265,25 @@ const OPERATIONS: OpCase[] = [
 		},
 	},
 	{
+		name: 'list invitations (GET /v1/organizations/invitations)',
+		op: api.COMMERCIAL_OPS.LIST_INVITATIONS,
+		shape: 'absent',
+		affirmative: [
+			{
+				label: 'a pending invitations list, with no outcome field',
+				body: {
+					invitations: [{
+						invitation_id: 'inv-9',
+						status: 'pending',
+						expires_at: '2099-01-01T00:00:00Z',
+						invited_user_id: 'usr-7',
+					}],
+				},
+			},
+		],
+		refusal: {label: 'an unread outcome vocabulary', body: {invitations: [], outcome: 'listed'}},
+	},
+	{
 		name: 'accept invitation (POST /v1/organizations/invitations/accept)',
 		op: api.COMMERCIAL_OPS.ACCEPT_INVITATION,
 		shape: 'required',
@@ -533,12 +552,13 @@ describe('one/api.js commercial guard - the per-operation outcome vocabulary', (
 		for (const entry of OPERATIONS) {
 			expect(entry.op.shape, entry.name).toBe(entry.shape)
 		}
-		// Five required, thirteen absent. The counts keep a table-wide mistake (every row copied
-		// as 'absent', say) from passing as agreement. RENAME_ORGANIZATION is the thirteenth
+		// Five required, fourteen absent. The counts keep a table-wide mistake (every row copied
+		// as 'absent', say) from passing as agreement. RENAME_ORGANIZATION was the thirteenth
 		// absent row (BRA-1439) - it briefly sat on the required side of this line, on an assumed
 		// union independent QA traced false against the landed handler; see its own row.
+		// LIST_INVITATIONS is the fourteenth (BRA-1469).
 		expect(OPERATIONS.filter(entry => entry.shape === 'required')).toHaveLength(5)
-		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(13)
+		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(14)
 	})
 
 	for (const entry of OPERATIONS) {
