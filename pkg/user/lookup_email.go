@@ -44,13 +44,16 @@ func LookupByExactEmail(s *xorm.Session, email string) (*User, error) {
 	u := &User{}
 	var has bool
 	var err error
-	switch db.Type() {
-	case schemas.POSTGRES:
+	// Prefer dialect-aware case-insensitive equality where we know it; other
+	// dialects fall through to a plain equality (MySQL/MariaDB default
+	// collations are typically case-insensitive already). Avoid a switch on
+	// schemas.DBType — exhaustive would force cases for dialects this product
+	// does not run.
+	if db.Type() == schemas.POSTGRES {
 		has, err = s.Where("lower(email) = lower(?)", email).Get(u)
-	case schemas.SQLITE:
+	} else if db.Type() == schemas.SQLITE {
 		has, err = s.Where("email = ? COLLATE NOCASE", email).Get(u)
-	default:
-		// MySQL / MariaDB: default collation is typically case-insensitive.
+	} else {
 		has, err = s.Where("email = ?", email).Get(u)
 	}
 	if err != nil {
