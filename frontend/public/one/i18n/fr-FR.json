@@ -32,7 +32,10 @@
         "name": "Mon nom",
         "newName": "Le nouveau nom",
         "timezone": "Fuseau horaire",
-        "savedSuccess": "Paramètres mis à jour."
+        "savedSuccess": "Paramètres mis à jour.",
+        "emailReminders": "M envoyer des rappels de taches par e-mail",
+        "overdueReminders": "M envoyer chaque jour un resume de mes taches en retard non terminees",
+        "activityEmailsPaused": "Les e-mails sur les commentaires, mentions et assignations sont actuellement en pause pour tout le monde jusqu a ce que des options de desactivation existent. Les rappels ci-dessus sont sous ton controle."
       },
       "sections": {
         "personalInformation": "Informations personnelles"
@@ -424,7 +427,8 @@
         "successorText": "Le membre de l’équipe sélectionné doit devenir administrateur de l’organisation avant que la suppression puisse être demandée.",
         "requestedTitle": "Suppression demandée",
         "requestedText": "La suppression n’est programmée qu’après l’ouverture du lien de confirmation que nous vous envoyons par e-mail."
-      }
+      },
+      "emailNotifications": "Notifications par e-mail"
     },
     "org": {
       "teamLabel": "Équipe",

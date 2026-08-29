@@ -32,7 +32,10 @@
         "name": "我的名字",
         "newName": "新的名字",
         "timezone": "时区",
-        "savedSuccess": "成功更新了设置"
+        "savedSuccess": "成功更新了设置",
+        "emailReminders": "通过电子邮件发送任务提醒",
+        "overdueReminders": "每天向我发送未完成逾期任务摘要",
+        "activityEmailsPaused": "关于评论、提及和分配的邮件目前对所有人暂停，直到提供退出选项。上方的提醒邮件由你自行控制。"
       },
       "sections": {
         "personalInformation": "个人信息"
@@ -424,7 +427,8 @@
         "successorText": "所选团队成员必须先成为组织管理员，才能提交删除请求。",
         "requestedTitle": "已提交删除请求",
         "requestedText": "只有在你打开我们邮件中的确认链接后，我们才会安排删除。"
-      }
+      },
+      "emailNotifications": "电子邮件通知"
     },
     "org": {
       "teamLabel": "团队",

@@ -490,12 +490,42 @@ function accountTab() {
     <div class="settings-grid">
       ${profileCard()}
       ${connectedAccountsCard()}
+      ${emailNotificationsCard()}
       ${otherCard()}
       ${subscriptionCard()}
       ${dataCard()}
       ${dangerZone()}
     </div>
   </section>`;
+}
+
+/**
+ * BRA-1468 Issue 3: reminder toggles + activity-paused note on the ONE settings
+ * surface. Restricted UI never reaches Vue General, so AC3 ("a person can tell")
+ * has to live here.
+ */
+function emailNotificationsCard() {
+  const settings = getSettings() ?? {};
+  const remindersOn = settings.email_reminders_enabled === true;
+  const overdueOn = settings.overdue_tasks_reminders_enabled === true;
+  return `<div class="card settings-card">
+    <div class="card-title">${tx('one.settings.emailNotifications')}</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-name">${tx('user.settings.general.emailReminders')}</div>
+      </div>
+      <input type="checkbox" id="emailRemindersEnabled" data-requires="write"
+        ${remindersOn ? 'checked' : ''}>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-name">${tx('user.settings.general.overdueReminders')}</div>
+      </div>
+      <input type="checkbox" id="overdueRemindersEnabled" data-requires="write"
+        ${overdueOn ? 'checked' : ''}>
+    </div>
+    <p class="setting-desc" style="margin:8px 0 0">${tx('user.settings.general.activityEmailsPaused')}</p>
+  </div>`;
 }
 
 /**
@@ -1242,6 +1272,14 @@ function installChangeListeners() {
       saveTimezone(target.value);
       return;
     }
+    if (target.id === 'emailRemindersEnabled') {
+      saveEmailNotificationFlag('email_reminders_enabled', target.checked);
+      return;
+    }
+    if (target.id === 'overdueRemindersEnabled') {
+      saveEmailNotificationFlag('overdue_tasks_reminders_enabled', target.checked);
+      return;
+    }
     if (target.id === 'teamSelector') {
       setViewState(NS, {selectedTeamId: target.value});
       requestRender();
@@ -1276,6 +1314,19 @@ function installChangeListeners() {
  * S8. `PUT /api/v2/user/settings/general` REPLACES, destructively; api.js does the GET, the merge
  * and the write in one call so no caller can forget the read half.
  */
+async function saveEmailNotificationFlag(field, enabled) {
+  try {
+    await api.saveGeneralSettings({[field]: enabled});
+    await reloadUser();
+    toast(t('user.settings.general.savedSuccess'));
+    requestRender();
+  } catch (err) {
+    console.error('[one/settings] email notification save failed', err);
+    toast(t('one.deny.requestFailed'));
+    requestRender();
+  }
+}
+
 async function saveTimezone(timezone) {
   // Its own try/catch: this runs from the raw `change` listener below, not through app.js's
   // `dispatch`, so nothing else would catch the rejection or report the refusal.

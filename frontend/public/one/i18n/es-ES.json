@@ -32,7 +32,10 @@
         "name": "Mi nombre",
         "newName": "El nuevo nombre",
         "timezone": "Zona horaria",
-        "savedSuccess": "Ajustes actualizados con éxito."
+        "savedSuccess": "Ajustes actualizados con éxito.",
+        "emailReminders": "Enviarme recordatorios de tareas por correo",
+        "overdueReminders": "Enviarme un resumen diario de mis tareas vencidas pendientes",
+        "activityEmailsPaused": "Los correos sobre comentarios, menciones y asignaciones estan pausados para todos hasta que haya opciones de desactivacion. Los recordatorios de arriba los controlas tu."
       },
       "sections": {
         "personalInformation": "Información personal"
@@ -424,7 +427,8 @@
         "successorText": "El miembro del equipo seleccionado debe convertirse en administrador de la organización antes de que se pueda solicitar la eliminación.",
         "requestedTitle": "Eliminación solicitada",
         "requestedText": "La eliminación no se programa hasta que abras el enlace de confirmación que te enviamos por correo electrónico."
-      }
+      },
+      "emailNotifications": "Notificaciones por correo"
     },
     "org": {
       "teamLabel": "Equipo",
