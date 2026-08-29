@@ -1322,7 +1322,7 @@ async function saveEmailNotificationFlag(field, enabled) {
     requestRender();
   } catch (err) {
     console.error('[one/settings] email notification save failed', err);
-    toast(t('one.deny.requestFailed'));
+    toast(refusalText(describeForkError(err)));
     requestRender();
   }
 }
