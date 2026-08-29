@@ -202,7 +202,8 @@
       "title": "成员",
       "inUse": "已使用 {used} / {limit} 个席位",
       "roleAdministrator": "组织管理员",
-      "roleMember": "成员"
+      "roleMember": "成员",
+      "roleExternal": "外部成员"
     },
     "seats": {
       "title": "席位",
@@ -449,7 +450,7 @@
       "organizationMembers": "组织成员",
       "noOrganizationMembers": "没有可添加的组织成员。",
       "findExternal": "查找组织外的人员",
-      "findExternalHint": "添加外部人员时，需要输入完整的邮箱地址或用户名才能找到对方。",
+      "findExternalHint": "请输入完整邮箱或确切用户名。管理员可按邮箱查找，无需对方开启可发现性。",
       "searchPlaceholder": "完整的用户名或邮箱地址",
       "noExternalMatch": "未找到完全匹配的外部人员。",
       "inTeam": "已在团队中",
@@ -459,7 +460,7 @@
       "inviteEmailPlaceholder": "name{'@'}example.com",
       "inviteSeatNotice": "该邀请会立即为 {team} 预留一个席位。",
       "sendInvitation": "发送邀请",
-      "pendingInvitations": "加入团队的申请",
+      "pendingInvitations": "待加入的新成员",
       "invitePending": "邀请待处理",
       "seatReserved": "已预留席位",
       "subscriptionActionRequired": "订阅需要你处理",
@@ -486,12 +487,19 @@
         "publicKind": "全组织",
         "publicName": "公开",
         "publicDesc": "整个组织都可以看到的工作内容。"
-      }
+      },
+      "pendingInvitationsVisitOnly": "本次浏览器访问中发送的邀请会显示在这里。在服务器列表可用之前，刷新会清空列表。",
+      "existingUserLead": "此用户已有 ONE Tasks 账户。",
+      "existingUserText": " 仅向从未使用过 ONE Tasks 的人发送邀请。请改为将其添加到团队——他们将作为外部成员加入。",
+      "existingUserExternalNote": "外部成员可获得团队访问权限，但不占用组织席位。",
+      "inviteDifferentEmail": "使用其他邮箱",
+      "pendingInvitationsListed": "本组织的待处理邀请。刷新会从服务器更新列表。",
+      "invitePendingAnonymous": "邀请 {id}…"
     },
     "join": {
       "title": "加入你的组织",
       "lead": "你已受邀加入 ONE Tasks 上的一个团队。",
-      "explain": "请登录以接受邀请。如果你还没有设置密码，请先设置密码（你的账户已经创建），也可以在登录页面使用 Google 登录。",
+      "explain": "若已有账户请登录。首次使用请创建账户 — 邀请链接已准备好一切。仅当该邮箱已有账户时，“设置密码”才有效。",
       "signIn": "登录",
       "setPassword": "设置密码",
       "accepting": "正在接受邀请…",
@@ -499,7 +507,10 @@
       "alreadyMember": "你已在该组织中拥有席位，无需任何更改。",
       "openApp": "打开 ONE Tasks",
       "refusedLead": "无法接受邀请。",
-      "missingLink": "此链接不完整。请打开邀请邮件中的链接，或请邀请你的人重新发送一个。"
+      "missingLink": "此链接不完整。请打开邀请邮件中的链接，或请邀请你的人重新发送一个。",
+      "explainWithToken": "请创建账户以接受邀请（Google 或邮箱）。若已注册请登录。仅当该邮箱已有账户时再设置密码。",
+      "createAccount": "创建账户",
+      "setPasswordHint": "“设置密码”仅在该邮箱已有账户时可用，不会创建新账户。"
     },
     "deny": {
       "personalEdition": "此功能属于 ONE Teams。",

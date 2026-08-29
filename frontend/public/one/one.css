@@ -615,6 +615,7 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 .member-actions{display:flex;align-items:center;gap:8px}
 .role-badge{font-size:10px;border-radius:999px;padding:4px 7px;background:var(--grey-100);color:var(--text-muted)}
 .role-badge.admin{background:hsla(var(--primary-hsl), .08);color:var(--primary)}
+.role-badge.external{background:hsla(200, 18%, 46%, .12);color:hsl(200, 18%, 32%)}
 .seat-meter{height:7px;background:var(--grey-200);border-radius:999px;overflow:hidden;margin:10px 0 6px}
 /* width:0, not the prototype's 71% — that was demo data baked into the stylesheet, and it would
    render a filled meter for every real organization until app.js sets #seatMeterFill inline. */

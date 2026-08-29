@@ -655,6 +655,9 @@ func registerAPIRoutes(a *echo.Group) {
 	// surface where the check is not middleware, and it is why it is a shared
 	// function rather than a rule body.
 	a.GET("/brazn/organization", apiv1.BraznGetOrganization)
+	// BRA-1469: org-admin exact-email lookup. Unclassified like the GET above —
+	// a read gated in the handler via OrganizationFor, not public discoverability.
+	a.GET("/brazn/organization/users/lookup", apiv1.BraznLookupOrganizationUserByEmail)
 	a.PUT("/brazn/organization/teams", apiv1.BraznCreateOrganizationTeam)
 	a.DELETE("/brazn/organization/teams/:team", apiv1.BraznDeleteOrganizationTeam)
 

@@ -202,7 +202,8 @@
       "title": "Mitglieder",
       "inUse": "{used} / {limit} Sitzplätze belegt",
       "roleAdministrator": "Organisationsadministrator",
-      "roleMember": "Mitglied"
+      "roleMember": "Mitglied",
+      "roleExternal": "Externes Mitglied"
     },
     "seats": {
       "title": "Sitzplätze",
@@ -449,7 +450,7 @@
       "organizationMembers": "Mitglieder der Organisation",
       "noOrganizationMembers": "Keine Mitglieder der Organisation verfügbar.",
       "findExternal": "Jemanden außerhalb eurer Organisation finden",
-      "findExternalHint": "Um jemanden von außerhalb hinzuzufügen, brauchst du die vollständige E-Mail-Adresse oder den vollständigen Benutzernamen dieser Person.",
+      "findExternalHint": "Geben Sie eine vollständige E-Mail-Adresse oder den genauen Benutzernamen ein. Die E-Mail-Suche funktioniert für Administratoren, ohne dass die Person sich auffindbar gemacht hat.",
       "searchPlaceholder": "Vollständiger Benutzername oder E-Mail-Adresse",
       "noExternalMatch": "Keine genaue Übereinstimmung außerhalb der Organisation gefunden.",
       "inTeam": "Im Team",
@@ -459,7 +460,7 @@
       "inviteEmailPlaceholder": "name{'@'}example.com",
       "inviteSeatNotice": "Die Einladung reserviert sofort einen Sitzplatz für {team}.",
       "sendInvitation": "Einladung senden",
-      "pendingInvitations": "Beitrittsanfragen für das Team",
+      "pendingInvitations": "Ausstehende neue Mitglieder",
       "invitePending": "Einladung ausstehend",
       "seatReserved": "Sitzplatz reserviert",
       "subscriptionActionRequired": "Euer Abonnement erfordert eine Aktion.",
@@ -486,12 +487,19 @@
         "publicKind": "Organisationsweit",
         "publicName": "Öffentlich",
         "publicDesc": "Arbeit, die in der ganzen Organisation sichtbar ist."
-      }
+      },
+      "pendingInvitationsVisitOnly": "Einladungen aus diesem Browserbesuch erscheinen hier. Ein Neuladen leert die Liste, bis eine Serverliste verfügbar ist.",
+      "existingUserLead": "Diese Person hat bereits ein ONE-Tasks-Konto.",
+      "existingUserText": " Senden Sie eine Einladung nur an jemanden, der ONE Tasks noch nie genutzt hat. Fügen Sie die Person stattdessen dem Team hinzu — sie wird externes Mitglied.",
+      "existingUserExternalNote": "Externe Mitglieder erhalten Teamzugang, ohne einen Organisationsplatz zu belegen.",
+      "inviteDifferentEmail": "Andere E-Mail verwenden",
+      "pendingInvitationsListed": "Ausstehende Einladungen für diese Organisation. Neu laden aktualisiert die Liste vom Server.",
+      "invitePendingAnonymous": "Einladung {id}…"
     },
     "join": {
       "title": "Deiner Organisation beitreten",
       "lead": "Du wurdest in ein Team bei ONE Tasks eingeladen.",
-      "explain": "Melde dich an, um die Einladung anzunehmen. Wenn du noch kein Passwort hast, lege zuerst eins fest – dein Konto existiert bereits – oder melde dich auf der Anmeldeseite mit Google an.",
+      "explain": "Melden Sie sich an, wenn Sie bereits ein Konto haben. Beim ersten Mal legen Sie ein Konto an — der Einladungslink hat alles vorbereitet. Ein Passwort setzen geht nur, wenn für Ihre E-Mail schon ein Konto existiert.",
       "signIn": "Anmelden",
       "setPassword": "Passwort festlegen",
       "accepting": "Einladung wird angenommen…",
@@ -499,7 +507,10 @@
       "alreadyMember": "Du hast in dieser Organisation bereits einen Sitzplatz. Es musste nichts geändert werden.",
       "openApp": "ONE Tasks öffnen",
       "refusedLead": "Die Einladung konnte nicht angenommen werden.",
-      "missingLink": "Dieser Link ist unvollständig. Öffne den Link aus deiner Einladungs-E-Mail oder bitte die Person, die dich eingeladen hat, um einen neuen."
+      "missingLink": "Dieser Link ist unvollständig. Öffne den Link aus deiner Einladungs-E-Mail oder bitte die Person, die dich eingeladen hat, um einen neuen.",
+      "explainWithToken": "Legen Sie ein Konto an, um die Einladung anzunehmen (Google oder E-Mail). Wenn Sie schon registriert sind, melden Sie sich an. Passwort setzen nur, wenn für Ihre E-Mail schon ein Konto existiert.",
+      "createAccount": "Konto erstellen",
+      "setPasswordHint": "„Passwort setzen“ funktioniert nur, wenn für Ihre E-Mail bereits ein Konto existiert. Es legt keines an."
     },
     "deny": {
       "personalEdition": "Das gehört zu ONE Teams.",

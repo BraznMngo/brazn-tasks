@@ -140,14 +140,24 @@ export function joinSurface(state) {
   }
 
   if (kind === 'choices') {
+    // BRA-1469 Done-when #2: every control must lead somewhere that can finish.
+    // No credential form here (must-not). Create account → Vue /register, which
+    // keeps the sessionStorage signup token join.js already captured.
+    const hasToken = state?.hasSignupToken === true;
+    const explain = hasToken ? tx('one.join.explainWithToken') : tx('one.join.explain');
     return `<div class="settings-section"><div class="card settings-card wide">
       <h2>${tx('one.join.title')}</h2>
       <p class="card-sub">${tx('one.join.lead')}</p>
-      <p class="help">${tx('one.join.explain')}</p>
+      <p class="help">${explain}</p>
       <div class="profile-actions" style="flex-wrap:wrap;gap:8px">
-        <button class="btn primary" data-action="join-signin">${tx('one.join.signIn')}</button>
+        ${hasToken
+          ? `<button class="btn primary" data-action="join-create-account">${tx('one.join.createAccount')}</button>
+        <button class="btn" data-action="join-signin">${tx('one.join.signIn')}</button>`
+          : `<button class="btn primary" data-action="join-signin">${tx('one.join.signIn')}</button>
+        <button class="btn" data-action="join-create-account">${tx('one.join.createAccount')}</button>`}
         <button class="btn" data-action="join-set-password">${tx('one.join.setPassword')}</button>
       </div>
+      <p class="help">${tx('one.join.setPasswordHint')}</p>
     </div></div>`;
   }
 
@@ -278,6 +288,12 @@ function installClickListener(invitationId) {
     if (action === 'join-signin') {
       if (invitationId !== null) writePendingJoin(invitationId);
       location.assign(api.forkAppUrl('login'));
+    } else if (action === 'join-create-account') {
+      // Token is already in sessionStorage (captureSignupToken). /register's
+      // beforeEnter reads getSignupToken via readSignupTokenFromFragment and
+      // keeps the form when a token is present (BRA-1444 / accountCreationRedirect).
+      if (invitationId !== null) writePendingJoin(invitationId);
+      location.assign(api.forkAppUrl('register'));
     } else if (action === 'join-set-password') {
       if (invitationId !== null) writePendingJoin(invitationId);
       location.assign(api.forkAppUrl('get-password-reset'));
@@ -314,7 +330,13 @@ export async function boot() {
 
   if (!await api.initSession()) {
     writePendingJoin(invitationId);
-    render({kind: 'choices'});
+    let hasSignupToken = false;
+    try {
+      hasSignupToken = Boolean(sessionStorage.getItem(SIGNUP_TOKEN_STORAGE_KEY));
+    } catch {
+      hasSignupToken = Boolean(signupTokenFromHash(location.hash));
+    }
+    render({kind: 'choices', hasSignupToken});
     return;
   }
 

@@ -358,7 +358,45 @@ function organizationAdministratorId() {
 
 function isOrganizationAdministrator(member) {
   const adminId = organizationAdministratorId();
-  return adminId !== null && member?.id != null && String(member.id) === String(adminId);
+  const memberId = memberUserId(member);
+  return adminId !== null && memberId !== null && String(memberId) === String(adminId);
+}
+
+/** Fork user id on a team roster row (`id`) or an organization member (`user_id`). */
+function memberUserId(member) {
+  if (member == null) return null;
+  if (member.user_id != null) return member.user_id;
+  if (member.id != null) return member.id;
+  return null;
+}
+
+/**
+ * BRA-1469 / BRA-1068: Administrator (org admin), Member (holds an org seat),
+ * or External member (on the team roster without an org seat). Derived — never
+ * a stored flag.
+ */
+function memberRoleBadge(member) {
+  if (isOrganizationAdministrator(member)) {
+    return {className: 'admin', label: tx('organization.members.roleAdministrator')};
+  }
+  const id = memberUserId(member);
+  const inOrganization = id !== null && organizationMembers().some(
+    (row) => String(row?.user_id ?? row?.id ?? '') === String(id),
+  );
+  if (inOrganization) {
+    return {className: '', label: tx('organization.members.roleMember')};
+  }
+  return {className: 'external', label: tx('organization.members.roleExternal')};
+}
+
+/** True when the string looks like a complete email (local@domain), not a fragment. */
+function looksLikeFullEmail(value) {
+  const trimmed = String(value ?? '').trim();
+  if (trimmed === '' || trimmed.includes(' ')) return false;
+  const at = trimmed.indexOf('@');
+  if (at < 1) return false;
+  const domain = trimmed.slice(at + 1);
+  return domain.includes('.') && !domain.startsWith('.') && !domain.endsWith('.');
 }
 
 /* ------------------------------------------------------------------ *
@@ -1093,9 +1131,11 @@ function membersCard(team) {
  * prototype (:1133).
  */
 function memberRow(member, teamId) {
-  const isAdministrator = isOrganizationAdministrator(member);
+  const role = memberRoleBadge(member);
   const me = currentUserId();
-  const suffix = me !== null && member?.id === me ? ` ${t('one.common.you')}` : '';
+  const suffix = me !== null && memberUserId(member) !== null
+    && String(memberUserId(member)) === String(me) ? ` ${t('one.common.you')}` : '';
+  const isAdministrator = isOrganizationAdministrator(member);
   return `<div class="member-row">
     <div class="avatar">${esc(initials(member))}</div>
     <div class="member-meta">
@@ -1103,9 +1143,7 @@ function memberRow(member, teamId) {
       <span>${esc(member?.email ?? '')}</span>
     </div>
     <div class="member-actions" style="flex-wrap:wrap">
-      <span class="role-badge ${isAdministrator ? 'admin' : ''}">${isAdministrator
-        ? tx('organization.members.roleAdministrator')
-        : tx('organization.members.roleMember')}</span>
+      <span class="role-badge ${role.className}">${role.label}</span>
       ${isAdministrator ? '' : `<button class="btn small ghost" data-action="remove-member"
         data-username="${esc(member?.username ?? '')}" data-team="${esc(teamId)}"
         data-requires="team-admin write">${tx('organization.teams.remove')}</button>`}
@@ -1114,31 +1152,15 @@ function memberRow(member, teamId) {
 }
 
 /**
- * M13. THE CARD IS TITLED "Requests to join the team" SINCE BRA-1439 Story 3 (decided by
- * Sebastian, 2026-08-26: people are added, not invited, so listing invitations is not the
- * feature being promised). Only `one.org.pendingInvitations`'s VALUE changed, in all six
- * catalogues; the key, the coming-soon treatment and everything else on the card are untouched —
- * the working chain behind the renamed promise (referral tokens, request pages, this queue) is
- * BRA-1441's, not this change's.
+ * M13 / BRA-1469. Card title is **Pending New Members**: new-user invites still
+ * need acceptance before membership. Loaded from GET /v1/organizations/invitations
+ * when available; emails known from this visit are merged onto matching rows.
  *
- * THERE IS NO LIST ROUTE. The `/v1` inventory has create, accept and (contract-only) revoke;
- * `GET /v1/organizations/invitations` does not exist and inventing one is barred (bar 7). So the
- * card renders a cannot-list state rather than the prototype's "No pending invitations for this
- * team" (:1131) — claiming zero asserts a fact the page never read, which is the same defect
- * bar 8 names.
- *
- * Rows created in THIS session are appended optimistically and are the only rows that can exist.
- *
- * `one.org.seatReserved` IS NOT EMITTED ON THESE ROWS, and its absence is the fix rather than an
- * omission. A pending invitation reserves nothing: "Pending invitations deliberately reserve no
- * seat (and under this model they need not), so two invitations outstanding at once will each say
- * they add one" (client-service-27c95232:610-613). The seat is taken at ACCEPTANCE, under the
- * organization lock, by `admitInvitedMember`. Printing "Seat reserved" beside a row asserted a
- * commercial fact the service explicitly denies — the same fake-success direction bar 8 guards,
- * one level below the guard. "Invitation pending" is the whole of what this page read.
+ * `one.org.seatReserved` IS NOT EMITTED — a pending invitation reserves nothing.
  */
 function pendingInvitationsCard() {
   const invites = scratch().pendingInvites ?? [];
+  const status = scratch().pendingInvitesStatus;
   const rows = invites.map((invite, index) => `<div class="member-row">
     <div class="avatar">?</div>
     <div class="member-meta">
@@ -1153,11 +1175,24 @@ function pendingInvitationsCard() {
     </div>
   </div>`).join('');
 
+  let body;
+  if (status === 'loading') {
+    body = `<div class="empty-state">${tx('one.common.searching')}</div>`;
+  } else if (invites.length === 0) {
+    body = `<div class="empty-state">${tx('one.org.noPendingInvitations')}</div>`;
+  } else {
+    body = rows;
+  }
+
+  const notice = status === 'ready'
+    ? tx('one.org.pendingInvitationsListed')
+    : tx('one.org.pendingInvitationsVisitOnly');
+
   return `<div class="card settings-card wide">
     <div class="card-title">${tx('one.org.pendingInvitations')}</div>
-    ${refusalNote(t('one.deny.noRoute'), {notice: true})}
+    <div class="info-label">${ic('info')}<span>${notice}</span></div>
     ${seatNoticeLine()}
-    <div class="member-list" style="margin-top:12px">${rows}</div>
+    <div class="member-list" style="margin-top:12px">${body}</div>
   </div>`;
 }
 
@@ -1211,12 +1246,51 @@ function mount(root, ctx) {
   }
 
   if (ctx.route.tab === 'team') {
+    ensurePendingInvitations();
     const meter = readSeatMeter(getOrganization());
     const fill = root.querySelector('#seatMeterFill');
     // A null denominator gets a zero-width bar, never a full one: "we cannot read how many seats
     // you bought" must not paint as "every seat is taken".
     if (fill !== null) fill.style.inlineSize = `${Math.round((meter.fillRatio ?? 0) * 100)}%`;
   }
+}
+
+/**
+ * BRA-1469: load pending invitations from GET /v1/organizations/invitations.
+ * Merges server rows with any email remembered from this visit's sends.
+ */
+function ensurePendingInvitations() {
+  const state = scratch();
+  if (state.pendingInvitesStatus === 'loading' || state.pendingInvitesStatus === 'ready') return;
+  const organization = getOrganization();
+  if (organization === null) return;
+  setViewState(NS, {pendingInvitesStatus: 'loading'});
+  api.listOrganizationInvitations(organization.id).then((result) => {
+    if (!result.ok) {
+      // Keep session-only rows; mark failed so the visit-only notice stays honest.
+      setViewState(NS, {pendingInvitesStatus: 'failed'});
+      requestRender();
+      return;
+    }
+    const remote = Array.isArray(result.body?.invitations) ? result.body.invitations : [];
+    const prior = scratch().pendingInvites ?? [];
+    const emailById = new Map(
+      prior.filter((row) => row?.invitationId).map((row) => [String(row.invitationId), row.email]),
+    );
+    const invites = remote.map((row) => ({
+      email: emailById.get(String(row.invitation_id))
+        ?? t('one.org.invitePendingAnonymous', {id: String(row.invitation_id ?? '').slice(0, 8)}),
+      invitationId: row.invitation_id ?? null,
+      expiresAt: row.expires_at ?? null,
+    }));
+    setViewState(NS, {pendingInvites: invites, pendingInvitesStatus: 'ready'});
+    requestRender();
+  }).catch((err) => {
+    if (err instanceof api.SessionLostError) throw err;
+    console.error('[one/settings] pending invitations list failed', err);
+    setViewState(NS, {pendingInvitesStatus: 'failed'});
+    requestRender();
+  });
 }
 
 function ensureTimezones() {
@@ -2105,85 +2179,87 @@ registerActions({
   invite: () => {
     // `memberSearch: null` so a freshly opened modal never shows the results of
     // a search somebody ran the last time it was open (M12).
-    setViewState(NS, {memberAddMode: 'new', memberSearch: null});
+    setViewState(NS, {memberAddMode: 'new', memberSearch: null, existingInvitee: null});
     renderInviteModal();
   },
 
   'member-mode': (event, el) => {
     const mode = el.getAttribute('data-mode');
-    setViewState(NS, {memberAddMode: mode === 'existing' ? 'existing' : 'new'});
+    setViewState(NS, {
+      memberAddMode: mode === 'existing' ? 'existing' : 'new',
+      existingInvitee: null,
+    });
+    renderInviteModal();
+  },
+
+  'clear-existing-invitee': () => {
+    setViewState(NS, {existingInvitee: null});
     renderInviteModal();
   },
 
   /**
-   * M10. `POST /v1/organizations/invitations` with `{organization_id, email}`.
+   * M10 / BRA-1469. New-user tab: exact-email lookup first. If a task-server
+   * account already exists, divert to Add (external member on the selected
+   * team) — do not send an invitation bound to a provisional key they can
+   * never present. Brand-new addresses keep `POST /v1/organizations/invitations`.
    *
-   * NO `team_id`. The field is not invented — `parseInvite` allowlists it and the handler forwards
-   * it (client-http-27c95232:1598 and :2841), and absent means "the organization's primary team"
-   * (:1603-1606). It is left off because THE PROTOTYPE HAS NO TEAM PICKER and the prototype is the
-   * scope bar (bar 10); ruling C17's discipline then keeps a field nobody chose out of the body.
-   * api.js asserts on it so it cannot come back by accident.
-   *
-   * BAR 8 IS LOAD-BEARING TWICE HERE. `readCommercialResult` decides `ok`, and then the AFFIRMATIVE
-   * SET ITSELF HAS TWO MEMBERS: `invited` and `already_member` are both non-refusals
-   * (client-service-27c95232:581, and api.js's `INVITE_MEMBER` descriptor), and they are not the
-   * same event. The declaration's own prose at :575-577 says `already_member` means the invitee
-   * "holds a seat here already, so nothing was offered and nothing was sent". Toasting "Invitation
-   * sent" for it, and appending a pending row for an invitation that does not exist, is a fake
-   * success one level below the guard — exactly the direction bar 8 protects, and invisible in CI
-   * because CI never reaches `/v1` (bar 9).
+   * NO `team_id` on the invite body (prototype has no team picker). Add uses
+   * the Team-management tab's selected team.
    */
   'confirm-invite': async () => {
     const organization = getOrganization();
     const email = fieldValue('inviteEmail');
     if (organization === null || email === '') return;
 
+    if (looksLikeFullEmail(email)) {
+      let lookup = null;
+      try {
+        lookup = await api.lookupUserByEmail(email);
+      } catch (err) {
+        if (err instanceof api.SessionLostError) throw err;
+        // Lookup is an enhancement (BRA-1469). A missing route (pre-deploy),
+        // network blip, or 5xx must NOT block the classic invite for brand-new
+        // addresses — fall through and send the invitation.
+        console.warn('[one/settings] invite email lookup failed; continuing with invite', err);
+      }
+      if (lookup?.user?.username) {
+        setViewState(NS, {
+          memberAddMode: 'new',
+          existingInvitee: {
+            email,
+            id: lookup.user.id,
+            username: lookup.user.username,
+            name: lookup.user.name ?? '',
+          },
+        });
+        renderInviteModal();
+        return;
+      }
+    }
+
     const result = await api.inviteOrganizationMember({organization_id: organization.id, email});
     if (!result.ok) {
-      // BOTH HALVES OF THE VOCABULARY REACH A SENTENCE HERE. A bare 403 is the service saying "you
-      // do not administer this organization" in as many words (client-http-27c95232:2844-2852),
-      // and a 200 carrying `outcome: "not_invitable"` — the only refusal this route can return
-      // (client-service-27c95232:581) — resolves through app.js's outcome table to the sentence
-      // naming its three causes. Neither is a status code on screen any more.
       refuseModal(describeCommercialRefusal(result));
       return;
     }
 
-    // Only now — after the BODY said so, not after a 200 (bar 8).
     if (String(result.body?.outcome ?? '') !== 'invited') {
-      // `already_member`: the roster is already in the state the administrator wanted, so this is
-      // not an error and not a refusal — but nothing was sent, so there is no invitation to list
-      // and nothing to revoke. No pending row, and its own sentence.
       closeModal();
       toast(t('one.toast.alreadyMember'));
       await reloadOrganization();
       return;
     }
 
-    // NESTED, not top-level: the projection is `{outcome, invited_user_id, invitation:{
-    // invitation_id, status, expires_at}, seat_notice}` (client-http-27c95232:2854-2884). There
-    // is no top-level `invitation_id` and no `id`, so reading either one made `invitationId` null
-    // on every successful invite and M14's Revoke button could never render.
-    // `invitation` is null when nothing was recorded (client-service-27c95232:583) — that is the
-    // honest no-Revoke case, and the only one.
     const invitationId = result.body?.invitation?.invitation_id ?? null;
     const invites = [...(scratch().pendingInvites ?? []), {email, invitationId}];
-    // `seat_notice` IS THE ADMINISTRATOR'S ANSWER AND WAS BEING DROPPED ON THE FLOOR. The handler
-    // passes it through "as the service composed it" and its own comment calls it "an
-    // administrator being told what they are about to commit their organization to, which is the
-    // whole of BRA-1075" (client-http-27c95232:2871-2883). It is declared
-    // `{seats, users, seats_after, proration}` (client-service-27c95232:619-636) — four
-    // numbers, no provider handle, no customer reference — and it rides the ADMINISTRATOR's
-    // reply, never the invitation mail (:598-600).
-    //
-    // Read here and rendered by `pendingInvitationsCard`. Only `seats` and `users` are shown, and
-    // the restraint is deliberate on both sides: `seats_after` is a FUTURE purchase and stating it
-    // in the present tense would be the fake-success shape bar 8 exists for, while `proration`'s
-    // own type lives in the service's `billing.ts` and is not among the extracted sources, so its
-    // fields cannot be named without inventing them (bar 7). Both are reported as needing their
-    // own catalogue keys rather than being approximated with the ones this page happens to have.
     const seatNotice = result.body?.seat_notice ?? null;
-    setViewState(NS, {pendingInvites: invites, seatNotice});
+    setViewState(NS, {
+      pendingInvites: invites,
+      seatNotice,
+      existingInvitee: null,
+      // Force a re-fetch so the server list converges with this send.
+      pendingInvitesStatus: undefined,
+    });
     closeModal();
     toast(t('one.toast.invitationSent'));
     await reloadOrganization();
@@ -2206,7 +2282,7 @@ registerActions({
       return;
     }
     invites.splice(index, 1);
-    setViewState(NS, {pendingInvites: invites});
+    setViewState(NS, {pendingInvites: invites, pendingInvitesStatus: undefined});
     toast(t('one.toast.invitationRevoked'));
     await reloadOrganization();
   },
@@ -2234,21 +2310,15 @@ registerActions({
       return;
     }
     toast(t('team.edit.userAddedSuccess'));
+    setViewState(NS, {existingInvitee: null});
     await reloadOrganization();
-    renderInviteModal();
+    closeModal();
   },
 
   /**
-   * M12. "Find someone outside your organization" (BRA-1439 Story 8). The comment that stood
-   * here said the control was refused because `GET /api/v2/users?q=` did not exist and api.js
-   * exported no search — the route HAS existed since 5dcc501d5 (pkg/routes/api/v2/user_search.go)
-   * and api.js now exports `searchUsers`, so the refusal's stated reason is gone and §1 of the
-   * product rules leaves no third treatment: the control is live.
-   *
-   * The results land in view scratch and the modal is RE-RENDERED through `renderInviteModal`,
-   * not written into the open modal's DOM — re-rendering is what runs `applyGates` over the Add
-   * buttons on the new rows (see `externalSearchResults`). The term is kept in scratch so the
-   * re-render does not eat what the person typed.
+   * M12 / BRA-1469. "Find someone outside your organization". Full emails go
+   * through the org-admin exact lookup (no discoverability gate). Other terms
+   * keep `GET /api/v2/users?q=` (username / discoverable name).
    */
   'search-existing-member': async () => {
     const term = fieldValue('existingMemberSearch');
@@ -2257,22 +2327,30 @@ registerActions({
     setViewState(NS, {memberSearch: {term, status: 'searching'}});
     renderInviteModal();
 
-    let found;
     try {
-      found = await api.searchUsers(term);
+      if (looksLikeFullEmail(term)) {
+        try {
+          const lookup = await api.lookupUserByEmail(term);
+          const items = lookup?.user ? [lookup.user] : [];
+          setViewState(NS, {memberSearch: {term, status: 'done', items}});
+          renderInviteModal();
+          return;
+        } catch (err) {
+          if (err instanceof api.SessionLostError) throw err;
+          // Fall through to public search if the admin lookup is unavailable.
+          console.warn('[one/settings] email lookup failed; falling back to searchUsers', err);
+        }
+      }
+      const found = await api.searchUsers(term);
+      const items = Array.isArray(found?.items) ? found.items : [];
+      setViewState(NS, {memberSearch: {term, status: 'done', items}});
+      renderInviteModal();
     } catch (err) {
       if (err instanceof api.SessionLostError) throw err;
       console.error('[one/settings] user search failed', err);
       setViewState(NS, {memberSearch: {term, status: 'failed', refusal: describeForkError(err)}});
       renderInviteModal();
-      return;
     }
-
-    // `{items: [...]}` is the v2 Paginated envelope; a shape change must read
-    // as "no match" rather than as rows invented from the wrong field.
-    const items = Array.isArray(found?.items) ? found.items : [];
-    setViewState(NS, {memberSearch: {term, status: 'done', items}});
-    renderInviteModal();
   },
 
   'remove-member': (event, el) => {
@@ -2365,12 +2443,6 @@ function renderInviteModal() {
   const team = selectedTeam();
   const teamId = team === null ? '' : String(team.team_id);
   const mode = scratch().memberAddMode === 'existing' ? 'existing' : 'new';
-  // NO `min-width:0` ON THESE TWO. task.html records it as a deliberate deviation from SPEC-UI
-  // §6.3 rule 4 ("that is the one thing that would let a nowrap label overflow its box, so it is
-  // deliberately not applied"), and `.member-add-tabs button` is `flex:1 1 auto` + `white-space:
-  // nowrap` — a floor of 0 lets each tab shrink below its own min-content and the German labels
-  // then overflow rather than wrap. An inline style would have beaten the stylesheet on
-  // specificity and silently reversed a decision recorded in another file.
   const tabs = `<div class="member-add-tabs" style="flex-wrap:wrap">
     <button class="${mode === 'new' ? 'on' : ''}" data-action="member-mode" data-mode="new"
       >${tx('one.org.inviteNewUser')}</button>
@@ -2379,6 +2451,29 @@ function renderInviteModal() {
   </div>`;
 
   if (mode === 'new') {
+    const existing = scratch().existingInvitee ?? null;
+    if (existing !== null) {
+      const roster = teamMembers(teamId);
+      const alreadyInTeam = roster.some((member) => member?.username === existing.username);
+      const person = {
+        id: existing.id,
+        username: existing.username,
+        name: existing.name,
+        email: existing.email,
+      };
+      modal(t('one.org.addMember'), `${tabs}
+        <div class="notice">
+          <strong>${tx('one.org.existingUserLead')}</strong>
+          ${tx('one.org.existingUserText')}
+        </div>
+        <div class="member-picker" style="margin-top:12px">
+          ${memberPickerRow(person, teamId, alreadyInTeam)}
+        </div>
+        <div class="help">${tx('one.org.existingUserExternalNote')}</div>`,
+        `${footCancel()}<button class="btn" data-action="clear-existing-invitee">${
+          tx('one.org.inviteDifferentEmail')}</button>`);
+      return;
+    }
     modal(t('one.org.addMember'), `${tabs}
       <label class="label">${tx('user.auth.email')}</label>
       <input class="input" id="inviteEmail" type="email" placeholder="${tx('one.org.inviteEmailPlaceholder')}">

@@ -202,7 +202,8 @@
       "title": "メンバー",
       "inUse": "{used} / {limit} ライセンスを使用中",
       "roleAdministrator": "組織管理者",
-      "roleMember": "メンバー"
+      "roleMember": "メンバー",
+      "roleExternal": "外部メンバー"
     },
     "seats": {
       "title": "ライセンス",
@@ -449,7 +450,7 @@
       "organizationMembers": "組織のメンバー",
       "noOrganizationMembers": "追加できる組織のメンバーがいません。",
       "findExternal": "組織外のユーザーを検索",
-      "findExternalHint": "組織外のユーザーを追加するには、完全なメールアドレスまたはユーザー名で検索する必要があります。",
+      "findExternalHint": "完全なメールアドレスまたは正確なユーザー名を入力してください。管理者が相手の公開設定なしでメール検索できます。",
       "searchPlaceholder": "完全なユーザー名またはメールアドレス",
       "noExternalMatch": "完全に一致する組織外のユーザーは見つかりませんでした。",
       "inTeam": "チームに参加済み",
@@ -459,7 +460,7 @@
       "inviteEmailPlaceholder": "name{'@'}example.com",
       "inviteSeatNotice": "招待を送信した時点で、{team} のライセンスを1件確保します。",
       "sendInvitation": "招待を送信",
-      "pendingInvitations": "チームへの参加リクエスト",
+      "pendingInvitations": "保留中の新規メンバー",
       "invitePending": "招待保留中",
       "seatReserved": "ライセンス確保済み",
       "subscriptionActionRequired": "サブスクリプションの対応が必要",
@@ -486,12 +487,19 @@
         "publicKind": "組織全体",
         "publicName": "パブリック",
         "publicDesc": "組織全体に公開される作業です。"
-      }
+      },
+      "pendingInvitationsVisitOnly": "このブラウザ訪問で送った招待がここに表示されます。サーバー一覧が使えるまで、再読み込みでリストは消えます。",
+      "existingUserLead": "この人はすでに ONE Tasks アカウントを持っています。",
+      "existingUserText": " ONE Tasks を使ったことがない人だけに招待を送ってください。代わりにチームへ追加すると、外部メンバーとして参加します。",
+      "existingUserExternalNote": "外部メンバーは組織のシートを使わずにチームへアクセスできます。",
+      "inviteDifferentEmail": "別のメールを使う",
+      "pendingInvitationsListed": "この組織の保留中の招待です。再読み込みでサーバーから一覧を更新します。",
+      "invitePendingAnonymous": "招待 {id}…"
     },
     "join": {
       "title": "組織に参加",
       "lead": "ONE Tasks のチームに招待されています。",
-      "explain": "ログインして招待を承諾してください。パスワードをまだ設定していない場合は、先にパスワードを設定してください（アカウントはすでに作成されています）。ログインページから Google でログインすることもできます。",
+      "explain": "すでにアカウントがある場合はサインインしてください。初めての場合はアカウントを作成してください — 招待リンクですでに準備されています。パスワード設定は、そのメールのアカウントが既にある場合のみ使えます。",
       "signIn": "ログイン",
       "setPassword": "パスワードを設定",
       "accepting": "招待を承諾しています…",
@@ -499,7 +507,10 @@
       "alreadyMember": "すでにこの組織のライセンスをお持ちのため、変更はありませんでした。",
       "openApp": "ONE Tasks を開く",
       "refusedLead": "招待を承諾できませんでした。",
-      "missingLink": "このリンクは不完全です。招待メールに記載されたリンクを開くか、招待した人に新しいリンクの送付を依頼してください。"
+      "missingLink": "このリンクは不完全です。招待メールに記載されたリンクを開くか、招待した人に新しいリンクの送付を依頼してください。",
+      "explainWithToken": "招待を受け取るにはアカウントを作成してください（Google またはメール）。登録済みならサインインしてください。パスワード設定は既存アカウントがある場合のみです。",
+      "createAccount": "アカウントを作成",
+      "setPasswordHint": "「パスワードを設定」は、そのメールのアカウントが既にある場合のみ機能します。新規作成はしません。"
     },
     "deny": {
       "personalEdition": "これは ONE Teams の機能です。",
