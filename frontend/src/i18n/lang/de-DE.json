@@ -275,6 +275,7 @@
 				"newName": "Neuer Name",
 				"savedSuccess": "Die Einstellungen wurden erfolgreich aktualisiert.",
 				"emailReminders": "Erinnerungen an Aufgaben per E-Mail senden",
+				"activityEmailsPaused": "E-Mails zu Kommentaren, Erwähnungen und Zuweisungen sind derzeit für alle pausiert, bis Abschalt-Optionen verfügbar sind. Die Erinnerungen oben steuerst du selbst.",
 				"overdueReminders": "Sende mir jeden Tag eine Zusammenfassung meiner überfälligen Aufgaben",
 				"discoverableByName": "Erlaube anderen Benutzer:innen, mich als Mitglied zu Teams oder Projekten hinzuzufügen, wenn sie nach meinem Namen suchen",
 				"discoverableByEmail": "Erlaube anderen Benutzer:innen, mich als Mitglied zu Teams oder Projekten hinzuzufügen, wenn sie nach meiner vollständigen E-Mail Adresse suchen",

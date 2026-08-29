@@ -78,6 +78,9 @@
 				v-model="settings.overdueTasksRemindersEnabled"
 				:label="$t('user.settings.general.overdueReminders')"
 			/>
+			<p class="activity-email-note">
+				{{ $t('user.settings.general.activityEmailsPaused') }}
+			</p>
 			<FormField
 				v-if="settings.overdueTasksRemindersEnabled"
 				:label="$t('user.settings.general.overdueTasksRemindersTime')"
@@ -602,6 +605,13 @@ async function updateSettings() {
 .field-group {
 	display: grid;
 	grid-template-columns: 1fr;
+}
+
+.activity-email-note {
+	margin: 0.5rem 0 0;
+	color: var(--grey-500, #667085);
+	font-size: 0.875rem;
+	line-height: 1.4;
 }
 
 .sticky-save {

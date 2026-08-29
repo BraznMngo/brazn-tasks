@@ -63,6 +63,9 @@ const (
 	ServiceEnableTotp                     Key = `service.enabletotp`
 	ServiceTestingtoken                   Key = `service.testingtoken`
 	ServiceEnableEmailReminders           Key = `service.enableemailreminders`
+	// BRA-1468 Issue 3: activity emails (comments, mentions, assignments, …)
+	// that have no per-user opt-out. Off by default until settings cover them.
+	ServiceEnableActivityEmails           Key = `service.enableactivityemails`
 	ServiceEnableUserDeletion             Key = `service.enableuserdeletion`
 	ServiceMaxAvatarSize                  Key = `service.maxavatarsize`
 	ServiceAllowIconChanges               Key = `service.allowiconchanges`
@@ -385,7 +388,11 @@ func InitDefaultConfig() {
 	ServiceTimeZone.setDefault("GMT")
 	ServiceEnableTaskComments.setDefault(true)
 	ServiceEnableTotp.setDefault(true)
+	// BRA-1468 Issue 3: leave the service flag ON so Settings → General reminder
+	// toggles actually govern mail (Option 2). Activity mail without opt-out is
+	// killed separately via service.enableactivityemails.
 	ServiceEnableEmailReminders.setDefault(true)
+	ServiceEnableActivityEmails.setDefault(false)
 	ServiceEnableUserDeletion.setDefault(true)
 	ServiceMaxAvatarSize.setDefault(1024)
 	ServiceDemoMode.setDefault(false)
@@ -512,7 +519,10 @@ func InitDefaultConfig() {
 	MetricsEnabled.setDefault(false)
 	// Settings
 	DefaultSettingsAvatarProvider.setDefault("initials")
-	DefaultSettingsOverdueTaskRemindersEnabled.setDefault(true)
+	// BRA-1468 Issue 3: new accounts start with reminder mail off; Settings
+	// surfaces the switches so a person can turn them on.
+	DefaultSettingsEmailRemindersEnabled.setDefault(false)
+	DefaultSettingsOverdueTaskRemindersEnabled.setDefault(false)
 	DefaultSettingsOverdueTaskRemindersTime.setDefault("9:00")
 	// Webhook
 	WebhooksEnabled.setDefault(true)
