@@ -26,6 +26,8 @@ import (
 
 	"code.vikunja.io/api/frontend"
 	"code.vikunja.io/api/pkg/config"
+	"code.vikunja.io/api/pkg/notifications"
+	"code.vikunja.io/api/pkg/user"
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
@@ -1181,4 +1183,64 @@ func TestBRA1475TheServiceWorkerIsStillEvicted(t *testing.T) {
 		"without this the cached copy of the old application survives the lockout")
 	assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"),
 		"a cacheable worker lets the browser satisfy its update check from its own cache")
+}
+
+// TestBRA1475TheMailedResetLinkLandsOnAPageThisServerServes is the join between
+// criterion 2 and criterion 1, and it exists because nothing else in either
+// repository makes it.
+//
+// pkg/user/notifications.go writes the address of the password page out as its
+// own string literal — it cannot import the constant, because pkg/routes
+// imports pkg/user and the cycle would be the other way round — so there are
+// now two independent spellings of one address. The fork-guards step checks the
+// const block against the documents that exist; it never reads
+// notifications.go. Rename the page in both of those and the build stays green
+// while every password-reset mail this product sends lands on a 404.
+//
+// This test is in pkg/routes because it is the only package that can see both
+// halves. It takes the address a customer will actually click, and asks the
+// lockout what it would do with it.
+func TestBRA1475TheMailedResetLinkLandsOnAPageThisServerServes(t *testing.T) {
+	bra1475LockoutOn(t)
+
+	const publicURL = "https://tasks.example.test/"
+	config.ServicePublicURL.Set(publicURL)
+	t.Cleanup(func() { config.ServicePublicURL.Set("") })
+
+	n := &user.ResetPasswordNotification{
+		User:  &user.User{Username: "somebody"},
+		Token: &user.Token{ClearTextToken: "a-real-looking-token"},
+	}
+	opts, err := notifications.RenderMail(n.ToMail("en"), "en")
+	require.NoError(t, err)
+
+	// Pull the customer's actual link out of the rendered mail rather than
+	// rebuilding it, so this asserts what was sent and not what we think was.
+	start := strings.Index(opts.HTMLMessage, publicURL)
+	require.GreaterOrEqual(t, start, 0, "no link to this instance appears in the reset mail at all")
+	rest := opts.HTMLMessage[start:]
+	end := strings.IndexAny(rest, `"'<> `)
+	require.Greater(t, end, 0)
+	link := rest[:end]
+
+	parsed, err := url.Parse(strings.ReplaceAll(link, "&amp;", "&"))
+	require.NoError(t, err)
+
+	document := braznRestrictedUIDocument(parsed.Path, parsed.Query())
+	if document == "" {
+		// The link points at a real file rather than at an address the lockout
+		// rewrites, which is equally fine — so long as that file is a page this
+		// product has decided to serve.
+		document = parsed.Path
+	}
+
+	known := map[string]bool{}
+	for _, d := range bra1475AllDocuments {
+		known[d] = true
+	}
+	assert.True(t, known[document],
+		"the mail sends customers to %q, which this server does not serve; every reset link would 404", document)
+
+	assert.False(t, braznBlocksAppShell("dist"+document),
+		"the lockout blocks %q, so the customer's link is refused by the server that sent it", document)
 }
