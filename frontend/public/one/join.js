@@ -110,27 +110,33 @@ export function signupTokenFromHash(hash) {
 }
 
 /**
- * Which refusal the service named, translated into one word the general error
- * page recognises.
+ * Which refusal to show, as one word the general error page recognises.
  *
- * IT FAILS CLOSED. An outcome this file has not read becomes the general
- * refusal rather than being rendered as its own raw word, so a vocabulary the
- * service grows later tells the reader something true and vague instead of
- * something meaningless and specific.
+ * ONE FUNCTION FOR BOTH ROUTES, because the two vocabularies overlap by design:
+ * a withdrawn invitation and an expired one mean the same thing to a reader
+ * whether they were discovered while reading the invitation or while completing
+ * it, and two tables would be two chances to word them differently.
  *
- * PROVISIONAL VOCABULARY. The words below are this page's reading of the
- * service's answers and the service's own set is still being settled. They are
- * gathered in this one function so re-pointing them is one edit; nothing else in
- * this file compares an outcome word.
+ * IT FAILS CLOSED. A word this file has not read becomes the general refusal
+ * rather than being rendered as its own raw word, so a vocabulary the service
+ * grows later tells the reader something true and vague instead of something
+ * meaningless and specific.
+ *
+ * `token_expired` CANNOT HAPPEN IN THE SHIPPED CONFIGURATION: both lifetimes are
+ * seven days and the invitation deadline is evaluated first, so
+ * `invitation_expired` always wins. It is handled because a configuration change
+ * would make it live, and because a value that arrives and is not understood
+ * would otherwise become the general sentence, which is the one case where the
+ * general sentence is actively wrong — it tells somebody to ask for a new
+ * invitation when the invitation is fine and only the link ran out.
  */
-export function refusalReason(result) {
-  switch (result?.outcome) {
+export function refusalReason(word) {
+  switch (word) {
+    case 'invitation_withdrawn': return 'invitation-revoked';
     case 'invitation_expired': return 'invitation-expired';
-    case 'invitation_revoked': return 'invitation-revoked';
-    case 'no_invitation': return 'invitation-unknown';
+    case 'token_expired': return 'link-expired';
     case 'at_seat_ceiling': return 'seats-full';
     case 'account_exists': return 'account-exists';
-    case 'not_invitable': return 'not-invitable';
     default: return 'invitation-failed';
   }
 }
@@ -139,28 +145,24 @@ export function refusalReason(result) {
  * Whether a refusal of the COMPLETION is one the person can act on by changing
  * what they typed, rather than one they must leave the page for.
  *
- * THIS EXISTS BECAUSE THE TASK SERVER ANSWERS ONE FLAT REFUSAL FOR TWO
- * DIFFERENT COLLISIONS, and that is deliberate rather than sloppy: an address
- * that already has an account and a username somebody else already holds get
- * the same answer, so an unauthenticated channel cannot be walked to discover
- * who has an account here or what they are called. This page therefore CANNOT
- * tell the two apart, and must not write a sentence that implies it can.
+ * THIS EXISTS BECAUSE ONE ANSWER COVERS TWO DIFFERENT COLLISIONS, and that is
+ * deliberate rather than sloppy: an address that already has an account and a
+ * username somebody else already holds get the same answer, so an
+ * unauthenticated channel cannot be walked to discover who has an account here
+ * or what they are called. This page therefore CANNOT tell the two apart, and
+ * must not write a sentence that implies it can.
  *
- * The consequence for the reader is the whole point. Sending them to the
- * general error page with "this account already exists" was wrong twice over: it
- * names the address collision, which may not be what happened, and it ends the
- * journey for somebody whose only problem is that their first choice of username
- * was taken. So a collision keeps them on the form, where a second attempt costs
- * one word, and the sentence covers both cases honestly — try another username,
- * and if that does not help, ask your administrator.
+ * NOTHING WAS SPENT, which is what makes staying on the form correct rather than
+ * merely kind: the token is still live, so a different username can be submitted
+ * immediately. Sending the person to the general error page would end the
+ * journey over something they can fix in the field their cursor is already in.
  *
- * THE ADDRESS CASE STILL HAS ITS OWN SENTENCE, on the general error page, and it
- * is still correct where it is used: the PREVIEW happens before a username has
- * been chosen, so a collision there can only be the address, and the ticket's
- * own sentence about asking an administrator is exactly right for it.
+ * THE ADDRESS-ONLY SENTENCE STILL HAS ITS PLACE on the general error page, and
+ * it is still correct where it is used: the SUMMARY happens before a username
+ * has been chosen, so a collision discovered there can only be the address.
  */
-export function recoverableOnTheForm(result) {
-  return refusalReason(result) === 'account-exists';
+export function recoverableOnTheForm(word) {
+  return word === 'account_exists';
 }
 
 /* ------------------------------------------------------------------ *
@@ -238,6 +240,54 @@ export function signedInElsewhereSurface() {
     </div>`;
 }
 
+/**
+ * ALREADY A MEMBER, AND THIS IS NOT AN ERROR — criterion 8 and the task server's
+ * own rules both require a coherent welcome rather than a refusal. It arrives
+ * from both routes: from the summary, when somebody who already holds a seat
+ * opens the link, and from the completion, when they press the button anyway.
+ *
+ * NOTHING WAS SPENT OR CREATED, so the username and password they may have just
+ * typed made no account and signing in with them would fail. The only honest
+ * next step is the sign-in page and their existing credentials, which is why
+ * this screen offers exactly that and nothing else.
+ *
+ * The organisation is named when the service named it — the summary carries the
+ * name and the completion carries only an id — so there are two sentences
+ * rather than one with an empty placeholder in it.
+ */
+export function alreadyMemberSurface(state) {
+  const body = state?.organizationName
+    ? tx('one.join.alreadyMember.bodyNamed', {organizationName: state.organizationName})
+    : tx('one.join.alreadyMember.body');
+  return `${brandBlock()}
+    <div class="auth-result">
+      <h1 class="auth-title">${tx('one.join.alreadyMember.title')}</h1>
+      <p>${body}</p>
+      <button type="button" class="auth-submit" data-action="join-sign-in">${tx('one.join.alreadyMember.signIn')}</button>
+    </div>`;
+}
+
+/**
+ * THE ACCOUNT AND THE SEAT EXIST AND THE TEAM JOIN DID NOT, which is a partial
+ * success and must be said as one. The person can sign in with what they just
+ * chose, and they will see nothing shared until an administrator finishes it.
+ *
+ * THIS IS WHAT EVERY COMPLETION ANSWERS UNTIL THE TASK SERVER IS DEPLOYED, so
+ * it is not a rare branch to be worded carelessly — for now it is the common
+ * one. Telling somebody "something went wrong" here would be false twice: their
+ * account is real, and their seat is real. Landing them silently in an empty
+ * product would recreate the exact defect this whole ticket exists to fix,
+ * where an invited person sees nothing and nobody tells them why.
+ */
+export function teamUnavailableSurface() {
+  return `${brandBlock()}
+    <div class="auth-result">
+      <h1 class="auth-title">${tx('one.join.teamUnavailable.title')}</h1>
+      <p>${tx('one.join.teamUnavailable.body')}</p>
+      <button type="button" class="auth-submit" data-action="join-sign-in">${tx('one.join.teamUnavailable.signIn')}</button>
+    </div>`;
+}
+
 /** The link carried no handle at all — there is nothing to look up and nothing to join. */
 export function missingLinkSurface() {
   return `${brandBlock()}
@@ -295,6 +345,24 @@ function forgetSignupToken() {
 }
 
 /**
+ * The service's own bounds, mirrored so the page can say something useful
+ * instead of sending a request it knows will be refused bodilessly.
+ *
+ * BYTES, NOT CHARACTERS, and the difference is not pedantry: `password` is
+ * bounded at 72 BYTES because that is bcrypt's limit, so a passphrase of
+ * twenty-five accented or Japanese characters is over the line while looking
+ * comfortably short. Measuring `.length` would let such a password through to a
+ * bodiless 400 that this page could only report as "something went wrong".
+ */
+const PASSWORD_MIN_BYTES = 8;
+const PASSWORD_MAX_BYTES = 72;
+const USERNAME_MAX_BYTES = 250;
+
+export function byteLength(value) {
+  return new TextEncoder().encode(String(value ?? '')).length;
+}
+
+/**
  * STEP 7 TO 12. One press, and this is the only thing on the page that writes
  * anything anywhere.
  */
@@ -308,62 +376,102 @@ async function submitInvitation(form) {
     showError(t('one.join.missingFields'));
     return;
   }
+  if (byteLength(username) > USERNAME_MAX_BYTES) {
+    showError(t('one.join.usernameTooLong'));
+    return;
+  }
+  const passwordBytes = byteLength(password);
+  if (passwordBytes < PASSWORD_MIN_BYTES || passwordBytes > PASSWORD_MAX_BYTES) {
+    showError(t('one.join.passwordLength', {min: PASSWORD_MIN_BYTES, max: PASSWORD_MAX_BYTES}));
+    return;
+  }
 
   state.phase = 'working';
   render();
   showError(null);
 
-  const result = await api.completeOrganizationInvitation({
+  const result = await api.completeInvitation({
     invitationId: state.invitationId,
     signupToken: state.signupToken,
     username,
     password,
   });
 
-  if (!result.ok) {
-    // A COLLISION KEEPS THEM HERE. The username they chose may be the whole
-    // problem, and a second attempt costs one word — sending them to the error
-    // page would end the journey over something they can fix in the field their
-    // cursor is already in. The sentence names neither collision, because this
-    // page cannot tell them apart and must not pretend to.
-    if (recoverableOnTheForm(result)) {
-      state.phase = 'form';
-      render();
-      // The password survives the re-render, set as a DOM PROPERTY and never as
-      // a value attribute in the markup — a password written into innerHTML
-      // would be readable in the page source and in every DOM inspection of it.
-      // Without this the person retypes a password they got right, to fix a
-      // username they did not.
-      const field = document.getElementById('password');
-      if (field instanceof HTMLInputElement) field.value = password;
-      showError(t('one.join.credentialsUnavailable'));
+  // EVERY OUTCOME ARRIVES AT HTTP 200, REFUSALS INCLUDED, so `result.ok` alone
+  // answers almost nothing here. It is still consulted first, because the two
+  // bodiless statuses — a malformed body at 400, and a bodiless refusal — carry
+  // no outcome word at all, and reading a word that is not there would send
+  // every one of them down the general branch as though the service had spoken.
+  const outcome = result.outcome;
+
+  if (result.ok && outcome === 'joined') {
+    // The token is spent on the service's side now; dropping our copy stops a
+    // stale value being offered by the next flow on a shared machine.
+    forgetSignupToken();
+
+    // STEP 11, THROUGH THE PRODUCT'S ONE SIGN-IN OPERATION. A failure here is
+    // not a failed acceptance and must not be reported as one: the account, the
+    // seat and the team membership all exist, so the person needs the sign-in
+    // page rather than the error page.
+    try {
+      await api.signIn({username, password});
+    } catch {
+      goToPage('signin');
       return;
     }
-    // Everything else — an expired token, a withdrawn invitation, a full seat
-    // ceiling — is a refusal the person cannot act on from this form, so they
-    // are told what happened and what to do next on the page that exists for it.
-    sendToErrorPage(refusalReason(result), result.message);
+    // STEP 12. The settings page is where the lockout lands everybody, and the
+    // team's shared lists are visible from there.
+    goToPage('settings');
     return;
   }
 
-  // The token is spent on the service's side now; dropping our copy stops a
-  // stale value being offered by the next flow on a shared machine.
-  forgetSignupToken();
-
-  // STEP 11, THROUGH THE PRODUCT'S ONE SIGN-IN OPERATION. A failure here is not
-  // the same as a failed acceptance and must not be reported as one: the seat
-  // is taken and the account exists, so the person needs the sign-in page
-  // rather than the error page.
-  try {
-    await api.signIn({username, password});
-  } catch {
-    goToPage('signin');
+  if (result.ok && outcome === 'already_member') {
+    // NOT A FAILURE, and nothing was spent or created — so the credentials just
+    // typed made no account and signing in with them would fail. They are
+    // offered the sign-in page and their existing ones instead.
+    forgetSignupToken();
+    state.phase = 'already-member';
+    render();
     return;
   }
 
-  // STEP 12. The settings page is where the lockout lands everybody, and the
-  // team's shared lists are visible from there.
-  goToPage('settings');
+  if (outcome === 'team_unavailable') {
+    // A PARTIAL SUCCESS, said as one. The account and the seat exist; the team
+    // join did not, so they will see nothing shared until an administrator
+    // finishes it. Until the task server is deployed this is what EVERY
+    // completion answers, so it is the common path rather than a rare one.
+    forgetSignupToken();
+    state.phase = 'team-unavailable';
+    render();
+    return;
+  }
+
+  if (recoverableOnTheForm(outcome)) {
+    // A COLLISION KEEPS THEM HERE. The username they chose may be the whole
+    // problem, nothing was spent, and a second attempt costs one word. The
+    // sentence names neither collision, because this page cannot tell them
+    // apart and must not pretend to.
+    state.phase = 'form';
+    render();
+    // The password survives the re-render, set as a DOM PROPERTY and never as a
+    // value attribute in the markup — a password written into innerHTML would
+    // be readable in the page source and in every DOM inspection of it. Without
+    // this the person retypes a password they got right, to fix a username they
+    // did not.
+    const field = document.getElementById('password');
+    if (field instanceof HTMLInputElement) field.value = password;
+    showError(t('one.join.credentialsUnavailable'));
+    return;
+  }
+
+  // Everything left is a refusal the person cannot act on from this form: a
+  // withdrawn invitation, an expired one, a full seat ceiling, an invitation
+  // nothing can be said about — which is also the lost race where the token was
+  // spent between reading it and spending it. They are told what happened and
+  // what to do next on the page that exists for it. A bodiless status carries
+  // no word, so `outcome` is null and the general sentence is what they get,
+  // which is the honest answer when the service named nothing.
+  sendToErrorPage(refusalReason(outcome), result.message);
 }
 
 /**
@@ -397,6 +505,14 @@ function render() {
     renderAuth(signedInElsewhereSurface());
     return;
   }
+  if (state.phase === 'already-member') {
+    renderAuth(alreadyMemberSurface(state));
+    return;
+  }
+  if (state.phase === 'team-unavailable') {
+    renderAuth(teamUnavailableSurface());
+    return;
+  }
   renderAuth(invitationSurface(state));
   const first = document.getElementById('username');
   if (first instanceof HTMLElement && state.phase !== 'working') first.focus();
@@ -410,9 +526,17 @@ function installListeners() {
   });
   document.addEventListener('click', (event) => {
     const el = event.target instanceof Element ? event.target.closest('[data-action]') : null;
-    if (el === null || el.getAttribute('data-action') !== 'join-logout') return;
-    event.preventDefault();
-    signOutAndReturn();
+    if (el === null) return;
+    const action = el.getAttribute('data-action');
+    if (action === 'join-logout') {
+      event.preventDefault();
+      signOutAndReturn();
+      return;
+    }
+    if (action === 'join-sign-in') {
+      event.preventDefault();
+      goToPage('signin');
+    }
   });
 }
 
@@ -431,6 +555,15 @@ export async function boot() {
     return;
   }
 
+  // A MANGLED LINK IS CAUGHT BEFORE THE REQUEST, not after. Both routes answer a
+  // bodiless 400 for a malformed body, which arrives here indistinguishable from
+  // a bug in this page — so a link truncated by a mail client would produce a
+  // blank refusal instead of "open the link from your email again".
+  if (!api.invitationCredentialsAreWellFormed(state.invitationId, state.signupToken)) {
+    sendToErrorPage('invitation-unknown');
+    return;
+  }
+
   // STEP 3: read whether anybody is signed in, and do nothing else with the
   // answer. A session belonging to somebody else is the administrator case, and
   // it gets its own screen rather than a silent failure.
@@ -442,17 +575,46 @@ export async function boot() {
 
   // STEP 4: what organisation and team does this handle name? A read, with no
   // session, whose credential is the token. Nothing is consumed.
-  const preview = await api.previewOrganizationInvitation({
+  const summary = await api.readInvitationSummary({
     invitationId: state.invitationId,
     signupToken: state.signupToken,
   });
-  if (!preview.ok) {
-    sendToErrorPage(refusalReason(preview), preview.message);
+
+  // A BODILESS ANSWER MEANS THE CALLER PROVED NOTHING — an unknown handle, or a
+  // token that is unknown, unbound, or minted for a different invitation. Those
+  // are one answer on purpose, so handles appearing in an access log cannot be
+  // sorted into live and dead, and this page must not try to guess which it was.
+  // The advice that fits all of them is the same: open the link from the email
+  // again, or ask for a new one.
+  if (!summary.ok) {
+    sendToErrorPage('invitation-unknown');
     return;
   }
 
-  const details = api.readInvitationPreview(preview);
+  const details = api.readInvitationSummaryBody(summary);
   state.organizationName = details.organizationName;
+
+  // THE STATE IS THE VERDICT AND `ok` IS NOT. All five states arrive at HTTP
+  // 200, including the three a person cannot act on, so a page that read `ok`
+  // alone would show the invitation form to somebody whose invitation was
+  // withdrawn.
+  if (details.state === 'already_member') {
+    // Not an error in either direction. They hold a seat already, so the way in
+    // is the sign-in page and the credentials they already have.
+    state.phase = 'already-member';
+    render();
+    return;
+  }
+
+  if (details.state !== 'usable') {
+    // `invitation_withdrawn`, `invitation_expired`, `token_expired`, and any
+    // state a later change adds that this page has not read. Failing closed here
+    // is what stops a new state opening the form to somebody it was invented to
+    // keep out.
+    sendToErrorPage(refusalReason(details.state));
+    return;
+  }
+
   state.teamName = details.teamName;
   state.invitedEmail = details.invitedEmail;
   state.phase = 'form';

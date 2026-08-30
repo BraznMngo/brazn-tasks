@@ -521,6 +521,19 @@
       "missingLink": {
         "title": "Dieser Link ist unvollstaendig",
         "body": "Oeffnen Sie den Link aus Ihrer Einladungs-E-Mail oder bitten Sie die einladende Person um einen neuen."
+      },
+      "usernameTooLong": "Dieser Benutzername ist zu lang. Waehlen Sie einen kuerzeren.",
+      "passwordLength": "Ihr Passwort braucht zwischen {min} und {max} Zeichen.",
+      "alreadyMember": {
+        "title": "Sie haben bereits Zugang",
+        "body": "Sie haben in dieser Organisation bereits einen Platz, es war also nichts einzurichten. Melden Sie sich mit Ihrem vorhandenen Konto an.",
+        "bodyNamed": "Sie haben bei {organizationName} bereits einen Platz, es war also nichts einzurichten. Melden Sie sich mit Ihrem vorhandenen Konto an.",
+        "signIn": "Anmelden"
+      },
+      "teamUnavailable": {
+        "title": "Ihr Konto ist bereit",
+        "body": "Ihr Konto und Ihr Platz in der Organisation sind eingerichtet, und Sie koennen sich jetzt anmelden. Die gemeinsamen Listen sind noch nicht mit Ihnen verbunden. Ihre Administratorin oder Ihr Administrator kann das abschliessen; hier koennen Sie daran nichts aendern.",
+        "signIn": "Anmelden"
       }
     },
     "deny": {
@@ -590,6 +603,10 @@
       "notInvitable": {
         "title": "Diese Adresse kann nicht beitreten",
         "body": "Diese Adresse gehoert bereits zu einem anderen Konto. Bitten Sie Ihre Administratorin oder Ihren Administrator, Sie stattdessen als bestehende Person hinzuzufuegen."
+      },
+      "linkExpired": {
+        "title": "Dieser Link ist abgelaufen",
+        "body": "Ihre Einladung gilt weiterhin; nur der Link ist abgelaufen. Bitten Sie die einladende Person um einen neuen Link."
       }
     },
     "toast": {

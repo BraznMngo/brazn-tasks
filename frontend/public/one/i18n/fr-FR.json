@@ -521,6 +521,19 @@
       "missingLink": {
         "title": "Ce lien est incomplet",
         "body": "Ouvrez le lien depuis votre e-mail d'invitation, ou demandez un nouveau lien a la personne qui vous a invite."
+      },
+      "usernameTooLong": "Ce nom d'utilisateur est trop long. Choisissez-en un plus court.",
+      "passwordLength": "Votre mot de passe doit comporter entre {min} et {max} caracteres.",
+      "alreadyMember": {
+        "title": "Vous avez deja acces",
+        "body": "Vous occupez deja une place dans cette organisation, il n'y avait donc rien a configurer. Connectez-vous avec le compte que vous avez deja.",
+        "bodyNamed": "Vous occupez deja une place chez {organizationName}, il n'y avait donc rien a configurer. Connectez-vous avec le compte que vous avez deja.",
+        "signIn": "Se connecter"
+      },
+      "teamUnavailable": {
+        "title": "Votre compte est pret",
+        "body": "Votre compte et votre place dans l'organisation sont en place, et vous pouvez vous connecter. Les listes partagees ne vous sont pas encore rattachees. Votre administrateur peut terminer cela, et rien de ce que vous faites ici ne le changera.",
+        "signIn": "Se connecter"
       }
     },
     "deny": {
@@ -590,6 +603,10 @@
       "notInvitable": {
         "title": "Cette adresse ne peut pas rejoindre",
         "body": "Cette adresse appartient deja a un autre compte. Demandez a votre administrateur de vous ajouter en tant que personne existante."
+      },
+      "linkExpired": {
+        "title": "Ce lien a expire",
+        "body": "Votre invitation est toujours valable ; seul le lien a expire. Demandez un nouveau lien a la personne qui vous a invite."
       }
     },
     "toast": {

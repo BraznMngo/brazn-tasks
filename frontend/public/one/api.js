@@ -1152,62 +1152,89 @@ export const COMMERCIAL_OPS = Object.freeze({
    * than inheriting somebody else's vocabulary.
    */
   /**
-   * POST /v1/organizations/invitations/preview — BRA-1475, step 4 of the
-   * twelve-step journey: "the page asks for the organisation and team names
-   * behind the invitation handle."
+   * POST /v1/invitations/summary — BRA-1475, step 4 of the twelve-step journey:
+   * "the page asks for the organisation and team names behind the invitation
+   * handle."
    *
-   * THE CALLER HAS NO SESSION, and that is the whole point of the route: an
-   * invited person has no account yet, so there is no bearer to present. The
-   * credential is the signup token in the link's fragment, which the service
-   * already holds stamped with the invited address (`mintSignupToken`,
-   * `invited_email`). It is submitted in the BODY of a POST rather than in a
-   * query, so it stays out of every access log the way the fragment placement
-   * intends.
+   * NOT UNDER `/v1/organizations/`, AND THE PREFIX IS THE POINT. This route and
+   * its sibling below sit in the service's own block that requires no bearer,
+   * while everything under `organizations/` is the credentialed block. A route
+   * that must work for somebody with NO ACCOUNT cannot live inside a prefix
+   * whose other members all require one — that is how a guard ends up applied
+   * to the wrong set. The credential here is the signup token from the link's
+   * fragment, submitted in the BODY of a POST rather than in a query, so it
+   * stays out of every access log the way the fragment placement intends.
    *
-   * `invitation_open` is the single affirmative: the invitation exists, is
-   * live, and the token presented was issued for it. Everything else — spent,
-   * expired, withdrawn, an address that already has an account — is a refusal
-   * that the general error page words. Nothing is consumed by this call; it is
-   * a read, and the ticket's step 3 requires the page to consume nothing on
-   * its own.
+   * IT ANSWERS `state`, NOT `outcome`, so the descriptor is OUTCOME_ABSENT and
+   * the shape guard is what proves it. The five states are read by
+   * `readInvitationSummaryBody`, because "did the call succeed" and "what does the
+   * invitation say" are different questions: every one of the five arrives at
+   * HTTP 200, including the three a person cannot act on.
+   *
+   * TWO BODILESS REFUSALS, AND THEY ARE DELIBERATELY NOT DISTINGUISHABLE:
+   *   * 400 — the body was malformed. A hand-mangled link, or a bug here.
+   *   * 404 — the caller proved nothing: an unknown handle, or a token that is
+   *     unknown, unbound, or minted for a different invitation. These are one
+   *     answer on purpose, so handles appearing in an access log cannot be
+   *     sorted into live and dead.
    *
    * IT NAMES NOBODY. The answer carries the organisation name, the team name
    * and the address the token was stamped for — the address the reader already
-   * has, quoted back so they can see the field is locked for a reason. It is
-   * not a lookup that answers questions about people
-   * (`docs/Brazn-Tasks-Rules.md` §5.1): there is one invitation, the token is
-   * the key to it, and nothing else can be asked.
-   *
-   * THE SERVICE HALF OF THIS ROUTE IS SOMEBODY ELSE'S CHANGE. If the two do not
-   * agree on the path, the field names or the outcome word, this page refuses
-   * every invitation and says the service declined — which is what the
-   * fail-closed guard is for, but it is not a working journey. See this
-   * change's report.
+   * has, quoted back so they can see why the field is locked. It is not a lookup
+   * that answers questions about people (`docs/Brazn-Tasks-Rules.md` §5.1):
+   * there is one invitation, the token is the key to it, and nothing else can
+   * be asked.
    */
-  PREVIEW_INVITATION: commercialOp(OUTCOME_REQUIRED, ['invitation_open']),
+  INVITATION_SUMMARY: commercialOp(OUTCOME_ABSENT),
 
   /**
-   * POST /v1/organizations/invitations/completion — BRA-1475, steps 7 to 10.
+   * POST /v1/invitations/completion — BRA-1475, steps 7 to 10.
    *
    * The one button on the invitation page. The browser submits the username,
-   * the password and the token to the paid-account service, in the direction
-   * every account in production was made through, and the service does the
-   * rest: checks the token is live and stamped for this address and refuses
-   * without spending it if either fails; creates the account on the task server
-   * through the private channel it already uses for every trial, with the
-   * address already confirmed; spends the token; takes the seat; admits the
-   * member; and puts them on the task server's team.
+   * the password and the token, in the direction every account in production
+   * was made through, and the service does the rest: checks the token is live
+   * and bound to this invitation and refuses without spending it if either
+   * fails; creates the account on the task server through the private channel
+   * it already uses for every trial, with the address already confirmed; spends
+   * the token; takes the seat; admits the member; and puts them on the task
+   * server's team.
    *
-   * `completed` is the affirmative. `already_member` is affirmative here for
-   * the same reason it is on the acceptance route: the goal state holds. The
-   * caller MUST still branch on `result.outcome`, because "your account has
-   * been created" is a false sentence for somebody who already had one.
+   * THERE IS NO `email` FIELD AND ITS ABSENCE IS THE GUARANTEE. The address
+   * comes from the token's own binding, so no caller — including this one — can
+   * choose which mailbox the account is made for. That is the ticket's "do not
+   * accept an invitation by matching the email address instead of the recorded
+   * identity", enforced by the shape of the request rather than by anybody
+   * remembering.
    *
-   * AFTER THIS, THE PAGE SIGNS THE PERSON IN WITH `signIn` — the same operation
-   * the sign-in page calls, which is the ticket's "do not build a second way to
-   * sign in". This route therefore returns no token and this page expects none.
+   * EVERY OUTCOME ARRIVES AT HTTP 200, REFUSALS INCLUDED, so `ok` alone answers
+   * almost nothing here and the caller must branch on `result.outcome` in every
+   * case. Only two are affirmative:
+   *
+   *   * `joined` — the account exists, the seat is taken, the person is on the
+   *     team. Sign them in.
+   *   * `already_member` — they already held a seat. NOTHING WAS SPENT OR
+   *     CREATED, so the username and password just typed made no account and
+   *     signing in with them would fail. It is NOT an error: criterion 8 and
+   *     the task server's own rules both require a coherent welcome.
+   *
+   * `team_unavailable` is deliberately NOT affirmative, and the distinction is
+   * load-bearing: the account and the seat exist, so the person can sign in,
+   * but the team join failed and they will see nothing shared. Treating it as a
+   * success would recreate the exact defect this ticket exists to fix, with the
+   * product looking empty and nobody told why. It is handled by name in
+   * `join.js`, and until the task server is deployed IT IS WHAT EVERY
+   * COMPLETION ANSWERS.
+   *
+   * `account_exists` means the address OR the username is taken and the service
+   * cannot tell which. Nothing was spent, so a different username can be
+   * submitted immediately.
+   *
+   * AFTER A `joined`, THE PAGE SIGNS THE PERSON IN WITH `signIn` — the same
+   * operation the sign-in page calls, which is the ticket's "do not build a
+   * second way to sign in". This route returns no token and this page expects
+   * none.
    */
-  COMPLETE_INVITATION: commercialOp(OUTCOME_REQUIRED, ['completed', 'already_member']),
+  INVITATION_COMPLETION: commercialOp(OUTCOME_REQUIRED, ['joined', 'already_member']),
 
   UNKNOWN: commercialOp(OUTCOME_REQUIRED),
 });
@@ -2884,21 +2911,49 @@ export function acceptOrganizationInvitation(body) {
 }
 
 /**
- * POST /v1/organizations/invitations/preview — read the organisation and team
- * behind an invitation handle, with no session (BRA-1475 step 4).
+ * The shape the service accepts for a signup token: exactly 43 characters of
+ * base64url alphabet.
  *
- * Body: `{invitation_id, signup_token}`. Nothing is consumed.
+ * CHECKED HERE SO A MANGLED LINK IS NOT A 400. Both invitation routes answer a
+ * bodiless 400 for a malformed body, which reaches a caller looking exactly
+ * like a bug in this page. A link truncated by a mail client, or one whose
+ * fragment was mangled, is neither rare nor the reader's fault, and it deserves
+ * "open the link from your email again" rather than a blank refusal.
  */
-export function previewOrganizationInvitation({invitationId, signupToken}) {
+const SIGNUP_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+/** The service's own bound on an invitation handle: 1 to 128 characters. */
+const INVITATION_ID_MAX = 128;
+
+/**
+ * Whether a handle and a token are the shape the service will accept, so the
+ * page can say something useful instead of sending a request it knows will be
+ * refused bodilessly. Pure, and exported for that reason.
+ */
+export function invitationCredentialsAreWellFormed(invitationId, signupToken) {
+  const id = String(invitationId ?? '');
+  return id.length >= 1 && id.length <= INVITATION_ID_MAX
+    && SIGNUP_TOKEN_PATTERN.test(String(signupToken ?? ''));
+}
+
+/**
+ * POST /v1/invitations/summary — read the organisation and team behind an
+ * invitation handle, with no session (BRA-1475 step 4).
+ *
+ * Body is EXACTLY two members; anything else is a bodiless 400. Nothing is
+ * consumed, which is what lets the ticket's step 3 hold: this page does nothing
+ * on its own but read.
+ */
+export function readInvitationSummary({invitationId, signupToken}) {
   return commercialPostWithoutSession(
-    'organizations/invitations/preview',
-    COMMERCIAL_OPS.PREVIEW_INVITATION,
+    'invitations/summary',
+    COMMERCIAL_OPS.INVITATION_SUMMARY,
     {invitation_id: String(invitationId ?? ''), signup_token: String(signupToken ?? '')},
   );
 }
 
 /**
- * POST /v1/organizations/invitations/completion — create the account, spend the
+ * POST /v1/invitations/completion — create the account, spend the
  * token, take the seat, admit the member and put them on the team, in one call
  * with no session (BRA-1475 steps 7 to 10).
  *
@@ -2909,10 +2964,10 @@ export function previewOrganizationInvitation({invitationId, signupToken}) {
  * accept an invitation by matching the email address instead of the recorded
  * identity", one layer up.
  */
-export function completeOrganizationInvitation({invitationId, signupToken, username, password}) {
+export function completeInvitation({invitationId, signupToken, username, password}) {
   return commercialPostWithoutSession(
-    'organizations/invitations/completion',
-    COMMERCIAL_OPS.COMPLETE_INVITATION,
+    'invitations/completion',
+    COMMERCIAL_OPS.INVITATION_COMPLETION,
     {
       invitation_id: String(invitationId ?? ''),
       signup_token: String(signupToken ?? ''),
@@ -2923,21 +2978,31 @@ export function completeOrganizationInvitation({invitationId, signupToken, usern
 }
 
 /**
- * The three fields the preview exists to deliver, or null for each that did not
- * arrive as a non-empty string.
+ * The four fields the summary delivers, or null for each that did not arrive as
+ * a non-empty string.
  *
- * Separate from the verdict for `readInvitationRecord`'s reason: whether the
- * invitation is open and what it says are different questions, and a null here
- * means "the service named nothing", never "the service said no". The page
- * renders its heading and its one sentence from these, so a missing team name
- * has to be visible as a missing name rather than as the word "null".
+ * `state` IS THE WHOLE VERDICT AND IT IS NOT `ok`. Every one of the five states
+ * arrives at HTTP 200, including the three a person cannot act on, so a caller
+ * that read `result.ok` alone would show the invitation form to somebody whose
+ * invitation was withdrawn. The five are `usable`, `already_member`,
+ * `invitation_withdrawn`, `invitation_expired` and `token_expired`.
+ *
+ * ONLY `usable` CARRIES A TEAM NAME AND AN ADDRESS. The other four answer with
+ * the organisation name and nulls, which is why each of these is read
+ * separately and why a null has to be visible to the caller as a missing name
+ * rather than printed as the word "null".
+ *
+ * A state this file has not read resolves to null, which every caller must
+ * treat as "not usable" — failing closed, so a state added later does not open
+ * the form to somebody it was invented to keep out.
  */
-export function readInvitationPreview(result) {
+export function readInvitationSummaryBody(result) {
   const body = objectOrNull(result?.body);
   return {
+    state: stringOrNull(body?.state),
     organizationName: stringOrNull(body?.organization_name),
     teamName: stringOrNull(body?.team_name),
-    invitedEmail: stringOrNull(body?.invited_email),
+    invitedEmail: stringOrNull(body?.email),
   };
 }
 

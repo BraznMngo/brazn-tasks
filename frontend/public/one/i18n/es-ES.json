@@ -521,6 +521,19 @@
       "missingLink": {
         "title": "Este enlace esta incompleto",
         "body": "Abre el enlace de tu correo de invitacion o pide a la persona que te invito que te envie uno nuevo."
+      },
+      "usernameTooLong": "Ese nombre de usuario es demasiado largo. Elige uno mas corto.",
+      "passwordLength": "Tu contrasena necesita entre {min} y {max} caracteres.",
+      "alreadyMember": {
+        "title": "Ya tienes acceso",
+        "body": "Ya tienes un puesto en esta organizacion, asi que no habia nada que configurar. Inicia sesion con la cuenta que ya tienes.",
+        "bodyNamed": "Ya tienes un puesto en {organizationName}, asi que no habia nada que configurar. Inicia sesion con la cuenta que ya tienes.",
+        "signIn": "Iniciar sesion"
+      },
+      "teamUnavailable": {
+        "title": "Tu cuenta esta lista",
+        "body": "Tu cuenta y tu puesto en la organizacion estan listos, y ya puedes iniciar sesion. Las listas compartidas todavia no estan conectadas contigo. Tu administrador puede terminarlo, y nada de lo que hagas aqui lo cambiara.",
+        "signIn": "Iniciar sesion"
       }
     },
     "deny": {
@@ -590,6 +603,10 @@
       "notInvitable": {
         "title": "Esta direccion no puede unirse",
         "body": "Esta direccion ya pertenece a otra cuenta. Pide a tu administrador que te anada como usuario existente."
+      },
+      "linkExpired": {
+        "title": "Este enlace ha caducado",
+        "body": "Tu invitacion sigue siendo valida; solo ha caducado el enlace. Pide a la persona que te invito un enlace nuevo."
       }
     },
     "toast": {

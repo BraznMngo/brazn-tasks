@@ -27,19 +27,33 @@ export function signupTokenFromHash(hash: string | null | undefined): string | n
  * recognises. Fails closed: an outcome this page has not read becomes
  * 'invitation-failed'.
  */
-export function refusalReason(
-	result: {outcome?: string | null} | null | undefined,
-): string
+export function refusalReason(word: string | null | undefined): string
 
 /**
  * Whether a refusal of the COMPLETION is one the person can act on by changing
- * what they typed. True for a collision, which the task server refuses to
+ * what they typed. True for a collision, which the service refuses to
  * disambiguate between an address and a username on purpose — so the page keeps
- * them on the form and says neither.
+ * them on the form, where nothing has been spent and a different username can go
+ * in immediately, and says neither.
  */
-export function recoverableOnTheForm(
-	result: {outcome?: string | null} | null | undefined,
-): boolean
+export function recoverableOnTheForm(word: string | null | undefined): boolean
+
+/** The UTF-8 byte length of a value. The service bounds a password in BYTES, not characters. */
+export function byteLength(value: unknown): number
+
+/**
+ * Already a member — from either route, and NOT an error in either. Nothing was
+ * spent or created, so the way in is the sign-in page and the credentials they
+ * already have.
+ */
+export function alreadyMemberSurface(state: {organizationName?: string | null}): string
+
+/**
+ * The account and the seat exist and the team join did not: a partial success,
+ * said as one. Until the task server is deployed this is what EVERY completion
+ * answers.
+ */
+export function teamUnavailableSurface(): string
 
 /**
  * THE INVITATION SCREEN: a heading, one sentence, three fields, one button.

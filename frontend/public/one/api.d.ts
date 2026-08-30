@@ -140,10 +140,17 @@ export interface CommercialOps {
 	readonly QUOTE_SEATS: CommercialOp
 	readonly PURCHASE_SEATS: CommercialOp
 	readonly TRANSFER_ADMINISTRATOR: CommercialOp
-	/** BRA-1475. Read the organisation and team behind an invitation handle, with no session. */
-	readonly PREVIEW_INVITATION: CommercialOp
-	/** BRA-1475. Create the account, spend the token, take the seat and join the team. */
-	readonly COMPLETE_INVITATION: CommercialOp
+	/**
+	 * BRA-1475. Read the organisation and team behind an invitation handle, with
+	 * no session. Answers `state`, not `outcome`, so its shape is OUTCOME_ABSENT.
+	 */
+	readonly INVITATION_SUMMARY: CommercialOp
+	/**
+	 * BRA-1475. Create the account, spend the token, take the seat and join the
+	 * team. EVERY outcome arrives at HTTP 200, refusals included, so a caller
+	 * must branch on `result.outcome` in every case.
+	 */
+	readonly INVITATION_COMPLETION: CommercialOp
 	/** Recognises nothing; the default when a caller names no operation. */
 	readonly UNKNOWN: CommercialOp
 }
@@ -572,28 +579,47 @@ export function authorizeDesktopClient(params: {
 
 /* --- BRA-1475: the invitation, from a browser with no session ------ */
 
-/** POST /v1/organizations/invitations/preview. Consumes nothing. */
-export function previewOrganizationInvitation(request: {
+/**
+ * Whether a handle and a token are the shape the service will accept — a handle
+ * of 1 to 128 characters and a token of exactly 43 from the base64url alphabet.
+ * Checked before the request so a mangled link is not a bodiless 400 the page
+ * could only report as "something went wrong".
+ */
+export function invitationCredentialsAreWellFormed(
+	invitationId: string | null | undefined,
+	signupToken: string | null | undefined,
+): boolean
+
+/** POST /v1/invitations/summary. Unauthenticated. Consumes nothing. */
+export function readInvitationSummary(request: {
 	invitationId: string | null
 	signupToken: string | null
 }): Promise<CommercialResult>
 
 /**
- * POST /v1/organizations/invitations/completion. The email address is NOT sent:
- * the token already carries the address it was stamped for.
+ * POST /v1/invitations/completion. Unauthenticated. There is NO `email` field
+ * and its absence is the guarantee: the address comes from the token's own
+ * binding, so no caller can choose which mailbox the account is made for.
  */
-export function completeOrganizationInvitation(request: {
+export function completeInvitation(request: {
 	invitationId: string | null
 	signupToken: string | null
 	username: string
 	password: string
 }): Promise<CommercialResult>
 
-export interface InvitationPreview {
+export interface InvitationSummary {
+	/**
+	 * `usable`, `already_member`, `invitation_withdrawn`, `invitation_expired` or
+	 * `token_expired` — and null for a state this page has not read, which every
+	 * caller must treat as "not usable". All five arrive at HTTP 200.
+	 */
+	state: string | null
 	organizationName: string | null
+	/** Only `usable` carries these two; the other four answer with nulls. */
 	teamName: string | null
 	invitedEmail: string | null
 }
 
-/** The three fields the preview exists to deliver. Null means the service named nothing. */
-export function readInvitationPreview(result: CommercialResult): InvitationPreview
+/** The four fields the summary delivers. `state` is the verdict, not `ok`. */
+export function readInvitationSummaryBody(result: CommercialResult): InvitationSummary

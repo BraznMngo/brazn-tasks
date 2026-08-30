@@ -66,6 +66,24 @@ const REASONS = Object.freeze({
     title: 'one.error.invitationUnknown.title',
     body: 'one.error.invitationUnknown.body',
   },
+  /**
+   * THE LINK RAN OUT, THE INVITATION DID NOT, and the difference is the whole
+   * reason this is not folded into the expiry above. Telling somebody to ask
+   * for a new invitation when their invitation is perfectly good sends them to
+   * an administrator who then cannot help — the administrator's own screen
+   * shows a live invitation and no reason to replace it.
+   *
+   * IT CANNOT HAPPEN IN THE SHIPPED CONFIGURATION. Both lifetimes are seven
+   * days and the invitation's deadline is evaluated first, so the invitation
+   * expiry always wins. It is here because a configuration change would make it
+   * live, and because a value that arrived without a home would otherwise fall
+   * to the general sentence, which is the one case where the general sentence
+   * is actively wrong.
+   */
+  'link-expired': {
+    title: 'one.error.linkExpired.title',
+    body: 'one.error.linkExpired.body',
+  },
   'seats-full': {
     title: 'one.error.seatsFull.title',
     body: 'one.error.seatsFull.body',
