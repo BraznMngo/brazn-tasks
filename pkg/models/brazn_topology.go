@@ -66,6 +66,80 @@ const (
 // creating an account nobody asked for.
 var ErrProvisioningSubjectUnknown = errors.New("the provisioning request names a user this instance does not have")
 
+// ErrProvisioningTeamUnknown means a join_team request named a team this
+// instance has not provisioned for that organization.
+//
+// It is a REFUSAL rather than a fault, and it is deliberately NOT repaired here
+// by creating the team. provisionTeamRoots makes its subject the team's creator
+// and a team ADMIN, so a join that helpfully created the missing team would hand
+// the joining member the team-management ability the whole invitation design
+// withholds from them. The commercial service creates a team's roots through
+// create_team_roots, naming the organization's administrator as the subject, and
+// reaching this means that call has not happened yet - which is the producer's
+// to resolve in the right order rather than this fork's to guess at.
+var ErrProvisioningTeamUnknown = errors.New("the provisioning request names a team this instance has not provisioned")
+
+// JoinProvisionedTeam puts one subject into a team this instance has already
+// provisioned, or does nothing when they are already in it.
+//
+// THIS IS WHAT MAKES SHARED PROJECTS REACHABLE, and nothing else does.
+// grantTeamAccess gives the TEAM administrative access to the Team root and to
+// the organization's Public root; a person's access to either is entirely a
+// consequence of the team_members row this writes. Somebody holding a complete,
+// active Teams entitlement and no such row sees an empty product.
+//
+// THE TEAM IS RESOLVED FROM THE (ORGANIZATION, COMMERCIAL TEAM) PAIR and never
+// from a fork team id the caller names. That is the difference between joining a
+// team an administrator invited somebody to and joining any team on the
+// instance: the pair has to match a row create_team_roots wrote, so a request
+// naming another organization's team resolves to nothing and is refused rather
+// than crossing between customers.
+//
+// THE MEMBER IS NEVER AN ADMIN. TeamMember.Admin decides who may add and remove
+// members and toggle other members' admin status, and an invited member is
+// precisely the person who must not be able to add themselves anywhere. The
+// field is written false explicitly rather than left to Go's zero value, because
+// what it means is a rule rather than an absence.
+//
+// IT INSERTS THE ROW DIRECTLY RATHER THAN THROUGH TeamMember.Create, for two
+// reasons that are both about what that method does beyond the insert. It
+// resolves the member by USERNAME, and a provisioning request carries this
+// instance's own users.id - looking a person up by name to reach an id the
+// caller already holds would be a name lookup on a channel that has no business
+// performing one (docs/Brazn-Tasks-Rules.md section 5.1). And it dispatches
+// TeamMemberAddedEvent, which announces a new colleague to whatever is
+// listening; an invitation acceptance is not the moment to mail a team, and
+// nothing asked for that.
+//
+// A REPEAT IS A SUCCESS, as it is for every creating operation on this channel.
+// The commercial service calls this after an admission it may retry, so a second
+// call for somebody already in the team must commit rather than refuse.
+func JoinProvisionedTeam(ctx context.Context, subject, organizationID, teamID string) error {
+	return provisionInTransaction(ctx, func(s *xorm.Session) error {
+		u, err := provisioningSubject(s, subject)
+		if err != nil {
+			return err
+		}
+
+		root, err := provisionedTeamRoot(s, organizationID, teamID)
+		if err != nil {
+			return err
+		}
+		if root == nil {
+			return ErrProvisioningTeamUnknown
+		}
+
+		member := &TeamMember{}
+		has, err := s.Where("team_id = ? AND user_id = ?", root.TeamID, u.ID).Get(member)
+		if err != nil || has {
+			return err
+		}
+
+		_, err = s.Insert(&TeamMember{TeamID: root.TeamID, UserID: u.ID, Admin: false})
+		return err
+	})
+}
+
 // ProvisionPersonalInbox creates the protected Inbox for one subject, or does
 // nothing when they already have one.
 //
