@@ -41,3 +41,16 @@ export function googleMark(): string
 
 /** The server's own sentence when it sent one, else the catalogue fallback. */
 export function forkErrorSentence(err: unknown, fallbackKey: string): string
+/**
+ * A password field wrapped in its reveal control. `type="button"` on the
+ * control is load-bearing: a bare button inside a form submits it.
+ */
+export function passwordField(id: string, labelKey: string, attrs?: string): string
+
+/**
+ * Install the one delegated listener that drives every reveal control on the
+ * page. Delegated from `document`, so it survives every re-render; it changes
+ * the input's `type` property rather than re-rendering, because re-rendering
+ * would discard what the person has typed.
+ */
+export function installPasswordReveal(): void

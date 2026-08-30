@@ -649,7 +649,9 @@
         "providerFailed": "Ese inicio de sesión no se ha completado. Inténtalo de nuevo o inicia sesión con tu contraseña.",
         "returningToApp": "Volviendo a la aplicación…",
         "desktopFailed": "No hemos podido conectar la aplicación. Cierra esta ventana e inténtalo de nuevo desde la aplicación."
-      }
+      },
+      "showPassword": "Mostrar contraseña",
+      "hidePassword": "Ocultar contraseña"
     },
     "password": {
       "working": "Un momento…",

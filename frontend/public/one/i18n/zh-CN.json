@@ -649,7 +649,9 @@
         "providerFailed": "本次登录未完成。请重试，或使用密码登录。",
         "returningToApp": "正在返回应用…",
         "desktopFailed": "无法连接应用。请关闭这个窗口，然后从应用重试。"
-      }
+      },
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码"
     },
     "password": {
       "working": "处理中…",

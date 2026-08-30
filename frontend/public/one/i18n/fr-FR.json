@@ -649,7 +649,9 @@
         "providerFailed": "Cette connexion n’a pas abouti. Réessayez, ou connectez-vous avec votre mot de passe.",
         "returningToApp": "Retour vers l’application…",
         "desktopFailed": "Impossible de connecter l’application. Fermez cette fenêtre et réessayez depuis l’application."
-      }
+      },
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe"
     },
     "password": {
       "working": "Un instant…",

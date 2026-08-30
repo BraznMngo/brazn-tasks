@@ -649,7 +649,9 @@
         "providerFailed": "Diese Anmeldung wurde nicht abgeschlossen. Versuch es noch einmal oder melde dich mit deinem Passwort an.",
         "returningToApp": "Du wirst zur App zurückgeleitet…",
         "desktopFailed": "Die App konnte nicht verbunden werden. Schließe dieses Fenster und versuch es noch einmal aus der App."
-      }
+      },
+      "showPassword": "Passwort anzeigen",
+      "hidePassword": "Passwort verbergen"
     },
     "password": {
       "working": "Einen Moment…",

@@ -90,7 +90,12 @@
      do not even match the scale — 30px, 32px and 36px have no token, and --font-size-body:14px
      names a size nothing uses). Do not re-introduce them by retro-fitting the literals; that is
      a redesign and bar 10 forbids it. --font is the one layout token anything actually reads. */
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  /* INTER LEADS, as the website's own token file does (web/app/tokens.css, --font-sans). It used
+     to sit fourth, behind the platform font, which meant these pages rendered in Segoe UI on
+     Windows while the account-creation page they are meant to match rendered in Inter — two
+     different faces side by side, which is half of what "the same design elements and page
+     style" is judged on. The platform fonts stay behind it as the fallback they always were. */
+  --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   color-scheme: light;
 }
@@ -791,9 +796,24 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 .auth-field input[readonly]:hover{border-color:var(--input-border-color)}
 .auth-field input[readonly]:focus{border-color:var(--input-border-color);box-shadow:none}
 
-/* The rule is stated BEFORE the input, not after a rejection. */
+/* THE PASSWORD RULE SITS BELOW ITS FIELD, and this is a DELIBERATE DEPARTURE from the
+   account-creation page, recorded on the ticket so nobody restores it. Sebastian's instruction is
+   that the rule follows the input on every page here that asks somebody to choose a password. The
+   reference page states it first; that page is the website's registration page, which acceptance
+   criterion 19 deletes in this same change, so its placement is not a standard worth matching. */
 .auth-rule,.auth-note{font-size:12px;line-height:1.45;color:var(--text-muted);margin:0}
 .auth-rule{margin-top:-3px}
+
+/* THE REVEAL CONTROL. The reference page carries one and none of these pages did, so somebody
+   choosing a new password on the invitation page or the reset page typed it blind. Values are the
+   reference's own: a 34px square tucked inside the right-hand end of a 42px field, transparent
+   until hovered. The input reserves room for it so a long password never runs underneath. */
+.auth-reveal-wrap{position:relative}
+.auth-reveal-wrap input{padding-right:46px}
+.auth-reveal{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--text-muted);cursor:pointer;transition:background .14s ease,color .14s ease}
+.auth-reveal:hover{background:var(--grey-100);color:var(--text-strong)}
+.auth-reveal:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.auth-reveal svg{width:18px;height:18px;display:block}
 
 .auth-submit{width:100%;min-height:48px;padding:0 21px;border:0;border-radius:14px;background:var(--text-strong);color:var(--scheme-main);font:inherit;font-size:15px;font-weight:640;cursor:pointer;margin-top:8px;transition:transform .14s ease,opacity .14s ease}
 .auth-submit:hover:enabled{transform:translateY(-1px)}

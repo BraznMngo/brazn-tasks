@@ -1236,6 +1236,30 @@ export const COMMERCIAL_OPS = Object.freeze({
    */
   INVITATION_COMPLETION: commercialOp(OUTCOME_REQUIRED, ['joined', 'already_member']),
 
+  /**
+   * POST /v1/invitations/username — is this username free? (BRA-1475.)
+   *
+   * Unauthenticated, safe to call repeatedly, and it consumes nothing, which is
+   * what makes it callable while somebody types.
+   *
+   * IT ANSWERS `status`, NOT `outcome`, so the descriptor is OUTCOME_ABSENT.
+   * That guard is doing real work here rather than being a formality: an
+   * UNROUTED `/v1/...` is answered by the fork's static handler with the SPA's
+   * index.html at HTTP 200, which is exactly what a browser sees if this route
+   * is not deployed. Without the content-type check inside
+   * `readCommercialResult`, that page would parse as "not taken" and the form
+   * would cheerfully allow every name.
+   *
+   * Three bodiless refusals, all of which mean "no verdict":
+   *   * 400 — the body was malformed;
+   *   * 404 — the caller has not proved they hold this invitation's token, the
+   *     same silence the summary gives;
+   *   * 429 — too many checks against this one invitation. The bound is forty
+   *     and then one every four seconds, so a person filling in a form never
+   *     meets it; a script would.
+   */
+  INVITATION_USERNAME: commercialOp(OUTCOME_ABSENT),
+
   UNKNOWN: commercialOp(OUTCOME_REQUIRED),
 });
 
@@ -2939,37 +2963,59 @@ export function invitationCredentialsAreWellFormed(invitationId, signupToken) {
 /**
  * Is this username free? — the invitation form's live check.
  *
- * THE ROUTE IS NOT WIRED YET, AND THIS FUNCTION IS WHERE IT LANDS. The service
- * half is being built by the agent who owns the paid-account service; its exact
- * path, request shape and answer are not settled, and guessing them is the seam
- * failure that already cost this ticket one round. So this returns `unknown`
- * for now, which is the SAME answer it gives when the real call fails, and the
- * form behaves today exactly as it will on a bad network tomorrow.
+ * POST /v1/invitations/username. Unauthenticated, safe to call repeatedly, and
+ * it consumes nothing — which is what makes it callable while somebody types.
  *
- * WHEN THE CONTRACT ARRIVES, ONLY THIS BODY CHANGES. It will be a
- * `commercialPostWithoutSession` gated behind the same handle and token the
- * other two invitation calls already send, and it must map its answer onto the
- * three words below and nothing else.
- *
- * THREE ANSWERS, AND `unknown` IS THE IMPORTANT ONE:
+ * THREE ANSWERS OUT, AND `unknown` IS THE IMPORTANT ONE:
  *
  *   * `taken`   — the service says this exact name is in use. The form blocks.
- *   * `free`    — the service says it is not. The form allows.
- *   * `unknown` — the check could not run: offline, a timeout, a refusal, a
- *     shape this page did not recognise, or the route not existing yet. THE
- *     FORM MUST ALLOW. A validation that failed closed on a network error would
- *     stop an invited person joining at all, which is a worse fault than the
- *     one being fixed — and the service still decides at submission either way.
+ *   * `free`    — the service says it is available. The form allows.
+ *   * `unknown` — no verdict. THE FORM MUST ALLOW. A validation that failed
+ *     closed on a network error would stop an invited person joining at all,
+ *     which is a worse fault than the one being fixed, and the service still
+ *     decides at submission either way.
  *
- * IT ANSWERS ONE BIT ABOUT ONE EXACT NAME, and it must never grow past that.
- * A route that answered anything more — a suggestion, a list, a near match —
- * would be the name lookup `docs/Brazn-Tasks-Rules.md` §5.1 forbids, reachable
+ * `unknown` DELIBERATELY SWALLOWS FOUR DIFFERENT THINGS, because the caller can
+ * do nothing different about any of them: a transport failure, a bodiless 400,
+ * 404 or 429, a body this page did not recognise, and the service's own
+ * `invalid`.
+ *
+ * THE `invalid` MAPPING IS A JUDGEMENT AND IT IS WORTH KNOWING ABOUT. `invalid`
+ * means the task server would refuse that string whoever held it — a definite
+ * answer, not an absent one. It is mapped to `unknown` because the standing
+ * instruction is to block on a clean `taken` and on nothing else, so blocking
+ * here would exceed it. The cost is real and belongs in the open: somebody who
+ * types a name the server reserves gets no warning while typing and finds out
+ * when they press the button. Raising that is this file's job; changing it is
+ * not.
+ *
+ * THE PAGE DOES NOT REIMPLEMENT THE RULE. The service's check calls the very
+ * same function the registration path calls, so advice and authority are one
+ * query rather than two that agree today and drift tomorrow. Nothing here
+ * inspects the characters of a username beyond the byte bound the request shape
+ * itself declares.
+ *
+ * IT ANSWERS ONE BIT ABOUT ONE EXACT NAME, and it must never grow past that. A
+ * route that answered anything more — a suggestion, a list, a near match — would
+ * be the name lookup `docs/Brazn-Tasks-Rules.md` §5.1 forbids, reachable
  * without a session.
  */
 export async function checkInvitationUsername({invitationId, signupToken, username}) {
-  void invitationId;
-  void signupToken;
-  void username;
+  const result = await commercialPostWithoutSession(
+    'invitations/username',
+    COMMERCIAL_OPS.INVITATION_USERNAME,
+    {
+      invitation_id: String(invitationId ?? ''),
+      signup_token: String(signupToken ?? ''),
+      username: String(username ?? ''),
+    },
+  );
+  if (!result.ok) return 'unknown';
+
+  const status = stringOrNull(objectOrNull(result.body)?.status);
+  if (status === 'taken') return 'taken';
+  if (status === 'available') return 'free';
+  // `invalid`, and anything this page has not read. Both allow.
   return 'unknown';
 }
 

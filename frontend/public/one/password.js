@@ -40,8 +40,10 @@ import {
   esc,
   forkErrorSentence,
   goToPage,
+  installPasswordReveal,
   loadStrings,
   pageUrl,
+  passwordField,
   renderAuth,
   showError,
   tx,
@@ -137,12 +139,9 @@ export function setSurface(state) {
     <p class="auth-lead">${tx('one.password.set.lead')}</p>
     ${bannerBlock()}
     <form class="auth-form" id="setForm" novalidate>
-      <div class="auth-field">
-        <label for="password">${tx('one.password.set.newPassword')}</label>
-        <p class="auth-rule">${tx('one.password.set.rule', {count: MINIMUM_PASSWORD_LENGTH})}</p>
-        <input id="password" name="password" type="password" autocomplete="new-password"
-          minlength="${MINIMUM_PASSWORD_LENGTH}" required>
-      </div>
+      ${passwordField('password', 'one.password.set.newPassword',
+        `name="password" autocomplete="new-password" minlength="${MINIMUM_PASSWORD_LENGTH}" required`)}
+      <p class="auth-rule">${tx('one.password.set.rule', {count: MINIMUM_PASSWORD_LENGTH})}</p>
       <button type="submit" class="auth-submit" ${state.phase === 'working' ? 'disabled' : ''}>
         ${state.phase === 'working' ? tx('one.password.working') : tx('one.password.set.submit')}
       </button>
@@ -241,6 +240,10 @@ async function submitNewPassword(form) {
 }
 
 function installListeners() {
+  // One delegated listener drives every reveal control on this page; it is installed
+  // once and survives every re-render.
+  installPasswordReveal();
+
   document.addEventListener('submit', (event) => {
     if (!(event.target instanceof HTMLFormElement)) return;
     if (event.target.id === 'requestForm') {

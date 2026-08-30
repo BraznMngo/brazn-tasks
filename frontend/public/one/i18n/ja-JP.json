@@ -649,7 +649,9 @@
         "providerFailed": "ログインが完了しませんでした。もう一度お試しになるか、パスワードでログインしてください。",
         "returningToApp": "アプリに戻っています…",
         "desktopFailed": "アプリに接続できませんでした。このウィンドウを閉じて、アプリからやり直してください。"
-      }
+      },
+      "showPassword": "パスワードを表示",
+      "hidePassword": "パスワードを非表示"
     },
     "password": {
       "working": "処理しています…",

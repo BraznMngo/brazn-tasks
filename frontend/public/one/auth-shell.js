@@ -236,6 +236,91 @@ export function googleMark() {
 }
 
 /* ------------------------------------------------------------------ *
+ * 4b. Showing a password that is being typed
+ * ------------------------------------------------------------------ */
+
+/**
+ * A password field wrapped in its reveal control.
+ *
+ * WHY IT EXISTS. The account-creation page this design is copied from has one,
+ * and none of these pages did — so somebody choosing a NEW password on the
+ * invitation page or the reset page typed it blind, twice over: a password they
+ * cannot see and no second box to confirm it against. On a phone, where a
+ * mistyped character is likeliest and the consequence is a reset link they have
+ * already spent, that is the difference between joining and being locked out.
+ *
+ * IT IS A BUTTON, NOT A CHECKBOX, and it carries `aria-pressed` so a screen
+ * reader announces the state rather than only the label. `type="button"` is
+ * load-bearing: a bare `<button>` inside a form defaults to `type="submit"`, so
+ * without it, revealing the password would submit the form.
+ *
+ * The label is a catalogue key and swaps with the state, because "Show" on a
+ * control that is currently showing is worse than no label at all.
+ *
+ * @param {string} id     the input's id, which the label points at
+ * @param {string} labelKey  catalogue key for the visible field label
+ * @param {object} attrs  everything else the input needs, already escaped
+ */
+export function passwordField(id, labelKey, attrs = '') {
+  return `<div class="auth-field auth-reveal-wrap">
+    <label for="${esc(id)}">${tx(labelKey)}</label>
+    <input id="${esc(id)}" type="password" ${attrs}>
+    <button type="button" class="auth-reveal" data-action="reveal-password" data-reveals="${esc(id)}"
+      aria-pressed="false" aria-label="${tx('one.auth.showPassword')}">${eyeMark(false)}</button>
+  </div>`;
+}
+
+/**
+ * The open and struck-through eye. Drawn rather than fetched, so it costs no
+ * request; no `xmlns`, because this is inline SVG in an HTML document where the
+ * namespace is implied and the only absolute URL anywhere under this directory
+ * would otherwise be that namespace identifier.
+ */
+function eyeMark(revealed) {
+  const eye = '<path d="M1.8 9s2.7-4.8 7.2-4.8S16.2 9 16.2 9s-2.7 4.8-7.2 4.8S1.8 9 1.8 9Z" '
+    + 'stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/>'
+    + '<circle cx="9" cy="9" r="2.1" stroke="currentColor" stroke-width="1.4" fill="none"/>';
+  const slash = revealed
+    ? '<path d="M3 15 15 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
+    : '';
+  return `<svg viewBox="0 0 18 18" aria-hidden="true">${eye}${slash}</svg>`;
+}
+
+/**
+ * Install the one delegated listener that drives every reveal control on the
+ * page. Called once per page from its own boot.
+ *
+ * DELEGATED FROM `document`, so it survives every re-render — these pages
+ * replace the card's innerHTML on each state change, and a listener bound to the
+ * button itself would be thrown away with it.
+ *
+ * THE FIELD IS NEVER RE-RENDERED TO CHANGE ITS TYPE. Only the `type` property,
+ * the label and the icon are touched, because re-rendering would discard what
+ * the person has typed — which is the whole thing they are trying to look at.
+ */
+export function installPasswordReveal() {
+  document.addEventListener('click', (event) => {
+    const button = event.target instanceof Element
+      ? event.target.closest('[data-action="reveal-password"]')
+      : null;
+    if (button === null) return;
+    event.preventDefault();
+
+    const field = document.getElementById(button.getAttribute('data-reveals') ?? '');
+    if (!(field instanceof HTMLInputElement)) return;
+
+    const revealed = field.type === 'password';
+    field.type = revealed ? 'text' : 'password';
+    button.setAttribute('aria-pressed', revealed ? 'true' : 'false');
+    button.setAttribute('aria-label', t(revealed ? 'one.auth.hidePassword' : 'one.auth.showPassword'));
+    button.innerHTML = eyeMark(revealed);
+    // The caret goes back where it was: pressing this is a request to LOOK at
+    // the password, never to stop typing it.
+    field.focus();
+  });
+}
+
+/* ------------------------------------------------------------------ *
  * 5. Reading the server's refusal
  * ------------------------------------------------------------------ */
 

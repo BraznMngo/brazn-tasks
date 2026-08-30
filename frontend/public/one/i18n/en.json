@@ -649,7 +649,9 @@
         "providerFailed": "That sign-in did not finish. Try again, or sign in with your password.",
         "returningToApp": "Taking you back to the app…",
         "desktopFailed": "We could not connect the app. Close this window and try again from the app."
-      }
+      },
+      "showPassword": "Show password",
+      "hidePassword": "Hide password"
     },
     "password": {
       "working": "Working…",

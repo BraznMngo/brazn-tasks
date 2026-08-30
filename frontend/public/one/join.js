@@ -54,7 +54,9 @@ import {
   brandBlock,
   esc,
   goToPage,
+  installPasswordReveal,
   loadStrings,
+  passwordField,
   renderAuth,
   sendToErrorPage,
   showError,
@@ -209,12 +211,9 @@ export function invitationSurface(state) {
         <input id="username" name="username" type="text" autocomplete="username"
           autocapitalize="none" spellcheck="false" value="${esc(state.username ?? '')}" required>
       </div>
-      <div class="auth-field">
-        <label for="password">${tx('one.join.password')}</label>
-        <p class="auth-rule">${tx('one.join.passwordRule')}</p>
-        <input id="password" name="password" type="password" autocomplete="new-password"
-          minlength="8" required>
-      </div>
+      ${passwordField('password', 'one.join.password',
+        'name="password" autocomplete="new-password" minlength="8" required')}
+      <p class="auth-rule">${tx('one.join.passwordRule')}</p>
       <button type="submit" class="auth-submit" id="joinSubmit" ${state.phase === 'working' ? 'disabled' : ''}>
         ${state.phase === 'working' ? tx('one.join.working') : tx('one.join.submit')}
       </button>
@@ -645,6 +644,10 @@ function installListeners() {
   // `input` rather than `keyup`, so a paste, a drag, an autofill and a
   // speech-to-text insertion are all seen — a check that only watched keys
   // would let three of those four past unchecked.
+  // One delegated listener drives every reveal control on this page; it is installed
+  // once and survives every re-render.
+  installPasswordReveal();
+
   document.addEventListener('input', (event) => {
     const el = event.target;
     if (!(el instanceof HTMLInputElement) || el.id !== 'username') return;

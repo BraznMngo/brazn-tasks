@@ -43,8 +43,10 @@ import {
   forkErrorSentence,
   goToPage,
   googleMark,
+  installPasswordReveal,
   loadStrings,
   pageUrl,
+  passwordField,
   renderAuth,
   showError,
   tx,
@@ -233,10 +235,8 @@ export function signInSurface(state) {
         <input id="username" name="username" type="text" autocomplete="username"
           autocapitalize="none" spellcheck="false" value="${esc(state.username ?? '')}" required>
       </div>
-      <div class="auth-field">
-        <label for="password">${tx('one.auth.signIn.password')}</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
-      </div>
+      ${passwordField('password', 'one.auth.signIn.password',
+        'name="password" autocomplete="current-password" required')}
       ${totp}
       <button type="submit" class="auth-submit" ${state.phase === 'working' ? 'disabled' : ''}>
         ${state.phase === 'working' ? tx('one.auth.signIn.working') : tx('one.auth.signIn.submit')}
@@ -511,6 +511,10 @@ export function openIdProviderFromPath(pathname) {
 }
 
 function installListeners() {
+  // One delegated listener drives every reveal control on this page; it is installed
+  // once and survives every re-render.
+  installPasswordReveal();
+
   document.addEventListener('submit', (event) => {
     if (!(event.target instanceof HTMLFormElement) || event.target.id !== 'signInForm') return;
     event.preventDefault();
