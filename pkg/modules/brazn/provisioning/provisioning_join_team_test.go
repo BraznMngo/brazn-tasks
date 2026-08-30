@@ -99,6 +99,18 @@ func TestDecodeJoinTeamRefusesATopologyCreationInDisguise(t *testing.T) {
 // TestDecodeCreateTeamRootsStillReadsItsOwnRequest stayed green — so the
 // deletion is caught by the case written for it and not by a neighbour. Guard
 // restored.
+//
+// RE-RUN BY THE REVIEWER, independently, because the sentence above was written
+// by the author of the guard and self-certification is the one thing the check
+// exists to defeat. Same result: this case red on the assertion rather than on a
+// build error, its positive sibling green, TestDecodeJoinTeamRefusesATopology-
+// CreationInDisguise green, and the whole of pkg/webtests still passing — which
+// is what says the new comparison refuses no request any live caller sends. The
+// contract had already pinned this member: create-team-roots-request.schema.json
+// carried `"enum": ["create_team_roots"]` with `operation` in `required` before
+// the check existed, and cloud/service/src/fork.ts writes `operation` into the
+// signed body AFTER spreading an operation's own fields, so no caller can omit
+// it and no field can displace it.
 func TestDecodeCreateTeamRootsRefusesAJoinInDisguise(t *testing.T) {
 	_, err := DecodeCreateTeamRoots([]byte(joinTeam))
 	require.ErrorIs(t, err, ErrInvalidRequest,
