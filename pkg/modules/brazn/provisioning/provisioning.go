@@ -139,6 +139,31 @@ const (
 	// the two decoders were left asymmetric for a while on the strength of that
 	// sentence.
 	OperationJoinTeam = "join_team"
+	// OperationUsernameAvailable is BRA-1475: is this ONE EXACT username already
+	// held on this instance? The invitation form asks it while somebody types,
+	// so that a person whose only problem is a taken name is told THAT, rather
+	// than being told after submitting that "this account already exists" -
+	// which is what create_user_with_password's deliberately flat refusal reads
+	// as, because that refusal cannot say whether the mailbox or the name was
+	// the collision.
+	//
+	// ⚠ IT IS EXACT-MATCH ONLY AND ANSWERS ONE WORD. It does not prefix-match,
+	// it takes no wildcard, it returns no user id, no mailbox and no display
+	// name, and it says nothing about WHO holds a taken name. That shape is what
+	// keeps it on the permitted side of docs/Brazn-Tasks-Rules.md §5.1, which
+	// allows an exact lookup inside an invitation flow and forbids a general
+	// directory. A version of this that answered anything about the holder, or
+	// that matched anything but the whole string, would be the directory.
+	//
+	// ⚠ IT IS ADVICE AND NEVER AUTHORITY. A name can be taken between the
+	// answer and the submission, so create_user_with_password still refuses and
+	// the commercial layer still reports account_exists. Nothing may be relaxed
+	// anywhere on the strength of a prior available.
+	//
+	// It reads and writes nothing, so it is safe to call repeatedly. The bound
+	// on how often is the COMMERCIAL layer's, per invitation, because this
+	// channel has no notion of who is asking.
+	OperationUsernameAvailable = "username_available"
 )
 
 // maxMailboxLength is users.email's column width. An address past it is
@@ -702,6 +727,55 @@ func DecodeCreateUserWithPassword(payload json.RawMessage) (*CreateUserWithPassw
 		return nil, ErrInvalidRequest
 	}
 	if len(request.Password) < minPasswordBytes || len([]byte(request.Password)) > maxPasswordBytes {
+		return nil, ErrInvalidRequest
+	}
+	return request, nil
+}
+
+// UsernameAvailable asks whether one exact username is free on this instance.
+//
+// IT CARRIES NO SUBJECT AND NO ORGANIZATION, and that absence is deliberate
+// rather than an omission. The question is about a column with a unique index
+// across the whole instance, so no identifier could narrow it, and a member
+// this operation does not use would be one a reader assumed it honoured - the
+// mistake create_personal_inbox's organization_id already documents making.
+// Who is allowed to ask is settled before the request is signed, by the
+// commercial layer holding an invitation and its token.
+type UsernameAvailable struct {
+	ContractVersion string `json:"contract_version"`
+	Operation       string `json:"operation"`
+	// Username is the whole name to look up, exactly as typed and
+	// UNTRANSFORMED. Nothing here lowercases or trims it: users.username is
+	// compared as stored, so a value this operation normalised would answer for
+	// a DIFFERENT name than the one create_user_with_password would go on to
+	// refuse, and the form would promise a name the submission then rejected.
+	Username string `json:"username"`
+}
+
+// DecodeUsernameAvailable reads a verified payload as a username_available
+// request and checks the one value it carries.
+//
+// IT CHECKS THE OPERATION MEMBER, for the reason DecodeEraseSubject gives about
+// its own: an editing mistake in the switch is the only way a payload reaches
+// the wrong decoder, and this one shares its two-member shape with nothing on
+// the channel today but would share it with any future single-string question.
+//
+// The length bound is the same users.username column width every other decoder
+// here bounds its own values against, and it is checked BEFORE the lookup so
+// that an over-long value is refused rather than truncated into a question
+// about somebody else's name.
+func DecodeUsernameAvailable(payload json.RawMessage) (*UsernameAvailable, error) {
+	request := &UsernameAvailable{}
+	if err := decodeExactly(payload, request); err != nil {
+		return nil, err
+	}
+	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationUsernameAvailable {
+		return nil, ErrInvalidRequest
+	}
+	if request.Username == "" || len(request.Username) > maxUsernameLength {
 		return nil, ErrInvalidRequest
 	}
 	return request, nil

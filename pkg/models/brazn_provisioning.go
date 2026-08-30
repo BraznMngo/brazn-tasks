@@ -658,6 +658,57 @@ type UserResolution struct {
 // back to creating would reintroduce the outage BRA-1106 fixed; the contract
 // states this as an obligation the consumer cannot enforce, which makes it this
 // function's to keep.
+// Username availability, as three words the invitation form can act on.
+const (
+	// UsernameAvailable means no account holds this name right now.
+	UsernameAvailable = "available"
+	// UsernameTaken means one does.
+	UsernameTaken = "taken"
+	// UsernameInvalid means the name could never be accepted whoever held it,
+	// so it is answered WITHOUT a lookup and discloses nothing at all.
+	UsernameInvalid = "invalid"
+)
+
+// CheckUsernameAvailability answers whether one exact username could be
+// registered on this instance right now (BRA-1475).
+//
+// ⚠ IT IS ADVICE AND NEVER AUTHORITY, and every caller must be written that
+// way. Nothing is locked and nothing is reserved: between this answer and the
+// registration that follows it, anybody may take the name, and
+// CreateProvisionedUserWithPassword's own unique-index refusal is the only
+// thing that decides. A caller that skipped a check because this said available
+// would be relying on a fact this function cannot promise.
+//
+// THE FORMAT RULE IS user.CheckUsernameFormat AND IS NOT REIMPLEMENTED HERE.
+// That is the exact rule /register applies, so an invalid answered here is one
+// the registration would also refuse; a second copy of the rule would drift,
+// and the drift would show up as a form promising a name the submission then
+// rejected.
+//
+// An invalid name is answered before any query runs, so a malformed value never
+// becomes a question about stored data.
+func CheckUsernameAvailability(username string) (string, error) {
+	if err := user.CheckUsernameFormat(username); err != nil {
+		return UsernameInvalid, nil
+	}
+
+	s := db.NewSession()
+	defer s.Close()
+
+	_, err := user.GetUserByUsername(s, username)
+	if err != nil {
+		// The one error that is an ANSWER rather than a failure. Every other
+		// error is reported, because a lookup that failed for some other reason
+		// must never be reported to a person as "this name is free" - they
+		// would choose it and be refused at submission with no explanation.
+		if user.IsErrUserDoesNotExist(err) {
+			return UsernameAvailable, nil
+		}
+		return "", err
+	}
+	return UsernameTaken, nil
+}
+
 func ResolveUserByMailbox(email string) (*UserResolution, error) {
 	s := db.NewSession()
 	defer s.Close()

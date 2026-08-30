@@ -169,6 +169,18 @@ type unresolvableUser struct {
 
 var noUser = &unresolvableUser{Result: "unresolvable"}
 
+// usernameAvailability is the whole reply to username_available: ONE MEMBER
+// carrying one of three words.
+//
+// THE SHAPE IS THE PRIVACY GUARANTEE and it is made structural, on
+// unresolvableUser's reasoning. There is no member here for a user id, a
+// mailbox, a display name or a created date, so no future edit can add one to a
+// branch by accident and no caller can come to depend on one. What a taken name
+// discloses is that the name is taken, which is the entire question asked.
+type usernameAvailability struct {
+	Status string `json:"status"`
+}
+
 // BraznProvision performs one provisioning operation for Brazn's commercial
 // service.
 //
@@ -235,6 +247,8 @@ func BraznProvision(c *echo.Context) error {
 		return provisionUserWithPassword(c, payload)
 	case provisioning.OperationJoinTeam:
 		return joinTeam(c, payload)
+	case provisioning.OperationUsernameAvailable:
+		return usernameAvailable(c, payload)
 	default:
 		// An operation this build does not define is refused rather than
 		// guessed at, in exactly the way an unknown edition is on the
@@ -381,6 +395,31 @@ func provisionTeamRoots(c *echo.Context, payload json.RawMessage) error {
 // to read: the commercial record already holds this team's fork references, put
 // there by create_team_roots, and a membership row has no identifier the
 // commercial layer has any use for.
+// usernameAvailable is the username_available operation: is this one exact name
+// free right now?
+//
+// ⚠ THE LOG LINE NEVER CARRIES THE NAME, and that is the point of the seam
+// rather than tidiness. Writing the value here would put a stream of candidate
+// usernames - typed by somebody who is not signed in, at a rate the form
+// chooses - into this instance's logs, which is a directory of attempted names
+// assembled in exactly the place §5.1 forbids one. The status alone is enough
+// to tell whether the operation is working.
+func usernameAvailable(c *echo.Context, payload json.RawMessage) error {
+	request, err := provisioning.DecodeUsernameAvailable(payload)
+	if err != nil {
+		return refuseProvisioning("the username_available request is not one this build accepts")
+	}
+
+	status, err := models.CheckUsernameAvailability(request.Username)
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("Answered a Brazn Tasks username availability question (status: %s)", status)
+
+	return c.JSON(http.StatusOK, &usernameAvailability{Status: status})
+}
+
 func joinTeam(c *echo.Context, payload json.RawMessage) error {
 	request, err := provisioning.DecodeJoinTeam(payload)
 	if err != nil {
