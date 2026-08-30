@@ -79,32 +79,42 @@ func TestDecodeJoinTeamRefusesATopologyCreationInDisguise(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidRequest)
 }
 
-// TestDecodeCreateTeamRootsStillAcceptsAJoinInDisguise RECORDS A GAP rather
-// than protecting a guard, and it is written to pass so that it does not block
-// a merge on its own.
+// TestDecodeCreateTeamRootsRefusesAJoinInDisguise IS THE ONE THAT MATTERS of
+// the pair, and it is the mirror image its predecessor asked for.
 //
-// The guard above catches a switch mistake in ONE direction: a create_team_roots
-// payload arriving at the join decoder, which if carried out would add an
-// administrator to their own team as an ordinary member — untidy and harmless.
+// This file previously carried TestDecodeCreateTeamRootsStillAcceptsAJoinInDisguise,
+// which recorded the gap as a passing test: DecodeCreateTeamRoots did not
+// compare its operation member, so a join_team payload decoded cleanly as a
+// request to CREATE a team, and models.ProvisionTeamRoots makes its subject the
+// team's creator and a team ADMIN. The person that payload names is the invited
+// member, so the mistake handed them the team management their invitation
+// withholds. The check now exists and this asserts it.
 //
-// THE DIRECTION THAT CARRIES THE HARM IS THE OTHER ONE and nothing checks it. A
-// join_team payload reaching DecodeCreateTeamRoots decodes cleanly, because that
-// decoder does not compare its operation member, and provisionTeamRoots makes
-// its subject the team's CREATOR AND A TEAM ADMIN. The person that payload names
-// is the invited member. So the editing mistake that would grant an invited
-// member the team management their invitation withholds is the one still
-// unguarded, while the comment on OperationJoinTeam says the check exists for
-// exactly that reason.
+// The test above guards the opposite direction, which grants nobody anything.
+// If the two ever have to be told apart again: this is the escalation.
 //
-// The fix is one line — the same `if request.Operation != OperationCreateTeamRoots`
-// comparison, in DecodeCreateTeamRoots. When it lands, this test goes red and
-// should be replaced by its mirror image.
-func TestDecodeCreateTeamRootsStillAcceptsAJoinInDisguise(t *testing.T) {
-	asCreation, err := DecodeCreateTeamRoots([]byte(joinTeam))
-	require.NoError(t, err,
-		"the join payload decodes cleanly as a create_team_roots one, which is the whole risk")
-	assert.Equal(t, "42", asCreation.UserID)
-	assert.Equal(t, "team_x", asCreation.TeamID)
+// DELETE-THE-GUARD: remove `if request.Operation != OperationCreateTeamRoots`
+// from DecodeCreateTeamRoots. RUN: this test failed with
+// `error is not ErrInvalidRequest`, while
+// TestDecodeCreateTeamRootsStillReadsItsOwnRequest stayed green — so the
+// deletion is caught by the case written for it and not by a neighbour. Guard
+// restored.
+func TestDecodeCreateTeamRootsRefusesAJoinInDisguise(t *testing.T) {
+	_, err := DecodeCreateTeamRoots([]byte(joinTeam))
+	require.ErrorIs(t, err, ErrInvalidRequest,
+		"a join payload carried out as a creation makes an invited member a team admin")
+}
+
+// TestDecodeCreateTeamRootsStillReadsItsOwnRequest is the other half of that
+// change: adding the operation check must not refuse the real thing, which is
+// the request every organization registration sends today.
+func TestDecodeCreateTeamRootsStillReadsItsOwnRequest(t *testing.T) {
+	request, err := DecodeCreateTeamRoots([]byte(createTeamRoots))
+	require.NoError(t, err)
+
+	assert.Equal(t, "org_test", request.OrganizationID)
+	assert.Equal(t, "42", request.UserID)
+	assert.Equal(t, "team_x", request.TeamID)
 }
 
 func TestDecodeJoinTeamRefusesWhatItCannotAccept(t *testing.T) {

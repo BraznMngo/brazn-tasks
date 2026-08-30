@@ -127,9 +127,17 @@ const (
 	// out as a request to CREATE one, and models.provisionTeamRoots makes its
 	// subject the team's creator and a team ADMIN (CreateNewTeam's third
 	// argument). An invited member would then hold the team-management ability
-	// their invitation deliberately does not grant. DecodeJoinTeam therefore
-	// checks the operation member, as DecodeEraseSubject does and for the same
-	// reason.
+	// their invitation deliberately does not grant.
+	//
+	// THAT HARM IS CARRIED BY THE PAYLOAD ARRIVING AT create_team_roots' OWN
+	// DECODER, so DecodeCreateTeamRoots is where the check that prevents it
+	// lives, and it is the one to keep if either is ever questioned.
+	// DecodeJoinTeam checks its member too, for the mirror mistake, but that
+	// direction only adds an administrator to their own team as an ordinary
+	// member and grants nobody anything. An earlier revision of this comment
+	// claimed DecodeJoinTeam's check covered the escalation; it never did, and
+	// the two decoders were left asymmetric for a while on the strength of that
+	// sentence.
 	OperationJoinTeam = "join_team"
 )
 
@@ -495,6 +503,18 @@ func DecodeCreatePersonalInbox(payload json.RawMessage) (*CreatePersonalInbox, e
 // DecodeCreateTeamRoots reads a verified payload as a create_team_roots request
 // and checks the three identifiers it carries.
 //
+// IT CHECKS THE OPERATION MEMBER, and this is the decoder on which that check
+// carries the harm. join_team's payload is field-for-field this one's, so the
+// two are indistinguishable in the bytes. A join_team payload reaching THIS
+// decoder would be carried out as a request to create a team, and
+// models.ProvisionTeamRoots makes its subject the team's creator and a team
+// ADMIN (CreateNewTeam's third argument) - so the switch-editing mistake in
+// this direction hands an invited member exactly the team administration their
+// invitation withholds. The mistake in the other direction, caught by
+// DecodeJoinTeam, adds an administrator to their own team as an ordinary
+// member, which is untidy and grants nothing. Both are checked; only this one
+// is a privilege escalation.
+//
 // The team id is checked here rather than left to the write, because it is what
 // a later call is matched against: an id this build stored in some other shape
 // than the one that arrives next time would provision a SECOND set of roots for
@@ -505,6 +525,9 @@ func DecodeCreateTeamRoots(payload json.RawMessage) (*CreateTeamRoots, error) {
 		return nil, err
 	}
 	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationCreateTeamRoots {
 		return nil, ErrInvalidRequest
 	}
 	if !commercialID.MatchString(request.OrganizationID) ||
@@ -687,12 +710,13 @@ func DecodeCreateUserWithPassword(payload json.RawMessage) (*CreateUserWithPassw
 // DecodeJoinTeam reads a verified payload as a join_team request and checks the
 // three identifiers it carries.
 //
-// IT CHECKS THE OPERATION MEMBER, and on this decoder that check is doing more
-// work than on any of the other three that make it. DecodeEraseSubject,
-// DecodeResolveUser and DecodeRevokeSession check it against an editing error in
-// the switch; so does this, and the error it catches is the one that would grant
-// an invited member the team administration their invitation withholds. See
-// OperationJoinTeam for the whole argument.
+// IT CHECKS THE OPERATION MEMBER, as DecodeEraseSubject, DecodeResolveUser and
+// DecodeRevokeSession do, against an editing error in the switch. The error
+// THIS one catches is the harmless half of the pair: a create_team_roots
+// payload carried out as a join adds an administrator to their own team as an
+// ordinary member. The half that grants privilege runs the other way and is
+// caught in DecodeCreateTeamRoots; see OperationJoinTeam for the whole
+// argument, and do not read this check as covering that one.
 //
 // The team id is checked here rather than left to the write, for
 // DecodeCreateTeamRoots' reason: it is what the stored row is matched against,
