@@ -431,9 +431,9 @@
       },
       "emailNotifications": "Notifications par e-mail",
       "signOut": {
-        "title": "Se deconnecter",
-        "help": "Mettre fin a cette session sur cet appareil.",
-        "action": "Se deconnecter"
+        "title": "Se déconnecter",
+        "help": "Met fin à cette session sur cet appareil.",
+        "action": "Se déconnecter"
       }
     },
     "org": {
@@ -502,40 +502,40 @@
       "invitePendingAnonymous": "Invitation {id}…"
     },
     "join": {
-      "title": "Vous avez recu une invitation",
-      "lead": "Vous avez ete invite a rejoindre l'equipe {teamName} de {organizationName} sur ONE Personal Assistant.",
+      "title": "Vous avez reçu une invitation",
+      "lead": "Vous avez reçu une invitation à rejoindre l’équipe {teamName} de {organizationName} sur ONE Personal Assistant.",
       "email": "Adresse e-mail",
-      "emailLocked": "Votre invitation a ete envoyee a cette adresse, elle ne peut donc pas etre modifiee ici.",
-      "username": "Nom d'utilisateur",
+      "emailLocked": "Votre invitation a été envoyée à cette adresse ; elle ne peut donc pas être modifiée ici.",
+      "username": "Nom d’utilisateur",
       "password": "Mot de passe",
-      "passwordRule": "Au moins 8 caracteres.",
-      "submit": "Creer mon compte",
-      "working": "Creation de votre compte…",
-      "missingFields": "Choisissez un nom d'utilisateur et un mot de passe pour continuer.",
-      "credentialsUnavailable": "Nous n'avons pas pu creer de compte avec ces informations. Choisissez un autre nom d'utilisateur et reessayez. Si cela ne suffit pas, demandez a votre administrateur de vous ajouter en tant que personne existante.",
+      "passwordRule": "Au moins 8 caractères.",
+      "submit": "Créer mon compte",
+      "working": "Création de votre compte…",
+      "missingFields": "Choisissez un nom d’utilisateur et un mot de passe pour continuer.",
+      "credentialsUnavailable": "Nous n’avons pas pu créer de compte avec ces informations. Choisissez un autre nom d’utilisateur et réessayez. Si cela ne suffit pas, votre administrateur peut vous ajouter en tant qu’utilisateur existant.",
       "otherAccount": {
-        "title": "Deja connecte",
-        "body": "Vous etes actuellement connecte avec un autre compte. Deconnectez-vous pour vous inscrire avec ce compte.",
-        "logout": "Se deconnecter"
+        "title": "Une autre session est ouverte",
+        "body": "Un autre compte est actuellement connecté. Déconnectez-vous pour vous inscrire avec ce compte.",
+        "logout": "Se déconnecter"
       },
       "missingLink": {
         "title": "Ce lien est incomplet",
-        "body": "Ouvrez le lien depuis votre e-mail d'invitation, ou demandez un nouveau lien a la personne qui vous a invite."
+        "body": "Ouvrez le lien depuis votre e-mail d’invitation, ou demandez-en un nouveau à la personne qui vous a envoyé l’invitation."
       },
-      "usernameTooLong": "Ce nom d'utilisateur est trop long. Choisissez-en un plus court.",
-      "passwordLength": "Votre mot de passe doit comporter entre {min} et {max} caracteres.",
+      "usernameTooLong": "Ce nom d’utilisateur est trop long. Choisissez-en un plus court.",
+      "passwordLength": "Votre mot de passe doit comporter entre {min} et {max} caractères.",
       "alreadyMember": {
-        "title": "Vous avez deja acces",
-        "body": "Vous occupez deja une place dans cette organisation, il n'y avait donc rien a configurer. Connectez-vous avec le compte que vous avez deja.",
-        "bodyNamed": "Vous occupez deja une place chez {organizationName}, il n'y avait donc rien a configurer. Connectez-vous avec le compte que vous avez deja.",
+        "title": "Vous avez déjà accès",
+        "body": "Vous êtes déjà membre de cette organisation, il n’y avait donc rien à configurer. Connectez-vous avec le compte que vous avez déjà.",
+        "bodyNamed": "Vous êtes déjà membre de {organizationName}, il n’y avait donc rien à configurer. Connectez-vous avec le compte que vous avez déjà.",
         "signIn": "Se connecter"
       },
       "teamUnavailable": {
-        "title": "Votre compte est pret",
-        "body": "Votre compte et votre place dans l'organisation sont en place, et vous pouvez vous connecter. Les listes partagees ne vous sont pas encore rattachees. Votre administrateur peut terminer cela, et rien de ce que vous faites ici ne le changera.",
+        "title": "Votre compte est prêt",
+        "body": "Votre compte est créé et vous êtes désormais membre de l’organisation ; vous pouvez vous connecter. Les listes partagées ne vous sont pas encore rattachées. Votre administrateur peut terminer cette étape, et rien de ce que vous faites ici ne la changera.",
         "signIn": "Se connecter"
       },
-      "usernameTaken": "Ce nom d'utilisateur est deja pris. Choisissez-en un autre."
+      "usernameTaken": "Ce nom d’utilisateur est déjà pris. Choisissez-en un autre."
     },
     "deny": {
       "personalEdition": "Cette fonctionnalité fait partie de ONE Teams.",
@@ -576,38 +576,38 @@
       "requestFailed": "Cela n’a pas fonctionné. Rien n’a été modifié.",
       "serverUnavailable": "Le serveur est indisponible pour le moment. Rien n’a été modifié.",
       "catalogue": "Les textes de cette page n’ont pas pu être chargés.",
-      "signIn": "Aller a la connexion",
+      "signIn": "Aller à la connexion",
       "general": {
-        "title": "Quelque chose s'est mal passe",
-        "body": "Nous n'avons pas pu terminer. Reessayez, et si cela se reproduit, demandez une nouvelle invitation a la personne qui vous a invite."
+        "title": "Une erreur s’est produite",
+        "body": "Nous n’avons pas pu aller au bout. Réessayez ; si le problème persiste, demandez une nouvelle invitation à la personne qui vous l’a envoyée."
       },
       "invitationExpired": {
-        "title": "Cette invitation a expire",
-        "body": "Demandez une nouvelle invitation a la personne qui vous a invite."
+        "title": "Cette invitation a expiré",
+        "body": "Demandez une nouvelle invitation à la personne qui vous l’a envoyée."
       },
       "invitationRevoked": {
-        "title": "Cette invitation a ete retiree",
-        "body": "Demandez a la personne qui vous a invite si c'etait volontaire."
+        "title": "Cette invitation a été retirée",
+        "body": "Demandez à la personne qui vous l’a envoyée si ce retrait était volontaire."
       },
       "invitationUnknown": {
-        "title": "Nous n'avons pas trouve cette invitation",
-        "body": "Ouvrez le lien depuis votre e-mail d'invitation, ou demandez-en un nouveau a la personne qui vous a invite."
+        "title": "Nous n’avons pas trouvé cette invitation",
+        "body": "Ouvrez le lien depuis votre e-mail d’invitation, ou demandez-en un nouveau à la personne qui vous a envoyé l’invitation."
       },
       "seatsFull": {
-        "title": "Cette organisation n'a plus de licence disponible",
-        "body": "Demandez a votre administrateur d'ajouter une licence, puis de vous inviter a nouveau."
+        "title": "Cette organisation n’a plus de licence disponible",
+        "body": "Demandez à votre administrateur d’ajouter une licence, puis de vous inviter à nouveau."
       },
       "accountExists": {
-        "title": "Ce compte existe deja",
-        "body": "Ce compte existe deja. Demandez a votre administrateur de vous ajouter en tant que personne existante."
+        "title": "Nous n’avons pas pu créer votre compte",
+        "body": "Ce compte existe déjà. Votre administrateur peut vous ajouter en tant qu’utilisateur existant."
       },
       "notInvitable": {
-        "title": "Cette adresse ne peut pas rejoindre",
-        "body": "Cette adresse appartient deja a un autre compte. Demandez a votre administrateur de vous ajouter en tant que personne existante."
+        "title": "Cette adresse ne peut pas être invitée",
+        "body": "Cette adresse appartient déjà à un autre compte. Votre administrateur peut vous ajouter en tant qu’utilisateur existant."
       },
       "linkExpired": {
-        "title": "Ce lien a expire",
-        "body": "Votre invitation est toujours valable ; seul le lien a expire. Demandez un nouveau lien a la personne qui vous a invite."
+        "title": "Ce lien a expiré",
+        "body": "Votre invitation reste valable ; seul le lien a expiré. Demandez un nouveau lien à la personne qui vous a envoyé l’invitation."
       }
     },
     "toast": {
@@ -631,69 +631,69 @@
     "auth": {
       "signIn": {
         "title": "Se connecter",
-        "username": "Nom d'utilisateur ou adresse e-mail",
+        "username": "Nom d’utilisateur ou adresse e-mail",
         "password": "Mot de passe",
         "submit": "Se connecter",
         "working": "Connexion en cours…",
         "or": "ou",
         "withProvider": "Continuer avec {provider}",
-        "forgotPassword": "Mot de passe oublie ?",
-        "noAccount": "vous n'avez pas encore de compte ? cliquez ici",
-        "totp": "Code de verification",
-        "totpHint": "Ouvrez votre application d'authentification et saisissez le code affiche.",
-        "totpRequired": "Ce compte comporte une seconde etape. Saisissez le code de votre application d'authentification.",
-        "totpWrong": "Ce code n'a pas ete accepte. Verifiez votre application d'authentification et reessayez.",
-        "emailNotConfirmed": "Votre adresse e-mail n'est pas encore confirmee. Ouvrez le lien que nous vous avons envoye, puis reconnectez-vous.",
-        "missingCredentials": "Saisissez votre nom d'utilisateur ou votre adresse e-mail, et votre mot de passe.",
-        "failed": "La connexion a echoue. Verifiez vos informations et reessayez.",
-        "providerFailed": "Cette connexion ne s'est pas terminee. Reessayez, ou connectez-vous avec votre mot de passe.",
-        "returningToApp": "Retour vers l'application...",
-        "desktopFailed": "L'application n'a pas pu etre connectee. Fermez cette fenetre et reessayez depuis l'application."
+        "forgotPassword": "Mot de passe oublié ?",
+        "noAccount": "Vous n’avez pas encore de compte ? Cliquez ici",
+        "totp": "Code de vérification",
+        "totpHint": "Ouvrez votre application d’authentification et saisissez le code affiché.",
+        "totpRequired": "Ce compte est protégé par la validation en deux étapes. Saisissez le code de votre application d’authentification.",
+        "totpWrong": "Ce code n’a pas été accepté. Vérifiez votre application d’authentification et réessayez.",
+        "emailNotConfirmed": "Votre adresse e-mail n’est pas encore confirmée. Ouvrez le lien que nous vous avons envoyé, puis reconnectez-vous.",
+        "missingCredentials": "Saisissez votre nom d’utilisateur ou votre adresse e-mail, ainsi que votre mot de passe.",
+        "failed": "La connexion a échoué. Vérifiez vos informations et réessayez.",
+        "providerFailed": "Cette connexion n’a pas abouti. Réessayez, ou connectez-vous avec votre mot de passe.",
+        "returningToApp": "Retour vers l’application…",
+        "desktopFailed": "Impossible de connecter l’application. Fermez cette fenêtre et réessayez depuis l’application."
       }
     },
     "password": {
       "working": "Un instant…",
-      "backToSignIn": "Retour a la connexion",
+      "backToSignIn": "Retour à la connexion",
       "request": {
-        "title": "Reinitialiser votre mot de passe",
-        "lead": "Saisissez votre adresse e-mail et nous vous enverrons un lien pour definir un nouveau mot de passe.",
+        "title": "Réinitialiser votre mot de passe",
+        "lead": "Saisissez votre adresse e-mail et nous vous enverrons un lien pour définir un nouveau mot de passe.",
         "email": "Adresse e-mail",
         "submit": "Envoyer le lien",
-        "missingEmail": "Saisissez l adresse e-mail que vous utilisez pour ONE.",
-        "failed": "Le lien n'a pas pu etre envoye. Reessayez dans un instant.",
+        "missingEmail": "Saisissez l’adresse e-mail que vous utilisez pour ONE.",
+        "failed": "Le lien n’a pas pu être envoyé. Réessayez dans un instant.",
         "sentTitle": "Consultez votre messagerie",
-        "sentBody": "S'il existe un compte pour cette adresse, un lien pour definir un nouveau mot de passe est en route. Il fonctionne une fois et expire."
+        "sentBody": "S’il existe un compte pour cette adresse, un lien permettant de définir un nouveau mot de passe est en route. Il ne fonctionne qu’une fois et il expire."
       },
       "set": {
-        "title": "Definir un nouveau mot de passe",
-        "lead": "Choisissez un mot de passe que vous n'avez pas deja utilise ici.",
+        "title": "Définir un nouveau mot de passe",
+        "lead": "Choisissez un mot de passe que vous n’avez pas déjà utilisé ici.",
         "newPassword": "Nouveau mot de passe",
-        "rule": "Au moins {count} caracteres.",
+        "rule": "Au moins {count} caractères.",
         "submit": "Enregistrer le mot de passe",
-        "tooShort": "Utilisez au moins {count} caracteres.",
-        "linkExpired": "Ce lien a deja ete utilise ou a expire. Demandez-en un nouveau ci-dessous.",
-        "failed": "Ce mot de passe n'a pas pu etre enregistre. Reessayez dans un instant.",
-        "doneTitle": "Votre mot de passe est enregistre",
+        "tooShort": "Utilisez au moins {count} caractères.",
+        "linkExpired": "Ce lien a déjà été utilisé ou il a expiré. Demandez-en un nouveau ci-dessous.",
+        "failed": "Ce mot de passe n’a pas pu être enregistré. Réessayez dans un instant.",
+        "doneTitle": "Votre mot de passe est enregistré",
         "doneBody": "Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.",
         "signIn": "Se connecter"
       }
     },
     "confirmed": {
-      "title": "Votre adresse e-mail est confirmee",
+      "title": "Votre adresse e-mail est confirmée",
       "body": "Merci. Vous pouvez maintenant vous connecter.",
       "signIn": "Se connecter",
       "workingTitle": "Un instant",
-      "workingBody": "Nous verifions votre lien.",
-      "failedTitle": "Ce lien n'a pas fonctionne",
-      "failedBody": "Le lien a deja ete utilise ou a expire. Demandez-en un nouveau depuis la page de connexion.",
-      "noToken": "Cette adresse ne contient rien a confirmer. Ouvrez le lien de l'e-mail que nous vous avons envoye.",
+      "workingBody": "Nous vérifions votre lien.",
+      "failedTitle": "Ce lien n’a pas fonctionné",
+      "failedBody": "Le lien a déjà été utilisé ou il a expiré. Demandez-en un nouveau depuis la page de connexion.",
+      "noToken": "Cette adresse ne contient rien à confirmer. Ouvrez le lien de l’e-mail que nous vous avons envoyé.",
       "deletion": {
-        "doneTitle": "La suppression de votre compte est confirmee",
-        "doneBody": "Votre compte et tout ce qu il contient seront supprimes. Rien d autre ne vous est demande.",
-        "failedTitle": "Ce lien n'a pas fonctionne",
-        "failedBody": "La suppression n'a pas pu etre confirmee. Le lien a peut-etre deja ete utilise, ou il a expire.",
+        "doneTitle": "La suppression de votre compte est confirmée",
+        "doneBody": "Votre compte et tout ce qu’il contient seront supprimés. Rien d’autre ne vous est demandé.",
+        "failedTitle": "Ce lien n’a pas fonctionné",
+        "failedBody": "La suppression n’a pas pu être confirmée. Le lien a peut-être déjà été utilisé, ou il a expiré.",
         "signInTitle": "Connectez-vous pour confirmer",
-        "signInBody": "La suppression d un compte doit etre confirmee par la personne qui y est connectee. Connectez-vous et ce lien se terminera de lui-meme."
+        "signInBody": "La suppression d’un compte doit être confirmée par la personne qui y est connectée. Connectez-vous et ce lien se terminera de lui-même."
       }
     }
   }
