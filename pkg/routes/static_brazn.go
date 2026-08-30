@@ -253,12 +253,24 @@ var restrictedUIMailedTokens = []struct {
 // With the key off this fork must be byte-identical to upstream, so the key is
 // checked here, and first.
 //
-// The last clause blocks every .html under dist/ that this product has not
-// decided to serve. Vite has a single HTML entry, frontend/index.html, and
-// copies frontend/public/ in verbatim, so the documents in that directory are
-// the only other .html the build can emit — and an .html dropped in there later
-// stays blocked until somebody names it, rather than becoming reachable the
-// moment it is committed.
+// THE LAST CLAUSE IS WHAT CLOSES THE /index.html HOLE, and it is the only
+// thing that does. An earlier revision compared the name against dist/index.html
+// explicitly as well, and that comparison was kept on the reasoning that leaning
+// on a suffix test for it would let a later narrowing of that test reopen the
+// hole silently. It has been removed, and the reasoning is answered here rather
+// than dropped: the last clause is no longer a suffix test on its own. It blocks
+// every .html under dist/ that is not NAMED in the one list, so reopening
+// /index.html now takes somebody deliberately writing it into a block whose own
+// comment says it is the set of documents this product serves. That is a visible
+// act rather than a silent narrowing. Two conditions where one decides is worse
+// than one, because the redundant one reads as the live guard to whoever comes
+// next and looks safe to delete.
+//
+// Vite has a single HTML entry, frontend/index.html, and copies
+// frontend/public/ in verbatim, so the documents in that directory are the only
+// other .html the build can emit — and an .html dropped in there later stays
+// blocked until somebody names it, rather than becoming reachable the moment it
+// is committed.
 //
 // THE EXEMPTION IS LOAD-BEARING, not a nicety, and it is BY DOCUMENT NAME
 // rather than by directory (BRA-1475 criterion 18). dist/one/settings.html is
@@ -271,10 +283,6 @@ var restrictedUIMailedTokens = []struct {
 func braznBlocksAppShell(name string) bool {
 	if !config.BraznRestrictedUIOnly.GetBool() {
 		return false
-	}
-
-	if name == path.Join(rootPath, indexFile) {
-		return true
 	}
 
 	// The service worker is a real file too, so it would otherwise be served

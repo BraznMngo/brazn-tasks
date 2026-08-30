@@ -164,7 +164,32 @@ func RequestUserPasswordResetToken(s *xorm.Session, user *User) (err error) {
 	// The self-service door swallows this error rather than reporting it — see
 	// RequestUserPasswordResetTokenByEmail, where saying "that account signs in
 	// with Google" to an unauthenticated stranger is the oracle BRA-1101 closed.
-	if !user.IsLocalUser() {
+	//
+	// THE ISSUER IS READ FROM THE STORED ROW AND NOT FROM THE *User PASSED IN,
+	// for exactly the reason CheckPasswordForOwnAccount re-reads it
+	// (user.go:441-443): a user built from sign-in token claims carries only its
+	// id, username and admin flag, so IsLocalUser() on one of those answers
+	// false for everybody. HandleFailedTOTPAuth passes such an object
+	// (totp.go:224), and reading the flag off the argument therefore refused a
+	// reset link to EVERY account locked out by ten wrong two-factor codes —
+	// while the by-email door above swallowed the refusal, so the person was
+	// told the mail had been sent. A customer with no way back in and nothing
+	// anywhere reporting it. That is what this lookup exists to prevent, and it
+	// is why the check cannot be written against the argument however convenient
+	// that reads.
+	//
+	// A status error still carries the row (getUser, user.go:340-346), so a
+	// locked or disabled account is read rather than refused here: a lockout is
+	// precisely the state a reset gets somebody out of. Anything else — an
+	// unreadable database, an id that names nobody — is returned as it is,
+	// because a token minted for an account we could not read is not a thing to
+	// mail.
+	stored, err := GetUserByID(s, user.ID)
+	if err != nil && !IsErrUserStatusError(err) {
+		return err
+	}
+
+	if !stored.IsLocalUser() {
 		return &ErrAccountIsNotLocal{UserID: user.ID}
 	}
 
