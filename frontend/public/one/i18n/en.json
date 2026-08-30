@@ -534,7 +534,8 @@
         "title": "Your account is ready",
         "body": "Your account and your place in the organisation are set up, and you can sign in now. The shared lists are not connected to you yet. Your administrator can finish that, and nothing you do here will change it.",
         "signIn": "Sign in"
-      }
+      },
+      "usernameTaken": "This username is already taken. Choose another one."
     },
     "deny": {
       "personalEdition": "This is part of ONE Teams.",

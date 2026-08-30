@@ -623,3 +623,15 @@ export interface InvitationSummary {
 
 /** The four fields the summary delivers. `state` is the verdict, not `ok`. */
 export function readInvitationSummaryBody(result: CommercialResult): InvitationSummary
+/**
+ * Is this username free? — the invitation form's live check.
+ *
+ * `unknown` is the fail-open answer and covers offline, a timeout, a refusal, a
+ * shape this page did not recognise, AND the route not being built yet. The
+ * caller must always allow submission on it.
+ */
+export function checkInvitationUsername(request: {
+	invitationId: string | null
+	signupToken: string | null
+	username: string
+}): Promise<'free' | 'taken' | 'unknown'>

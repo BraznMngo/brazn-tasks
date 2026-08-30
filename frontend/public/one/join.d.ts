@@ -75,3 +75,16 @@ export function missingLinkSurface(): string
 
 /** The page's boot. Exported for the stubbed-fetch tests; self-schedules only when `#auth` exists. */
 export function boot(): Promise<void>
+/**
+ * Whether the invitation form should refuse to submit right now.
+ *
+ * Blocks on exactly one condition: the service said this EXACT name is taken.
+ * Not yet checked, still in flight, could not be checked, checked and free, and
+ * a verdict about a name since edited all ALLOW — the check is advice, and the
+ * service is still the only thing that decides.
+ */
+export function usernameIsBlocked(
+	current: string | null | undefined,
+	checkedName: string | null | undefined,
+	verdict: string | null | undefined,
+): boolean

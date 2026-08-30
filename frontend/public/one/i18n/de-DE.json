@@ -534,7 +534,8 @@
         "title": "Ihr Konto ist bereit",
         "body": "Ihr Konto und Ihr Platz in der Organisation sind eingerichtet, und Sie koennen sich jetzt anmelden. Die gemeinsamen Listen sind noch nicht mit Ihnen verbunden. Ihre Administratorin oder Ihr Administrator kann das abschliessen; hier koennen Sie daran nichts aendern.",
         "signIn": "Anmelden"
-      }
+      },
+      "usernameTaken": "Dieser Benutzername ist bereits vergeben. Waehlen Sie einen anderen."
     },
     "deny": {
       "personalEdition": "Das gehört zu ONE Teams.",

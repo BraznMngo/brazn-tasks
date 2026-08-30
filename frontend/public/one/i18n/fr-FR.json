@@ -534,7 +534,8 @@
         "title": "Votre compte est pret",
         "body": "Votre compte et votre place dans l'organisation sont en place, et vous pouvez vous connecter. Les listes partagees ne vous sont pas encore rattachees. Votre administrateur peut terminer cela, et rien de ce que vous faites ici ne le changera.",
         "signIn": "Se connecter"
-      }
+      },
+      "usernameTaken": "Ce nom d'utilisateur est deja pris. Choisissez-en un autre."
     },
     "deny": {
       "personalEdition": "Cette fonctionnalité fait partie de ONE Teams.",

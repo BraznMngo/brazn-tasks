@@ -534,7 +534,8 @@
         "title": "Tu cuenta esta lista",
         "body": "Tu cuenta y tu puesto en la organizacion estan listos, y ya puedes iniciar sesion. Las listas compartidas todavia no estan conectadas contigo. Tu administrador puede terminarlo, y nada de lo que hagas aqui lo cambiara.",
         "signIn": "Iniciar sesion"
-      }
+      },
+      "usernameTaken": "Este nombre de usuario ya esta en uso. Elige otro."
     },
     "deny": {
       "personalEdition": "Esto forma parte de ONE Teams.",

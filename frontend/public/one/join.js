@@ -215,7 +215,7 @@ export function invitationSurface(state) {
         <input id="password" name="password" type="password" autocomplete="new-password"
           minlength="8" required>
       </div>
-      <button type="submit" class="auth-submit" ${state.phase === 'working' ? 'disabled' : ''}>
+      <button type="submit" class="auth-submit" id="joinSubmit" ${state.phase === 'working' ? 'disabled' : ''}>
         ${state.phase === 'working' ? tx('one.join.working') : tx('one.join.submit')}
       </button>
     </form>`;
@@ -309,6 +309,12 @@ const state = {
   teamName: null,
   invitedEmail: null,
   username: '',
+  // THE VERDICT IS STORED BESIDE THE NAME IT IS ABOUT, never on its own. A
+  // person types faster than a network answers, so an answer about `ada` can
+  // arrive after they have typed `adamite` — and a bare verdict would then
+  // block a name nobody has judged.
+  usernameChecked: '',
+  usernameVerdict: 'unknown',
 };
 
 /**
@@ -374,6 +380,17 @@ async function submitInvitation(form) {
 
   if (username === '' || password === '') {
     showError(t('one.join.missingFields'));
+    return;
+  }
+
+  // MANDATORY, AND ONLY ON A DEFINITE ANSWER. The form refuses when the service
+  // has said this exact name is taken. A check still in flight, one that could
+  // not run, and one about a name since edited all fall through and submit —
+  // blocking on any of those would swallow a press or lock somebody out of
+  // joining because their network was slow.
+  if (usernameIsBlocked(username, state.usernameChecked, state.usernameVerdict)) {
+    showError(t('one.join.usernameTaken'));
+    document.getElementById('username')?.focus();
     return;
   }
   if (byteLength(username) > USERNAME_MAX_BYTES) {
@@ -518,7 +535,122 @@ function render() {
   if (first instanceof HTMLElement && state.phase !== 'working') first.focus();
 }
 
+/* ------------------------------------------------------------------ *
+ * 4b. Is this username free? — checked while they type
+ * ------------------------------------------------------------------ *
+ *
+ * WHY THIS EXISTS. Somebody whose only problem is that their first choice of
+ * username is taken used to be told "this account already exists", sent to an
+ * error page, and left looking for an administrator they do not need. Keeping
+ * them on the form fixed the dead end; this stops them ever reaching it.
+ *
+ * THE CHECK IS ADVICE, NEVER AUTHORITY, and every rule below follows from that
+ * one sentence. A name can be taken between the check and the press, so the
+ * service is still the only thing that decides, and the `account_exists`
+ * handling in `submitInvitation` stays exactly as it is. Nothing here may be
+ * read as making that branch redundant.
+ *
+ * THREE THINGS IT MUST NOT DO, each of which would be a worse fault than the
+ * one it fixes:
+ *
+ *   * fight the person mid-word. It waits for a pause rather than firing on
+ *     every keystroke, and it updates the page IN PLACE rather than
+ *     re-rendering — a re-render moves the caret to the end of the field and
+ *     makes editing the middle of a name impossible;
+ *   * swallow a press. A check still in flight never blocks submission; the
+ *     form goes to the service and the service decides;
+ *   * lock somebody out when it cannot run. Offline, timed out, refused, or
+ *     not built yet all answer `unknown`, and `unknown` always allows.
+ */
+
+// Long enough that a person typing a name never sees a message about a prefix
+// of it, short enough that a pause before pressing the button is usually
+// answered first.
+const USERNAME_CHECK_DELAY_MS = 450;
+
+let usernameCheckTimer = null;
+// Only the newest request may write a verdict. Without this, a slow answer
+// about an earlier name overwrites a fast answer about the current one, and the
+// form blocks or allows on a name the person has already replaced.
+let usernameCheckSequence = 0;
+
+/**
+ * Whether the form should refuse to submit right now.
+ *
+ * PURE, so the whole rule is a table rather than a browser state. It blocks on
+ * exactly one condition: the service said this EXACT name is taken. Every other
+ * combination — not yet checked, still in flight, could not be checked, checked
+ * and free, or a verdict about a name the person has since edited — allows.
+ */
+export function usernameIsBlocked(current, checkedName, verdict) {
+  return verdict === 'taken' && String(current ?? '') === String(checkedName ?? '');
+}
+
+/**
+ * Show the verdict WITHOUT re-rendering.
+ *
+ * `render()` replaces the card's innerHTML, which destroys the field the person
+ * is typing in and puts their caret at the end of it. This writes the two things
+ * that change — the sentence and whether the button is usable — straight onto
+ * the nodes that carry them.
+ */
+function applyUsernameVerdict() {
+  const button = document.getElementById('joinSubmit');
+  const blocked = usernameIsBlocked(state.username, state.usernameChecked, state.usernameVerdict);
+  if (button instanceof HTMLButtonElement && state.phase !== 'working') button.disabled = blocked;
+  showError(blocked ? t('one.join.usernameTaken') : null);
+}
+
+/**
+ * Ask, once the typing has paused.
+ *
+ * The verdict is cleared the moment the name changes, so a person who edits a
+ * blocked name is never left with a disabled button and a stale sentence about
+ * a name they no longer have.
+ */
+function scheduleUsernameCheck(value) {
+  const username = String(value ?? '').trim();
+  state.username = username;
+  state.usernameChecked = '';
+  state.usernameVerdict = 'unknown';
+  applyUsernameVerdict();
+
+  if (usernameCheckTimer !== null) clearTimeout(usernameCheckTimer);
+  if (username === '') return;
+
+  const sequence = ++usernameCheckSequence;
+  usernameCheckTimer = setTimeout(async () => {
+    let verdict = 'unknown';
+    try {
+      verdict = await api.checkInvitationUsername({
+        invitationId: state.invitationId,
+        signupToken: state.signupToken,
+        username,
+      });
+    } catch {
+      // Offline, refused, or a shape this page did not recognise. `unknown`
+      // allows, and the service decides at submission.
+      verdict = 'unknown';
+    }
+    // A newer keystroke has already asked a newer question; this answer is
+    // about a name that is no longer on the form.
+    if (sequence !== usernameCheckSequence) return;
+    state.usernameChecked = username;
+    state.usernameVerdict = verdict === 'taken' || verdict === 'free' ? verdict : 'unknown';
+    applyUsernameVerdict();
+  }, USERNAME_CHECK_DELAY_MS);
+}
+
 function installListeners() {
+  // `input` rather than `keyup`, so a paste, a drag, an autofill and a
+  // speech-to-text insertion are all seen — a check that only watched keys
+  // would let three of those four past unchecked.
+  document.addEventListener('input', (event) => {
+    const el = event.target;
+    if (!(el instanceof HTMLInputElement) || el.id !== 'username') return;
+    scheduleUsernameCheck(el.value);
+  });
+
   document.addEventListener('submit', (event) => {
     if (!(event.target instanceof HTMLFormElement) || event.target.id !== 'joinForm') return;
     event.preventDefault();

@@ -2937,6 +2937,43 @@ export function invitationCredentialsAreWellFormed(invitationId, signupToken) {
 }
 
 /**
+ * Is this username free? — the invitation form's live check.
+ *
+ * THE ROUTE IS NOT WIRED YET, AND THIS FUNCTION IS WHERE IT LANDS. The service
+ * half is being built by the agent who owns the paid-account service; its exact
+ * path, request shape and answer are not settled, and guessing them is the seam
+ * failure that already cost this ticket one round. So this returns `unknown`
+ * for now, which is the SAME answer it gives when the real call fails, and the
+ * form behaves today exactly as it will on a bad network tomorrow.
+ *
+ * WHEN THE CONTRACT ARRIVES, ONLY THIS BODY CHANGES. It will be a
+ * `commercialPostWithoutSession` gated behind the same handle and token the
+ * other two invitation calls already send, and it must map its answer onto the
+ * three words below and nothing else.
+ *
+ * THREE ANSWERS, AND `unknown` IS THE IMPORTANT ONE:
+ *
+ *   * `taken`   — the service says this exact name is in use. The form blocks.
+ *   * `free`    — the service says it is not. The form allows.
+ *   * `unknown` — the check could not run: offline, a timeout, a refusal, a
+ *     shape this page did not recognise, or the route not existing yet. THE
+ *     FORM MUST ALLOW. A validation that failed closed on a network error would
+ *     stop an invited person joining at all, which is a worse fault than the
+ *     one being fixed — and the service still decides at submission either way.
+ *
+ * IT ANSWERS ONE BIT ABOUT ONE EXACT NAME, and it must never grow past that.
+ * A route that answered anything more — a suggestion, a list, a near match —
+ * would be the name lookup `docs/Brazn-Tasks-Rules.md` §5.1 forbids, reachable
+ * without a session.
+ */
+export async function checkInvitationUsername({invitationId, signupToken, username}) {
+  void invitationId;
+  void signupToken;
+  void username;
+  return 'unknown';
+}
+
+/**
  * POST /v1/invitations/summary — read the organisation and team behind an
  * invitation handle, with no session (BRA-1475 step 4).
  *
