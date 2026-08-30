@@ -272,7 +272,14 @@ func HandleFailedTOTPAuth(user *User) {
 	s := db.NewSession()
 	defer s.Close()
 
-	if err := RequestUserPasswordResetToken(s, user); err != nil {
+	// BRA-1475: an account that signs in with a provider is refused a reset
+	// token now, because the link would lead nowhere. THE LOCK STILL HAPPENS,
+	// and that is the whole reason this refusal is tolerated here rather than
+	// treated as a failure: without this term the early return below would skip
+	// SetStatus, and ten failed TOTP attempts against a Google account would
+	// stop locking it. What the account loses is the reset link it could never
+	// have used; what it keeps is being locked and being told so.
+	if err := RequestUserPasswordResetToken(s, user); err != nil && !IsErrAccountIsNotLocal(err) {
 		log.Errorf("Could not issue password reset token for user %d after 10 failed TOTP attempts: %s", user.ID, err)
 		_ = s.Rollback()
 		return

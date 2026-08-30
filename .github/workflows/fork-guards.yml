@@ -297,7 +297,13 @@ jobs:
           # list is the locked file layout from the brief. Modules reached only
           # at runtime (view-task.js, view-settings.js) are covered by the
           # specifier check further down instead, so they are not duplicated here.
-          for f in task.html settings.html one.css app.js api.js i18n.js \
+          #
+          # The .html documents are NOT listed here, deliberately (BRA-1475
+          # criterion 18): they are named once, in the const block at the top of
+          # pkg/routes/static_brazn.go, and the "Every ONE document is on the one
+          # list" step below is what checks them against this directory. A second
+          # copy of that list here would be a second place for it to be wrong.
+          for f in one.css app.js api.js i18n.js \
                    i18n/en.json i18n/es-ES.json i18n/de-DE.json \
                    i18n/fr-FR.json i18n/zh-CN.json i18n/ja-JP.json \
                    logo-light.v1.png logo-dark.v1.png; do
@@ -384,6 +390,90 @@ jobs:
 
           if [[ "${failed}" == 0 ]]; then
             echo "The ONE Tasks page is complete, parses, and every specifier resolves."
+          fi
+          exit "${failed}"
+
+      - name: Every ONE document is on the one list
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # BRA-1475 criterion 18: one list of allowed pages exists in one
+          # place, and a build fails when something reachable is not on it.
+          #
+          # The list is the const block at the top of pkg/routes/static_brazn.go,
+          # and it is the server's own rather than a description of it:
+          # braznBlocksAppShell serves an .html under dist/one/ only when that
+          # block names it, so the block decides what is reachable. This step is
+          # the other half. It fails the build when the block and the documents
+          # that were actually written disagree, in either direction, and the
+          # two directions catch different mistakes:
+          #
+          #   a page in the directory and not in the block  a document somebody
+          #     added and nobody decided to serve. It answers 404 in production
+          #     and nothing else in this repository would ever say so.
+          #   a document in the block and not in the directory  the lockout
+          #     answering a customer's address with a page that was never
+          #     written. That is the shape of the fault BRA-1475 exists to fix,
+          #     arriving from the other side.
+          #
+          # Vite copies frontend/public/ into dist/ verbatim (no publicDir
+          # override in frontend/vite.config.ts) and frontend/embed.go embeds
+          # dist/, so an .html in that directory is an .html in the binary.
+          #
+          # Scope note, matching the one on the section above: this step reads
+          # pkg/routes/static_brazn.go and frontend/public/one and never .github/,
+          # so it cannot match its own search terms and needs no exclusion.
+          source=pkg/routes/static_brazn.go
+          dir=frontend/public/one
+
+          for required in "${source}" "${dir}"; do
+            if [[ ! -e "${required}" ]]; then
+              echo "::error::${required} is gone. The one list of documents lives in the" \
+                   "first and the documents themselves in the second, so this guard can" \
+                   "verify neither. Re-point it before merging."
+              exit 1
+            fi
+          done
+
+          # The block writes each document as a backticked /one/*.html literal,
+          # and its own comment forbids writing one anywhere else in that file.
+          # An extraction that finds nothing is a finding rather than a pass: a
+          # pattern that quietly stopped matching would otherwise report an
+          # empty list agreeing with an empty list, which is the
+          # glob-that-matches-nothing failure the step above is also written
+          # against.
+          listed="$(grep -oE '`/one/[A-Za-z0-9._-]+\.html`' "${source}" \
+            | tr -d '`' | sed 's|^/one/||' | sort -u)"
+          if [[ -z "${listed}" ]]; then
+            echo "::error::No document literals were found in ${source}. The const block" \
+                 "naming them has moved or changed shape, so this guard is checking" \
+                 "nothing at all. Re-point it before merging."
+            exit 1
+          fi
+
+          present="$(find "${dir}" -maxdepth 1 -type f -name '*.html' -exec basename {} \; | sort -u)"
+
+          failed=0
+
+          while IFS= read -r page; do
+            if [[ -z "${page}" ]]; then continue; fi
+            echo "::error::${dir}/${page} is embedded in the binary and served to anyone" \
+                 "who asks for it by name, and no document in ${source} names it. Add it" \
+                 "to the const block there, or delete the page."
+            failed=1
+          done < <(comm -13 <(echo "${listed}") <(echo "${present}"))
+
+          while IFS= read -r doc; do
+            if [[ -z "${doc}" ]]; then continue; fi
+            echo "::error::${source} names /one/${doc} as a document this product serves," \
+                 "and ${dir}/${doc} does not exist. The lockout answers an address with a" \
+                 "page nobody wrote, so a customer arriving there gets a 404."
+            failed=1
+          done < <(comm -23 <(echo "${listed}") <(echo "${present}"))
+
+          if [[ "${failed}" == 0 ]]; then
+            echo "Every document named in ${source} exists in ${dir}, and every page there is on the list."
           fi
           exit "${failed}"
 

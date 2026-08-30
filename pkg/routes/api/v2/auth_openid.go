@@ -52,10 +52,12 @@ func RegisterOpenIDRoutes(api huma.API) {
 	}, authOpenIDCallback)
 
 	// Authenticated — no Security override, so it requires the same JWT every
-	// other /user/settings/* route does. This is the missing half of what
-	// errManagedUsePassword promises a customer who registered with a
-	// password: "you can add Google to your account afterwards." That promise
-	// is fulfilled as a ONE-WAY SWITCH, not an addition — see linkIdentity's
+	// other /user/settings/* route does. It used to be described as the missing
+	// half of what errManagedUsePassword promised a customer who registered
+	// with a password: "you can add Google to your account afterwards."
+	// BRA-1475 replaced that sentence and dropped the promise, so this route is
+	// now reached from the settings page rather than from a refusal. What it
+	// does is unchanged: a ONE-WAY SWITCH, not an addition — see linkIdentity's
 	// own comment (pkg/modules/auth/openid/openid.go) for why this schema has
 	// no way to hold a password and an external identity on one account at
 	// once. Unlike the callback above, this never creates or resolves an
