@@ -535,7 +535,8 @@
         "body": "Dein Konto und deine Mitgliedschaft in der Organisation sind eingerichtet, und du kannst dich jetzt anmelden. Die gemeinsamen Listen sind noch nicht mit dir verbunden. Das kann dein Administrator abschließen — hier änderst du daran nichts.",
         "signIn": "Anmelden"
       },
-      "usernameTaken": "Dieser Benutzername ist schon vergeben. Wähle einen anderen."
+      "usernameTaken": "Dieser Benutzername ist schon vergeben. Wähle einen anderen.",
+      "usernameUnusable": "Dieser Benutzername kann nicht verwendet werden. Wähle einen anderen."
     },
     "deny": {
       "personalEdition": "Das gehört zu ONE Teams.",

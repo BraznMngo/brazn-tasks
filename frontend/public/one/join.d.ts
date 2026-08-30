@@ -76,12 +76,21 @@ export function missingLinkSurface(): string
 /** The page's boot. Exported for the stubbed-fetch tests; self-schedules only when `#auth` exists. */
 export function boot(): Promise<void>
 /**
+ * The catalogue key a verdict earns, or null when it earns none. One place
+ * decides both whether the form blocks and what it says, so the two can never
+ * disagree. The two sentences must not say each other's thing: `invalid` must
+ * not imply anybody holds the name.
+ */
+export function usernameBlockedKey(verdict: string | null | undefined): string | null
+
+/**
  * Whether the invitation form should refuse to submit right now.
  *
- * Blocks on exactly one condition: the service said this EXACT name is taken.
- * Not yet checked, still in flight, could not be checked, checked and free, and
- * a verdict about a name since edited all ALLOW — the check is advice, and the
- * service is still the only thing that decides.
+ * Blocks on a DEFINITE answer about the name currently in the field: `taken` or
+ * `invalid`. Not yet checked, still in flight, could not be checked, checked and
+ * free, and a verdict about a name since edited all ALLOW — the line is "does
+ * the service know", not "is the news bad", and the service is still the only
+ * thing that decides at submission.
  */
 export function usernameIsBlocked(
 	current: string | null | undefined,

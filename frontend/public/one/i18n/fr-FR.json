@@ -535,7 +535,8 @@
         "body": "Votre compte est créé et vous êtes désormais membre de l’organisation ; vous pouvez vous connecter. Les listes partagées ne vous sont pas encore rattachées. Votre administrateur peut terminer cette étape, et rien de ce que vous faites ici ne la changera.",
         "signIn": "Se connecter"
       },
-      "usernameTaken": "Ce nom d’utilisateur est déjà pris. Choisissez-en un autre."
+      "usernameTaken": "Ce nom d’utilisateur est déjà pris. Choisissez-en un autre.",
+      "usernameUnusable": "Ce nom d’utilisateur ne peut pas être utilisé. Choisissez-en un autre."
     },
     "deny": {
       "personalEdition": "Cette fonctionnalité fait partie de ONE Teams.",

@@ -535,7 +535,8 @@
         "body": "Your account and your membership of the organisation are set up, and you can sign in now. The shared lists are not connected to you yet. Your administrator can finish that, and nothing you do here will change it.",
         "signIn": "Sign in"
       },
-      "usernameTaken": "This username is already taken. Choose another one."
+      "usernameTaken": "This username is already taken. Choose another one.",
+      "usernameUnusable": "This username cannot be used. Choose another one."
     },
     "deny": {
       "personalEdition": "This is part of ONE Teams.",

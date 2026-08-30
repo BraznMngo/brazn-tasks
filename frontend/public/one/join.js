@@ -383,12 +383,15 @@ async function submitInvitation(form) {
   }
 
   // MANDATORY, AND ONLY ON A DEFINITE ANSWER. The form refuses when the service
-  // has said this exact name is taken. A check still in flight, one that could
-  // not run, and one about a name since edited all fall through and submit —
-  // blocking on any of those would swallow a press or lock somebody out of
-  // joining because their network was slow.
+  // has said this exact name is taken, or that the task server would refuse it
+  // whoever held it. A check still in flight, one that could not run, and one
+  // about a name since edited all fall through and submit — blocking on any of
+  // those would swallow a press or lock somebody out of joining because their
+  // network was slow.
   if (usernameIsBlocked(username, state.usernameChecked, state.usernameVerdict)) {
-    showError(t('one.join.usernameTaken'));
+    // The same sentence the field is already showing. Two wordings for one
+    // condition would read as two different problems.
+    showError(t(usernameBlockedKey(state.usernameVerdict)));
     document.getElementById('username')?.focus();
     return;
   }
@@ -558,8 +561,14 @@ function render() {
  *     makes editing the middle of a name impossible;
  *   * swallow a press. A check still in flight never blocks submission; the
  *     form goes to the service and the service decides;
- *   * lock somebody out when it cannot run. Offline, timed out, refused, or
- *     not built yet all answer `unknown`, and `unknown` always allows.
+ *   * lock somebody out when it cannot run. Offline, timed out, refused, and a
+ *     body this page did not recognise all answer `unknown`, and `unknown`
+ *     always allows.
+ *
+ * TWO VERDICTS BLOCK AND THEY ARE NOT THE SAME NEWS. `taken` means somebody
+ * else holds the name. `invalid` means the task server would refuse that string
+ * whoever held it, so its sentence must not imply anybody has it. Both are the
+ * service answering; the difference from `unknown` is knowing, not severity.
  */
 
 // Long enough that a person typing a name never sees a message about a prefix
@@ -574,15 +583,42 @@ let usernameCheckTimer = null;
 let usernameCheckSequence = 0;
 
 /**
+ * The sentence a verdict earns, or null when it earns none.
+ *
+ * ONE PLACE DECIDES BOTH WHETHER THE FORM BLOCKS AND WHAT IT SAYS, because the
+ * two answers must never disagree: a disabled button with no sentence is a form
+ * that has stopped working for no stated reason, and a sentence with a live
+ * button is advice the person can ignore into a refusal.
+ *
+ * THE TWO SENTENCES MUST NOT SAY EACH OTHER'S THING. `taken` means somebody
+ * else holds it, and the person needs to know a different name will work.
+ * `invalid` means the task server would refuse that string whoever held it, so
+ * it must NOT suggest anybody has it — that would send somebody hunting for a
+ * collision that does not exist, and it would leak a claim about another
+ * account that is not true.
+ */
+export function usernameBlockedKey(verdict) {
+  if (verdict === 'taken') return 'one.join.usernameTaken';
+  if (verdict === 'invalid') return 'one.join.usernameUnusable';
+  return null;
+}
+
+/**
  * Whether the form should refuse to submit right now.
  *
  * PURE, so the whole rule is a table rather than a browser state. It blocks on
- * exactly one condition: the service said this EXACT name is taken. Every other
- * combination — not yet checked, still in flight, could not be checked, checked
- * and free, or a verdict about a name the person has since edited — allows.
+ * a DEFINITE answer about the name currently in the field, and on nothing else.
+ *
+ * THE LINE IS "DOES THE SERVICE KNOW", not "is the news bad". `taken` and
+ * `invalid` are both the service answering, so both block. Not yet checked,
+ * still in flight, could not be checked, checked and free, and a verdict about
+ * a name the person has since edited are all NOT KNOWING, and every one of them
+ * allows — a person on a bad network can still submit and let the service
+ * decide, which is where the fail-open property belongs.
  */
 export function usernameIsBlocked(current, checkedName, verdict) {
-  return verdict === 'taken' && String(current ?? '') === String(checkedName ?? '');
+  return usernameBlockedKey(verdict) !== null
+    && String(current ?? '') === String(checkedName ?? '');
 }
 
 /**
@@ -597,7 +633,8 @@ function applyUsernameVerdict() {
   const button = document.getElementById('joinSubmit');
   const blocked = usernameIsBlocked(state.username, state.usernameChecked, state.usernameVerdict);
   if (button instanceof HTMLButtonElement && state.phase !== 'working') button.disabled = blocked;
-  showError(blocked ? t('one.join.usernameTaken') : null);
+  const key = blocked ? usernameBlockedKey(state.usernameVerdict) : null;
+  showError(key === null ? null : t(key));
 }
 
 /**
@@ -635,7 +672,9 @@ function scheduleUsernameCheck(value) {
     // about a name that is no longer on the form.
     if (sequence !== usernameCheckSequence) return;
     state.usernameChecked = username;
-    state.usernameVerdict = verdict === 'taken' || verdict === 'free' ? verdict : 'unknown';
+    state.usernameVerdict = verdict === 'taken' || verdict === 'invalid' || verdict === 'free'
+      ? verdict
+      : 'unknown';
     applyUsernameVerdict();
   }, USERNAME_CHECK_DELAY_MS);
 }

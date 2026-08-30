@@ -535,7 +535,8 @@
         "body": "Tu cuenta está creada y ya eres miembro de la organización, así que puedes iniciar sesión. Las listas compartidas todavía no están conectadas contigo. Eso lo puede terminar tu administrador, y nada de lo que hagas aquí lo cambiará.",
         "signIn": "Iniciar sesión"
       },
-      "usernameTaken": "Ese nombre de usuario ya está en uso. Elige otro."
+      "usernameTaken": "Ese nombre de usuario ya está en uso. Elige otro.",
+      "usernameUnusable": "Ese nombre de usuario no se puede usar. Elige otro."
     },
     "deny": {
       "personalEdition": "Esto forma parte de ONE Teams.",

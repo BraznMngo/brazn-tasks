@@ -626,12 +626,14 @@ export function readInvitationSummaryBody(result: CommercialResult): InvitationS
 /**
  * Is this username free? — the invitation form's live check.
  *
- * `unknown` is the fail-open answer and covers offline, a timeout, a refusal, a
- * shape this page did not recognise, AND the route not being built yet. The
+ * `taken` and `invalid` are both the service ANSWERING, and both block:
+ * `invalid` means the task server would refuse that string whoever held it.
+ * `unknown` is the fail-open answer and covers only NOT KNOWING — offline, a
+ * timeout, a bodiless refusal, and a body this page did not recognise. The
  * caller must always allow submission on it.
  */
 export function checkInvitationUsername(request: {
 	invitationId: string | null
 	signupToken: string | null
 	username: string
-}): Promise<'free' | 'taken' | 'unknown'>
+}): Promise<'free' | 'taken' | 'invalid' | 'unknown'>

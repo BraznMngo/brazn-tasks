@@ -2966,28 +2966,24 @@ export function invitationCredentialsAreWellFormed(invitationId, signupToken) {
  * POST /v1/invitations/username. Unauthenticated, safe to call repeatedly, and
  * it consumes nothing — which is what makes it callable while somebody types.
  *
- * THREE ANSWERS OUT, AND `unknown` IS THE IMPORTANT ONE:
+ * FOUR ANSWERS OUT, AND THE LINE BETWEEN THEM IS "DOES THE SERVICE KNOW":
  *
  *   * `taken`   — the service says this exact name is in use. The form blocks.
+ *   * `invalid` — the service says the task server would refuse that string
+ *     WHOEVER held it. Also a definite answer, so the form blocks.
  *   * `free`    — the service says it is available. The form allows.
- *   * `unknown` — no verdict. THE FORM MUST ALLOW. A validation that failed
- *     closed on a network error would stop an invited person joining at all,
- *     which is a worse fault than the one being fixed, and the service still
- *     decides at submission either way.
+ *   * `unknown` — NO VERDICT, which is a different thing from a bad verdict.
+ *     THE FORM MUST ALLOW. A validation that failed closed on a network error
+ *     would stop an invited person joining at all, which is a worse fault than
+ *     the one being fixed, and the service still decides at submission anyway.
  *
- * `unknown` DELIBERATELY SWALLOWS FOUR DIFFERENT THINGS, because the caller can
- * do nothing different about any of them: a transport failure, a bodiless 400,
- * 404 or 429, a body this page did not recognise, and the service's own
- * `invalid`.
- *
- * THE `invalid` MAPPING IS A JUDGEMENT AND IT IS WORTH KNOWING ABOUT. `invalid`
- * means the task server would refuse that string whoever held it — a definite
- * answer, not an absent one. It is mapped to `unknown` because the standing
- * instruction is to block on a clean `taken` and on nothing else, so blocking
- * here would exceed it. The cost is real and belongs in the open: somebody who
- * types a name the server reserves gets no warning while typing and finds out
- * when they press the button. Raising that is this file's job; changing it is
- * not.
+ * `unknown` COVERS ONLY NOT KNOWING, and that is the whole distinction: a
+ * transport failure, a bodiless 400, 404 or 429, and a body this page did not
+ * recognise. `invalid` used to be folded in here and no longer is — it is the
+ * service answering, not failing to, and swallowing it meant somebody who typed
+ * a name the server reserves got no warning while typing and then met a refusal
+ * that never mentioned their username, which is the experience this whole
+ * feature exists to stop.
  *
  * THE PAGE DOES NOT REIMPLEMENT THE RULE. The service's check calls the very
  * same function the registration path calls, so advice and authority are one
@@ -3014,8 +3010,9 @@ export async function checkInvitationUsername({invitationId, signupToken, userna
 
   const status = stringOrNull(objectOrNull(result.body)?.status);
   if (status === 'taken') return 'taken';
+  if (status === 'invalid') return 'invalid';
   if (status === 'available') return 'free';
-  // `invalid`, and anything this page has not read. Both allow.
+  // A status this page has not read. It is not a verdict, so it allows.
   return 'unknown';
 }
 

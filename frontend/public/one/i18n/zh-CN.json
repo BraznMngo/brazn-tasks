@@ -535,7 +535,8 @@
         "body": "账户已创建，你也已经是组织的成员，现在就可以登录。共享列表还没有关联到你，这一步需要管理员完成，在这个页面上做什么都不会改变它。",
         "signIn": "登录"
       },
-      "usernameTaken": "这个用户名已被使用。请换一个。"
+      "usernameTaken": "这个用户名已被使用。请换一个。",
+      "usernameUnusable": "这个用户名无法使用。请换一个。"
     },
     "deny": {
       "personalEdition": "此功能属于 ONE Teams。",
