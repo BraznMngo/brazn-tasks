@@ -512,6 +512,7 @@
       "submit": "Creer mon compte",
       "working": "Creation de votre compte…",
       "missingFields": "Choisissez un nom d'utilisateur et un mot de passe pour continuer.",
+      "credentialsUnavailable": "Nous n'avons pas pu creer de compte avec ces informations. Choisissez un autre nom d'utilisateur et reessayez. Si cela ne suffit pas, demandez a votre administrateur de vous ajouter en tant que personne existante.",
       "otherAccount": {
         "title": "Deja connecte",
         "body": "Vous etes actuellement connecte avec un autre compte. Deconnectez-vous pour vous inscrire avec ce compte.",

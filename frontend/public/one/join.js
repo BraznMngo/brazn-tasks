@@ -117,6 +117,11 @@ export function signupTokenFromHash(hash) {
  * refusal rather than being rendered as its own raw word, so a vocabulary the
  * service grows later tells the reader something true and vague instead of
  * something meaningless and specific.
+ *
+ * PROVISIONAL VOCABULARY. The words below are this page's reading of the
+ * service's answers and the service's own set is still being settled. They are
+ * gathered in this one function so re-pointing them is one edit; nothing else in
+ * this file compares an outcome word.
  */
 export function refusalReason(result) {
   switch (result?.outcome) {
@@ -128,6 +133,34 @@ export function refusalReason(result) {
     case 'not_invitable': return 'not-invitable';
     default: return 'invitation-failed';
   }
+}
+
+/**
+ * Whether a refusal of the COMPLETION is one the person can act on by changing
+ * what they typed, rather than one they must leave the page for.
+ *
+ * THIS EXISTS BECAUSE THE TASK SERVER ANSWERS ONE FLAT REFUSAL FOR TWO
+ * DIFFERENT COLLISIONS, and that is deliberate rather than sloppy: an address
+ * that already has an account and a username somebody else already holds get
+ * the same answer, so an unauthenticated channel cannot be walked to discover
+ * who has an account here or what they are called. This page therefore CANNOT
+ * tell the two apart, and must not write a sentence that implies it can.
+ *
+ * The consequence for the reader is the whole point. Sending them to the
+ * general error page with "this account already exists" was wrong twice over: it
+ * names the address collision, which may not be what happened, and it ends the
+ * journey for somebody whose only problem is that their first choice of username
+ * was taken. So a collision keeps them on the form, where a second attempt costs
+ * one word, and the sentence covers both cases honestly — try another username,
+ * and if that does not help, ask your administrator.
+ *
+ * THE ADDRESS CASE STILL HAS ITS OWN SENTENCE, on the general error page, and it
+ * is still correct where it is used: the PREVIEW happens before a username has
+ * been chosen, so a collision there can only be the address, and the ticket's
+ * own sentence about asking an administrator is exactly right for it.
+ */
+export function recoverableOnTheForm(result) {
+  return refusalReason(result) === 'account-exists';
 }
 
 /* ------------------------------------------------------------------ *
@@ -288,8 +321,27 @@ async function submitInvitation(form) {
   });
 
   if (!result.ok) {
-    // The person cannot act on any of these from this form, so they are told
-    // what happened and what to do next on the page that exists for it.
+    // A COLLISION KEEPS THEM HERE. The username they chose may be the whole
+    // problem, and a second attempt costs one word — sending them to the error
+    // page would end the journey over something they can fix in the field their
+    // cursor is already in. The sentence names neither collision, because this
+    // page cannot tell them apart and must not pretend to.
+    if (recoverableOnTheForm(result)) {
+      state.phase = 'form';
+      render();
+      // The password survives the re-render, set as a DOM PROPERTY and never as
+      // a value attribute in the markup — a password written into innerHTML
+      // would be readable in the page source and in every DOM inspection of it.
+      // Without this the person retypes a password they got right, to fix a
+      // username they did not.
+      const field = document.getElementById('password');
+      if (field instanceof HTMLInputElement) field.value = password;
+      showError(t('one.join.credentialsUnavailable'));
+      return;
+    }
+    // Everything else — an expired token, a withdrawn invitation, a full seat
+    // ceiling — is a refusal the person cannot act on from this form, so they
+    // are told what happened and what to do next on the page that exists for it.
     sendToErrorPage(refusalReason(result), result.message);
     return;
   }

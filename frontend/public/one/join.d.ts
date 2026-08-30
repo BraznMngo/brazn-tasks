@@ -32,6 +32,16 @@ export function refusalReason(
 ): string
 
 /**
+ * Whether a refusal of the COMPLETION is one the person can act on by changing
+ * what they typed. True for a collision, which the task server refuses to
+ * disambiguate between an address and a username on purpose — so the page keeps
+ * them on the form and says neither.
+ */
+export function recoverableOnTheForm(
+	result: {outcome?: string | null} | null | undefined,
+): boolean
+
+/**
  * THE INVITATION SCREEN: a heading, one sentence, three fields, one button.
  * The address is filled in from the invitation and locked.
  */

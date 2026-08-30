@@ -512,6 +512,7 @@
       "submit": "Crear mi cuenta",
       "working": "Creando tu cuenta…",
       "missingFields": "Elige un nombre de usuario y una contrasena para continuar.",
+      "credentialsUnavailable": "No hemos podido crear una cuenta con esos datos. Elige otro nombre de usuario e intentalo de nuevo. Si eso no ayuda, pide a tu administrador que te anada como usuario existente.",
       "otherAccount": {
         "title": "Ya has iniciado sesion",
         "body": "Ahora mismo has iniciado sesion con otra cuenta. Cierra la sesion para registrarte con esta cuenta.",

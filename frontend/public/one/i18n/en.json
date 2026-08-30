@@ -512,6 +512,7 @@
       "submit": "Create my account",
       "working": "Setting up your account…",
       "missingFields": "Choose a username and a password to continue.",
+      "credentialsUnavailable": "We could not create an account with those details. Choose a different username and try again. If that does not help, ask your administrator to add you as an existing user instead.",
       "otherAccount": {
         "title": "Already signed in",
         "body": "You are currently logged into another account. Log out to register for this account.",

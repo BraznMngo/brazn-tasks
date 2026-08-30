@@ -512,6 +512,7 @@
       "submit": "Konto erstellen",
       "working": "Ihr Konto wird eingerichtet…",
       "missingFields": "Waehlen Sie einen Benutzernamen und ein Passwort, um fortzufahren.",
+      "credentialsUnavailable": "Mit diesen Angaben konnte kein Konto erstellt werden. Waehlen Sie einen anderen Benutzernamen und versuchen Sie es erneut. Hilft das nicht, bitten Sie Ihre Administratorin oder Ihren Administrator, Sie stattdessen als bestehende Person hinzuzufuegen.",
       "otherAccount": {
         "title": "Bereits angemeldet",
         "body": "Sie sind derzeit mit einem anderen Konto angemeldet. Melden Sie sich ab, um sich fuer dieses Konto zu registrieren.",
