@@ -211,6 +211,103 @@ func TestBRA1475AStrangerSeesTheSameAnswerAsACustomer(t *testing.T) {
 	}
 }
 
+// TestBRA1475TheRefusalReadsTheAccountAndNotTheObjectHandedIn is the test that
+// binds the guard, and it was added on re-review after the first version of
+// this file turned out not to.
+//
+// WHAT WENT WRONG THE FIRST TIME, recorded because it is the exact shape
+// docs/Testing-Rules.md warns about. The refusal below used to read the
+// sign-in method off the *User it was handed. Every test in this file passed a
+// user read from the database, so the field was always populated and the two
+// readings — off the argument, off the stored row — always agreed. The bug was
+// invisible to all of them. It was the INHERITED test at
+// TestHandleFailedTOTPAuthLockoutCanBeUnlockedByPasswordReset that caught it,
+// because it passes a user value carrying only an id, which is the shape the
+// sign-in path really produces.
+//
+// So this case does what none of the others did: it hands the function the
+// impoverished object directly, for an account that genuinely is a password
+// account, and requires a token to come out. Putting the defect back turns
+// this red on its own, without needing ten two-factor attempts to get there.
+//
+// The three cases after it are the edges the correction introduced, pinned as
+// behaviour rather than left as reasoning about the code.
+func TestBRA1475TheRefusalReadsTheAccountAndNotTheObjectHandedIn(t *testing.T) {
+	bra1475Mailable(t)
+
+	t.Run("a password account named by a bare id still gets its link", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		// Deliberately NOT read from the database. This is the shape
+		// HandleFailedTOTPAuth passes, and the shape that broke.
+		bare := &User{ID: bra1475LocalUserID}
+		require.Empty(t, bare.Issuer,
+			"this object must carry no issuer or the case proves nothing")
+
+		require.NoError(t, RequestUserPasswordResetToken(s, bare),
+			"this account is a password account; refusing it a reset link leaves a locked-out customer with no way back in")
+		require.NoError(t, s.Commit())
+
+		db.AssertExists(t, "user_tokens", map[string]interface{}{
+			"user_id": bra1475LocalUserID,
+			"kind":    TokenPasswordReset,
+		}, false)
+	})
+
+	t.Run("a provider account named by a bare id is still refused", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		err := RequestUserPasswordResetToken(s, &User{ID: bra1475ProviderUserID})
+
+		require.Error(t, err, "reading the row must not weaken the refusal it was introduced for")
+		assert.True(t, IsErrAccountIsNotLocal(err), "got %T: %v", err, err)
+	})
+
+	t.Run("a locked account still gets a link, because that is what unlocks it", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		u, err := GetUserByID(s, bra1475LocalUserID)
+		require.NoError(t, err)
+		require.NoError(t, u.SetStatus(s, StatusAccountLocked))
+		require.NoError(t, s.Commit())
+
+		s2 := db.NewSession()
+		defer s2.Close()
+
+		require.NoError(t, RequestUserPasswordResetToken(s2, &User{ID: bra1475LocalUserID}),
+			"a lockout is precisely the state a reset gets somebody out of, so reading the row must not refuse it")
+		require.NoError(t, s2.Commit())
+
+		db.AssertExists(t, "user_tokens", map[string]interface{}{
+			"user_id": bra1475LocalUserID,
+			"kind":    TokenPasswordReset,
+		}, false)
+	})
+
+	t.Run("an id naming nobody mints nothing", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		const nobody = 999999
+
+		require.Error(t, RequestUserPasswordResetToken(s, &User{ID: nobody}),
+			"a token minted for an account that could not be read is not a thing to mail")
+		require.NoError(t, s.Commit())
+
+		db.AssertMissing(t, "user_tokens", map[string]interface{}{
+			"user_id": nobody,
+			"kind":    TokenPasswordReset,
+		})
+	})
+}
+
 // TestBRA1475TenFailedTOTPAttemptsStillLockAProviderAccount is not an
 // acceptance criterion. It is here because criterion 3's refusal was added to
 // the function that mints the token, and that function is also what the TOTP
@@ -221,6 +318,10 @@ func TestBRA1475AStrangerSeesTheSameAnswerAsACustomer(t *testing.T) {
 // That is a security regression this ticket could have introduced without any
 // criterion noticing, which is the reason a reviewer writes tests from the
 // outcome rather than from the diff.
+//
+// It does NOT bind the read-the-row correction: this account really is a
+// provider account, so both readings of it agree and the defect is invisible
+// here. The case above is the one that binds that.
 func TestBRA1475TenFailedTOTPAttemptsStillLockAProviderAccount(t *testing.T) {
 	bra1475Mailable(t)
 

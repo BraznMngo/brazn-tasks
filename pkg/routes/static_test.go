@@ -496,25 +496,37 @@ func TestBraznRestrictedUITarget(t *testing.T) {
 // still answers 200 over HTTP and is invisible to every status assertion in this
 // file.
 //
-// MUTATION, traced, one per clause:
+// MUTATION, MEASURED rather than reasoned — every count below was produced by
+// making the change and reading which subtests turned red. The notes that stood
+// here were rewritten during BRA-1475's re-review because all three had gone
+// stale against the code they describe, which is a reminder that a traced
+// mutation note is only true of the revision it was traced on.
+//
+// The function now has two clauses that can block, not three, and this is what
+// each one costs:
 //
 //   - Deleting the `if !config.BraznRestrictedUIOnly.GetBool()` guard fails
-//     every row of the second pass whose want is true in the first — that is
-//     the root index and the two stray .html rows, three subtests.
-//   - Deleting the `name == path.Join(rootPath, indexFile)` clause fails NO row
-//     here, and saying so is the point of tracing it rather than asserting it:
-//     "dist/index.html" also ends in .html and is not under dist/one/, so the
-//     suffix clause catches it anyway. The clause is kept regardless, because it
-//     is the one the hole is actually about, and leaning on a suffix test for it
-//     would make a later narrowing of that test reopen the hole silently. This
-//     test therefore does not guard it; TestStaticRestrictedUIDoesNotServeThe-
-//     IndexFile guards the behaviour, which is what matters.
-//   - Deleting the `strings.HasPrefix(name, exemptDir)` exemption fails the
-//     dist/one/task.html row, and only it. On a real build that mutation is
-//     fatal rather than cosmetic: the restricted page would be diverted into
-//     braznServeAppShell, braznRestrictedUITarget would compute /one/task.html
-//     as its own target, and the loop guard would answer 404 — a locked-down
-//     instance serving no interface at all.
+//     FOUR rows of the second pass — every row whose want is true in the first:
+//     the root index, the service worker, and the two stray .html rows. The note
+//     here used to say three and omitted the service worker, which was added to
+//     the table after the note was written.
+//   - The last clause is a suffix test AND a lookup in the one list, and the two
+//     halves fail different rows, so both are covered here. Making it block
+//     nothing fails three rows of the first pass — the root index and the two
+//     stray .html — because those are the documents it is the only thing
+//     blocking. Reducing it to a BARE suffix test that blocks every .html fails
+//     exactly one row, dist/one/task.html, because that is a page this product
+//     ships. On a real build that second mutation is fatal rather than cosmetic:
+//     the restricted page would be diverted into braznServeAppShell, the loop
+//     guard would answer 404, and the instance would serve no interface at all.
+//   - There is no longer a `name == path.Join(rootPath, indexFile)` clause. It
+//     was removed in BRA-1475 as dead, and the note claiming it failed no row
+//     went with it. That claim was true and it was the reason to delete it: two
+//     conditions where one decides means neither can be shown to matter, and the
+//     redundant one reads as the live guard to whoever comes next. Removing it
+//     changed no behaviour and made the HTTP-level test at
+//     TestBRA1475TheOldApplicationIsNotServedAtAnyAddress able to detect a
+//     single deletion, which while both clauses stood it could not.
 func TestBraznBlocksAppShell(t *testing.T) {
 	config.InitDefaultConfig()
 
