@@ -117,6 +117,13 @@ export interface CommercialOp {
 export interface CommercialOps {
 	readonly INVITE_MEMBER: CommercialOp
 	readonly ACCEPT_INVITATION: CommercialOp
+	/**
+	 * PRE-EXISTING GAP, closed here because this interface is being edited
+	 * anyway. BRA-1469 added `LIST_INVITATIONS` to api.js and not to this file,
+	 * so `api.commercial.test.ts:269` has been failing the typecheck ever since
+	 * — a test naming an operation TypeScript was told does not exist.
+	 */
+	readonly LIST_INVITATIONS: CommercialOp
 	readonly REMOVE_ORGANIZATION_MEMBER: CommercialOp
 	readonly RENAME_ORGANIZATION: CommercialOp
 	readonly LIST_TEAM_ACCESS_REQUESTS: CommercialOp
@@ -133,6 +140,10 @@ export interface CommercialOps {
 	readonly QUOTE_SEATS: CommercialOp
 	readonly PURCHASE_SEATS: CommercialOp
 	readonly TRANSFER_ADMINISTRATOR: CommercialOp
+	/** BRA-1475. Read the organisation and team behind an invitation handle, with no session. */
+	readonly PREVIEW_INVITATION: CommercialOp
+	/** BRA-1475. Create the account, spend the token, take the seat and join the team. */
+	readonly COMPLETE_INVITATION: CommercialOp
 	/** Recognises nothing; the default when a caller names no operation. */
 	readonly UNKNOWN: CommercialOp
 }
@@ -491,3 +502,98 @@ export function transferAdministrator(
  * organization name field stays disabled, and the negative test asserts it
  * issues no request; an export here would make that untestable.
  */
+
+/* --- BRA-1475: opening and closing a session ----------------------- *
+ *
+ * Everything above assumes a session already exists. These are what a
+ * SIGNED-OUT person needs, and they did not exist here until the sign-in page
+ * did.
+ */
+
+/**
+ * POST /api/v1/login. `username` accepts an email address too. Resolves to the
+ * access token, which is adopted into this module's session state.
+ *
+ * Rejects with a `ForkError` whose `.code` distinguishes the two replies that
+ * are FOLLOW-UPS rather than failures: 1017 wants a second-factor passcode,
+ * 1012 says the address is unconfirmed.
+ */
+export function signIn(credentials: {
+	username: string
+	password: string
+	totpPasscode?: string
+}): Promise<string>
+
+/** POST /api/v1/auth/openid/{provider}/callback. Resolves to the access token. */
+export function completeOpenIdSignIn(
+	providerKey: string,
+	callback: {code: string, redirectUrl: string, totpPasscode?: string},
+): Promise<string>
+
+/**
+ * POST /api/v1/user/logout. Resolves to the provider's own logout address for a
+ * session opened through an identity provider, else null. The LOCAL session is
+ * dropped whatever the server answered.
+ */
+export function signOut(): Promise<string | null>
+
+/**
+ * POST /api/v1/user/password/token. The answer is the same whether or not an
+ * account exists — that is the published contract, and a caller must not
+ * report otherwise.
+ */
+export function requestPasswordReset(email: string): Promise<any>
+
+/** POST /api/v1/user/password/reset. A spent or expired token is a `ForkError` with code 1009. */
+export function setNewPassword(token: string, newPassword: string): Promise<any>
+
+/** POST /api/v1/user/confirm — spend an email-confirmation token. Unauthenticated. */
+export function confirmEmailAddress(token: string): Promise<any>
+
+/**
+ * POST /api/v1/user/deletion/confirm — AUTHENTICATED, unlike every other mailed
+ * token in this product: the account comes from the session and the token is
+ * only the second factor.
+ */
+export function confirmAccountDeletion(token: string): Promise<any>
+
+/**
+ * POST /api/v1/oauth/authorize — the desktop application's destination.
+ * Answers `{code, redirect_uri, state}`.
+ */
+export function authorizeDesktopClient(params: {
+	response_type: string
+	client_id: string
+	redirect_uri: string
+	state?: string
+	code_challenge: string
+	code_challenge_method: string
+}): Promise<any>
+
+/* --- BRA-1475: the invitation, from a browser with no session ------ */
+
+/** POST /v1/organizations/invitations/preview. Consumes nothing. */
+export function previewOrganizationInvitation(request: {
+	invitationId: string | null
+	signupToken: string | null
+}): Promise<CommercialResult>
+
+/**
+ * POST /v1/organizations/invitations/completion. The email address is NOT sent:
+ * the token already carries the address it was stamped for.
+ */
+export function completeOrganizationInvitation(request: {
+	invitationId: string | null
+	signupToken: string | null
+	username: string
+	password: string
+}): Promise<CommercialResult>
+
+export interface InvitationPreview {
+	organizationName: string | null
+	teamName: string | null
+	invitedEmail: string | null
+}
+
+/** The three fields the preview exists to deliver. Null means the service named nothing. */
+export function readInvitationPreview(result: CommercialResult): InvitationPreview

@@ -5,22 +5,21 @@
  * decided by whether the address carries a token, never by a control they press:
  * somebody arriving from an email is already past the asking.
  *
- * WHERE THE TOKEN ARRIVES FROM, and why two places are read. The server mails
- * the reset link today as the site root with the token in the QUERY
- * (`pkg/user/notifications.go`), which is fault 1 of this ticket: the lockout
- * redirects the root, a redirect carries only its destination, so the token is
- * discarded and the customer's one link is spent on a page that cannot help
- * them. Two changes fix that and NEITHER IS IN THIS FILE — the query name has to
- * survive the lockout, which rescues links already sitting in inboxes, and new
- * mail has to point straight here, so no future link depends on that list.
- * This page reads both forms so that whichever of the two lands first, a
- * customer holding either kind of link can finish:
+ * WHERE THE TOKEN ARRIVES FROM. `?userPasswordReset=<token>` is the shape every
+ * reset link in a customer's inbox has today and the shape new reset mail will
+ * keep, so it is the one that matters. Fault 1 of this ticket was never the
+ * query: it was that the lockout REDIRECTED such an address, and a redirect
+ * carries only its destination, so the token was discarded on the way and the
+ * customer's one link was spent on a settings page that could not help them.
+ * The server now hands this document back at whatever address carried the
+ * token, which leaves the request intact for the two lines below to read. That
+ * server-side change is not in this file.
  *
- *   * `?userPasswordReset=<token>` — the shape every link mailed so far has,
- *     wherever it is finally routed to;
- *   * `#token=<token>` — the shape a link should have, because no browser
- *     transmits a fragment to any server, so the token never reaches an access
- *     log, a proxy log or a Referer header on its way here.
+ * A `#token=<token>` fragment is read as well, and second. It costs nothing, no
+ * browser transmits a fragment to any server, and a link built that way is
+ * therefore invisible to every access log between the reader and here — so a
+ * page that refused the form would be refusing the safer one. Nothing mails it
+ * today.
  *
  * THE ANSWER TO A RESET REQUEST IS THE SAME WHETHER OR NOT AN ACCOUNT EXISTS,
  * and this page must not undo that. The server publishes it as a contract and
@@ -69,11 +68,12 @@ const MINIMUM_PASSWORD_LENGTH = 8;
  * The reset token this arrival carries, from the fragment first and the query
  * second, or null when it carries none.
  *
- * THE FRAGMENT IS PREFERRED, NOT MERELY ACCEPTED. Both forms are read because
- * both exist in the wild, but a browser holding both should use the one that
- * never travelled: a link whose token is in the query has already been written
- * into every log between the reader and here by the time this function runs,
- * and preferring it would make the safer form pointless to adopt.
+ * THE FRAGMENT IS TRIED FIRST, WHICH IS NOT THE SAME AS BEING THE COMMON CASE.
+ * Every mailed link puts the token in the query and this page is built for
+ * that; a browser holding BOTH should still use the one that never travelled,
+ * because by the time this function runs a query token has already been written
+ * into every log between the reader and here. Preferring the query would make
+ * the safer form pointless to adopt.
  */
 export function resetTokenFrom(search, hash) {
   const raw = String(hash ?? '');

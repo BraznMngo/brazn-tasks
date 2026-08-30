@@ -429,7 +429,12 @@
         "requestedTitle": "已提交删除请求",
         "requestedText": "只有在你打开我们邮件中的确认链接后，我们才会安排删除。"
       },
-      "emailNotifications": "电子邮件通知"
+      "emailNotifications": "电子邮件通知",
+      "signOut": {
+        "title": "退出登录",
+        "help": "结束此设备上的本次会话。",
+        "action": "退出登录"
+      }
     },
     "org": {
       "teamLabel": "团队",
@@ -497,20 +502,25 @@
       "invitePendingAnonymous": "邀请 {id}…"
     },
     "join": {
-      "title": "加入你的组织",
-      "lead": "你已受邀加入 ONE Tasks 上的一个团队。",
-      "explain": "若已有账户请登录。首次使用请创建账户 — 邀请链接已准备好一切。仅当该邮箱已有账户时，“设置密码”才有效。",
-      "signIn": "登录",
-      "setPassword": "设置密码",
-      "accepting": "正在接受邀请…",
-      "accepted": "你已加入组织。欢迎加入。",
-      "alreadyMember": "你已在该组织中拥有席位，无需任何更改。",
-      "openApp": "打开 ONE Tasks",
-      "refusedLead": "无法接受邀请。",
-      "missingLink": "此链接不完整。请打开邀请邮件中的链接，或请邀请你的人重新发送一个。",
-      "explainWithToken": "请创建账户以接受邀请（Google 或邮箱）。若已注册请登录。仅当该邮箱已有账户时再设置密码。",
-      "createAccount": "创建账户",
-      "setPasswordHint": "“设置密码”仅在该邮箱已有账户时可用，不会创建新账户。"
+      "title": "您收到一份邀请",
+      "lead": "您受邀加入 {organizationName} 的 {teamName} 团队，使用 ONE Personal Assistant。",
+      "email": "电子邮件地址",
+      "emailLocked": "邀请已发送至该地址，因此此处无法更改。",
+      "username": "用户名",
+      "password": "密码",
+      "passwordRule": "至少 8 个字符。",
+      "submit": "创建我的账户",
+      "working": "正在创建您的账户…",
+      "missingFields": "请设置用户名和密码后继续。",
+      "otherAccount": {
+        "title": "已登录其他账户",
+        "body": "您当前登录的是其他账户。请退出登录后再注册此账户。",
+        "logout": "退出登录"
+      },
+      "missingLink": {
+        "title": "此链接不完整",
+        "body": "请打开邀请邮件中的链接，或请邀请您的人重新发送一份。"
+      }
     },
     "deny": {
       "personalEdition": "此功能属于 ONE Teams。",
@@ -550,7 +560,36 @@
       "sessionExpired": "你的登录状态已失效。请重新登录以继续。",
       "requestFailed": "操作未能完成。未做任何更改。",
       "serverUnavailable": "服务器当前不可用，未做任何更改。",
-      "catalogue": "无法加载此页面的文本。"
+      "catalogue": "无法加载此页面的文本。",
+      "signIn": "前往登录",
+      "general": {
+        "title": "出了点问题",
+        "body": "我们无法完成该操作。请重试；如果仍然如此，请让邀请您的人重新发送一份邀请。"
+      },
+      "invitationExpired": {
+        "title": "此邀请已过期",
+        "body": "请让邀请您的人重新发送一份邀请。"
+      },
+      "invitationRevoked": {
+        "title": "此邀请已被撤回",
+        "body": "请向邀请您的人确认撤回是否出于本意。"
+      },
+      "invitationUnknown": {
+        "title": "未找到此邀请",
+        "body": "请打开邀请邮件中的链接，或请邀请您的人重新发送一份。"
+      },
+      "seatsFull": {
+        "title": "该组织没有空余席位",
+        "body": "请让管理员增加一个席位，然后重新邀请您。"
+      },
+      "accountExists": {
+        "title": "该账户已存在",
+        "body": "该账户已存在。请让管理员将您添加为现有用户。"
+      },
+      "notInvitable": {
+        "title": "此地址无法加入",
+        "body": "此地址已属于另一个账户。请让管理员将您添加为现有用户。"
+      }
     },
     "toast": {
       "taskAdded": "任务已添加。",
@@ -569,6 +608,74 @@
       "organizationRenamed": "组织名称已更改。",
       "exportDownloaded": "导出文件已下载。",
       "commentUpdated": "评论已更新。"
+    },
+    "auth": {
+      "signIn": {
+        "title": "登录",
+        "username": "用户名或电子邮件地址",
+        "password": "密码",
+        "submit": "登录",
+        "working": "正在登录…",
+        "or": "或",
+        "withProvider": "使用 {provider} 继续",
+        "forgotPassword": "忘记密码？",
+        "noAccount": "还没有账户？点击这里",
+        "totp": "验证码",
+        "totpHint": "打开身份验证器应用，输入其中显示的验证码。",
+        "totpRequired": "此账户启用了两步验证。请输入身份验证器应用中的验证码。",
+        "totpWrong": "该验证码未被接受。请检查身份验证器应用后重试。",
+        "emailNotConfirmed": "您的电子邮件地址尚未确认。请先打开我们发送的链接，然后重新登录。",
+        "missingCredentials": "请输入您的用户名或电子邮件地址以及密码。",
+        "failed": "无法登录。请检查您的信息后重试。",
+        "providerFailed": "本次登录未完成。请重试，或使用密码登录。",
+        "returningToApp": "正在返回应用…",
+        "desktopFailed": "无法连接应用。请关闭此窗口，然后从应用重试。"
+      }
+    },
+    "password": {
+      "working": "处理中…",
+      "backToSignIn": "返回登录",
+      "request": {
+        "title": "重置密码",
+        "lead": "请输入您的电子邮件地址，我们会向您发送设置新密码的链接。",
+        "email": "电子邮件地址",
+        "submit": "发送链接",
+        "missingEmail": "请输入您在 ONE 使用的电子邮件地址。",
+        "failed": "无法发送该链接。请稍后重试。",
+        "sentTitle": "请查收邮件",
+        "sentBody": "如果该地址存在账户，设置新密码的链接已在发送途中。该链接只能使用一次，并会过期。"
+      },
+      "set": {
+        "title": "设置新密码",
+        "lead": "请选择一个您在此从未使用过的密码。",
+        "newPassword": "新密码",
+        "rule": "至少 {count} 个字符。",
+        "submit": "保存密码",
+        "tooShort": "请至少使用 {count} 个字符。",
+        "linkExpired": "此链接已被使用或已过期。请在下方申请新的链接。",
+        "failed": "无法设置该密码。请稍后重试。",
+        "doneTitle": "密码已设置",
+        "doneBody": "您现在可以使用新密码登录。",
+        "signIn": "登录"
+      }
+    },
+    "confirmed": {
+      "title": "您的电子邮件地址已确认",
+      "body": "感谢您。您现在可以登录了。",
+      "signIn": "登录",
+      "workingTitle": "请稍候",
+      "workingBody": "我们正在检查您的链接。",
+      "failedTitle": "此链接无法使用",
+      "failedBody": "该链接已被使用或已过期。请从登录页面申请新的链接。",
+      "noToken": "此地址没有需要确认的内容。请打开我们发送的邮件中的链接。",
+      "deletion": {
+        "doneTitle": "账户删除已确认",
+        "doneBody": "您的账户及其中的全部内容将被移除。您无需再做任何操作。",
+        "failedTitle": "此链接无法使用",
+        "failedBody": "无法确认删除。该链接可能已被使用，或已过期。",
+        "signInTitle": "请登录以确认",
+        "signInBody": "删除账户必须由登录该账户的本人确认。登录后，此链接会自动完成。"
+      }
     }
   }
 }

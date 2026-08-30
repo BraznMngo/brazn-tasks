@@ -61,9 +61,14 @@ export const ONE_DOCUMENTS = Object.freeze([
     file: 'signin.html',
     // `/oauth/authorize` is here and has no document of its own, which is the ticket's own
     // ruling: signing in is one thing and where somebody lands afterwards is three things.
-    // `/auth/openid/*` is the address registered with Google, byte for byte, and serving our own
+    // `/auth/` is a PREFIX rather than a list, and it covers the address registered with Google
+    // (`/auth/openid/{provider}`, one segment per provider) byte for byte, so serving our own
     // document there changes nothing in the Google console.
-    answersAt: Object.freeze(['/one/signin.html', '/login', '/oauth/authorize', '/auth/openid/*']),
+    // `/register` is here and carries NO REGISTRATION FORM. Somebody who types that address
+    // gets the sign-in page, whose account-creation link leads to the one surface that makes a
+    // real account. A second registration form is a bullet of the ticket's own "what the fix
+    // must not be", and a form posting to a route that refuses everybody is worse than none.
+    answersAt: Object.freeze(['/one/signin.html', '/login', '/register', '/oauth/authorize', '/auth/*']),
   }),
   Object.freeze({
     name: 'join',
@@ -85,27 +90,37 @@ export const ONE_DOCUMENTS = Object.freeze([
   Object.freeze({
     name: 'error',
     file: 'error.html',
+    // THE SERVER NEVER ROUTES TO THIS ONE, and that is the difference worth noticing: every
+    // other document here answers an address a person can arrive at from outside. Somebody
+    // reaches this page only because one of ours sent them, so it has exactly one address.
     answersAt: Object.freeze(['/one/error.html']),
   }),
 ]);
 
 /**
- * The two query names a mailed link carries AT THE SITE ROOT, and the document each one belongs
- * to.
+ * The three query names a mailed link carries, and the document each one belongs to.
  *
- * These are the reason an allowlist of paths is not enough, and they are the whole of fault 1 in
- * the ticket. The server mails `<public url>?userPasswordReset=<token>` — the root with a query,
- * which no path allowlist can express — and a redirect carries only its destination, so the
- * token is discarded and the customer's link is spent on a page that cannot help them.
+ * THESE ARE THE REASON AN ALLOWLIST OF PATHS IS NOT ENOUGH, and they are the whole of fault 1 in
+ * the ticket. The server mails `<public url>?userPasswordReset=<token>` — an address with a
+ * query, which no path allowlist can express — and a redirect carries only its destination, so
+ * the token was discarded and the customer's one link was spent on a page that could not help
+ * them. The server now hands the right document back AT THE ADDRESS THE PERSON ASKED FOR rather
+ * than redirecting, which is what leaves the token intact for the page to read.
  *
- * `userPasswordReset` IS THE ONE THAT IS MISSING FROM THE SERVER TODAY. This table names it so
- * the browser knows where such an arrival belongs; the server's own `restrictedUIConfirmationQueries`
- * has to name it too, or the request never reaches a document at all. That server-side line is
- * outside this file and outside this front end.
+ * A query name here is matched WHEREVER IT APPEARS, not only at the site root. The root is where
+ * mail points today, but the shape of the fix is "this query names this document", and a rule
+ * that also required a particular path would break the moment a link was written with one.
+ *
+ * `accountDeletionConfirm` HAS NO DOCUMENT IN THE TICKET'S TABLE OF FIVE, and it needs one
+ * anyway: it cannot keep reaching the old application without leaving criterion 17 unmet, and it
+ * cannot be redirected without destroying the token. It lands on the confirmation page, which
+ * carries a second state for it rather than telling somebody who confirmed a deletion that their
+ * email address is now confirmed.
  */
-export const ROOT_QUERY_DOCUMENTS = Object.freeze({
+export const QUERY_DOCUMENTS = Object.freeze({
   userEmailConfirm: 'confirmed',
   userPasswordReset: 'password',
+  accountDeletionConfirm: 'confirmed',
 });
 
 function documentNamed(name) {
@@ -152,9 +167,11 @@ export function oneUrl(name, base, {search = '', hash = ''} = {}) {
 export function documentForAddress(pathname, search = '') {
   const path = String(pathname ?? '');
 
-  for (const [query, name] of Object.entries(ROOT_QUERY_DOCUMENTS)) {
-    if (path !== '/') continue;
-    if (new URLSearchParams(String(search ?? '').replace(/^\?/, '')).get(query) !== null) return name;
+  // The query decides first, because it is the more specific statement: an address carrying a
+  // mailed token names the document that can spend it, whatever path it happens to sit on.
+  const params = new URLSearchParams(String(search ?? '').replace(/^\?/, ''));
+  for (const [query, name] of Object.entries(QUERY_DOCUMENTS)) {
+    if (params.get(query) !== null) return name;
   }
 
   for (const doc of ONE_DOCUMENTS) {
@@ -179,8 +196,12 @@ export function documentForAddress(pathname, search = '') {
  * page navigates to itself forever, and no server sees any of it. Every navigation in this front
  * end is guarded by this.
  */
-export function isCurrentDocument(name, pathname) {
-  const doc = documentNamed(name);
-  if (doc === null) return false;
-  return String(pathname ?? '').endsWith(`/one/${doc.file}`);
+export function isCurrentDocument(name, pathname, search = '') {
+  if (documentNamed(name) === null) return false;
+  // ASKED THROUGH `documentForAddress` RATHER THAN BY COMPARING FILE NAMES, because the server
+  // hands a document back at the address the person asked for instead of redirecting to
+  // `/one/…`. So the sign-in document is genuinely the current document at `/login`, and a file
+  // name comparison would answer no and send the browser on a pointless trip to a second copy of
+  // the page it is already looking at.
+  return documentForAddress(pathname, search) === name;
 }

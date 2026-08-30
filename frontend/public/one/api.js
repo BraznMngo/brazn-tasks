@@ -547,6 +547,28 @@ export function confirmEmailAddress(token) {
 }
 
 /**
+ * POST /api/v1/user/deletion/confirm — confirm a request to delete this account.
+ *
+ * AUTHENTICATED, AND THAT IS NOT A DETAIL. Every other mailed token in this
+ * product is spent by an unauthenticated route, so a person following the link
+ * needs nothing but the link. This one resolves the account from the SESSION and
+ * uses the token only as the second factor (`GetCurrentUserFromDB` then
+ * `user.ConfirmDeletion`, pkg/routes/api/v1/user_deletion.go), which is the
+ * right shape for an irreversible act — a token read out of somebody's mailbox
+ * is not on its own enough to destroy their account.
+ *
+ * The consequence for the page: a person following this link while signed out
+ * cannot be told "done". They have to sign in first, and the page has to say so
+ * truthfully rather than reporting a confirmation that did not happen.
+ *
+ * The route answers 204 with no readable body, so success is the absence of a
+ * `ForkError`.
+ */
+export function confirmAccountDeletion(token) {
+  return forkSend('POST', forkV1Url('user/deletion/confirm'), {token: String(token ?? '')});
+}
+
+/**
  * POST /api/v1/oauth/authorize — THE DESKTOP APPLICATION'S DESTINATION.
  *
  * THIS IS THE ONE THE WEB SIDE WOULD NEVER REPORT. A desktop application opens

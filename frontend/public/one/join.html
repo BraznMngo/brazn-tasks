@@ -5,6 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- Brand name, not translated copy — the same reasoning as task.html and settings.html. -->
 <title>ONE Tasks</title>
+<!-- SERVED IN PLACE, AT THE ADDRESS THE PERSON ASKED FOR, SO EVERY RELATIVE PATH BELOW WOULD
+     OTHERWISE RESOLVE AGAINST THE WRONG FOLDER. The lockout hands this document back at /login,
+     /password-reset, /confirm and the rest rather than redirecting to /one/ -- and that is the
+     point rather than an implementation detail: a redirect carries only its destination, so a
+     token in a query is discarded on the way, which is exactly how a mailed password-reset link
+     came to be lost. Serving in place leaves the request intact, so this page can still read the
+     token, and the provider's name stays readable in the address itself.
+
+     The cost is that `./one.css` requested at /login is /one.css, which does not exist. This one
+     tag fixes the stylesheet, the module script and the string catalogue together -- i18n.js
+     fetches `./i18n/<locale>.json`, and a relative fetch resolves against the document base, so
+     without this tag every one of these pages would load with no text at all.
+
+     ONE TAG RATHER THAN ROOT-RELATIVE PATHS EVERYWHERE, deliberately: a root-relative path has to
+     be written correctly in each of four places per document and in every file any of them later
+     fetches, and nothing would report the one that was missed. It is on all five of these
+     documents rather than only the three the server re-serves, so nobody has to know which three.
+     `import.meta.url` is absolute and unaffected, so api.js still resolves the application base
+     from its own module URL. -->
+<base href="/one/">
 <link rel="stylesheet" href="./one.css">
 </head>
 <!-- The invitation page (BRA-1475, rewriting BRA-1439 Story 5 in place — this is not a second

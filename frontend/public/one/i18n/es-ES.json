@@ -429,7 +429,12 @@
         "requestedTitle": "Eliminación solicitada",
         "requestedText": "La eliminación no se programa hasta que abras el enlace de confirmación que te enviamos por correo electrónico."
       },
-      "emailNotifications": "Notificaciones por correo"
+      "emailNotifications": "Notificaciones por correo",
+      "signOut": {
+        "title": "Cerrar sesion",
+        "help": "Finaliza esta sesion en este dispositivo.",
+        "action": "Cerrar sesion"
+      }
     },
     "org": {
       "teamLabel": "Equipo",
@@ -497,20 +502,25 @@
       "invitePendingAnonymous": "Invitación {id}…"
     },
     "join": {
-      "title": "Únete a tu organización",
-      "lead": "Te han invitado a un equipo en ONE Tasks.",
-      "explain": "Inicie sesión si ya tiene una cuenta. Si es la primera vez, cree una — el enlace de invitación ya lo preparó todo. Establecer una contraseña solo funciona si ya existe una cuenta para su correo.",
-      "signIn": "Iniciar sesión",
-      "setPassword": "Establecer contraseña",
-      "accepting": "Aceptando tu invitación…",
-      "accepted": "Te has unido a tu organización. Te damos la bienvenida.",
-      "alreadyMember": "Ya tienes un puesto en esta organización, así que no ha hecho falta cambiar nada.",
-      "openApp": "Abrir ONE Tasks",
-      "refusedLead": "No se ha podido aceptar la invitación.",
-      "missingLink": "Este enlace está incompleto. Abre el enlace de tu correo de invitación o pide a la persona que te invitó que te envíe uno nuevo.",
-      "explainWithToken": "Cree una cuenta para aceptar la invitación (Google o correo). Si ya se registró, inicie sesión. Establezca una contraseña solo si ya existe una cuenta.",
-      "createAccount": "Crear una cuenta",
-      "setPasswordHint": "«Establecer una contraseña» solo funciona si ya existe una cuenta para su correo. No crea una."
+      "title": "Te han invitado",
+      "lead": "Te han invitado a unirte al equipo {teamName} de {organizationName} en ONE Personal Assistant.",
+      "email": "Correo electronico",
+      "emailLocked": "Tu invitacion se envio a esta direccion, asi que no se puede cambiar aqui.",
+      "username": "Nombre de usuario",
+      "password": "Contrasena",
+      "passwordRule": "Al menos 8 caracteres.",
+      "submit": "Crear mi cuenta",
+      "working": "Creando tu cuenta…",
+      "missingFields": "Elige un nombre de usuario y una contrasena para continuar.",
+      "otherAccount": {
+        "title": "Ya has iniciado sesion",
+        "body": "Ahora mismo has iniciado sesion con otra cuenta. Cierra la sesion para registrarte con esta cuenta.",
+        "logout": "Cerrar sesion"
+      },
+      "missingLink": {
+        "title": "Este enlace esta incompleto",
+        "body": "Abre el enlace de tu correo de invitacion o pide a la persona que te invito que te envie uno nuevo."
+      }
     },
     "deny": {
       "personalEdition": "Esto forma parte de ONE Teams.",
@@ -550,7 +560,36 @@
       "sessionExpired": "Tu sesión ha finalizado. Inicia sesión para continuar.",
       "requestFailed": "Eso no ha funcionado. No se ha cambiado nada.",
       "serverUnavailable": "El servidor no está disponible ahora mismo, así que no se ha cambiado nada.",
-      "catalogue": "No se ha podido cargar el texto de esta página."
+      "catalogue": "No se ha podido cargar el texto de esta página.",
+      "signIn": "Ir al inicio de sesion",
+      "general": {
+        "title": "Algo ha salido mal",
+        "body": "No hemos podido completarlo. Intentalo de nuevo y, si sigue ocurriendo, pide a la persona que te invito que te envie una nueva invitacion."
+      },
+      "invitationExpired": {
+        "title": "Esta invitacion ha caducado",
+        "body": "Pide a la persona que te invito que te envie una nueva invitacion."
+      },
+      "invitationRevoked": {
+        "title": "Esta invitacion se ha retirado",
+        "body": "Pregunta a la persona que te invito si era su intencion retirarla."
+      },
+      "invitationUnknown": {
+        "title": "No hemos encontrado esta invitacion",
+        "body": "Abre el enlace de tu correo de invitacion o pide a la persona que te invito que te envie uno nuevo."
+      },
+      "seatsFull": {
+        "title": "Esta organizacion no tiene puestos libres",
+        "body": "Pide a tu administrador que anada un puesto y que despues vuelva a invitarte."
+      },
+      "accountExists": {
+        "title": "Esta cuenta ya existe",
+        "body": "Esta cuenta ya existe. Pide a tu administrador que te anada como usuario existente."
+      },
+      "notInvitable": {
+        "title": "Esta direccion no puede unirse",
+        "body": "Esta direccion ya pertenece a otra cuenta. Pide a tu administrador que te anada como usuario existente."
+      }
     },
     "toast": {
       "taskAdded": "La tarea se ha añadido.",
@@ -569,6 +608,74 @@
       "organizationRenamed": "El nombre de la organización se ha cambiado.",
       "exportDownloaded": "La exportación se ha descargado.",
       "commentUpdated": "El comentario se ha actualizado."
+    },
+    "auth": {
+      "signIn": {
+        "title": "Iniciar sesion",
+        "username": "Nombre de usuario o correo electronico",
+        "password": "Contrasena",
+        "submit": "Iniciar sesion",
+        "working": "Iniciando tu sesion…",
+        "or": "o",
+        "withProvider": "Continuar con {provider}",
+        "forgotPassword": "Has olvidado tu contrasena?",
+        "noAccount": "Aun no tienes cuenta? Haz clic aqui",
+        "totp": "Codigo de verificacion",
+        "totpHint": "Abre tu aplicacion de autenticacion e introduce el codigo que muestra.",
+        "totpRequired": "Esta cuenta tiene un segundo paso. Introduce el codigo de tu aplicacion de autenticacion.",
+        "totpWrong": "Ese codigo no se ha aceptado. Comprueba tu aplicacion de autenticacion e intentalo de nuevo.",
+        "emailNotConfirmed": "Tu correo electronico aun no esta confirmado. Abre el enlace que te enviamos e inicia sesion de nuevo.",
+        "missingCredentials": "Introduce tu nombre de usuario o correo electronico y tu contrasena.",
+        "failed": "No hemos podido iniciar tu sesion. Comprueba tus datos e intentalo de nuevo.",
+        "providerFailed": "Ese inicio de sesion no se ha completado. Intentalo de nuevo o inicia sesion con tu contrasena.",
+        "returningToApp": "Volviendo a la aplicacion…",
+        "desktopFailed": "No hemos podido conectar la aplicacion. Cierra esta ventana e intentalo de nuevo desde la aplicacion."
+      }
+    },
+    "password": {
+      "working": "Un momento…",
+      "backToSignIn": "Volver al inicio de sesion",
+      "request": {
+        "title": "Restablecer tu contrasena",
+        "lead": "Escribe tu correo electronico y te enviaremos un enlace para establecer una nueva contrasena.",
+        "email": "Correo electronico",
+        "submit": "Enviar el enlace",
+        "missingEmail": "Escribe el correo electronico que usas en ONE.",
+        "failed": "No hemos podido enviar el enlace. Intentalo de nuevo en un momento.",
+        "sentTitle": "Revisa tu correo",
+        "sentBody": "Si existe una cuenta para esa direccion, ya va en camino un enlace para establecer una nueva contrasena. Funciona una vez y caduca."
+      },
+      "set": {
+        "title": "Establecer una nueva contrasena",
+        "lead": "Elige una contrasena que no hayas usado aqui antes.",
+        "newPassword": "Nueva contrasena",
+        "rule": "Al menos {count} caracteres.",
+        "submit": "Guardar la contrasena",
+        "tooShort": "Usa al menos {count} caracteres.",
+        "linkExpired": "Este enlace ya se ha usado o ha caducado. Pide uno nuevo abajo.",
+        "failed": "No hemos podido establecer esa contrasena. Intentalo de nuevo en un momento.",
+        "doneTitle": "Tu contrasena esta lista",
+        "doneBody": "Ya puedes iniciar sesion con tu nueva contrasena.",
+        "signIn": "Iniciar sesion"
+      }
+    },
+    "confirmed": {
+      "title": "Tu correo electronico esta confirmado",
+      "body": "Gracias. Ya puedes iniciar sesion.",
+      "signIn": "Iniciar sesion",
+      "workingTitle": "Un momento",
+      "workingBody": "Estamos comprobando tu enlace.",
+      "failedTitle": "Este enlace no ha funcionado",
+      "failedBody": "El enlace ya se ha usado o ha caducado. Pide uno nuevo desde la pagina de inicio de sesion.",
+      "noToken": "Esta direccion no contiene nada que confirmar. Abre el enlace del correo que te enviamos.",
+      "deletion": {
+        "doneTitle": "La eliminacion de tu cuenta esta confirmada",
+        "doneBody": "Tu cuenta y todo lo que contiene se eliminaran. No necesitas hacer nada mas.",
+        "failedTitle": "Este enlace no ha funcionado",
+        "failedBody": "No se ha podido confirmar la eliminacion. Es posible que el enlace ya se haya usado o haya caducado.",
+        "signInTitle": "Inicia sesion para confirmar",
+        "signInBody": "La eliminacion de una cuenta debe confirmarla la persona que ha iniciado sesion en ella. Inicia sesion y este enlace se completara solo."
+      }
     }
   }
 }

@@ -429,7 +429,12 @@
         "requestedTitle": "Suppression demandée",
         "requestedText": "La suppression n’est programmée qu’après l’ouverture du lien de confirmation que nous vous envoyons par e-mail."
       },
-      "emailNotifications": "Notifications par e-mail"
+      "emailNotifications": "Notifications par e-mail",
+      "signOut": {
+        "title": "Se deconnecter",
+        "help": "Mettre fin a cette session sur cet appareil.",
+        "action": "Se deconnecter"
+      }
     },
     "org": {
       "teamLabel": "Équipe",
@@ -497,20 +502,25 @@
       "invitePendingAnonymous": "Invitation {id}…"
     },
     "join": {
-      "title": "Rejoignez votre organisation",
-      "lead": "Vous avez reçu une invitation à rejoindre une équipe sur ONE Tasks.",
-      "explain": "Connectez-vous si vous avez déjà un compte. Sinon, créez-en un — le lien d’invitation a tout préparé. Définir un mot de passe ne fonctionne que si un compte existe déjà pour votre e-mail.",
-      "signIn": "Se connecter",
-      "setPassword": "Définir un mot de passe",
-      "accepting": "Acceptation de l’invitation…",
-      "accepted": "Vous avez rejoint votre organisation. Bienvenue à bord.",
-      "alreadyMember": "Vous détenez déjà une licence dans cette organisation, il n’y avait donc rien à modifier.",
-      "openApp": "Ouvrir ONE Tasks",
-      "refusedLead": "L’invitation n’a pas pu être acceptée.",
-      "missingLink": "Ce lien est incomplet. Ouvrez le lien de votre e-mail d’invitation, ou demandez un nouveau lien à la personne qui vous a envoyé l’invitation.",
-      "explainWithToken": "Créez un compte pour accepter l’invitation (Google ou e-mail). Si vous êtes déjà inscrit, connectez-vous. Définir un mot de passe uniquement si un compte existe déjà.",
-      "createAccount": "Créer un compte",
-      "setPasswordHint": "« Définir un mot de passe » ne fonctionne que si un compte existe déjà pour votre e-mail. Cela n’en crée pas."
+      "title": "Vous avez recu une invitation",
+      "lead": "Vous avez ete invite a rejoindre l'equipe {teamName} de {organizationName} sur ONE Personal Assistant.",
+      "email": "Adresse e-mail",
+      "emailLocked": "Votre invitation a ete envoyee a cette adresse, elle ne peut donc pas etre modifiee ici.",
+      "username": "Nom d'utilisateur",
+      "password": "Mot de passe",
+      "passwordRule": "Au moins 8 caracteres.",
+      "submit": "Creer mon compte",
+      "working": "Creation de votre compte…",
+      "missingFields": "Choisissez un nom d'utilisateur et un mot de passe pour continuer.",
+      "otherAccount": {
+        "title": "Deja connecte",
+        "body": "Vous etes actuellement connecte avec un autre compte. Deconnectez-vous pour vous inscrire avec ce compte.",
+        "logout": "Se deconnecter"
+      },
+      "missingLink": {
+        "title": "Ce lien est incomplet",
+        "body": "Ouvrez le lien depuis votre e-mail d'invitation, ou demandez un nouveau lien a la personne qui vous a invite."
+      }
     },
     "deny": {
       "personalEdition": "Cette fonctionnalité fait partie de ONE Teams.",
@@ -550,7 +560,36 @@
       "sessionExpired": "Votre session a pris fin. Connectez-vous pour continuer.",
       "requestFailed": "Cela n’a pas fonctionné. Rien n’a été modifié.",
       "serverUnavailable": "Le serveur est indisponible pour le moment. Rien n’a été modifié.",
-      "catalogue": "Les textes de cette page n’ont pas pu être chargés."
+      "catalogue": "Les textes de cette page n’ont pas pu être chargés.",
+      "signIn": "Aller a la connexion",
+      "general": {
+        "title": "Quelque chose s'est mal passe",
+        "body": "Nous n'avons pas pu terminer. Reessayez, et si cela se reproduit, demandez une nouvelle invitation a la personne qui vous a invite."
+      },
+      "invitationExpired": {
+        "title": "Cette invitation a expire",
+        "body": "Demandez une nouvelle invitation a la personne qui vous a invite."
+      },
+      "invitationRevoked": {
+        "title": "Cette invitation a ete retiree",
+        "body": "Demandez a la personne qui vous a invite si c'etait volontaire."
+      },
+      "invitationUnknown": {
+        "title": "Nous n'avons pas trouve cette invitation",
+        "body": "Ouvrez le lien depuis votre e-mail d'invitation, ou demandez-en un nouveau a la personne qui vous a invite."
+      },
+      "seatsFull": {
+        "title": "Cette organisation n'a plus de licence disponible",
+        "body": "Demandez a votre administrateur d'ajouter une licence, puis de vous inviter a nouveau."
+      },
+      "accountExists": {
+        "title": "Ce compte existe deja",
+        "body": "Ce compte existe deja. Demandez a votre administrateur de vous ajouter en tant que personne existante."
+      },
+      "notInvitable": {
+        "title": "Cette adresse ne peut pas rejoindre",
+        "body": "Cette adresse appartient deja a un autre compte. Demandez a votre administrateur de vous ajouter en tant que personne existante."
+      }
     },
     "toast": {
       "taskAdded": "La tâche a bien été ajoutée.",
@@ -569,6 +608,74 @@
       "organizationRenamed": "Le nom de l’organisation a bien été modifié.",
       "exportDownloaded": "L’export a bien été téléchargé.",
       "commentUpdated": "Le commentaire a bien été modifié."
+    },
+    "auth": {
+      "signIn": {
+        "title": "Se connecter",
+        "username": "Nom d'utilisateur ou adresse e-mail",
+        "password": "Mot de passe",
+        "submit": "Se connecter",
+        "working": "Connexion en cours…",
+        "or": "ou",
+        "withProvider": "Continuer avec {provider}",
+        "forgotPassword": "Mot de passe oublie ?",
+        "noAccount": "vous n'avez pas encore de compte ? cliquez ici",
+        "totp": "Code de verification",
+        "totpHint": "Ouvrez votre application d'authentification et saisissez le code affiche.",
+        "totpRequired": "Ce compte comporte une seconde etape. Saisissez le code de votre application d'authentification.",
+        "totpWrong": "Ce code n'a pas ete accepte. Verifiez votre application d'authentification et reessayez.",
+        "emailNotConfirmed": "Votre adresse e-mail n'est pas encore confirmee. Ouvrez le lien que nous vous avons envoye, puis reconnectez-vous.",
+        "missingCredentials": "Saisissez votre nom d'utilisateur ou votre adresse e-mail, et votre mot de passe.",
+        "failed": "La connexion a echoue. Verifiez vos informations et reessayez.",
+        "providerFailed": "Cette connexion ne s'est pas terminee. Reessayez, ou connectez-vous avec votre mot de passe.",
+        "returningToApp": "Retour vers l'application...",
+        "desktopFailed": "L'application n'a pas pu etre connectee. Fermez cette fenetre et reessayez depuis l'application."
+      }
+    },
+    "password": {
+      "working": "Un instant…",
+      "backToSignIn": "Retour a la connexion",
+      "request": {
+        "title": "Reinitialiser votre mot de passe",
+        "lead": "Saisissez votre adresse e-mail et nous vous enverrons un lien pour definir un nouveau mot de passe.",
+        "email": "Adresse e-mail",
+        "submit": "Envoyer le lien",
+        "missingEmail": "Saisissez l adresse e-mail que vous utilisez pour ONE.",
+        "failed": "Le lien n'a pas pu etre envoye. Reessayez dans un instant.",
+        "sentTitle": "Consultez votre messagerie",
+        "sentBody": "S'il existe un compte pour cette adresse, un lien pour definir un nouveau mot de passe est en route. Il fonctionne une fois et expire."
+      },
+      "set": {
+        "title": "Definir un nouveau mot de passe",
+        "lead": "Choisissez un mot de passe que vous n'avez pas deja utilise ici.",
+        "newPassword": "Nouveau mot de passe",
+        "rule": "Au moins {count} caracteres.",
+        "submit": "Enregistrer le mot de passe",
+        "tooShort": "Utilisez au moins {count} caracteres.",
+        "linkExpired": "Ce lien a deja ete utilise ou a expire. Demandez-en un nouveau ci-dessous.",
+        "failed": "Ce mot de passe n'a pas pu etre enregistre. Reessayez dans un instant.",
+        "doneTitle": "Votre mot de passe est enregistre",
+        "doneBody": "Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.",
+        "signIn": "Se connecter"
+      }
+    },
+    "confirmed": {
+      "title": "Votre adresse e-mail est confirmee",
+      "body": "Merci. Vous pouvez maintenant vous connecter.",
+      "signIn": "Se connecter",
+      "workingTitle": "Un instant",
+      "workingBody": "Nous verifions votre lien.",
+      "failedTitle": "Ce lien n'a pas fonctionne",
+      "failedBody": "Le lien a deja ete utilise ou a expire. Demandez-en un nouveau depuis la page de connexion.",
+      "noToken": "Cette adresse ne contient rien a confirmer. Ouvrez le lien de l'e-mail que nous vous avons envoye.",
+      "deletion": {
+        "doneTitle": "La suppression de votre compte est confirmee",
+        "doneBody": "Votre compte et tout ce qu il contient seront supprimes. Rien d autre ne vous est demande.",
+        "failedTitle": "Ce lien n'a pas fonctionne",
+        "failedBody": "La suppression n'a pas pu etre confirmee. Le lien a peut-etre deja ete utilise, ou il a expire.",
+        "signInTitle": "Connectez-vous pour confirmer",
+        "signInBody": "La suppression d un compte doit etre confirmee par la personne qui y est connectee. Connectez-vous et ce lien se terminera de lui-meme."
+      }
     }
   }
 }

@@ -154,7 +154,7 @@ export function pageUrl(name, parts) {
  * @returns {boolean} true when it navigated.
  */
 export function goToPage(name, parts) {
-  if (isCurrentDocument(name, location.pathname)) return false;
+  if (isCurrentDocument(name, location.pathname, location.search)) return false;
   location.assign(pageUrl(name, parts));
   return true;
 }

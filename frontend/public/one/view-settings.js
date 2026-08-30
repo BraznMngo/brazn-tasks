@@ -727,10 +727,10 @@ function profileCard() {
     </div>
     <!-- THE SIGN-OUT CONTROL (BRA-1475, acceptance criterion 16). There was no way to leave
          this page: the settings page is where the lockout lands everybody, and until now the
-         only way out of a session was to clear the browser's cookies. It carries no
-         `data-requires`, deliberately — every gate on this page can refuse a control, and a
-         person whose plan has lapsed, whose writes are restricted or whose edition is wrong
-         must still be able to sign out. It is the one control that must never be gated. -->
+         only way out of a session was to clear the browser's cookies. It declares no gate,
+         deliberately - every gate on this page can refuse a control, and a person whose plan
+         has lapsed, whose writes are restricted or whose edition is wrong must still be able
+         to sign out. It is the one control that must never be gated. -->
     <div class="setting-row">
       <div>
         <div class="setting-name">${tx('one.settings.signOut.title')}</div>

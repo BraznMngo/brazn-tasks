@@ -429,6 +429,11 @@
         "successorText": "Das ausgewählte Teammitglied muss Organisationsadministrator werden, bevor die Löschung angefordert werden kann.",
         "requestedTitle": "Löschung angefordert",
         "requestedText": "Die Löschung wird erst geplant, wenn du den Bestätigungslink öffnest, den wir dir per E-Mail schicken."
+      },
+      "signOut": {
+        "title": "Abmelden",
+        "help": "Diese Sitzung auf diesem Geraet beenden.",
+        "action": "Abmelden"
       }
     },
     "org": {
@@ -497,20 +502,25 @@
       "invitePendingAnonymous": "Einladung {id}…"
     },
     "join": {
-      "title": "Deiner Organisation beitreten",
-      "lead": "Du wurdest in ein Team bei ONE Tasks eingeladen.",
-      "explain": "Melden Sie sich an, wenn Sie bereits ein Konto haben. Beim ersten Mal legen Sie ein Konto an — der Einladungslink hat alles vorbereitet. Ein Passwort setzen geht nur, wenn für Ihre E-Mail schon ein Konto existiert.",
-      "signIn": "Anmelden",
-      "setPassword": "Passwort festlegen",
-      "accepting": "Einladung wird angenommen…",
-      "accepted": "Du bist deiner Organisation beigetreten. Willkommen an Bord.",
-      "alreadyMember": "Du hast in dieser Organisation bereits einen Sitzplatz. Es musste nichts geändert werden.",
-      "openApp": "ONE Tasks öffnen",
-      "refusedLead": "Die Einladung konnte nicht angenommen werden.",
-      "missingLink": "Dieser Link ist unvollständig. Öffne den Link aus deiner Einladungs-E-Mail oder bitte die Person, die dich eingeladen hat, um einen neuen.",
-      "explainWithToken": "Legen Sie ein Konto an, um die Einladung anzunehmen (Google oder E-Mail). Wenn Sie schon registriert sind, melden Sie sich an. Passwort setzen nur, wenn für Ihre E-Mail schon ein Konto existiert.",
-      "createAccount": "Konto erstellen",
-      "setPasswordHint": "„Passwort setzen“ funktioniert nur, wenn für Ihre E-Mail bereits ein Konto existiert. Es legt keines an."
+      "title": "Sie wurden eingeladen",
+      "lead": "Sie wurden eingeladen, dem Team {teamName} von {organizationName} bei ONE Personal Assistant beizutreten.",
+      "email": "E-Mail-Adresse",
+      "emailLocked": "Ihre Einladung wurde an diese Adresse gesendet und kann hier nicht geaendert werden.",
+      "username": "Benutzername",
+      "password": "Passwort",
+      "passwordRule": "Mindestens 8 Zeichen.",
+      "submit": "Konto erstellen",
+      "working": "Ihr Konto wird eingerichtet…",
+      "missingFields": "Waehlen Sie einen Benutzernamen und ein Passwort, um fortzufahren.",
+      "otherAccount": {
+        "title": "Bereits angemeldet",
+        "body": "Sie sind derzeit mit einem anderen Konto angemeldet. Melden Sie sich ab, um sich fuer dieses Konto zu registrieren.",
+        "logout": "Abmelden"
+      },
+      "missingLink": {
+        "title": "Dieser Link ist unvollstaendig",
+        "body": "Oeffnen Sie den Link aus Ihrer Einladungs-E-Mail oder bitten Sie die einladende Person um einen neuen."
+      }
     },
     "deny": {
       "personalEdition": "Das gehört zu ONE Teams.",
@@ -550,7 +560,36 @@
       "sessionExpired": "Deine Sitzung ist beendet. Melde dich an, um weiterzumachen.",
       "requestFailed": "Das hat nicht geklappt. Es wurde nichts geändert.",
       "serverUnavailable": "Der Server ist gerade nicht verfügbar. Es wurde nichts geändert.",
-      "catalogue": "Die Texte für diese Seite wurden nicht geladen."
+      "catalogue": "Die Texte für diese Seite wurden nicht geladen.",
+      "signIn": "Zur Anmeldung",
+      "general": {
+        "title": "Etwas ist schiefgelaufen",
+        "body": "Das konnte nicht abgeschlossen werden. Versuchen Sie es erneut, und wenn es weiterhin auftritt, bitten Sie die einladende Person um eine neue Einladung."
+      },
+      "invitationExpired": {
+        "title": "Diese Einladung ist abgelaufen",
+        "body": "Bitten Sie die einladende Person um eine neue Einladung."
+      },
+      "invitationRevoked": {
+        "title": "Diese Einladung wurde zurueckgezogen",
+        "body": "Fragen Sie die einladende Person, ob das so gewollt war."
+      },
+      "invitationUnknown": {
+        "title": "Diese Einladung wurde nicht gefunden",
+        "body": "Oeffnen Sie den Link aus Ihrer Einladungs-E-Mail oder bitten Sie die einladende Person um einen neuen."
+      },
+      "seatsFull": {
+        "title": "Diese Organisation hat keine freien Plaetze",
+        "body": "Bitten Sie Ihre Administratorin oder Ihren Administrator, einen Platz hinzuzufuegen und Sie dann erneut einzuladen."
+      },
+      "accountExists": {
+        "title": "Dieses Konto existiert bereits",
+        "body": "Dieses Konto existiert bereits. Bitten Sie Ihre Administratorin oder Ihren Administrator, Sie stattdessen als bestehende Person hinzuzufuegen."
+      },
+      "notInvitable": {
+        "title": "Diese Adresse kann nicht beitreten",
+        "body": "Diese Adresse gehoert bereits zu einem anderen Konto. Bitten Sie Ihre Administratorin oder Ihren Administrator, Sie stattdessen als bestehende Person hinzuzufuegen."
+      }
     },
     "toast": {
       "taskAdded": "Die Aufgabe wurde hinzugefügt.",
@@ -569,6 +608,74 @@
       "organizationRenamed": "Der Name der Organisation wurde geändert.",
       "exportDownloaded": "Der Export wurde heruntergeladen.",
       "commentUpdated": "Der Kommentar wurde aktualisiert."
+    },
+    "auth": {
+      "signIn": {
+        "title": "Anmelden",
+        "username": "Benutzername oder E-Mail-Adresse",
+        "password": "Passwort",
+        "submit": "Anmelden",
+        "working": "Sie werden angemeldet…",
+        "or": "oder",
+        "withProvider": "Weiter mit {provider}",
+        "forgotPassword": "Passwort vergessen?",
+        "noAccount": "Sie haben noch kein Konto? Hier klicken",
+        "totp": "Bestaetigungscode",
+        "totpHint": "Oeffnen Sie Ihre Authenticator-App und geben Sie den angezeigten Code ein.",
+        "totpRequired": "Dieses Konto hat einen zweiten Schritt. Geben Sie den Code aus Ihrer Authenticator-App ein.",
+        "totpWrong": "Dieser Code wurde nicht akzeptiert. Pruefen Sie Ihre Authenticator-App und versuchen Sie es erneut.",
+        "emailNotConfirmed": "Ihre E-Mail-Adresse ist noch nicht bestaetigt. Oeffnen Sie den Link aus unserer E-Mail und melden Sie sich dann erneut an.",
+        "missingCredentials": "Geben Sie Ihren Benutzernamen oder Ihre E-Mail-Adresse und Ihr Passwort ein.",
+        "failed": "Die Anmeldung war nicht moeglich. Pruefen Sie Ihre Angaben und versuchen Sie es erneut.",
+        "providerFailed": "Diese Anmeldung wurde nicht abgeschlossen. Versuchen Sie es erneut oder melden Sie sich mit Ihrem Passwort an.",
+        "returningToApp": "Sie werden zur App zurueckgeleitet…",
+        "desktopFailed": "Die App konnte nicht verbunden werden. Schliessen Sie dieses Fenster und versuchen Sie es erneut aus der App."
+      }
+    },
+    "password": {
+      "working": "Einen Moment…",
+      "backToSignIn": "Zurueck zur Anmeldung",
+      "request": {
+        "title": "Passwort zuruecksetzen",
+        "lead": "Geben Sie Ihre E-Mail-Adresse ein. Wir senden Ihnen einen Link, um ein neues Passwort zu setzen.",
+        "email": "E-Mail-Adresse",
+        "submit": "Link senden",
+        "missingEmail": "Geben Sie die E-Mail-Adresse ein, die Sie fuer ONE verwenden.",
+        "failed": "Der Link konnte nicht gesendet werden. Versuchen Sie es gleich noch einmal.",
+        "sentTitle": "Sehen Sie in Ihr Postfach",
+        "sentBody": "Wenn es fuer diese Adresse ein Konto gibt, ist ein Link zum Setzen eines neuen Passworts unterwegs. Er funktioniert einmal und laeuft ab."
+      },
+      "set": {
+        "title": "Neues Passwort setzen",
+        "lead": "Waehlen Sie ein Passwort, das Sie hier noch nicht verwendet haben.",
+        "newPassword": "Neues Passwort",
+        "rule": "Mindestens {count} Zeichen.",
+        "submit": "Passwort speichern",
+        "tooShort": "Verwenden Sie mindestens {count} Zeichen.",
+        "linkExpired": "Dieser Link wurde bereits verwendet oder ist abgelaufen. Fordern Sie unten einen neuen an.",
+        "failed": "Das Passwort konnte nicht gesetzt werden. Versuchen Sie es gleich noch einmal.",
+        "doneTitle": "Ihr Passwort ist gesetzt",
+        "doneBody": "Sie koennen sich jetzt mit Ihrem neuen Passwort anmelden.",
+        "signIn": "Anmelden"
+      }
+    },
+    "confirmed": {
+      "title": "Ihre E-Mail-Adresse ist bestaetigt",
+      "body": "Vielen Dank. Sie koennen sich jetzt anmelden.",
+      "signIn": "Anmelden",
+      "workingTitle": "Einen Moment",
+      "workingBody": "Ihr Link wird geprueft.",
+      "failedTitle": "Dieser Link hat nicht funktioniert",
+      "failedBody": "Der Link wurde bereits verwendet oder ist abgelaufen. Fordern Sie auf der Anmeldeseite einen neuen an.",
+      "noToken": "Diese Adresse enthaelt nichts zum Bestaetigen. Oeffnen Sie den Link aus unserer E-Mail.",
+      "deletion": {
+        "doneTitle": "Die Loeschung Ihres Kontos ist bestaetigt",
+        "doneBody": "Ihr Konto und alle Inhalte darin werden entfernt. Von Ihnen ist nichts weiter noetig.",
+        "failedTitle": "Dieser Link hat nicht funktioniert",
+        "failedBody": "Die Loeschung konnte nicht bestaetigt werden. Der Link wurde moeglicherweise bereits verwendet oder ist abgelaufen.",
+        "signInTitle": "Zum Bestaetigen anmelden",
+        "signInBody": "Die Loeschung eines Kontos muss von der angemeldeten Person bestaetigt werden. Melden Sie sich an, dann wird dieser Link von selbst abgeschlossen."
+      }
     }
   }
 }
