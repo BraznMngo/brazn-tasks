@@ -526,13 +526,13 @@
       "passwordLength": "Votre mot de passe doit comporter entre {min} et {max} caractères.",
       "alreadyMember": {
         "title": "Vous avez déjà accès",
-        "body": "Vous faites déjà partie de cette organisation, il n’y avait donc rien à configurer. Connectez-vous avec le compte que vous avez déjà.",
-        "bodyNamed": "Vous faites déjà partie de {organizationName}, il n’y avait donc rien à configurer. Connectez-vous avec le compte que vous avez déjà.",
+        "body": "Vous êtes déjà membre de cette organisation, il n’y avait donc rien à configurer. Connectez-vous avec le compte que vous avez déjà.",
+        "bodyNamed": "Vous êtes déjà membre de {organizationName}, il n’y avait donc rien à configurer. Connectez-vous avec le compte que vous avez déjà.",
         "signIn": "Se connecter"
       },
       "teamUnavailable": {
         "title": "Votre compte est prêt",
-        "body": "Votre compte est créé et vous avez votre place dans l’organisation ; vous pouvez vous connecter. Les listes partagées ne vous sont pas encore rattachées. Votre administrateur peut terminer cette étape, et rien de ce que vous faites ici ne la changera.",
+        "body": "Votre compte est créé et vous êtes désormais membre de l’organisation ; vous pouvez vous connecter. Les listes partagées ne vous sont pas encore rattachées. Votre administrateur peut terminer cette étape, et rien de ce que vous faites ici ne la changera.",
         "signIn": "Se connecter"
       },
       "usernameTaken": "Ce nom d’utilisateur est déjà pris. Choisissez-en un autre."
@@ -598,11 +598,11 @@
         "body": "Demandez à votre administrateur d’ajouter une licence, puis de vous inviter à nouveau."
       },
       "accountExists": {
-        "title": "Ce compte existe déjà",
+        "title": "Nous n’avons pas pu créer votre compte",
         "body": "Ce compte existe déjà. Votre administrateur peut vous ajouter en tant qu’utilisateur existant."
       },
       "notInvitable": {
-        "title": "Cette adresse ne peut pas rejoindre l’organisation",
+        "title": "Cette adresse ne peut pas être invitée",
         "body": "Cette adresse appartient déjà à un autre compte. Votre administrateur peut vous ajouter en tant qu’utilisateur existant."
       },
       "linkExpired": {

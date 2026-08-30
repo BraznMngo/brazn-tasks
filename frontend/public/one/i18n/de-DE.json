@@ -526,13 +526,13 @@
       "passwordLength": "Dein Passwort muss zwischen {min} und {max} Zeichen lang sein.",
       "alreadyMember": {
         "title": "Du hast bereits Zugang",
-        "body": "Du gehörst bereits zu dieser Organisation, es war also nichts einzurichten. Melde dich mit deinem vorhandenen Konto an.",
-        "bodyNamed": "Du gehörst bereits zu {organizationName}, es war also nichts einzurichten. Melde dich mit deinem vorhandenen Konto an.",
+        "body": "Du bist bereits Mitglied dieser Organisation, es war also nichts einzurichten. Melde dich mit deinem vorhandenen Konto an.",
+        "bodyNamed": "Du bist bereits Mitglied von {organizationName}, es war also nichts einzurichten. Melde dich mit deinem vorhandenen Konto an.",
         "signIn": "Anmelden"
       },
       "teamUnavailable": {
         "title": "Dein Konto ist bereit",
-        "body": "Dein Konto ist eingerichtet und du gehörst zur Organisation; du kannst dich jetzt anmelden. Die gemeinsamen Listen sind noch nicht mit dir verbunden. Das kann dein Administrator abschließen — hier änderst du daran nichts.",
+        "body": "Dein Konto und deine Mitgliedschaft in der Organisation sind eingerichtet, und du kannst dich jetzt anmelden. Die gemeinsamen Listen sind noch nicht mit dir verbunden. Das kann dein Administrator abschließen — hier änderst du daran nichts.",
         "signIn": "Anmelden"
       },
       "usernameTaken": "Dieser Benutzername ist schon vergeben. Wähle einen anderen."
@@ -598,11 +598,11 @@
         "body": "Dein Administrator muss einen Sitzplatz hinzufügen und dich dann erneut einladen."
       },
       "accountExists": {
-        "title": "Dieses Konto gibt es bereits",
+        "title": "Dein Konto konnte nicht erstellt werden",
         "body": "Dieses Konto gibt es bereits. Dein Administrator kann dich stattdessen als bestehende:n Benutzer:in hinzufügen."
       },
       "notInvitable": {
-        "title": "Diese Adresse kann nicht beitreten",
+        "title": "Diese Adresse kann nicht eingeladen werden",
         "body": "Diese Adresse gehört bereits zu einem anderen Konto. Dein Administrator kann dich stattdessen als bestehende:n Benutzer:in hinzufügen."
       },
       "linkExpired": {

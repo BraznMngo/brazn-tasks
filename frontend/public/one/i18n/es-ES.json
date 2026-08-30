@@ -526,13 +526,13 @@
       "passwordLength": "La contraseña debe tener entre {min} y {max} caracteres.",
       "alreadyMember": {
         "title": "Ya tienes acceso",
-        "body": "Ya formas parte de esta organización, así que no había nada que configurar. Inicia sesión con la cuenta que ya tienes.",
-        "bodyNamed": "Ya formas parte de {organizationName}, así que no había nada que configurar. Inicia sesión con la cuenta que ya tienes.",
+        "body": "Ya eres miembro de esta organización, así que no había nada que configurar. Inicia sesión con la cuenta que ya tienes.",
+        "bodyNamed": "Ya eres miembro de {organizationName}, así que no había nada que configurar. Inicia sesión con la cuenta que ya tienes.",
         "signIn": "Iniciar sesión"
       },
       "teamUnavailable": {
         "title": "Tu cuenta está lista",
-        "body": "Tu cuenta y tu puesto en la organización ya están listos, y puedes iniciar sesión. Las listas compartidas todavía no están conectadas contigo. Eso lo puede terminar tu administrador, y nada de lo que hagas aquí lo cambiará.",
+        "body": "Tu cuenta está creada y ya eres miembro de la organización, así que puedes iniciar sesión. Las listas compartidas todavía no están conectadas contigo. Eso lo puede terminar tu administrador, y nada de lo que hagas aquí lo cambiará.",
         "signIn": "Iniciar sesión"
       },
       "usernameTaken": "Ese nombre de usuario ya está en uso. Elige otro."
@@ -598,11 +598,11 @@
         "body": "Pide a tu administrador que añada un puesto y que después vuelva a invitarte."
       },
       "accountExists": {
-        "title": "Esta cuenta ya existe",
+        "title": "No hemos podido crear tu cuenta",
         "body": "Esta cuenta ya existe. Pide a tu administrador que te añada como usuario existente."
       },
       "notInvitable": {
-        "title": "Esta dirección no puede unirse",
+        "title": "No se puede invitar a esta dirección",
         "body": "Esta dirección ya pertenece a otra cuenta. Pide a tu administrador que te añada como usuario existente."
       },
       "linkExpired": {

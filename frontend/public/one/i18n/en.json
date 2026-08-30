@@ -526,13 +526,13 @@
       "passwordLength": "Your password needs between {min} and {max} characters.",
       "alreadyMember": {
         "title": "You already have access",
-        "body": "You already hold a place in this organisation, so there was nothing to set up. Sign in with the account you already have.",
-        "bodyNamed": "You already hold a place in {organizationName}, so there was nothing to set up. Sign in with the account you already have.",
+        "body": "You are already a member of this organisation, so there was nothing to set up. Sign in with the account you already have.",
+        "bodyNamed": "You are already a member of {organizationName}, so there was nothing to set up. Sign in with the account you already have.",
         "signIn": "Sign in"
       },
       "teamUnavailable": {
         "title": "Your account is ready",
-        "body": "Your account and your place in the organisation are set up, and you can sign in now. The shared lists are not connected to you yet. Your administrator can finish that, and nothing you do here will change it.",
+        "body": "Your account and your membership of the organisation are set up, and you can sign in now. The shared lists are not connected to you yet. Your administrator can finish that, and nothing you do here will change it.",
         "signIn": "Sign in"
       },
       "usernameTaken": "This username is already taken. Choose another one."
@@ -598,11 +598,11 @@
         "body": "Ask your administrator to add a seat, and then to invite you again."
       },
       "accountExists": {
-        "title": "This account already exists",
+        "title": "We could not create your account",
         "body": "This account already exists. Please ask your administrator to add you as an existing user instead."
       },
       "notInvitable": {
-        "title": "This address cannot join",
+        "title": "This address cannot be invited",
         "body": "This address already belongs to another account. Ask your administrator to add you as an existing user instead."
       },
       "linkExpired": {
