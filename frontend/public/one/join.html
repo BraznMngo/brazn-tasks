@@ -7,19 +7,26 @@
 <title>ONE Tasks</title>
 <link rel="stylesheet" href="./one.css">
 </head>
-<!-- The invitation acceptance page (BRA-1439 Story 5). The email's link lands here as
-     /one/join.html?i=<invitation_id>#signup_token=<token> — the token rides the FRAGMENT as a
-     security property (never sent to any server; join.js stores and strips it on arrival).
+<!-- The invitation page (BRA-1475, rewriting BRA-1439 Story 5 in place — this is not a second
+     page beside the old one).
 
-     THE ROOT IS #join, NOT #app, AND THE DIFFERENCE IS LOAD-BEARING: join.js imports app.js for
-     the shared commercial-refusal describers, and app.js's boot() self-schedules on any document
-     carrying #app — this page must get join.js's own boot and nothing else.
+     The invitation email links here as /one/join.html?i=<invitation_id>#signup_token=<token>.
+     The handle is in the visible part of the address and the token is after the hash, so the
+     token reaches no log: no browser transmits a fragment to any server.
 
-     `hidden` is in the markup for task.html's reason: the shell stays invisible until the
-     catalogue has loaded and the page has rendered once, and a module that fails to load must
-     leave an invisible page rather than a wrong one. -->
+     THIS PAGE DOES NOTHING ON ITS OWN WHEN IT LOADS. It reads whether anybody is signed in and
+     asks the paid-account service what organisation and team the handle names. It never accepts,
+     consumes or submits anything by itself — which is precisely what the page it replaces did,
+     and why an administrator clicking an invitation they had just sent always failed.
+
+     THE ROOT IS #auth, NOT #app, and the difference is load-bearing: app.js's boot()
+     self-schedules on any document carrying #app, and this page must get join.js's own boot and
+     nothing else. This is the same reason the previous version used #join.
+
+     `hidden` is in the markup for settings.html's reason: a module that fails to load must leave
+     an invisible page rather than a wrong one. -->
 <body>
-<div class="stage hidden"><main class="window task-window" id="join"></main></div>
+<div class="auth-stage hidden"><main class="auth-card" id="auth"></main></div>
 <script type="module" src="./join.js"></script>
 </body>
 </html>

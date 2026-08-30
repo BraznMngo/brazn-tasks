@@ -1,86 +1,88 @@
 /**
- * join.js — the invitation acceptance page (BRA-1439 Story 5).
+ * join.js — the invitation page (BRA-1475, a rewrite in place of BRA-1439 Story 5).
  *
- * The invitation email links to `/one/join.html?i=<invitation_id>#signup_token=<token>` on this
- * host (the commercial half of BRA-1439 points `invitationLinkBase` here). This page's whole job
- * is the last mile: land the recipient, get them a session THROUGH THE FORK'S EXISTING SIGN-IN
- * FLOW, accept the invitation through `POST /v1/organizations/invitations/accept`, and put them
- * in the application.
+ * WHAT WAS WRONG WITH THE PAGE THIS REPLACES, because the shape of this file is
+ * the answer to it. The old page accepted the invitation the moment it loaded,
+ * using whoever happened to be signed in, without asking. For an administrator
+ * clicking an invitation they had just sent — the most common arrival — that
+ * always failed, because the seat was not theirs. For a person with no session
+ * it offered three buttons, and every one of them led into the old Vue
+ * application, where none could finish: the task server's registration route
+ * refuses everybody, and setting a password on an account nobody had made is
+ * not a way in.
  *
- * WHAT THIS FILE MAY DO — the same bars as the other view modules, restated because this page is
- * its own document with its own spine. It renders markup and calls api.js; it defines no route
- * and builds no URL itself (every address comes from an api.js export, bar 6); every commercial
- * result goes through `api.readCommercialResult`'s guard inside the api.js call and is worded
- * through app.js's shared describers (bar 8 — importing app.js is safe here because app.js is
- * import-time pure and its `boot()` self-schedules only on a document carrying `#app`, which
- * this page deliberately does not).
+ * SO THIS PAGE DOES NOTHING ON ITS OWN. On load it does exactly two things: it
+ * reads whether anybody is signed in, and it asks the paid-account service what
+ * organisation and team the handle in the address names. Neither consumes
+ * anything, neither spends the token, and neither takes a seat. Everything else
+ * happens when the person presses the one button.
  *
- * IT BUILDS NO SIGN-IN FORM (bar 4). A visitor without a session is handed off to the Vue app's
- * own pages — `/login` for a password or Google, `/get-password-reset` to set a password on the
- * account the commercial service already provisioned for them. A second credential surface is a
- * second thing to keep correct, and the lockout serves those routes for exactly this reason
- * (pkg/routes/static_brazn.go, restrictedUIAuthPaths).
+ * THE TWELVE-STEP JOURNEY, and which steps are this file's:
  *
- * THE FRAGMENT IS A SECURITY PROPERTY, NOT A STYLE. `#signup_token` rides the URL fragment
- * because no browser transmits a fragment to any server, so the token cannot land in an access
- * log, a proxy log or a Referer header. This page keeps that property: the token is read from
- * the fragment, stored for this tab only, and stripped from the address bar before anything
- * else happens — the same discipline, and THE SAME sessionStorage KEY, as the Vue helper
- * (frontend/src/helpers/signupToken.ts, STORAGE_KEY 'signupToken'), so the Vue app's own
- * register and Google flows find it after the hand-off without either bundle importing the
- * other (bar 1). Grep for the literal in that file before ever renaming it here.
+ *   1-2  the administrator invites, the mail arrives, the person presses its
+ *        button                                            (elsewhere, already live)
+ *   3    this page opens and does nothing on its own                    HERE
+ *   4    it asks for the organisation and team names                    HERE
+ *   5-6  one screen: a heading, one sentence, three fields, one button;
+ *        the address is filled in and cannot be changed                 HERE
+ *   7    the username, password and token go to the paid-account service HERE
+ *   8-10 the service checks the token, creates the account through the
+ *        private channel, spends the token, takes the seat, admits the
+ *        member and puts them on the task server's team    (the service's half)
+ *   11   the person is signed in                                        HERE
+ *   12   they land in the product with the team's lists visible          HERE
  *
- * THE RETURN LEG IS APP.JS'S. Signing in lands the person in the application, not back here —
- * the SPA's return-to mechanism cannot carry a static page (app.js explains this at its /login
- * hand-off). So before handing off, this page records the pending invitation under
- * `PENDING_JOIN_KEY` (localStorage, because the set-a-password path crosses tabs through an
- * email), and app.js's boot — which every ONE page runs — sends a freshly signed-in session
- * back here exactly once. This page CONSUMES the marker on every terminal outcome, so the
- * bounce cannot loop.
+ * STEP 11 CALLS THE SAME OPERATION THE SIGN-IN PAGE CALLS. `api.signIn` is the
+ * only sign-in operation in this product, which is the ticket's "do not build a
+ * second way to sign in". And there is NO SIGN-IN FORM HERE: a password form
+ * that CREATES the new account is wanted; a second place to sign in with
+ * existing credentials is not.
+ *
+ * EVERY WAY THIS FAILS ENDS ON THE GENERAL ERROR PAGE. An expired token, a
+ * withdrawn invitation, a full seat ceiling and an address that already has an
+ * account are all refusals the person cannot act on from a form, so they are
+ * told what happened and what to do next rather than being left looking at a
+ * button that will not work.
  */
 
 'use strict';
 
 import * as api from './api.js';
-import {t, init as initI18n} from './i18n.js';
-import {PENDING_JOIN_KEY, describeCommercialRefusal, refusalText} from './app.js';
+import {t} from './i18n.js';
+import {
+  bannerBlock,
+  brandBlock,
+  esc,
+  goToPage,
+  loadStrings,
+  renderAuth,
+  sendToErrorPage,
+  showError,
+  tx,
+} from './auth-shell.js';
 
 /* ------------------------------------------------------------------ *
- * 1. Local primitives (each view module carries its own — bar 1)
+ * 1. The fragment discipline
  * ------------------------------------------------------------------ */
 
-function esc(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
-function tx(key, params) {
-  return esc(t(key, params));
-}
-
-// Byte-for-byte frontend/src/helpers/signupToken.ts STORAGE_KEY — see the file
-// header for why the two files share the literal and cannot share a constant.
-// Hyphen-free and namespace-free on purpose: it is the Vue app's own key, and
-// it must not read like an i18n key to the fork-guards sweep (it does not — no
-// dot).
+// Byte-for-byte frontend/src/helpers/signupToken.ts STORAGE_KEY. The two files
+// are separate bundles that may not import each other, so there is no shared
+// constant and no test that would catch a drift — grep for the literal there
+// before renaming it here. Hyphen-free and namespace-free on purpose: it is the
+// Vue application's own key, and it must not read like an i18n key to the
+// fork-guards sweep.
 const SIGNUP_TOKEN_STORAGE_KEY = 'signupToken';
 const SIGNUP_TOKEN_FRAGMENT_KEY = 'signup_token';
 
 /* ------------------------------------------------------------------ *
- * 2. Pure parsing — exported for the unit tests (bar 9: stubbed-fetch
- *    and pure-function tests are the only automated evidence this page
- *    can have; /v1 is not reachable from CI)
+ * 2. Pure parsing
  * ------------------------------------------------------------------ */
 
 /**
- * The invitation id out of a query string, or null. Only `i` is read; the id
- * is opaque commercial-service text (`^[A-Za-z0-9_-]{1,64}$` is its shape over
- * there), and this page does not validate it beyond non-emptiness — a wrong id
- * is the service's refusal to make, not this page's guess.
+ * The invitation handle out of a query string, or null. Only `i` is read; the
+ * handle is opaque text belonging to the paid-account service, and this page
+ * does not validate it beyond non-emptiness — a wrong handle is that service's
+ * refusal to make, not this page's guess.
  */
 export function invitationIdFromSearch(search) {
   const value = new URLSearchParams(String(search ?? '').replace(/^\?/, '')).get('i');
@@ -108,243 +110,305 @@ export function signupTokenFromHash(hash) {
 }
 
 /**
- * Which of the acceptance's two affirmative outcomes happened. Both are
- * non-refusals and they are NOT the same sentence (api.js ACCEPT_INVITATION):
- * `admitted` seated the person just now; `already_member` means they held a
- * seat all along and nothing changed. A caller that has `result.ok === true`
- * must still branch here — rendering "you have joined" for a seat that was
- * always theirs is the fake-success direction bar 8 exists to prevent.
+ * Which refusal the service named, translated into one word the general error
+ * page recognises.
+ *
+ * IT FAILS CLOSED. An outcome this file has not read becomes the general
+ * refusal rather than being rendered as its own raw word, so a vocabulary the
+ * service grows later tells the reader something true and vague instead of
+ * something meaningless and specific.
  */
-export function acceptedOutcome(result) {
-  return result?.outcome === 'already_member' ? 'already-member' : 'accepted';
+export function refusalReason(result) {
+  switch (result?.outcome) {
+    case 'invitation_expired': return 'invitation-expired';
+    case 'invitation_revoked': return 'invitation-revoked';
+    case 'no_invitation': return 'invitation-unknown';
+    case 'at_seat_ceiling': return 'seats-full';
+    case 'account_exists': return 'account-exists';
+    case 'not_invitable': return 'not-invitable';
+    default: return 'invitation-failed';
+  }
 }
 
 /* ------------------------------------------------------------------ *
- * 3. Surfaces — pure markup from one state object, exported for tests
+ * 3. The two screens
  * ------------------------------------------------------------------ */
 
 /**
- * One function, five surfaces: `missing-link`, `choices` (no session yet),
- * `accepting`, `done` (with `outcome`), and `refused` (with `sentence`).
- * Every control is a `data-action` button; this page owns its own delegated
- * click listener because app.js's is installed only by its boot.
+ * THE INVITATION SCREEN: a heading, one sentence, three fields, one button.
+ *
+ * The body sentence is the ticket's, to be used as written: "You have been
+ * invited to join the {teamName} team of {organizationName} for ONE Personal
+ * Assistant." It lives in the catalogue with those two placeholders so it can be
+ * translated, and both values are escaped because they are names somebody typed
+ * into another system.
+ *
+ * THE ADDRESS IS FILLED IN AND LOCKED, because the token was issued for that
+ * address and no other. It is `readonly` rather than `disabled`: a disabled
+ * field is out of the tab order and unreadable to some assistive technology, so
+ * a person would be told nothing about the one field on the form they cannot
+ * change.
+ *
+ * The empty error box is not a sixth element on the screen — it is `:empty` and
+ * therefore invisible, and it exists so a person who presses the button with a
+ * field blank is told so rather than watching nothing happen. Every refusal the
+ * SERVICE makes leaves this page for the general error page instead.
  */
-export function joinSurface(state) {
-  const kind = state?.kind ?? 'missing-link';
-
-  if (kind === 'missing-link') {
-    return `<div class="settings-section"><div class="card settings-card wide">
-      <h2>${tx('one.join.title')}</h2>
-      <p class="card-sub">${tx('one.join.missingLink')}</p>
-    </div></div>`;
-  }
-
-  if (kind === 'choices') {
-    // BRA-1469 Done-when #2: every control must lead somewhere that can finish.
-    // No credential form here (must-not). Create account → Vue /register, which
-    // keeps the sessionStorage signup token join.js already captured.
-    const hasToken = state?.hasSignupToken === true;
-    const explain = hasToken ? tx('one.join.explainWithToken') : tx('one.join.explain');
-    return `<div class="settings-section"><div class="card settings-card wide">
-      <h2>${tx('one.join.title')}</h2>
-      <p class="card-sub">${tx('one.join.lead')}</p>
-      <p class="help">${explain}</p>
-      <div class="profile-actions" style="flex-wrap:wrap;gap:8px">
-        ${hasToken
-          ? `<button class="btn primary" data-action="join-create-account">${tx('one.join.createAccount')}</button>
-        <button class="btn" data-action="join-signin">${tx('one.join.signIn')}</button>`
-          : `<button class="btn primary" data-action="join-signin">${tx('one.join.signIn')}</button>
-        <button class="btn" data-action="join-create-account">${tx('one.join.createAccount')}</button>`}
-        <button class="btn" data-action="join-set-password">${tx('one.join.setPassword')}</button>
+export function invitationSurface(state) {
+  return `${brandBlock()}
+    <h1 class="auth-title">${tx('one.join.title')}</h1>
+    <p class="auth-lead">${tx('one.join.lead', {
+      teamName: state.teamName ?? '',
+      organizationName: state.organizationName ?? '',
+    })}</p>
+    ${bannerBlock()}
+    <form class="auth-form" id="joinForm" novalidate>
+      <div class="auth-field">
+        <label for="email">${tx('one.join.email')}</label>
+        <input id="email" name="email" type="email" value="${esc(state.invitedEmail ?? '')}"
+          readonly aria-describedby="emailLocked" autocomplete="email">
+        <p class="auth-note" id="emailLocked">${tx('one.join.emailLocked')}</p>
       </div>
-      <p class="help">${tx('one.join.setPasswordHint')}</p>
-    </div></div>`;
-  }
-
-  if (kind === 'accepting') {
-    return `<div class="settings-section"><div class="card settings-card wide">
-      <h2>${tx('one.join.title')}</h2>
-      <p class="card-sub">${tx('one.join.accepting')}</p>
-    </div></div>`;
-  }
-
-  if (kind === 'done') {
-    const sentence = state.outcome === 'already-member'
-      ? tx('one.join.alreadyMember')
-      : tx('one.join.accepted');
-    return `<div class="settings-section"><div class="card settings-card wide">
-      <h2>${tx('one.join.title')}</h2>
-      <p class="card-sub">${sentence}</p>
-      <div class="profile-actions">
-        <button class="btn primary" data-action="join-open-app">${tx('one.join.openApp')}</button>
+      <div class="auth-field">
+        <label for="username">${tx('one.join.username')}</label>
+        <input id="username" name="username" type="text" autocomplete="username"
+          autocapitalize="none" spellcheck="false" value="${esc(state.username ?? '')}" required>
       </div>
-    </div></div>`;
-  }
+      <div class="auth-field">
+        <label for="password">${tx('one.join.password')}</label>
+        <p class="auth-rule">${tx('one.join.passwordRule')}</p>
+        <input id="password" name="password" type="password" autocomplete="new-password"
+          minlength="8" required>
+      </div>
+      <button type="submit" class="auth-submit" ${state.phase === 'working' ? 'disabled' : ''}>
+        ${state.phase === 'working' ? tx('one.join.working') : tx('one.join.submit')}
+      </button>
+    </form>`;
+}
 
-  // `refused`. The sentence is the service's own words or the shared
-  // describers' key, already resolved by the caller — never a status code.
-  return `<div class="settings-section"><div class="card settings-card wide">
-    <h2>${tx('one.join.title')}</h2>
-    <p class="card-sub">${tx('one.join.refusedLead')}</p>
-    <p class="help">${esc(state?.sentence ?? '')}</p>
-    <div class="profile-actions" style="flex-wrap:wrap;gap:8px">
-      <button class="btn" data-action="join-retry">${tx('organization.retry')}</button>
-      <button class="btn" data-action="join-open-app">${tx('one.join.openApp')}</button>
-    </div>
-  </div></div>`;
+/**
+ * THE ONE OTHER SCREEN: somebody else is signed in on this browser.
+ *
+ * This is what an administrator sees when they click an invitation they have
+ * just sent, which is the most common arrival of all. Both sentences are the
+ * ticket's, to be used as written, and the invitation survives signing out —
+ * nothing here consumes it, so pressing the button and coming back lands on the
+ * form above.
+ */
+export function signedInElsewhereSurface() {
+  return `${brandBlock()}
+    <div class="auth-result">
+      <h1 class="auth-title">${tx('one.join.otherAccount.title')}</h1>
+      <p>${tx('one.join.otherAccount.body')}</p>
+      ${bannerBlock()}
+      <button type="button" class="auth-submit" data-action="join-logout">${tx('one.join.otherAccount.logout')}</button>
+    </div>`;
+}
+
+/** The link carried no handle at all — there is nothing to look up and nothing to join. */
+export function missingLinkSurface() {
+  return `${brandBlock()}
+    <div class="auth-result">
+      <h1 class="auth-title">${tx('one.join.missingLink.title')}</h1>
+      <p>${tx('one.join.missingLink.body')}</p>
+    </div>`;
 }
 
 /* ------------------------------------------------------------------ *
  * 4. The impure spine
  * ------------------------------------------------------------------ */
 
-function render(state) {
-  const root = document.getElementById('join');
-  if (root === null) return;
-  root.innerHTML = joinSurface(state);
-  document.querySelector('.stage')?.classList.remove('hidden');
-}
+const state = {
+  phase: 'reading',
+  invitationId: null,
+  signupToken: null,
+  organizationName: null,
+  teamName: null,
+  invitedEmail: null,
+  username: '',
+};
 
 /**
  * Capture the fragment token for this tab, then strip it from the address bar
  * and history — but ONLY once it is stored: with storage unusable (private
  * modes, policy), the fragment is left in place, because it is the only copy
- * and it still travels intact through a same-tab hand-off to the Vue pages.
+ * this page has.
  */
 function captureSignupToken() {
-  const token = signupTokenFromHash(location.hash);
-  if (token === null) return;
-  try {
-    sessionStorage.setItem(SIGNUP_TOKEN_STORAGE_KEY, token);
-    history.replaceState(history.state, '', location.pathname + location.search);
-  } catch {
-    // Storage refused; the token stays in the fragment on purpose.
-  }
-}
-
-/** Remember the invitation for app.js's one-shot return leg. Failing is survivable: */
-/** the person can still open the email link again after signing in. */
-function writePendingJoin(invitationId) {
-  try {
-    localStorage.setItem(PENDING_JOIN_KEY, JSON.stringify({i: invitationId, at: Date.now()}));
-  } catch {
-    console.warn('[one/join] could not remember the invitation for after sign-in');
-  }
-}
-
-function clearPendingJoin() {
-  try {
-    localStorage.removeItem(PENDING_JOIN_KEY);
-  } catch {
-    // Nothing to do; the marker expires on its own (app.js pendingJoinRedirect).
-  }
-}
-
-async function accept(invitationId) {
-  render({kind: 'accepting'});
-
-  let result;
-  try {
-    result = await api.acceptOrganizationInvitation({invitation_id: invitationId});
-  } catch (err) {
-    if (err instanceof api.SessionLostError) {
-      // The session died between the refresh and the call: back to the
-      // choices, with the pending marker intact for the round trip.
-      writePendingJoin(invitationId);
-      render({kind: 'choices'});
-      return;
+  const fromHash = signupTokenFromHash(location.hash);
+  if (fromHash !== null) {
+    try {
+      sessionStorage.setItem(SIGNUP_TOKEN_STORAGE_KEY, fromHash);
+      history.replaceState(history.state, '', location.pathname + location.search);
+    } catch {
+      // Storage refused; the token stays in the fragment on purpose.
     }
-    throw err;
+    return fromHash;
   }
-
-  // A terminal answer either way, so the return-leg marker has done its job:
-  // consuming it here is what bounds app.js's bounce at one.
-  clearPendingJoin();
-
-  if (!result.ok) {
-    render({kind: 'refused', sentence: refusalText(describeCommercialRefusal(result))});
-    return;
+  try {
+    const stored = sessionStorage.getItem(SIGNUP_TOKEN_STORAGE_KEY);
+    return stored === null || stored === '' ? null : stored;
+  } catch {
+    return null;
   }
+}
 
-  // The token is spent conceptually once the person is seated; keeping it
-  // would only offer a stale value to the next flow on a shared machine.
+function forgetSignupToken() {
   try {
     sessionStorage.removeItem(SIGNUP_TOKEN_STORAGE_KEY);
   } catch {
     // Best effort; it dies with the tab regardless.
   }
-  render({kind: 'done', outcome: acceptedOutcome(result)});
 }
 
-function installClickListener(invitationId) {
+/**
+ * STEP 7 TO 12. One press, and this is the only thing on the page that writes
+ * anything anywhere.
+ */
+async function submitInvitation(form) {
+  const data = new FormData(form);
+  const username = String(data.get('username') ?? '').trim();
+  const password = String(data.get('password') ?? '');
+  state.username = username;
+
+  if (username === '' || password === '') {
+    showError(t('one.join.missingFields'));
+    return;
+  }
+
+  state.phase = 'working';
+  render();
+  showError(null);
+
+  const result = await api.completeOrganizationInvitation({
+    invitationId: state.invitationId,
+    signupToken: state.signupToken,
+    username,
+    password,
+  });
+
+  if (!result.ok) {
+    // The person cannot act on any of these from this form, so they are told
+    // what happened and what to do next on the page that exists for it.
+    sendToErrorPage(refusalReason(result), result.message);
+    return;
+  }
+
+  // The token is spent on the service's side now; dropping our copy stops a
+  // stale value being offered by the next flow on a shared machine.
+  forgetSignupToken();
+
+  // STEP 11, THROUGH THE PRODUCT'S ONE SIGN-IN OPERATION. A failure here is not
+  // the same as a failed acceptance and must not be reported as one: the seat
+  // is taken and the account exists, so the person needs the sign-in page
+  // rather than the error page.
+  try {
+    await api.signIn({username, password});
+  } catch {
+    goToPage('signin');
+    return;
+  }
+
+  // STEP 12. The settings page is where the lockout lands everybody, and the
+  // team's shared lists are visible from there.
+  goToPage('settings');
+}
+
+/**
+ * Sign the other person out and come back to this same address.
+ *
+ * `location.reload()` rather than a navigation, so the query keeps the handle
+ * and this page re-runs its own boot. The invitation is untouched by any of it.
+ */
+async function signOutAndReturn() {
+  showError(null);
+  let providerLogout = null;
+  try {
+    providerLogout = await api.signOut();
+  } catch {
+    // The local session is dropped by `signOut` whatever the server answered,
+    // so reloading still lands on the invitation form.
+  }
+  if (providerLogout !== null) {
+    location.assign(providerLogout);
+    return;
+  }
+  location.reload();
+}
+
+function render() {
+  if (state.phase === 'missing-link') {
+    renderAuth(missingLinkSurface());
+    return;
+  }
+  if (state.phase === 'signed-in-elsewhere') {
+    renderAuth(signedInElsewhereSurface());
+    return;
+  }
+  renderAuth(invitationSurface(state));
+  const first = document.getElementById('username');
+  if (first instanceof HTMLElement && state.phase !== 'working') first.focus();
+}
+
+function installListeners() {
+  document.addEventListener('submit', (event) => {
+    if (!(event.target instanceof HTMLFormElement) || event.target.id !== 'joinForm') return;
+    event.preventDefault();
+    submitInvitation(event.target);
+  });
   document.addEventListener('click', (event) => {
     const el = event.target instanceof Element ? event.target.closest('[data-action]') : null;
-    if (el === null) return;
-    const action = el.getAttribute('data-action');
-
-    // Every hand-off is person-initiated — one hop per press, never a chain —
-    // which is what keeps this page out of the redirect-loop territory app.js
-    // has to manage for its automatic hand-off.
-    if (action === 'join-signin') {
-      if (invitationId !== null) writePendingJoin(invitationId);
-      location.assign(api.forkAppUrl('login'));
-    } else if (action === 'join-create-account') {
-      // Token is already in sessionStorage (captureSignupToken). /register's
-      // beforeEnter reads getSignupToken via readSignupTokenFromFragment and
-      // keeps the form when a token is present (BRA-1444 / accountCreationRedirect).
-      if (invitationId !== null) writePendingJoin(invitationId);
-      location.assign(api.forkAppUrl('register'));
-    } else if (action === 'join-set-password') {
-      if (invitationId !== null) writePendingJoin(invitationId);
-      location.assign(api.forkAppUrl('get-password-reset'));
-    } else if (action === 'join-open-app') {
-      // The root: under the restricted-UI lockout it lands on the ONE pages,
-      // and without it on the full application. Both are "inside".
-      location.assign(api.forkAppUrl(''));
-    } else if (action === 'join-retry') {
-      location.reload();
-    }
+    if (el === null || el.getAttribute('data-action') !== 'join-logout') return;
+    event.preventDefault();
+    signOutAndReturn();
   });
 }
 
 export async function boot() {
   if (typeof document === 'undefined') return;
 
-  captureSignupToken();
-  const invitationId = invitationIdFromSearch(location.search);
-  installClickListener(invitationId);
+  installListeners();
+  await loadStrings();
 
-  // No user preference exists before a session, so negotiate from the browser
-  // alone — the same rule as app.js's ensureStrings. A failed catalogue still
-  // renders: t() falls back to the key path, which beats a blank page.
-  try {
-    await initI18n(null, typeof navigator !== 'undefined' ? navigator.languages : []);
-  } catch (err) {
-    console.error('[one/join] no string catalogue could be loaded', err);
-  }
+  state.signupToken = captureSignupToken();
+  state.invitationId = invitationIdFromSearch(location.search);
 
-  if (invitationId === null) {
-    render({kind: 'missing-link'});
+  if (state.invitationId === null) {
+    state.phase = 'missing-link';
+    render();
     return;
   }
 
-  if (!await api.initSession()) {
-    writePendingJoin(invitationId);
-    let hasSignupToken = false;
-    try {
-      hasSignupToken = Boolean(sessionStorage.getItem(SIGNUP_TOKEN_STORAGE_KEY));
-    } catch {
-      hasSignupToken = Boolean(signupTokenFromHash(location.hash));
-    }
-    render({kind: 'choices', hasSignupToken});
+  // STEP 3: read whether anybody is signed in, and do nothing else with the
+  // answer. A session belonging to somebody else is the administrator case, and
+  // it gets its own screen rather than a silent failure.
+  if (await api.initSession()) {
+    state.phase = 'signed-in-elsewhere';
+    render();
     return;
   }
 
-  await accept(invitationId);
+  // STEP 4: what organisation and team does this handle name? A read, with no
+  // session, whose credential is the token. Nothing is consumed.
+  const preview = await api.previewOrganizationInvitation({
+    invitationId: state.invitationId,
+    signupToken: state.signupToken,
+  });
+  if (!preview.ok) {
+    sendToErrorPage(refusalReason(preview), preview.message);
+    return;
+  }
+
+  const details = api.readInvitationPreview(preview);
+  state.organizationName = details.organizationName;
+  state.teamName = details.teamName;
+  state.invitedEmail = details.invitedEmail;
+  state.phase = 'form';
+  render();
 }
 
-/* Boot only on the real page. A unit test importing the pure functions has no
- * `#join` in its document and gets no fetch, no storage and no render. */
-if (typeof document !== 'undefined' && document.getElementById('join') !== null) {
+/* Boot only on the real page. A test importing the pure functions has no
+ * `#auth` in its document and gets no fetch, no storage and no render. */
+if (typeof document !== 'undefined' && document.getElementById('auth') !== null) {
   queueMicrotask(() => {boot();});
 }

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Brand name, not translated copy — the same reasoning as task.html and settings.html. -->
+<title>ONE Tasks</title>
+<link rel="stylesheet" href="./one.css">
+</head>
+<!-- The general error page (BRA-1475). It is GIVEN its heading and body by whoever sends
+     somebody to it, and defines exactly one sentence of its own — the one for an address that
+     already has an account.
+
+     It exists because the two databases behind this product cannot commit together: the account
+     lives on the task server and the seat on the paid-account service. The worst outcome is an
+     account without its seat, which an administrator resolves by inviting the person again.
+     Nobody is told when that happens today. This is where they are told.
+
+     THE ROOT IS #auth, NOT #app. `hidden` is in the markup so a module that fails to load leaves
+     an invisible page rather than a wrong one. -->
+<body>
+<div class="auth-stage hidden"><main class="auth-card" id="auth"></main></div>
+<script type="module" src="./error.js"></script>
+</body>
+</html>

@@ -283,7 +283,17 @@ export function isSessionLost() {
 
 /**
  * Observe the terminal no-session state. `app.js` uses this to hand off to the
- * fork's existing login route (bar 4 — do not build a login page here).
+ * sign-in page.
+ *
+ * THE HAND-OFF USED TO LEAVE THIS FRONT END, AND IT NO LONGER MAY. This comment
+ * previously read "the fork's existing login route (bar 4 — do not build a login
+ * page here)", and BRA-1475 made that sentence false rather than merely dated:
+ * the sign-in form was part of the old Vue application, so handing anybody to it
+ * served the whole of that application, including all twelve of its settings
+ * pages. `/one/signin.html` is now the sign-in page, `pages.js` is the only
+ * place a destination is built, and the hole in the site-wide lockout that this
+ * hand-off relied on is closed. Corrected here rather than deleted, because the
+ * bar it cites is the reason somebody would re-derive the old answer.
  *
  * A listener registered after the state was already reached is invoked
  * immediately: `initSession()` can fail before `app.js` has finished wiring,
@@ -372,6 +382,199 @@ async function performRefresh() {
 export async function initSession() {
   const token = await refreshSession();
   return token !== null;
+}
+
+/* ------------------------------------------------------------------ *
+ * 4b. Opening and closing a session (BRA-1475)
+ * ------------------------------------------------------------------ *
+ *
+ * Everything above this point assumes a session already exists and turns the
+ * HttpOnly refresh cookie into a bearer. These five calls are what a SIGNED-OUT
+ * person needs, and until BRA-1475 none of them was here because the sign-in
+ * form belonged to the old Vue application. See the corrected note on
+ * `onSessionLost`.
+ *
+ * ALL OF THEM ARE UNAUTHENTICATED BY CONSTRUCTION and go through `rawFetch`
+ * rather than `authedFetch`: there is no bearer to attach, and a 401 from any
+ * of them is the server's answer rather than an expired token, so the
+ * refresh-and-retry path above would turn a wrong password into a session-lost
+ * state. `credentials: 'same-origin'` is what lets the server SET the refresh
+ * cookie on the way back, which is the whole mechanism the rest of this file
+ * depends on.
+ *
+ * v1, and only v1, for `performRefresh`'s reason: the refresh cookie's Path is
+ * hardcoded to `/api/v1/user/token/refresh`, so a session opened anywhere else
+ * would be one the browser could never renew.
+ */
+
+async function unauthedPost(url, payload) {
+  const res = await rawFetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+    body: JSON.stringify(payload ?? {}),
+  });
+  return expectOk(res, url);
+}
+
+/**
+ * POST /api/v1/login — the ONE way to open a session (the ticket's "do not
+ * build a second way to sign in"; the invitation page's completion goes through
+ * this same function once the account exists).
+ *
+ * `username` accepts an email address as well as a username: `resolveLoginUser`
+ * falls through to `user.CheckUserCredentials`, which looks up either
+ * (`pkg/user/user.go`). So the field is one field and the page must not offer
+ * two.
+ *
+ * `totp_passcode` IS A FOLLOW-UP AND NOT A REJECTION. The server answers 412
+ * with code 1017 when the account has a second factor and no passcode arrived
+ * (`ErrCodeInvalidTOTPPasscode`, pkg/user/error.go:394), and the correct
+ * response is to ask for the passcode and call this again — treating it as a
+ * failure locks out everybody who has a second factor. The distinct answer for
+ * an unconfirmed address is 412 with code 1012 (`ErrCodeEmailNotConfirmed`,
+ * :273). Both arrive as a `ForkError` carrying `.code`, which is why that field
+ * exists.
+ *
+ * `long_token` is NOT passed and there is no remember-me control: the ticket
+ * forbids one, and a control nothing honours is worse than none.
+ *
+ * On success the response body is `{token}` and the refresh cookie has been
+ * set, so the token is adopted here and every later call on this page is
+ * authenticated without a second round trip.
+ */
+export async function signIn({username, password, totpPasscode = ''}) {
+  const body = await unauthedPost(forkV1Url('login'), {
+    username: String(username ?? ''),
+    password: String(password ?? ''),
+    totp_passcode: String(totpPasscode ?? ''),
+  });
+  const token = body && typeof body.token === 'string' ? body.token : null;
+  if (token === null) throw assertion('login-response-carried-no-token');
+  sessionLost = false;
+  setToken(token);
+  return token;
+}
+
+/**
+ * POST /api/v1/auth/openid/{provider}/callback — the Google return leg.
+ *
+ * `redirect_url` must be the SAME string that started the round trip, because
+ * `exchangeOidcTokens` sets the provider's OAuth2 redirect_url from this field
+ * before exchanging the code and Google refuses an exchange that does not
+ * match. `buildOpenIdAuthorizeUrl` composes it from `forkAppUrl`, so both ends
+ * derive it from one place.
+ *
+ * The two refusals this can produce are the ticket's two Google sentences, and
+ * they are Go string literals in `pkg/modules/auth/openid/openid.go`, not
+ * catalogue values — they arrive as the server's own sentence and are rendered
+ * verbatim (ruling C4).
+ */
+export async function completeOpenIdSignIn(providerKey, {code, redirectUrl, totpPasscode = ''}) {
+  const body = await unauthedPost(forkV1Url(`auth/openid/${encodeURIComponent(providerKey)}/callback`), {
+    code: String(code ?? ''),
+    redirect_url: String(redirectUrl ?? ''),
+    totp_passcode: String(totpPasscode ?? ''),
+  });
+  const token = body && typeof body.token === 'string' ? body.token : null;
+  if (token === null) throw assertion('openid-response-carried-no-token');
+  sessionLost = false;
+  setToken(token);
+  return token;
+}
+
+/**
+ * POST /api/v1/user/logout — end the session on the server and clear the
+ * refresh cookie.
+ *
+ * The server answers `{message, oidc_logout_url}`; the second field is present
+ * only for a session opened through an identity provider and is where the
+ * caller should send the browser so the provider's own session ends too
+ * (pkg/routes/api/v1/login.go, LogoutResponse).
+ *
+ * The local session is dropped WHATEVER the server answers. A logout that
+ * failed on the server still has to leave this tab without a token, or the
+ * person presses the control, sees nothing change, and is still signed in.
+ */
+export async function signOut() {
+  let body = null;
+  try {
+    body = await forkSend('POST', forkV1Url('user/logout'));
+  } finally {
+    accessToken = null;
+    sessionLost = true;
+    refreshInFlight = null;
+  }
+  return typeof body?.oidc_logout_url === 'string' && body.oidc_logout_url !== ''
+    ? body.oidc_logout_url
+    : null;
+}
+
+/**
+ * POST /api/v1/user/password/token — ask for a reset link.
+ *
+ * THE ANSWER IS THE SAME WHETHER OR NOT AN ACCOUNT EXISTS, and that is the
+ * published contract rather than an accident: `RequestUserPasswordResetTokenByEmail`
+ * returns nil for an address with no account and for a disabled one
+ * (pkg/user/user_password_reset.go), because answering differently turned an
+ * endpoint needing no credentials into a way of sorting a list of addresses
+ * into customers and non-customers. The page must therefore render one sentence
+ * for both, and must not report "no such account".
+ */
+export function requestPasswordReset(email) {
+  return unauthedPost(forkV1Url('user/password/token'), {email: String(email ?? '')});
+}
+
+/**
+ * POST /api/v1/user/password/reset — set the new password with a mailed token.
+ *
+ * A spent, unknown or expired token is 412 with code 1009
+ * (`ErrCodeInvalidPasswordResetToken`). Completing this also marks an account
+ * active when it was locked or awaiting confirmation
+ * (pkg/user/user_password_reset.go), which is why the page can send somebody
+ * straight to sign in afterwards.
+ */
+export function setNewPassword(token, newPassword) {
+  return unauthedPost(forkV1Url('user/password/reset'), {
+    token: String(token ?? ''),
+    new_password: String(newPassword ?? ''),
+  });
+}
+
+/** POST /api/v1/user/confirm — spend an email-confirmation token. */
+export function confirmEmailAddress(token) {
+  return unauthedPost(forkV1Url('user/confirm'), {token: String(token ?? '')});
+}
+
+/**
+ * POST /api/v1/oauth/authorize — THE DESKTOP APPLICATION'S DESTINATION.
+ *
+ * THIS IS THE ONE THE WEB SIDE WOULD NEVER REPORT. A desktop application opens
+ * `/oauth/authorize` in a browser carrying five parameters; once a session
+ * exists, this call exchanges them for a one-time code and the browser is sent
+ * to the application's own address with that code attached. Nothing on this
+ * site observes whether that worked — the evidence is a desktop application
+ * connecting — so the shape here is taken verbatim from the page it replaces
+ * (`frontend/src/views/user/OAuthAuthorize.vue`), field for field, including
+ * `state` being passed through unchanged and omitted from the return address
+ * when the client sent none.
+ *
+ * AUTHENTICATED, unlike everything else in this block: the route is registered
+ * on the authenticated group (`pkg/routes/routes.go`, `a.POST("/oauth/authorize")`),
+ * so it goes through `authedFetch` and its refresh-once behaviour like any other
+ * signed-in call.
+ *
+ * Answers `{code, redirect_uri, state}`.
+ */
+export function authorizeDesktopClient(params) {
+  return forkSend('POST', forkV1Url('oauth/authorize'), {
+    response_type: params.response_type,
+    client_id: params.client_id,
+    redirect_uri: params.redirect_uri,
+    state: params.state,
+    code_challenge: params.code_challenge,
+    code_challenge_method: params.code_challenge_method,
+  });
 }
 
 function authInit(init) {
@@ -926,6 +1129,64 @@ export const COMMERCIAL_OPS = Object.freeze({
    * commercial call that forgets its descriptor fails visibly and closed rather
    * than inheriting somebody else's vocabulary.
    */
+  /**
+   * POST /v1/organizations/invitations/preview — BRA-1475, step 4 of the
+   * twelve-step journey: "the page asks for the organisation and team names
+   * behind the invitation handle."
+   *
+   * THE CALLER HAS NO SESSION, and that is the whole point of the route: an
+   * invited person has no account yet, so there is no bearer to present. The
+   * credential is the signup token in the link's fragment, which the service
+   * already holds stamped with the invited address (`mintSignupToken`,
+   * `invited_email`). It is submitted in the BODY of a POST rather than in a
+   * query, so it stays out of every access log the way the fragment placement
+   * intends.
+   *
+   * `invitation_open` is the single affirmative: the invitation exists, is
+   * live, and the token presented was issued for it. Everything else — spent,
+   * expired, withdrawn, an address that already has an account — is a refusal
+   * that the general error page words. Nothing is consumed by this call; it is
+   * a read, and the ticket's step 3 requires the page to consume nothing on
+   * its own.
+   *
+   * IT NAMES NOBODY. The answer carries the organisation name, the team name
+   * and the address the token was stamped for — the address the reader already
+   * has, quoted back so they can see the field is locked for a reason. It is
+   * not a lookup that answers questions about people
+   * (`docs/Brazn-Tasks-Rules.md` §5.1): there is one invitation, the token is
+   * the key to it, and nothing else can be asked.
+   *
+   * THE SERVICE HALF OF THIS ROUTE IS SOMEBODY ELSE'S CHANGE. If the two do not
+   * agree on the path, the field names or the outcome word, this page refuses
+   * every invitation and says the service declined — which is what the
+   * fail-closed guard is for, but it is not a working journey. See this
+   * change's report.
+   */
+  PREVIEW_INVITATION: commercialOp(OUTCOME_REQUIRED, ['invitation_open']),
+
+  /**
+   * POST /v1/organizations/invitations/completion — BRA-1475, steps 7 to 10.
+   *
+   * The one button on the invitation page. The browser submits the username,
+   * the password and the token to the paid-account service, in the direction
+   * every account in production was made through, and the service does the
+   * rest: checks the token is live and stamped for this address and refuses
+   * without spending it if either fails; creates the account on the task server
+   * through the private channel it already uses for every trial, with the
+   * address already confirmed; spends the token; takes the seat; admits the
+   * member; and puts them on the task server's team.
+   *
+   * `completed` is the affirmative. `already_member` is affirmative here for
+   * the same reason it is on the acceptance route: the goal state holds. The
+   * caller MUST still branch on `result.outcome`, because "your account has
+   * been created" is a false sentence for somebody who already had one.
+   *
+   * AFTER THIS, THE PAGE SIGNS THE PERSON IN WITH `signIn` — the same operation
+   * the sign-in page calls, which is the ticket's "do not build a second way to
+   * sign in". This route therefore returns no token and this page expects none.
+   */
+  COMPLETE_INVITATION: commercialOp(OUTCOME_REQUIRED, ['completed', 'already_member']),
+
   UNKNOWN: commercialOp(OUTCOME_REQUIRED),
 });
 
@@ -1405,6 +1666,48 @@ function commercialPost(path, op, payload) {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(payload ?? {}),
   }, op);
+}
+
+/**
+ * A commercial POST from a browser with NO SESSION, for the invitation page's
+ * two calls and for nothing else.
+ *
+ * IT CANNOT GO THROUGH `commercialFetch`, and the reason is not tidiness. That
+ * function's first statement throws `SessionLostError` when `sessionLost` is
+ * set, and the invitation page sets it on purpose: step 3 has the page read
+ * whether anybody is signed in, and on a fresh browser `initSession()` finds no
+ * refresh cookie and marks the state terminal. Every commercial call after that
+ * would throw before reaching the network, so an invited person with no account
+ * — which is every invited person — would see the page fail rather than the
+ * form they came for.
+ *
+ * No bearer is attached and none is expected: the credential these two routes
+ * accept is the signup token inside the payload. `credentials: 'same-origin'`
+ * is kept so a browser that DOES hold a session cookie is not treated as a
+ * different visitor by the service's own rate limiter; the token still decides.
+ *
+ * The try/catch and the refusal shape are `commercialRequest`'s, byte for byte,
+ * so a transport failure resolves to `COMMERCIAL_REFUSAL.NETWORK` here too
+ * rather than rejecting into a caller with no `try`.
+ */
+async function commercialPostWithoutSession(path, op, payload) {
+  const url = commercialV1Url(path);
+  let res;
+  try {
+    res = await rawFetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+      body: JSON.stringify(payload ?? {}),
+    });
+  } catch (err) {
+    if (err !== null && typeof err === 'object' && err.name === 'ApiAssertionError') throw err;
+    return {
+      status: 0, ok: false, body: null, message: null, outcome: null,
+      reason: COMMERCIAL_REFUSAL.NETWORK,
+    };
+  }
+  return readCommercialResult(res, op);
 }
 
 /* ------------------------------------------------------------------ *
@@ -2556,6 +2859,64 @@ export function listOrganizationInvitations(organizationId) {
  */
 export function acceptOrganizationInvitation(body) {
   return commercialPost('organizations/invitations/accept', COMMERCIAL_OPS.ACCEPT_INVITATION, body);
+}
+
+/**
+ * POST /v1/organizations/invitations/preview — read the organisation and team
+ * behind an invitation handle, with no session (BRA-1475 step 4).
+ *
+ * Body: `{invitation_id, signup_token}`. Nothing is consumed.
+ */
+export function previewOrganizationInvitation({invitationId, signupToken}) {
+  return commercialPostWithoutSession(
+    'organizations/invitations/preview',
+    COMMERCIAL_OPS.PREVIEW_INVITATION,
+    {invitation_id: String(invitationId ?? ''), signup_token: String(signupToken ?? '')},
+  );
+}
+
+/**
+ * POST /v1/organizations/invitations/completion — create the account, spend the
+ * token, take the seat, admit the member and put them on the team, in one call
+ * with no session (BRA-1475 steps 7 to 10).
+ *
+ * Body: `{invitation_id, signup_token, username, password}`. THE EMAIL ADDRESS
+ * IS NOT SENT and must not be: the token already carries the address it was
+ * stamped for, and a page that submitted one would be offering the service a
+ * second, weaker, way to decide who this is — which is the ticket's "do not
+ * accept an invitation by matching the email address instead of the recorded
+ * identity", one layer up.
+ */
+export function completeOrganizationInvitation({invitationId, signupToken, username, password}) {
+  return commercialPostWithoutSession(
+    'organizations/invitations/completion',
+    COMMERCIAL_OPS.COMPLETE_INVITATION,
+    {
+      invitation_id: String(invitationId ?? ''),
+      signup_token: String(signupToken ?? ''),
+      username: String(username ?? ''),
+      password: String(password ?? ''),
+    },
+  );
+}
+
+/**
+ * The three fields the preview exists to deliver, or null for each that did not
+ * arrive as a non-empty string.
+ *
+ * Separate from the verdict for `readInvitationRecord`'s reason: whether the
+ * invitation is open and what it says are different questions, and a null here
+ * means "the service named nothing", never "the service said no". The page
+ * renders its heading and its one sentence from these, so a missing team name
+ * has to be visible as a missing name rather than as the word "null".
+ */
+export function readInvitationPreview(result) {
+  const body = objectOrNull(result?.body);
+  return {
+    organizationName: stringOrNull(body?.organization_name),
+    teamName: stringOrNull(body?.team_name),
+    invitedEmail: stringOrNull(body?.invited_email),
+  };
 }
 
 /**

@@ -39,6 +39,10 @@
 
 import * as api from './api.js';
 import {t} from './i18n.js';
+// The browser-side half of the site-wide lockout: the ONLY way this front end
+// builds an address to navigate to, so a control here can never send somebody
+// into the old application (BRA-1475).
+import {oneUrl} from './pages.js';
 import {
   DENY,
   closeModal,
@@ -720,6 +724,19 @@ function profileCard() {
     <div class="setting-row">
       <div><div class="setting-name">${tx('user.auth.password')}</div></div>
       <button class="btn small" data-action="change-password">${tx('one.common.change')}</button>
+    </div>
+    <!-- THE SIGN-OUT CONTROL (BRA-1475, acceptance criterion 16). There was no way to leave
+         this page: the settings page is where the lockout lands everybody, and until now the
+         only way out of a session was to clear the browser's cookies. It carries no
+         `data-requires`, deliberately — every gate on this page can refuse a control, and a
+         person whose plan has lapsed, whose writes are restricted or whose edition is wrong
+         must still be able to sign out. It is the one control that must never be gated. -->
+    <div class="setting-row">
+      <div>
+        <div class="setting-name">${tx('one.settings.signOut.title')}</div>
+        <div class="setting-desc">${tx('one.settings.signOut.help')}</div>
+      </div>
+      <button class="btn small" data-action="sign-out">${tx('one.settings.signOut.action')}</button>
     </div>
   </div>`;
 }
@@ -1573,6 +1590,38 @@ registerActions({
 
   avatar: () => {
     document.getElementById('avatarInput')?.click();
+  },
+
+  /**
+   * Sign out (BRA-1475, acceptance criterion 16).
+   *
+   * ONE PRESS, NO CONFIRMATION MODAL. Signing out destroys nothing and is undone
+   * by signing in again, so a confirmation would be ceremony in front of the one
+   * control on this page a person may be pressing because something is wrong.
+   *
+   * THE LOCAL SESSION IS DROPPED WHATEVER THE SERVER ANSWERS — `api.signOut`
+   * guarantees that in a `finally` — because a logout that failed on the server
+   * and left this tab signed in is a person pressing a button and watching
+   * nothing happen. The navigation to the sign-in page is what they see instead.
+   *
+   * A session opened through an identity provider comes back with the provider's
+   * own logout address, and the browser is sent there so that session ends too;
+   * the provider returns the person to its own configured destination, which is
+   * why this branch does not also navigate.
+   */
+  'sign-out': async () => {
+    let providerLogout = null;
+    try {
+      providerLogout = await api.signOut();
+    } catch {
+      // Nothing to report: the local session is gone either way, and the next
+      // line is what the person is waiting for.
+    }
+    if (providerLogout !== null) {
+      location.assign(providerLogout);
+      return;
+    }
+    location.assign(oneUrl('signin', api.forkAppUrl('')));
   },
 
   'edit-profile': () => {

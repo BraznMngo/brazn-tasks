@@ -43,6 +43,7 @@
 
 import * as api from './api.js';
 import {t, init as initI18n, currentLocale, projectTitle} from './i18n.js';
+import {oneUrl} from './pages.js';
 
 /* ------------------------------------------------------------------ *
  * 1. Vocabulary — the frozen literals a test asserts against
@@ -2387,11 +2388,25 @@ function handOffToLogin({force = false} = {}) {
     force,
   });
   if (!allowed) {
-    console.error('[one/app] the /login hand-off returned here with no session; not redirecting again');
+    console.error('[one/app] the sign-in hand-off returned here with no session; not redirecting again');
     return false;
   }
   writeHandoffMarker(true);
-  location.assign(new URL('/login', location.origin).toString());
+  // OUR OWN SIGN-IN PAGE, NOT `/login` (BRA-1475). This used to navigate to
+  // `/login`, which is a route of the OLD Vue application — and because that
+  // router runs in the browser, serving that one form served the whole
+  // application, including all twelve of its settings pages. The site-wide
+  // lockout kept `/login` open for exactly this hand-off, which is why its
+  // exemption list existed. With `/one/signin.html` being ours, the hand-off
+  // never leaves this front end, and `pages.js` is what makes that a rule: it
+  // refuses any destination that is not one of our documents.
+  //
+  // The address the person was trying to reach travels in the FRAGMENT, so the
+  // sign-in page can return them to it and no proxy or access log sees where
+  // they were going.
+  location.assign(oneUrl('signin', api.forkAppUrl(''), {
+    hash: `redirect=${encodeURIComponent(location.pathname + location.search)}`,
+  }));
   return true;
 }
 

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Brand name, not translated copy — the same reasoning as task.html and settings.html. -->
+<title>ONE Tasks</title>
+<link rel="stylesheet" href="./one.css">
+</head>
+<!-- The address-confirmed page (BRA-1475). A result screen: it spends the token the mail carried
+     and says whether the address is now confirmed.
+
+     It answers at its own address and at /confirm, and it is where the site root carrying
+     ?userEmailConfirm= belongs — that query name is already one the lockout lets through, which
+     is why an email confirmation works today and a password reset does not.
+
+     THE ROOT IS #auth, NOT #app. `hidden` is in the markup so a module that fails to load leaves
+     an invisible page rather than a wrong one. -->
+<body>
+<div class="auth-stage hidden"><main class="auth-card" id="auth"></main></div>
+<script type="module" src="./confirmed.js"></script>
+</body>
+</html>

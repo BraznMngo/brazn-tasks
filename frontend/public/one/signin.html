@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Brand name, not translated copy — the same reasoning as task.html and settings.html. -->
+<title>ONE Tasks</title>
+<link rel="stylesheet" href="./one.css">
+</head>
+<!-- The sign-in page (BRA-1475). ONE JOB, THREE DESTINATIONS, ONE DOCUMENT.
+
+     This document answers at three addresses, listed in pages.js: its own,
+     /login, /oauth/authorize and /auth/openid/{provider}. The last two are not
+     separate pages and must not become separate pages:
+
+       * /oauth/authorize is where a ONE desktop application sends a browser to
+         get its access. After the person is signed in, this page exchanges the
+         five parameters the application put in the address for a one-time code
+         and sends the browser back to the application. That is the whole of
+         what the page it replaces did. NOTHING ON THE WEB SIDE WOULD REPORT IT
+         IF THIS WERE WRONG — every desktop application would simply stop being
+         able to connect.
+       * /auth/openid/{provider} is the address registered with Google, built in
+         the browser from the current host, so serving our own document here
+         leaves the registered address byte-identical and touches nothing in the
+         Google console.
+
+     THE ROOT IS #auth, NOT #app, and the difference is load-bearing: app.js's
+     boot() self-schedules on any document carrying #app, and this page must get
+     signin.js's own boot and nothing else.
+
+     `hidden` is in the markup for settings.html's reason: a module that fails to
+     load must leave an invisible page rather than a wrong one. -->
+<body>
+<div class="auth-stage hidden"><main class="auth-card" id="auth"></main></div>
+<script type="module" src="./signin.js"></script>
+</body>
+</html>
