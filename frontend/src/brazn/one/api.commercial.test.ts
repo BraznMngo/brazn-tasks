@@ -506,6 +506,64 @@ const OPERATIONS: OpCase[] = [
 		refusal: {label: 'an unread outcome vocabulary', body: {organization_id: 'org-1', outcome: 'quoted'}},
 	},
 	{
+		/*
+		 * BRA-1475. THE SUMMARY IS `absent`-SHAPED AND THAT IS THE WHOLE POINT OF THE ROW: its
+		 * verdict is a `state`, not an `outcome`, and every one of the five states arrives at HTTP
+		 * 200 including the three a person cannot act on. So `ok` here means only "the service
+		 * answered a body it wrote", and join.js reads `state` separately to decide. A descriptor
+		 * that quietly became `required` would make every summary refuse, because no summary
+		 * carries an `outcome` field at all.
+		 */
+		name: 'read invitation summary (POST /v1/invitations/summary)',
+		op: api.COMMERCIAL_OPS.INVITATION_SUMMARY,
+		shape: 'absent',
+		affirmative: [
+			{
+				label: 'a usable invitation, with no outcome field',
+				body: {
+					state: 'usable',
+					organization_name: 'Ackermann GmbH',
+					team_name: 'Design',
+					email: 'ada@example.com',
+				},
+			},
+			{
+				// A REFUSING STATE IS STILL AN AFFIRMATIVE ANSWER AT THIS LAYER, and the split is
+				// deliberate: the service spoke, and what it said is join.js's to read. Treating
+				// this as a transport-level refusal would lose the state and send a withdrawn
+				// invitation down the same path as an unreachable service.
+				label: 'a withdrawn invitation, which is still a body the service wrote',
+				body: {state: 'invitation_withdrawn', organization_name: 'Ackermann GmbH'},
+			},
+		],
+		refusal: {label: 'an unread outcome vocabulary', body: {state: 'usable', outcome: 'previewed'}},
+	},
+	{
+		/*
+		 * BRA-1475. `required`-shaped, and only two of the nine outcomes are affirmative.
+		 * `team_unavailable` is deliberately NOT one of them — the account and the seat exist but
+		 * the team join did not, and calling that a success lands somebody in a product with
+		 * nothing in it and nobody telling them why, which is the exact defect this ticket exists
+		 * to fix. Until the task server is deployed it is what every completion answers.
+		 */
+		name: 'complete invitation (POST /v1/invitations/completion)',
+		op: api.COMMERCIAL_OPS.INVITATION_COMPLETION,
+		shape: 'required',
+		affirmative: [
+			{label: 'joined', body: {outcome: 'joined', organization_id: 'org-1'}},
+			{
+				// The goal state holds: they already have a seat. Criterion 8 and the task server's
+				// own rules both require a coherent welcome rather than a refusal.
+				label: 'already_member',
+				body: {outcome: 'already_member', organization_id: 'org-1'},
+			},
+		],
+		refusal: {
+			label: 'team_unavailable, which is a PARTIAL success and must not read as a whole one',
+			body: {outcome: 'team_unavailable', organization_id: 'org-1'},
+		},
+	},
+	{
 		name: 'transfer administrator (POST /v1/organizations/admin-transfer)',
 		op: api.COMMERCIAL_OPS.TRANSFER_ADMINISTRATOR,
 		shape: 'absent',
@@ -552,13 +610,16 @@ describe('one/api.js commercial guard - the per-operation outcome vocabulary', (
 		for (const entry of OPERATIONS) {
 			expect(entry.op.shape, entry.name).toBe(entry.shape)
 		}
-		// Five required, fourteen absent. The counts keep a table-wide mistake (every row copied
+		// Six required, fifteen absent. The counts keep a table-wide mistake (every row copied
 		// as 'absent', say) from passing as agreement. RENAME_ORGANIZATION was the thirteenth
 		// absent row (BRA-1439) - it briefly sat on the required side of this line, on an assumed
 		// union independent QA traced false against the landed handler; see its own row.
-		// LIST_INVITATIONS is the fourteenth (BRA-1469).
-		expect(OPERATIONS.filter(entry => entry.shape === 'required')).toHaveLength(5)
-		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(14)
+		// LIST_INVITATIONS is the fourteenth (BRA-1469). INVITATION_SUMMARY is the fifteenth and
+		// INVITATION_COMPLETION the sixth required row (BRA-1475) - and the summary sitting on the
+		// ABSENT side is the load-bearing half of that pair, because its verdict is a `state`
+		// rather than an `outcome`.
+		expect(OPERATIONS.filter(entry => entry.shape === 'required')).toHaveLength(6)
+		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(15)
 	})
 
 	for (const entry of OPERATIONS) {
