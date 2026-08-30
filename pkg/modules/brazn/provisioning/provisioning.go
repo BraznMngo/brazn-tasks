@@ -127,10 +127,43 @@ const (
 	// out as a request to CREATE one, and models.provisionTeamRoots makes its
 	// subject the team's creator and a team ADMIN (CreateNewTeam's third
 	// argument). An invited member would then hold the team-management ability
-	// their invitation deliberately does not grant. DecodeJoinTeam therefore
-	// checks the operation member, as DecodeEraseSubject does and for the same
-	// reason.
+	// their invitation deliberately does not grant.
+	//
+	// THAT HARM IS CARRIED BY THE PAYLOAD ARRIVING AT create_team_roots' OWN
+	// DECODER, so DecodeCreateTeamRoots is where the check that prevents it
+	// lives, and it is the one to keep if either is ever questioned.
+	// DecodeJoinTeam checks its member too, for the mirror mistake, but that
+	// direction only adds an administrator to their own team as an ordinary
+	// member and grants nobody anything. An earlier revision of this comment
+	// claimed DecodeJoinTeam's check covered the escalation; it never did, and
+	// the two decoders were left asymmetric for a while on the strength of that
+	// sentence.
 	OperationJoinTeam = "join_team"
+	// OperationUsernameAvailable is BRA-1475: is this ONE EXACT username already
+	// held on this instance? The invitation form asks it while somebody types,
+	// so that a person whose only problem is a taken name is told THAT, rather
+	// than being told after submitting that "this account already exists" -
+	// which is what create_user_with_password's deliberately flat refusal reads
+	// as, because that refusal cannot say whether the mailbox or the name was
+	// the collision.
+	//
+	// ⚠ IT IS EXACT-MATCH ONLY AND ANSWERS ONE WORD. It does not prefix-match,
+	// it takes no wildcard, it returns no user id, no mailbox and no display
+	// name, and it says nothing about WHO holds a taken name. That shape is what
+	// keeps it on the permitted side of docs/Brazn-Tasks-Rules.md §5.1, which
+	// allows an exact lookup inside an invitation flow and forbids a general
+	// directory. A version of this that answered anything about the holder, or
+	// that matched anything but the whole string, would be the directory.
+	//
+	// ⚠ IT IS ADVICE AND NEVER AUTHORITY. A name can be taken between the
+	// answer and the submission, so create_user_with_password still refuses and
+	// the commercial layer still reports account_exists. Nothing may be relaxed
+	// anywhere on the strength of a prior available.
+	//
+	// It reads and writes nothing, so it is safe to call repeatedly. The bound
+	// on how often is the COMMERCIAL layer's, per invitation, because this
+	// channel has no notion of who is asking.
+	OperationUsernameAvailable = "username_available"
 )
 
 // maxMailboxLength is users.email's column width. An address past it is
@@ -495,6 +528,18 @@ func DecodeCreatePersonalInbox(payload json.RawMessage) (*CreatePersonalInbox, e
 // DecodeCreateTeamRoots reads a verified payload as a create_team_roots request
 // and checks the three identifiers it carries.
 //
+// IT CHECKS THE OPERATION MEMBER, and this is the decoder on which that check
+// carries the harm. join_team's payload is field-for-field this one's, so the
+// two are indistinguishable in the bytes. A join_team payload reaching THIS
+// decoder would be carried out as a request to create a team, and
+// models.ProvisionTeamRoots makes its subject the team's creator and a team
+// ADMIN (CreateNewTeam's third argument) - so the switch-editing mistake in
+// this direction hands an invited member exactly the team administration their
+// invitation withholds. The mistake in the other direction, caught by
+// DecodeJoinTeam, adds an administrator to their own team as an ordinary
+// member, which is untidy and grants nothing. Both are checked; only this one
+// is a privilege escalation.
+//
 // The team id is checked here rather than left to the write, because it is what
 // a later call is matched against: an id this build stored in some other shape
 // than the one that arrives next time would provision a SECOND set of roots for
@@ -505,6 +550,9 @@ func DecodeCreateTeamRoots(payload json.RawMessage) (*CreateTeamRoots, error) {
 		return nil, err
 	}
 	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationCreateTeamRoots {
 		return nil, ErrInvalidRequest
 	}
 	if !commercialID.MatchString(request.OrganizationID) ||
@@ -684,15 +732,65 @@ func DecodeCreateUserWithPassword(payload json.RawMessage) (*CreateUserWithPassw
 	return request, nil
 }
 
+// UsernameAvailable asks whether one exact username is free on this instance.
+//
+// IT CARRIES NO SUBJECT AND NO ORGANIZATION, and that absence is deliberate
+// rather than an omission. The question is about a column with a unique index
+// across the whole instance, so no identifier could narrow it, and a member
+// this operation does not use would be one a reader assumed it honoured - the
+// mistake create_personal_inbox's organization_id already documents making.
+// Who is allowed to ask is settled before the request is signed, by the
+// commercial layer holding an invitation and its token.
+type UsernameAvailable struct {
+	ContractVersion string `json:"contract_version"`
+	Operation       string `json:"operation"`
+	// Username is the whole name to look up, exactly as typed and
+	// UNTRANSFORMED. Nothing here lowercases or trims it: users.username is
+	// compared as stored, so a value this operation normalised would answer for
+	// a DIFFERENT name than the one create_user_with_password would go on to
+	// refuse, and the form would promise a name the submission then rejected.
+	Username string `json:"username"`
+}
+
+// DecodeUsernameAvailable reads a verified payload as a username_available
+// request and checks the one value it carries.
+//
+// IT CHECKS THE OPERATION MEMBER, for the reason DecodeEraseSubject gives about
+// its own: an editing mistake in the switch is the only way a payload reaches
+// the wrong decoder, and this one shares its two-member shape with nothing on
+// the channel today but would share it with any future single-string question.
+//
+// The length bound is the same users.username column width every other decoder
+// here bounds its own values against, and it is checked BEFORE the lookup so
+// that an over-long value is refused rather than truncated into a question
+// about somebody else's name.
+func DecodeUsernameAvailable(payload json.RawMessage) (*UsernameAvailable, error) {
+	request := &UsernameAvailable{}
+	if err := decodeExactly(payload, request); err != nil {
+		return nil, err
+	}
+	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationUsernameAvailable {
+		return nil, ErrInvalidRequest
+	}
+	if request.Username == "" || len(request.Username) > maxUsernameLength {
+		return nil, ErrInvalidRequest
+	}
+	return request, nil
+}
+
 // DecodeJoinTeam reads a verified payload as a join_team request and checks the
 // three identifiers it carries.
 //
-// IT CHECKS THE OPERATION MEMBER, and on this decoder that check is doing more
-// work than on any of the other three that make it. DecodeEraseSubject,
-// DecodeResolveUser and DecodeRevokeSession check it against an editing error in
-// the switch; so does this, and the error it catches is the one that would grant
-// an invited member the team administration their invitation withholds. See
-// OperationJoinTeam for the whole argument.
+// IT CHECKS THE OPERATION MEMBER, as DecodeEraseSubject, DecodeResolveUser and
+// DecodeRevokeSession do, against an editing error in the switch. The error
+// THIS one catches is the harmless half of the pair: a create_team_roots
+// payload carried out as a join adds an administrator to their own team as an
+// ordinary member. The half that grants privilege runs the other way and is
+// caught in DecodeCreateTeamRoots; see OperationJoinTeam for the whole
+// argument, and do not read this check as covering that one.
 //
 // The team id is checked here rather than left to the write, for
 // DecodeCreateTeamRoots' reason: it is what the stored row is matched against,
