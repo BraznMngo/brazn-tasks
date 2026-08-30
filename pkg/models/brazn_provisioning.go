@@ -615,49 +615,6 @@ type UserResolution struct {
 	EmailVerified bool
 }
 
-// ResolveUserByMailbox answers the recognition form of a resolve_user request:
-// which Brazn Tasks user did the commercial service provision for this mailbox, or none.
-//
-// ⚠ IT READS brazn_provisioned_users.email AND NEVER users.email, which is the
-// OPPOSITE of the column MailboxForSubject reads and the one decision this
-// function exists to get right. The two are not copies of each other and the
-// choice is not a preference:
-//
-// users.email CANNOT BE A ZERO-OR-ONE LOOKUP. It is varchar(250) null with no
-// unique index, and one cannot be added, because every bot user carries the
-// empty string - see ProvisionedUser, which exists for that reason. This
-// operation answers with one user id or nothing, so it needs a column that can
-// only ever match one row; brazn_provisioned_users.email is varchar(250) not
-// null unique and IS that constraint. Matching the user row instead would leave
-// this call choosing between rows, with the choice unspecified - and worse,
-// answering "no user" for a mailbox this instance really did provision, which
-// is how the caller would be told to create a second account for one customer.
-// That is BRA-1106's defect exactly, arriving from this side of the seam.
-//
-// IT DOES NOT CONTRADICT MailboxForSubject, because the two answer different
-// questions. resolve_mailbox asks where to SEND now, so it must follow the
-// person and reads the live user row. This asks which account the commercial service SOLD
-// to a mailbox, so it must be stable: the id it returns becomes an
-// accounts.user_id, a primary key on the commercial side with no update path,
-// and an id that moved when somebody edited their profile would repoint a paid
-// entitlement. Two operations, two columns, both right; harmonising them would
-// break one of the two.
-//
-// ⚠ WHAT AN ADDRESS CHANGE THEREFORE DOES, stated rather than left implied.
-// The two columns diverge the moment somebody changes their address here. After
-// that: asked by the OLD address - the one provisioned against - this answers
-// the same user id it always did, so every existing commercial record keeps
-// resolving; asked by the NEW one, the claim table does not hold it and the
-// answer is `unresolvable`, so that customer is not recognised and opens a
-// second entitlement. Nothing here invents a mechanism to close that. It is
-// Case 14 (docs/Identity-and-Access-Rules.md §11 in the Percy repository),
-// which is unsatisfied and owned by BRA-1022 - the ticket that has to decide
-// whether an address change updates the claim row.
-//
-// IT NEVER CREATES, and neither does anything it calls. A resolve that fell
-// back to creating would reintroduce the outage BRA-1106 fixed; the contract
-// states this as an obligation the consumer cannot enforce, which makes it this
-// function's to keep.
 // Username availability, as three words the invitation form can act on.
 const (
 	// UsernameAvailable means no account holds this name right now.
@@ -709,6 +666,49 @@ func CheckUsernameAvailability(username string) (string, error) {
 	return UsernameTaken, nil
 }
 
+// ResolveUserByMailbox answers the recognition form of a resolve_user request:
+// which Brazn Tasks user did the commercial service provision for this mailbox, or none.
+//
+// ⚠ IT READS brazn_provisioned_users.email AND NEVER users.email, which is the
+// OPPOSITE of the column MailboxForSubject reads and the one decision this
+// function exists to get right. The two are not copies of each other and the
+// choice is not a preference:
+//
+// users.email CANNOT BE A ZERO-OR-ONE LOOKUP. It is varchar(250) null with no
+// unique index, and one cannot be added, because every bot user carries the
+// empty string - see ProvisionedUser, which exists for that reason. This
+// operation answers with one user id or nothing, so it needs a column that can
+// only ever match one row; brazn_provisioned_users.email is varchar(250) not
+// null unique and IS that constraint. Matching the user row instead would leave
+// this call choosing between rows, with the choice unspecified - and worse,
+// answering "no user" for a mailbox this instance really did provision, which
+// is how the caller would be told to create a second account for one customer.
+// That is BRA-1106's defect exactly, arriving from this side of the seam.
+//
+// IT DOES NOT CONTRADICT MailboxForSubject, because the two answer different
+// questions. resolve_mailbox asks where to SEND now, so it must follow the
+// person and reads the live user row. This asks which account the commercial service SOLD
+// to a mailbox, so it must be stable: the id it returns becomes an
+// accounts.user_id, a primary key on the commercial side with no update path,
+// and an id that moved when somebody edited their profile would repoint a paid
+// entitlement. Two operations, two columns, both right; harmonising them would
+// break one of the two.
+//
+// ⚠ WHAT AN ADDRESS CHANGE THEREFORE DOES, stated rather than left implied.
+// The two columns diverge the moment somebody changes their address here. After
+// that: asked by the OLD address - the one provisioned against - this answers
+// the same user id it always did, so every existing commercial record keeps
+// resolving; asked by the NEW one, the claim table does not hold it and the
+// answer is `unresolvable`, so that customer is not recognised and opens a
+// second entitlement. Nothing here invents a mechanism to close that. It is
+// Case 14 (docs/Identity-and-Access-Rules.md §11 in the Percy repository),
+// which is unsatisfied and owned by BRA-1022 - the ticket that has to decide
+// whether an address change updates the claim row.
+//
+// IT NEVER CREATES, and neither does anything it calls. A resolve that fell
+// back to creating would reintroduce the outage BRA-1106 fixed; the contract
+// states this as an obligation the consumer cannot enforce, which makes it this
+// function's to keep.
 func ResolveUserByMailbox(email string) (*UserResolution, error) {
 	s := db.NewSession()
 	defer s.Close()
