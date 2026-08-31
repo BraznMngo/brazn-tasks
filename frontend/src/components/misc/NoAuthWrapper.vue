@@ -295,7 +295,8 @@ async function onLanguageChange(event: Event) {
 	// mark and cover the bottom band where that phrase is painted into the JPG.
 	&.is-create-account {
 		@media screen and (min-width: $tablet) {
-			background-position: center 28%;
+			background-position: center 22%;
+			background-size: 135% auto;
 		}
 
 		&::after {
@@ -303,10 +304,14 @@ async function onLanguageChange(event: Event) {
 			position: absolute;
 			inset-inline: 0;
 			inset-block-end: 0;
-			block-size: 22%;
+			// Tall enough to bury the baked-in "Welcome Back" under the horizon
+			// navy, not a translucent wash that still reads as that phrase.
+			block-size: 32%;
 			background: linear-gradient(
 				to top,
-				hsl(222, 48%, 10%) 55%,
+				hsl(222, 48%, 10%) 0%,
+				hsl(222, 48%, 10%) 58%,
+				hsla(222, 48%, 10%, 0.92) 78%,
 				hsla(222, 48%, 10%, 0)
 			);
 			pointer-events: none;
