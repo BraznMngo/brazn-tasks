@@ -37,6 +37,13 @@
 					</XButton>
 				</div>
 			</div>
+			<!-- Null name gets its own sentence, never the org_ identifier (BRA-1439 Story 2). -->
+			<p
+				v-if="organization && organization.organizationName === null"
+				class="help"
+			>
+				{{ $t('organization.general.nameUnknown') }}
+			</p>
 		</form>
 
 		<Message
