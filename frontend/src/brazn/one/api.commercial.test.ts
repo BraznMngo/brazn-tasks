@@ -564,6 +564,31 @@ const OPERATIONS: OpCase[] = [
 		},
 	},
 	{
+		/*
+		 * BRA-1475. `absent`-shaped, and the descriptor is load-bearing rather than a formality
+		 * here. An UNROUTED `/v1/...` is answered by the fork's static handler with the app shell's
+		 * index.html at HTTP 200 - which is exactly what a browser gets if this route is not
+		 * deployed - so without the content-type check inside `readCommercialResult` that page
+		 * would read as a body with no `outcome`, the check would report "not taken", and the form
+		 * would cheerfully allow every name on an instance where the route does not exist.
+		 *
+		 * ALL THREE VERDICTS ARE AFFIRMATIVE AT THIS LAYER, including the two that block the form.
+		 * `ok` here means "the service wrote this body", and which verdict it carries is
+		 * `checkInvitationUsername`'s to read - the same split the summary row makes, and for the
+		 * same reason: collapsing them would lose the verdict and make a taken name
+		 * indistinguishable from an unreachable service.
+		 */
+		name: 'check invitation username (POST /v1/invitations/username)',
+		op: api.COMMERCIAL_OPS.INVITATION_USERNAME,
+		shape: 'absent',
+		affirmative: [
+			{label: 'available, with no outcome field', body: {status: 'available'}},
+			{label: 'taken, which is a verdict and not a refusal', body: {status: 'taken'}},
+			{label: 'invalid, likewise a verdict', body: {status: 'invalid'}},
+		],
+		refusal: {label: 'an unread outcome vocabulary', body: {status: 'available', outcome: 'checked'}},
+	},
+	{
 		name: 'transfer administrator (POST /v1/organizations/admin-transfer)',
 		op: api.COMMERCIAL_OPS.TRANSFER_ADMINISTRATOR,
 		shape: 'absent',
@@ -617,9 +642,10 @@ describe('one/api.js commercial guard - the per-operation outcome vocabulary', (
 		// LIST_INVITATIONS is the fourteenth (BRA-1469). INVITATION_SUMMARY is the fifteenth and
 		// INVITATION_COMPLETION the sixth required row (BRA-1475) - and the summary sitting on the
 		// ABSENT side is the load-bearing half of that pair, because its verdict is a `state`
-		// rather than an `outcome`.
+		// rather than an `outcome`. INVITATION_USERNAME is the sixteenth absent row, on the same
+		// side and for the same reason: it answers a `status`.
 		expect(OPERATIONS.filter(entry => entry.shape === 'required')).toHaveLength(6)
-		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(15)
+		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(16)
 	})
 
 	for (const entry of OPERATIONS) {

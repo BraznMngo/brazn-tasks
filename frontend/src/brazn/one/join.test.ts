@@ -7,8 +7,10 @@ import {
 	invitationSurface,
 	refusalReason,
 	signupTokenFromHash,
+	usernameBlockedKey,
 	usernameIsBlocked,
 } from '../../../public/one/join.js'
+import {init as initI18n, t} from '../../../public/one/i18n.js'
 import enRaw from '../../../public/one/i18n/en.json?raw'
 import {
 	ORIGIN,
@@ -517,9 +519,21 @@ describe('criterion 4, the page half — what the invited person sees', () => {
 		expect(email.disabled).toBe(false)
 		expect(document.getElementById('username')).not.toBeNull()
 		expect(document.getElementById('password')).not.toBeNull()
-		// One button, and no second place to sign in with existing credentials.
-		expect(document.querySelectorAll('#joinForm button')).toHaveLength(1)
+		// ONE BUTTON THAT SUBMITS, which is the property the ticket's "one button" was written to
+		// protect: no second action can complete the journey, and there is no second place to sign
+		// in with existing credentials. It is NOT a count of button elements, and narrowing it is
+		// deliberate rather than a concession - the reveal control added after the first review is
+		// a second button and is neither of those things. It carries type="button", so it submits
+		// nothing; a bare button inside a form defaults to type="submit", which is exactly what
+		// this assertion still catches if that attribute is ever dropped.
+		const submitters = [...document.querySelectorAll('#joinForm button')]
+			.filter(b => (b as HTMLButtonElement).type === 'submit')
+		expect(submitters).toHaveLength(1)
 		expect(document.querySelectorAll('form')).toHaveLength(1)
+		// And the extra button really is the reveal control, rather than anything else that crept in.
+		const others = [...document.querySelectorAll('#joinForm button')]
+			.filter(b => (b as HTMLButtonElement).type !== 'submit')
+		expect(others.map(b => b.getAttribute('data-action'))).toEqual(['reveal-password'])
 	})
 
 	it('renders an organisation name carrying markup as characters, not as elements', () => {
@@ -558,14 +572,91 @@ describe('the username check while somebody types', () => {
 		expect(usernameIsBlocked('ada', '', 'unknown')).toBe(false)
 	})
 
-	it('answers `unknown` today, because its server half is not built', async () => {
-		// STATED AS A TEST RATHER THAN AS A COMMENT, so nobody reads the requirement as met. The
-		// form behaves exactly as it will on a bad network, which is the deliberate degradation —
-		// but "the form refuses a taken username while you type" does not happen on any deployment.
-		const verdict = await api.checkInvitationUsername({invitationId: 'inv-9', signupToken: TOKEN, username: 'ada'})
-		expect(verdict).toBe('unknown')
-		// And it costs no request, which is how you can tell nothing is wired.
-		expect(requests()).toEqual([])
+	/*
+	 * THE LINE IS "DOES THE SERVICE KNOW", NOT "IS THE NEWS BAD", and this block is where that is
+	 * decided. At the first review this seam answered `unknown` unconditionally and issued no
+	 * request; it is wired now, and the distinction below is the one that will be got wrong later,
+	 * in both directions. Folding `invalid` back into `unknown` lets somebody type a name the task
+	 * server reserves, get no warning while typing, and then meet a refusal that never mentions
+	 * their username. Folding a transport failure into a blocking verdict stops an invited person
+	 * joining at all because their network was slow, which is worse than the fault being fixed.
+	 */
+	it('BLOCKS on a definite verdict - taken, and equally invalid', async () => {
+		for (const [wire, verdict] of [['taken', 'taken'], ['invalid', 'invalid']] as const) {
+			resetHarness()
+			enqueue(json({status: wire}))
+			const answer = await api.checkInvitationUsername({invitationId: 'inv-9', signupToken: TOKEN, username: 'ada'})
+			expect(answer, wire).toBe(verdict)
+			// MUTATION: mapping `invalid` to `unknown` in checkInvitationUsername makes this red.
+			expect(usernameIsBlocked('ada', 'ada', answer), wire).toBe(true)
+		}
+	})
+
+	it('ALLOWS on available, and on every shape of NOT KNOWING', async () => {
+		resetHarness()
+		enqueue(json({status: 'available'}))
+		expect(await api.checkInvitationUsername({invitationId: 'inv-9', signupToken: TOKEN, username: 'ada'}))
+			.toBe('free')
+		expect(usernameIsBlocked('ada', 'ada', 'free')).toBe(false)
+
+		const notKnowing: Array<[string, Response | null]> = [
+			['a bodiless 400 - a malformed body', new Response('', {status: 400})],
+			['a bodiless 404 - the token proves nothing', new Response('', {status: 404})],
+			['a 429 - too many checks against this invitation', new Response('', {status: 429})],
+			['a status word this page has not read', json({status: 'deferred'})],
+			['a body that is not an object at all', json('available')],
+			// THE ONE NOBODY WOULD THINK OF, and the descriptor's own comment names it: an UNROUTED
+			// /v1/... is answered by the fork's static handler with the app shell at HTTP 200. That
+			// is exactly what a browser gets on an instance where this route is not deployed.
+			['the app shell served at 200 by an unrouted address',
+				new Response('<!doctype html><html><body>ONE</body></html>',
+					{status: 200, headers: {'content-type': 'text/html'}})],
+			// AND THE SAME THING WEARING A JSON BODY, which is the row that actually isolates the
+			// content-type check. The row above is refused TWICE OVER - the markup also fails to
+			// parse as JSON - so deleting the content-type check leaves it green, and the guard it
+			// names would have gone untested while the case read as thorough. That was found by
+			// running the delete-the-guard check rather than by reading it. This body parses
+			// perfectly and is refused ONLY because of its content type, which is what a proxy or a
+			// static handler answering `{"status":"available"}` as text/html would produce.
+			['a parseable JSON body served with a non-JSON content type',
+				new Response('{"status":"available"}',
+					{status: 200, headers: {'content-type': 'text/html'}})],
+			// Nothing queued, so the stub throws: this is the transport failure.
+			['no answer at all - the network failed', null],
+		]
+
+		for (const [label, response] of notKnowing) {
+			resetHarness()
+			if (response !== null) enqueue(response)
+			const answer = await api.checkInvitationUsername({invitationId: 'inv-9', signupToken: TOKEN, username: 'ada'})
+			// MUTATION: returning anything but 'unknown' from the `!result.ok` branch makes every one
+			// of these red. Dropping the content-type check inside readCommercialResult makes only
+			// the last-but-one red - the JSON row - and that asymmetry is the point: without it,
+			// an instance where this route is not deployed would read every name as "not taken"
+			// and the form would allow all of them.
+			expect(answer, label).toBe('unknown')
+			expect(usernameIsBlocked('ada', 'ada', answer), label).toBe(false)
+		}
+	})
+
+	it('gives the two blocking verdicts DIFFERENT sentences, and neither says the other thing', async () => {
+		await initI18n('en', ['en'])
+		const taken = t(usernameBlockedKey('taken') as string)
+		const unusable = t(usernameBlockedKey('invalid') as string)
+
+		expect(taken).not.toBe(unusable)
+		// `taken` means somebody else holds it, and the person needs to know a different name works.
+		expect(taken.toLowerCase()).toContain('taken')
+		// `invalid` means the server would refuse that string WHOEVER held it. Saying it is taken
+		// would send somebody hunting for a collision that does not exist, and would state
+		// something untrue about another account.
+		// MUTATION: pointing usernameBlockedKey('invalid') at one.join.usernameTaken makes this red.
+		expect(unusable.toLowerCase()).not.toContain('taken')
+		expect(unusable.toLowerCase()).not.toContain('already')
+		// Neither verdict earns a sentence when the service did not give one.
+		expect(usernameBlockedKey('free')).toBeNull()
+		expect(usernameBlockedKey('unknown')).toBeNull()
+		expect(usernameBlockedKey(undefined)).toBeNull()
 	})
 
 	it('lets a submission through while a check is still in flight', async () => {
