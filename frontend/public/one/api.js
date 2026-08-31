@@ -3403,14 +3403,3 @@ export function transferAdministrator(organizationId, toUserId, idempotencyKey =
     idempotency_key: idempotencyKey,
   });
 }
-
-/*
- * POST /v1/organizations/rename IS DELIBERATELY NOT IMPLEMENTED.
- *
- * It is the one control with no route anywhere: no commercial route, no
- * service method, and models.Organization has no Name field. Ruling C8.1 keeps
- * the field rendered but DISABLED with a reason, and SPEC-BACKEND §5's negative
- * test asserts it issues no request. Exporting a function here would make that
- * test unwritable, so the absence of this export is the mechanism, not an
- * oversight. Do not add one until the route lands.
- */

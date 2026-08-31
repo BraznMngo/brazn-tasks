@@ -124,6 +124,11 @@
 		"general": {
 			"title": "Organisationseinstellungen",
 			"name": "Organisation",
+			"nameUnknown": "Der Name dieser Organisation ist noch nicht hinterlegt.",
+			"renamePlaceholder": "Name der Organisation",
+			"renameSave": "Umbenennen",
+			"renameSuccess": "Der Name der Organisation wurde geändert.",
+			"renameNotAllowed": "Nur der Organisationsadministrator kann diese Organisation umbenennen.",
 			"pending": {
 				"title": "Die Schalter für Fußzeile und Empfehlungen gibt es hier noch nicht.",
 				"text": "Was die ONE-Fußzeile sagt, wer sie abschalten darf und ob sie pro Organisation oder pro Mitglied unterdrückt wird, ist noch nicht entschieden. Die Schalter kommen auf diese Seite und werden nicht gezeichnet, bevor sie etwas bewirken: ein Schalter, der nichts tut, ist schlimmer als einer, der fehlt."

@@ -542,7 +542,7 @@
       "personalEdition": "Das gehört zu ONE Teams.",
       "writeRestricted": "Dein Konto ist gerade schreibgeschützt.",
       "notAdministrator": "Das kann nur der Organisationsadministrator ändern.",
-      "renameOrg": "Die Organisation lässt sich noch nicht umbenennen.",
+      "renameOrg": "Nur der Organisationsadministrator kann diese Organisation umbenennen.",
       "noRoute": "Das ist noch nicht verfügbar.",
       "rosterUnavailable": "Wir können die Mitglieder dieses Teams gerade nicht lesen.",
       "noTeams": "Diese Organisation hat noch keine Teams. Erstelle zuerst eines.",

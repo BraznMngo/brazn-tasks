@@ -542,7 +542,7 @@
       "personalEdition": "此功能属于 ONE Teams。",
       "writeRestricted": "你的账户当前为只读状态。",
       "notAdministrator": "只有组织管理员才能更改此项。",
-      "renameOrg": "重命名组织的功能尚未开放。",
+      "renameOrg": "只有组织管理员可以重命名该组织。",
       "noRoute": "此功能尚未开放。",
       "rosterUnavailable": "我们当前无法读取此团队的成员。",
       "noTeams": "此组织还没有团队。请先创建一个团队。",

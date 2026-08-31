@@ -542,7 +542,7 @@
       "personalEdition": "Esto forma parte de ONE Teams.",
       "writeRestricted": "Ahora mismo tu cuenta es de solo lectura.",
       "notAdministrator": "Solo el administrador de la organización puede cambiar esto.",
-      "renameOrg": "Cambiar el nombre de la organización todavía no está disponible.",
+      "renameOrg": "Solo el administrador de la organización puede cambiarle el nombre.",
       "noRoute": "Esto todavía no está disponible.",
       "rosterUnavailable": "Ahora mismo no podemos consultar los miembros de este equipo.",
       "noTeams": "Esta organización todavía no tiene equipos. Crea uno primero.",
