@@ -1,13 +1,58 @@
 <template>
 	<OrganizationPage :title="$t('organization.general.title')">
-		<dl class="mb-4">
-			<dt class="has-text-weight-bold">
+		<!--
+			BRA-1479 #5: rename uses the existing commercial route
+			POST /v1/organizations/rename (same call as ONE's view-settings pencil).
+			The name shown after save is re-read from the fork, not invented from
+			the commercial reply.
+		-->
+		<form
+			class="mb-4"
+			@submit.prevent="save"
+		>
+			<label
+				class="label"
+				for="org-name"
+			>
 				{{ $t('organization.general.name') }}
-			</dt>
-			<!-- The registered name, never the org_ identifier: a missing name
-			     gets its own sentence (BRA-1439 Story 2). -->
-			<dd>{{ organization?.organizationName ?? $t('organization.general.nameUnknown') }}</dd>
-		</dl>
+			</label>
+			<div class="field has-addons">
+				<div class="control is-expanded">
+					<input
+						id="org-name"
+						v-model="name"
+						class="input"
+						:placeholder="$t('organization.general.renamePlaceholder')"
+						required
+						:disabled="working"
+					>
+				</div>
+				<div class="control">
+					<XButton
+						:loading="working"
+						:disabled="!canSave"
+						@click="save"
+					>
+						{{ $t('organization.general.renameSave') }}
+					</XButton>
+				</div>
+			</div>
+			<!-- Null name gets its own sentence, never the org_ identifier (BRA-1439 Story 2). -->
+			<p
+				v-if="organization && organization.organizationName === null"
+				class="help"
+			>
+				{{ $t('organization.general.nameUnknown') }}
+			</p>
+		</form>
+
+		<Message
+			v-if="refusal"
+			class="mb-4"
+			variant="danger"
+		>
+			{{ refusal }}
+		</Message>
 
 		<!--
 			BRA-917 asks for "approved viral-footer and referral controls". What
@@ -31,12 +76,61 @@
 </template>
 
 <script setup lang="ts">
-import {computed} from 'vue'
+import {computed, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
 
 import Message from '@/components/misc/Message.vue'
+import XButton from '@/components/input/Button.vue'
 import OrganizationPage from '@/components/organization/OrganizationPage.vue'
+import {success} from '@/message'
+import {renameOrganization} from '@/services/organizationRename'
 import {useOrganizationStore} from '@/stores/organization'
+
+const {t} = useI18n({useScope: 'global'})
 
 const organizationStore = useOrganizationStore()
 const organization = computed(() => organizationStore.organization)
+
+const name = ref('')
+const working = ref(false)
+const refusal = ref('')
+
+watch(
+	organization,
+	(org) => {
+		name.value = org?.organizationName ?? ''
+	},
+	{immediate: true},
+)
+
+const canSave = computed(() => {
+	const trimmed = name.value.trim()
+	if (!trimmed || working.value || !organization.value?.id) {
+		return false
+	}
+	return trimmed !== (organization.value.organizationName ?? '')
+})
+
+async function save() {
+	const org = organization.value
+	const trimmed = name.value.trim()
+	if (!org?.id || !trimmed || working.value || !canSave.value) {
+		return
+	}
+
+	working.value = true
+	refusal.value = ''
+
+	try {
+		await renameOrganization(org.id, trimmed)
+		await organizationStore.load()
+		success({message: t('organization.general.renameSuccess')})
+	} catch (e) {
+		// Server refusal verbatim — admin-only route or commercial gate.
+		const data = (e as {response?: {data?: {message?: string}}})?.response?.data
+		refusal.value = data?.message || t('organization.general.renameNotAllowed')
+	} finally {
+		working.value = false
+	}
+}
 </script>

@@ -512,12 +512,6 @@ export function transferAdministrator(
 	idempotencyKey?: string,
 ): Promise<CommercialResult>
 
-/*
- * POST /v1/organizations/rename is intentionally absent — see api.js. The
- * organization name field stays disabled, and the negative test asserts it
- * issues no request; an export here would make that untestable.
- */
-
 /* --- BRA-1475: opening and closing a session ----------------------- *
  *
  * Everything above assumes a session already exists. These are what a

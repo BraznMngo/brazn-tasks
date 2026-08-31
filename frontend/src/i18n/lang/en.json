@@ -125,6 +125,10 @@
       "title": "Organization settings",
       "name": "Organization",
       "nameUnknown": "This organization's name has not been recorded yet.",
+      "renamePlaceholder": "Organization name",
+      "renameSave": "Rename",
+      "renameSuccess": "The organization's name was changed.",
+      "renameNotAllowed": "Only the organization administrator can rename this organization.",
       "pending": {
         "title": "The footer and referral switches are not here yet.",
         "text": "What the ONE footer says, who may switch it off, and whether it is suppressed per organization or per member are still being decided. The switches will live on this page, and they are not drawn before they do anything, because a switch that changes nothing is worse than one that is missing."

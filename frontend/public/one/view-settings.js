@@ -1963,18 +1963,12 @@ registerActions({
    * `dangerZone()` records what they did and what reinstating them would take; the route and
    * `api.cancelAccountDeletion()` are both untouched. No handler is registered, so the delegated
    * listener has nothing to dispatch even if a stale `data-action="cancel-deletion"` survived a
-   * cache — which is the same "true by construction" shape `rename-org` relies on below.
+   * cache.
    */
 
   /* --- organization ------------------------------------------------ */
 
-  /*
-   * `rename-org` HAS NO HANDLER AND MUST NOT GET ONE (ruling C8.1). The control is emitted,
-   * visible and refused, so `isRefused` blocks the click before dispatch; api.js exports no
-   * rename function for it to call. Both halves together are what make "the field issues no
-   * request" true by construction.
-   */
-
+  /** Opens the rename modal; save goes through `save-org-name` → `api.renameOrganization`. */
   'rename-org': () => {
     renderRenameOrgModal(getOrganization()?.organization_name ?? '');
   },

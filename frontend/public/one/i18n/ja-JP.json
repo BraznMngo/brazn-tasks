@@ -542,7 +542,7 @@
       "personalEdition": "これは ONE Teams の機能です。",
       "writeRestricted": "現在、お使いのアカウントは読み取り専用です。",
       "notAdministrator": "これを変更できるのは組織管理者だけです。",
-      "renameOrg": "組織名の変更はまだ利用できません。",
+      "renameOrg": "組織名を変更できるのは組織の管理者だけです。",
       "noRoute": "この機能はまだ利用できません。",
       "rosterUnavailable": "このチームのメンバーを現在取得できません。",
       "noTeams": "この組織にはまだチームがありません。先にチームを作成してください。",
