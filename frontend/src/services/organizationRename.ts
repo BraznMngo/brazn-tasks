@@ -6,9 +6,13 @@ import {AuthenticatedHTTPFactory} from '@/helpers/fetcher'
  * absolute URL, same reason as `accountErasure.ts` and `apiV2Url`.
  *
  * Do not invent a second rename route: this is the one call
- * `POST /v1/organizations/rename`. Success re-delivers the administrator's
- * projection; callers must re-read the name from the FORK (`brazn/organization`)
- * afterwards, never from this response alone.
+ * `POST /v1/organizations/rename` (same as ONE `api.renameOrganization`).
+ * Success re-delivers the administrator's projection; callers must re-read
+ * the name from the FORK (`brazn/organization`) afterwards, never from this
+ * response alone.
+ *
+ * Local Vite must proxy `/v1` to `DEV_PROXY` (see vite.config.ts) or the
+ * request never leaves the frontend origin.
  */
 
 function commercialUrl(path: string): string {

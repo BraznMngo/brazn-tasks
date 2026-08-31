@@ -82,7 +82,7 @@ import {useI18n} from 'vue-i18n'
 import Message from '@/components/misc/Message.vue'
 import XButton from '@/components/input/Button.vue'
 import OrganizationPage from '@/components/organization/OrganizationPage.vue'
-import {success} from '@/message'
+import {getErrorText, success} from '@/message'
 import {renameOrganization} from '@/services/organizationRename'
 import {useOrganizationStore} from '@/stores/organization'
 
@@ -123,14 +123,45 @@ async function save() {
 
 	try {
 		await renameOrganization(org.id, trimmed)
+		// Name on screen comes from the fork re-read, never from the commercial body.
 		await organizationStore.load()
 		success({message: t('organization.general.renameSuccess')})
 	} catch (e) {
-		// Server refusal verbatim — admin-only route or commercial gate.
-		const data = (e as {response?: {data?: {message?: string}}})?.response?.data
-		refusal.value = data?.message || t('organization.general.renameNotAllowed')
+		// Prefer the server's own sentence. Commercial failures often arrive as
+		// `{error, debug}` with no `message` (http.ts `fail`); do not pretend
+		// those mean "not the administrator" — this page is already admin-gated
+		// (BRA-1479 #5).
+		const status = (e as {response?: {status?: number}})?.response?.status
+		const data = (e as {response?: {data?: unknown}})?.response?.data
+		refusal.value = commercialRefusalText(data, status, e)
 	} finally {
 		working.value = false
 	}
+}
+
+/**
+ * Word the refusal the commercial (or proxy) failure actually carried.
+ * `renameNotAllowed` is only for a bare 403.
+ */
+function commercialRefusalText(data: unknown, status: number | undefined, e: unknown): string {
+	if (data !== null && typeof data === 'object') {
+		const body = data as {message?: unknown, error?: unknown, debug?: unknown}
+		if (typeof body.message === 'string' && body.message.trim() !== '') {
+			return body.message
+		}
+		if (typeof body.error === 'string' && body.error.trim() !== '') {
+			const debug = typeof body.debug === 'string' && body.debug.trim() !== ''
+				? body.debug
+				: ''
+			if (body.error === 'internal_error') {
+				return t('organization.error.text')
+			}
+			return debug ? `${body.error}: ${debug}` : body.error
+		}
+	}
+	if (status === 403) {
+		return t('organization.general.renameNotAllowed')
+	}
+	return getErrorText(e) || t('organization.error.text')
 }
 </script>
