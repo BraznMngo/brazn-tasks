@@ -27,26 +27,32 @@
 <base href="/one/">
 <link rel="stylesheet" href="./one.css">
 </head>
-<!-- The invitation page (BRA-1475, rewriting BRA-1439 Story 5 in place — this is not a second
-     page beside the old one).
+<!-- The sign-in page (BRA-1475). ONE JOB, THREE DESTINATIONS, ONE DOCUMENT.
 
-     The invitation email links here as /one/join.html?i=<invitation_id>#signup_token=<token>.
-     The handle is in the visible part of the address and the token is after the hash, so the
-     token reaches no log: no browser transmits a fragment to any server.
+     This document answers at three addresses, listed in pages.js: its own,
+     /login, /oauth/authorize and /auth/openid/{provider}. The last two are not
+     separate pages and must not become separate pages:
 
-     THIS PAGE DOES NOTHING ON ITS OWN WHEN IT LOADS. It reads whether anybody is signed in and
-     asks the paid-account service what organisation and team the handle names. It never accepts,
-     consumes or submits anything by itself — which is precisely what the page it replaces did,
-     and why an administrator clicking an invitation they had just sent always failed.
+       * /oauth/authorize is where a ONE desktop application sends a browser to
+         get its access. After the person is signed in, this page exchanges the
+         five parameters the application put in the address for a one-time code
+         and sends the browser back to the application. That is the whole of
+         what the page it replaces did. NOTHING ON THE WEB SIDE WOULD REPORT IT
+         IF THIS WERE WRONG — every desktop application would simply stop being
+         able to connect.
+       * /auth/openid/{provider} is the address registered with Google, built in
+         the browser from the current host, so serving our own document here
+         leaves the registered address byte-identical and touches nothing in the
+         Google console.
 
-     THE ROOT IS #auth, NOT #app, and the difference is load-bearing: app.js's boot()
-     self-schedules on any document carrying #app, and this page must get join.js's own boot and
-     nothing else. This is the same reason the previous version used #join.
+     THE ROOT IS #auth, NOT #app, and the difference is load-bearing: app.js's
+     boot() self-schedules on any document carrying #app, and this page must get
+     signin.js's own boot and nothing else.
 
-     `hidden` is in the markup for settings.html's reason: a module that fails to load must leave
-     an invisible page rather than a wrong one. -->
+     `hidden` is in the markup for settings.html's reason: a module that fails to
+     load must leave an invisible page rather than a wrong one. -->
 <body>
 <div class="auth-stage hidden"><main class="auth-card" id="auth"></main></div>
-<script type="module" src="./join.js"></script>
+<script type="module" src="./signin.js"></script>
 </body>
 </html>

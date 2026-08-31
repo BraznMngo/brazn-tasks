@@ -310,8 +310,14 @@ func AuthenticateCallback(ctx context.Context, cb *Callback, providerKey string)
 
 // LinkCallback verifies a Google OIDC callback and SWITCHES the CURRENT,
 // already-authenticated user from local (password) sign-in to this Google
-// identity — the missing half of the promise errManagedUsePassword makes:
-// "you can add Google to your account afterwards."
+// identity.
+//
+// It used to be described here as the missing half of a promise
+// errManagedUsePassword made — "you can add Google to your account
+// afterwards". BRA-1475 replaced that sentence and dropped the promise, so
+// nothing refuses a Google sign-in and then tells the person this exists. The
+// capability is unchanged and still reached from the settings page; only the
+// refusal stopped advertising it.
 //
 // "ADD" IS NOT WHAT THIS DOES, AND THAT IS DELIBERATE, NOT A SHORTCUT. This
 // schema has one Issuer/Subject slot per account, and IsLocalUser() —
@@ -595,9 +601,14 @@ func fallbackSearchUsers(cl *claims, provider *Provider, idToken *oidc.IDToken) 
 // The wording says what the person can do about it and names no rule: whether
 // this instance is in managed mode is not something an unauthenticated caller
 // needs to be told.
+//
+// The sentence is BRA-1475's, quoted in the ticket and shipped as written. It
+// says "email address" where the previous one said "sign-in", which is what the
+// person is actually looking at: they pressed a Google button with one mailbox
+// selected, and the address is the thing they can change.
 func errManagedNoSignUp() error {
 	return echo.NewHTTPError(http.StatusForbidden,
-		"There is no ONE account for this sign-in. Accounts are created when you subscribe.")
+		"There is no ONE account for this email address. Please subscribe to ONE first.")
 }
 
 // errManagedUsePassword is what somebody gets when they sign in with Google at
@@ -609,9 +620,17 @@ func errManagedNoSignUp() error {
 // deny. There is no disclosure in saying so: the person has just proved to
 // Google that they hold this mailbox, so they are being told something about
 // their own address.
+//
+// The sentence is BRA-1475's, quoted in the ticket and shipped as written. IT
+// DROPS A PROMISE THE PREVIOUS ONE MADE, knowingly and on the ticket's own
+// record: the old wording ended "you can add Google to your account
+// afterwards", and adding Google afterwards is a thing LinkCallback really
+// does. The replacement says only what to do now. If that promise is wanted
+// back it belongs in the sign-in page's own copy, where it can be read in the
+// person's language, rather than in an English-only literal here.
 func errManagedUsePassword() error {
 	return echo.NewHTTPError(http.StatusForbidden,
-		"This email address already has a ONE account. Sign in with your password; you can add Google to your account afterwards.")
+		"This account is not using Google to sign in. Please log in with username and password.")
 }
 
 // errManagedUnverifiedAddress refuses a sign-up whose provider will not say the

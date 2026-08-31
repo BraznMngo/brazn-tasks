@@ -18,6 +18,8 @@ package routes
 
 import (
 	"net/http"
+	"net/url"
+	"os"
 	"path"
 	"strings"
 
@@ -33,13 +35,33 @@ import (
 // is three changed lines and nothing else: the two calls that stand in for
 // serveIndexFile, and one extra term on the condition above the second of them.
 const (
+	// THE ONE LIST OF DOCUMENTS THIS PRODUCT SERVES (BRA-1475 criterion 18).
+	// Every page a person can be given lives in this block and nowhere else, and
+	// two things read it. braznBlocksAppShell serves an .html under dist/one/
+	// only when it is named here, so a page dropped into frontend/public/one/
+	// and forgotten is not quietly reachable. And the "Every ONE document is on
+	// the one list" step of .github/workflows/fork-guards.yml fails the build
+	// both ways: when a document exists in frontend/public/one/ and is missing
+	// from this block, and when a document named here was never written.
+	//
+	// That step matches these literals by shape, so keep one document per line
+	// and never write a /one/*.html path in backticks anywhere else in this
+	// file — a mention in a comment would read as an eighth document.
+	//
 	// Settings is the general entry point and its own document; the task detail
 	// is a deep link and its own. A settings screen answering to a URL called
 	// task.html is a URL nobody can hand to anyone.
-	restrictedUIPage       = `/one/settings.html`
-	restrictedUITaskPage   = `/one/task.html`
+	restrictedUIPage          = `/one/settings.html`
+	restrictedUITaskPage      = `/one/task.html`
+	restrictedUISignInPage    = `/one/signin.html`
+	restrictedUIJoinPage      = `/one/join.html`
+	restrictedUIPasswordPage  = `/one/password.html`
+	restrictedUIConfirmedPage = `/one/confirmed.html`
+	restrictedUIErrorPage     = `/one/error.html`
+
 	restrictedUITaskPrefix = `/tasks/`
 	restrictedUIHTMLSuffix = `.html`
+	restrictedUIDir        = `/one/`
 
 	// The commercial service's surface: /v1 with no /api segment, same host,
 	// different codebase. static()'s early return covers "/api/" only, so this
@@ -50,15 +72,25 @@ const (
 	// prefix rather than an exact path.
 	restrictedUIAuthPrefix = `/auth/`
 
-	// A link-share recipient authenticates at /share/{hash}/auth
-	// (frontend/src/router/index.ts:276). The hash varies, so this is a prefix.
-	restrictedUIShareAuthPrefix = `/share/`
-
 	// The application's service worker, which the lockout has to replace rather
 	// than merely stop serving. See braznEvictingServiceWorker.
 	restrictedUIServiceWorkerPath = `/sw.js`
 	restrictedUIServiceWorkerFile = `sw.js`
 )
+
+// restrictedUIDocuments is the set form of the block above, and it is what
+// makes that block load-bearing rather than descriptive. Membership is by the
+// document's own address under /one/, which is what braznBlocksAppShell holds
+// after stripping dist/ from an embedded file name.
+var restrictedUIDocuments = map[string]bool{
+	restrictedUIPage:          true,
+	restrictedUITaskPage:      true,
+	restrictedUISignInPage:    true,
+	restrictedUIJoinPage:      true,
+	restrictedUIPasswordPage:  true,
+	restrictedUIConfirmedPage: true,
+	restrictedUIErrorPage:     true,
+}
 
 // braznEvictingServiceWorker is what /sw.js answers while the lockout is on.
 //
@@ -102,63 +134,91 @@ self.addEventListener('activate', function (event) {
 });
 `
 
-// restrictedUIAuthPaths are the vue-router paths that must keep reaching the app
-// shell while the lockout is on.
+// THE EXEMPTION LIST IS GONE, and its absence is the point (BRA-1475
+// criterion 17). What stood here was restrictedUIAuthPaths, six vue-router
+// paths that kept reaching the Vue application while the lockout was on,
+// because the sign-in form was part of that application and there was no
+// separate document to send anybody to. Its own comment admitted what it cost:
+// serving the shell at /login serves the whole application, router included,
+// so every one of the twelve old settings pages was one typed path away.
 //
-// WITHOUT THIS THE LOCKOUT LOCKS EVERYONE OUT. The sign-in form is part of the
-// Vue application; there is no separate login document. So a signed-out visitor
-// is redirected to the restricted page, the page finds no session and hands off
-// to /login exactly as the SPA does, /login is a vue-router path that matches no
-// file and no route, and the fallback redirects it back to the restricted page.
-// The browser gives up with ERR_TOO_MANY_REDIRECTS and nobody can ever sign in.
+// The list is empty because it has nothing left to do. Every address it named
+// is now answered by a document of ours, named in the block at the top of this
+// file, so nothing has to keep serving the old application to keep anybody
+// able to sign in. serveIndexFile is not reached at all while the key is on.
 //
-// This is a DELIBERATE, NARROW HOLE in "the SPA is never delivered", and it is
-// worth being honest about its size: serving the shell at /login serves the whole
-// application, because the router is client-side. Someone who signs in and then
-// types a path can stay in it. The alternative is building a second sign-in form,
-// which the ticket forbids (bar 4, do not touch auth) and which would be a worse
-// answer anyway — a second credential surface to keep correct.
+// restrictedUIRewrites is that replacement: the address a person arrives at,
+// and the document that answers there.
 //
-// What the lockout still buys with this hole open: every ORDINARY route in is
-// closed. The root, every task path, every settings path and every deep link a
-// user actually holds land on the restricted page, and a successful sign-in
-// returns to "/", which is redirected. The SPA stops being where people are sent
-// and becomes somewhere they must deliberately go.
-var restrictedUIAuthPaths = map[string]bool{
-	"/login":              true,
-	"/register":           true,
-	"/password-reset":     true,
-	"/get-password-reset": true,
-	// Where the email-confirmation link lands after the router guard moves it
-	// (frontend/src/router/index.ts:96, :582-584).
-	"/confirm": true,
-	// The native client's OAuth consent screen. Note the prefix below is
-	// "/auth/", which does NOT cover "/oauth/" — they are different routes
-	// (router/index.ts:502).
-	"/oauth/authorize": true,
+// THESE ARE SERVED IN PLACE AND NEVER REDIRECTED TO, which is the whole reason
+// fault 1 of BRA-1475 cannot come back. A redirect carries only its
+// destination, so a token in the query is discarded on the way — that is how a
+// mailed password-reset link came to land on a settings page with the token
+// gone. Serving the document at the address the person actually asked for
+// leaves the request untouched: the query is still there for the page to read,
+// and so is the path, which is where /auth/openid/{provider} keeps the name of
+// the provider that just answered.
+//
+// It also keeps the desktop application's five parameters to one line in the
+// access log. Redirecting /oauth/authorize would copy them into a second
+// request, and the ticket is explicit that those parameters are not to be
+// spread around.
+//
+// /register has no page of its own: an account is created on the public
+// website, not here. It answers with the sign-in document because that
+// document carries the link to where accounts are made, which is a better
+// answer for a bookmark than the settings page a signed-out person would
+// otherwise be bounced through.
+var restrictedUIRewrites = map[string]string{
+	"/login":    restrictedUISignInPage,
+	"/register": restrictedUISignInPage,
+	// The native client's OAuth consent screen. Note the /auth/ prefix used
+	// below does NOT cover "/oauth/" — they are different routes
+	// (frontend/src/router/index.ts:502).
+	"/oauth/authorize": restrictedUISignInPage,
+	// One document with two states: asking for a reset, and setting the new
+	// password. Which state it shows is decided by whether a token arrived, so
+	// the two addresses do not have to be told apart here.
+	"/password-reset":     restrictedUIPasswordPage,
+	"/get-password-reset": restrictedUIPasswordPage,
+	// Where the email-confirmation link used to land after the SPA's router
+	// guard moved it (frontend/src/router/index.ts:96, :629-631).
+	"/confirm": restrictedUIConfirmedPage,
 }
 
-// restrictedUIConfirmationQueries are the tokens the backend mails to a user AT
-// THE SITE ROOT, and they are the reason an allowlist of paths is not enough.
+// restrictedUIMailedTokens are the tokens the server mails to a person AT THE
+// SITE ROOT, and they are the reason a table of paths is not enough on its own.
 //
-// pkg/user/notifications.go:52 and :206 build their links as
-// `ServicePublicURL + "?userEmailConfirm=" + token` — the ROOT with a query, not
-// a path anybody could allowlist. The SPA picks them up in a global router guard
-// (frontend/src/router/index.ts:582-584) and forwards them to /confirm.
+// pkg/user/notifications.go builds those links as
+// `ServicePublicURL + "?userEmailConfirm=" + token` — the ROOT with a query,
+// not a path anybody could name in a table. The root must keep redirecting,
+// because it is the main way in; a root request carrying one of these is
+// answered with the document that owns the token instead.
 //
-// WITHOUT THIS THE LOCKOUT PERMANENTLY LOCKS PEOPLE OUT, and silently. "/" is a
-// directory, so it reaches braznServeAppShell and is redirected to the restricted
-// page — and http.Redirect carries only the target string, so THE TOKEN IS
-// DISCARDED. The user never confirms, and pkg/user/user.go:413-415 then refuses
-// every subsequent sign-in with ErrEmailNotConfirmed. Changing an email address
-// from the shipped settings page is enough to trigger it
-// (frontend/public/one/view-settings.js:544).
+// Ordered rather than a map, so that a request carrying two of these names is
+// answered the same way every time.
 //
-// So the root keeps redirecting — it must, it is the main entry point — but a
-// root request CARRYING ONE OF THESE reaches the application instead.
-var restrictedUIConfirmationQueries = []string{
-	"userEmailConfirm",
-	"accountDeletionConfirm",
+// The password-reset name is what rescues the links already sitting in
+// inboxes: pkg/user/notifications.go now points new mail straight at the
+// password document, but a link mailed before that change still arrives here.
+//
+// accountDeletionConfirm IS NOT IN BRA-1475's TABLE OF DOCUMENTS, and this is
+// the honest placement rather than the specified one. It cannot keep reaching
+// the Vue application, because that is the hole criterion 17 closes, and it
+// must not be redirected, because that would discard the token. The confirmed
+// document is the result screen a mailed token ends on, so it goes there and
+// the page has to be able to say what happened. On this deployment the link is
+// not produced at all today: both POST /api/v{1,2}/user/deletion/request and
+// .../confirm are classified service-managed in
+// pkg/routes/route-classification.json, so a browser cannot ask for one and
+// the mail that carries this token is never sent.
+var restrictedUIMailedTokens = []struct {
+	query    string
+	document string
+}{
+	{"userPasswordReset", restrictedUIPasswordPage},
+	{"userEmailConfirm", restrictedUIConfirmedPage},
+	{"accountDeletionConfirm", restrictedUIConfirmedPage},
 }
 
 // braznBlocksAppShell reports whether a request that resolved to a REAL FILE in
@@ -193,25 +253,36 @@ var restrictedUIConfirmationQueries = []string{
 // With the key off this fork must be byte-identical to upstream, so the key is
 // checked here, and first.
 //
-// The second clause blocks any other .html under dist/ that is not under the
-// restricted page's own directory. Nothing in the build emits one today — Vite
-// has a single HTML entry, frontend/index.html, and frontend/public/ holds
-// exactly one .html, the restricted page — so it costs nothing today, and it is
-// what stops an .html dropped into frontend/public/ later from silently
-// reopening the hole.
+// THE LAST CLAUSE IS WHAT CLOSES THE /index.html HOLE, and it is the only
+// thing that does. An earlier revision compared the name against dist/index.html
+// explicitly as well, and that comparison was kept on the reasoning that leaning
+// on a suffix test for it would let a later narrowing of that test reopen the
+// hole silently. It has been removed, and the reasoning is answered here rather
+// than dropped: the last clause is no longer a suffix test on its own. It blocks
+// every .html under dist/ that is not NAMED in the one list, so reopening
+// /index.html now takes somebody deliberately writing it into a block whose own
+// comment says it is the set of documents this product serves. That is a visible
+// act rather than a silent narrowing. Two conditions where one decides is worse
+// than one, because the redundant one reads as the live guard to whoever comes
+// next and looks safe to delete.
 //
-// THE /one/ EXEMPTION IS LOAD-BEARING, not a nicety. dist/one/task.html is the
-// page this whole feature exists to serve. Without the exemption it would be
-// diverted here, braznRestrictedUITarget would compute it as its own target, and
-// the redirect-loop guard would answer 404 — a locked-down instance with no
-// interface at all, which is the failure the lockout is supposed to prevent.
+// Vite has a single HTML entry, frontend/index.html, and copies
+// frontend/public/ in verbatim, so the documents in that directory are the only
+// other .html the build can emit — and an .html dropped in there later stays
+// blocked until somebody names it, rather than becoming reachable the moment it
+// is committed.
+//
+// THE EXEMPTION IS LOAD-BEARING, not a nicety, and it is BY DOCUMENT NAME
+// rather than by directory (BRA-1475 criterion 18). dist/one/settings.html is
+// the page this whole feature exists to serve; without an exemption it would be
+// diverted into braznServeAppShell and answered 404, which is a locked-down
+// instance with no interface at all. It used to be the whole of dist/one/,
+// which meant anything committed under that directory was served to anybody who
+// asked. Naming each document is what gives criterion 18 its single list, and
+// it is the list the fork-guards step checks the built page set against.
 func braznBlocksAppShell(name string) bool {
 	if !config.BraznRestrictedUIOnly.GetBool() {
 		return false
-	}
-
-	if name == path.Join(rootPath, indexFile) {
-		return true
 	}
 
 	// The service worker is a real file too, so it would otherwise be served
@@ -225,11 +296,10 @@ func braznBlocksAppShell(name string) bool {
 		return false
 	}
 
-	// "dist/one/", derived from restrictedUIPage rather than spelled out, so the
-	// exemption cannot drift away from the page it exists for.
-	exemptDir := path.Join(rootPath, path.Dir(restrictedUIPage)) + `/`
-
-	return !strings.HasPrefix(name, exemptDir)
+	// static.go builds `name` as path.Join(rootPath, …), so "dist/one/x.html"
+	// here is the document "/one/x.html" there. Anything outside dist/ cannot
+	// match, which is what keeps a stray .html elsewhere in dist/ blocked.
+	return !restrictedUIDocuments[`/`+strings.TrimPrefix(name, rootPath)]
 }
 
 // braznServeAppShell stands in for serveIndexFile at its two call sites in
@@ -239,6 +309,18 @@ func braznBlocksAppShell(name string) bool {
 // the SPA config into <div id="app"></div>, the raw dist/index.html is the only
 // other document that loads the SPA's entry module, and the hashed asset chunks
 // are inert on their own because nothing remains to load them.
+//
+// WITH THE KEY ON, THE VUE APPLICATION IS NEVER SERVED, BY ANY ADDRESS, TO
+// ANYBODY (BRA-1475 criterion 17). serveIndexFile is called from exactly one
+// place below and only when the key is off. That is a stronger statement than
+// "the exemption list is empty", and it is the one worth checking: an empty
+// list can be added to, whereas a function nothing calls cannot serve anybody.
+//
+// LINK SHARING IS CLOSED TO A SIGNED-OUT VISITOR, deliberately, and this is
+// where the /share/ prefix used to be exempt. A share recipient authenticated
+// at /share/{hash}/auth, which is a route of the Vue application, so keeping it
+// open kept the whole application open. BRA-1475 rules the prefix shut like any
+// other, so it is now an ordinary locked-out request.
 //
 // With the key off this is byte-identical to calling serveIndexFile directly.
 //
@@ -259,9 +341,9 @@ func braznBlocksAppShell(name string) bool {
 // a .html in dist/, so the set of requests that reach a handler is unchanged.
 //
 // /one/task.html needs no special case either. It is a real file and
-// braznBlocksAppShell exempts its directory, so static() serves it by the
-// ordinary path with the same ETag and cache headers every other asset gets, and
-// it never reaches this function at all.
+// braznBlocksAppShell exempts it by name, so static() serves it by the ordinary
+// path with the same ETag and cache headers every other asset gets, and it
+// never reaches this function at all.
 func braznServeAppShell(c *echo.Context, assetFs http.FileSystem) error {
 	if !config.BraznRestrictedUIOnly.GetBool() {
 		return serveIndexFile(c, assetFs)
@@ -295,10 +377,8 @@ func braznServeAppShell(c *echo.Context, assetFs http.FileSystem) error {
 		return echo.ErrNotFound
 	}
 
-	target := braznRestrictedUITarget(requested)
-
 	// THE REDIRECT-LOOP GUARD. It is not paranoia; write the loop out before
-	// touching it. On any build where the page was not copied into dist/ —
+	// touching it. On any build where a document was not copied into dist/ —
 	// CI's stub dist/ is exactly that, and so is a mis-built image:
 	//
 	//	GET /one/task.html
@@ -309,28 +389,115 @@ func braznServeAppShell(c *echo.Context, assetFs http.FileSystem) error {
 	//	-> 302 Location: /one/task.html
 	//	-> the browser asks for it again, and again, forever.
 	//
-	// A missing page has to read as missing. This is the only request that can
-	// trip it: every other target either differs from the cleaned request path
-	// or carries a ?task= query, which a cleaned path never has.
-	// Both documents, not just the settings one: /one/task.html with no query
-	// computes itself as its target too, and on a build where the page was not
-	// copied into dist/ that is the same infinite bounce.
-	if target == requested || requested == restrictedUITaskPage {
+	// A missing page has to read as missing. The rule is structural rather than
+	// a list of the documents that happen to exist today: reaching this
+	// function at all means the file was not there, so ANY .html under /one/
+	// that gets here is a document the build failed to produce, and every one
+	// of them would otherwise bounce — either at itself, or off the settings
+	// page which on that build is missing too. Nothing else under /one/ is
+	// affected, because /one/missing and /one/ carry no .html suffix and are
+	// ordinary locked-out requests.
+	//
+	// This replaces the `target == requested` comparison that stood here, and
+	// subsumes it: every target braznRestrictedUITarget can produce is a
+	// document under /one/, so a request that equals its own target is one this
+	// test has already caught. Keeping both would leave a second condition
+	// nothing can reach, which reads like a live guard to whoever comes next.
+	if braznIsRestrictedUIDocument(requested) {
 		return echo.ErrNotFound
 	}
 
-	// Authentication has to stay reachable, or the lockout is a lockout on
-	// everyone — see restrictedUIAuthPaths for why, and for what it costs.
-	if restrictedUIAuthPaths[requested] ||
-		strings.HasPrefix(requested, restrictedUIAuthPrefix) ||
-		strings.HasPrefix(requested, restrictedUIShareAuthPrefix) ||
-		braznCarriesConfirmationToken(c) {
-		return serveIndexFile(c, assetFs)
+	// A document of ours answering at this address is SERVED HERE, at the
+	// address asked for, rather than redirected to. See restrictedUIRewrites
+	// for why that is not a style choice: a redirect would discard the query,
+	// and the query is the token.
+	if document := braznRestrictedUIDocument(requested, c.Request().URL.Query()); document != "" {
+		return braznServeDocument(c, assetFs, document)
 	}
+
+	target := braznRestrictedUITarget(requested)
 
 	http.Redirect(c.Response(), c.Request(), braznRestrictedUILocation(target), http.StatusFound)
 
 	return nil
+}
+
+// braznServeDocument serves one of our own documents at whatever address the
+// request arrived at, with the ETag and cache headers static() gives every
+// other file, and answers 404 when the build did not produce it.
+//
+// THE 404 IS THE POINT. Every other way of handling a missing document ends in
+// a redirect, and a redirect to a document that is also missing is the infinite
+// bounce the guard above exists to prevent. A build that failed to copy the
+// page in has to read as a build that failed.
+func braznServeDocument(c *echo.Context, assetFs http.FileSystem, document string) error {
+	name := path.Join(rootPath, document)
+
+	file, err := assetFs.Open(name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return echo.ErrNotFound
+		}
+
+		return err
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	etag, err := generateEtag(file, name)
+	if err != nil {
+		return err
+	}
+
+	return serveFile(c, file, info, etag)
+}
+
+// braznIsRestrictedUIDocument reports whether a cleaned request path names one
+// of our documents. It is a shape test rather than a lookup in
+// restrictedUIDocuments on purpose: the caller is asking "was this request for
+// a page that should have been a file", and a page added to the build but not
+// yet to the list must answer yes to that, or it bounces instead of 404ing.
+func braznIsRestrictedUIDocument(cleanedPath string) bool {
+	return strings.HasPrefix(cleanedPath, restrictedUIDir) &&
+		strings.HasSuffix(cleanedPath, restrictedUIHTMLSuffix)
+}
+
+// braznRestrictedUIDocument answers which document must be served at this
+// address, or "" when the request is an ordinary one to be redirected.
+//
+// A MAILED TOKEN IS ANSWERED FIRST, whatever path it arrives on. The token is
+// the thing that cannot be replaced — it is spent, or it expires, and the
+// person cannot get another one without asking again — so the document that
+// knows what to do with it wins over the document the path would have chosen.
+// In practice the two never disagree: the reset link is the site root and the
+// reset page is /password-reset, and both lead to the same document.
+//
+// Pure, and takes the cleaned path and the parsed query rather than the
+// context, so the whole decision table can be exercised without an embedded
+// filesystem.
+func braznRestrictedUIDocument(cleanedPath string, query url.Values) string {
+	for _, mailed := range restrictedUIMailedTokens {
+		if query.Has(mailed.query) {
+			return mailed.document
+		}
+	}
+
+	if document, ok := restrictedUIRewrites[cleanedPath]; ok {
+		return document
+	}
+
+	// The OIDC round trip returns to /auth/openid/{provider}, and the provider
+	// is in the path rather than the query, which is the other reason these
+	// documents are served in place rather than redirected to.
+	if strings.HasPrefix(cleanedPath, restrictedUIAuthPrefix) {
+		return restrictedUISignInPage
+	}
+
+	return ""
 }
 
 // braznRestrictedUITarget is where a locked-out request is sent. A /tasks/{id}
@@ -373,24 +540,4 @@ func braznRestrictedUILocation(target string) string {
 	}
 
 	return strings.TrimSuffix(publicURL, "/") + target
-}
-
-// braznCarriesConfirmationToken reports whether this request is one of the
-// mailed confirmation links, which arrive at the ROOT with the token in a query
-// rather than on any path an allowlist could name.
-//
-// Reading the RAW query rather than ParseQuery: a malformed query would make
-// ParseQuery return an error and, handled carelessly, drop a real token on the
-// floor. The presence of the parameter name is the whole question here — the SPA
-// owns validating the value — so a substring match on the key is both sufficient
-// and impossible to fail closed by accident.
-func braznCarriesConfirmationToken(c *echo.Context) bool {
-	query := c.Request().URL.Query()
-	for _, name := range restrictedUIConfirmationQueries {
-		if query.Has(name) {
-			return true
-		}
-	}
-
-	return false
 }

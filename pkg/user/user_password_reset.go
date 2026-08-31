@@ -127,11 +127,72 @@ func RequestUserPasswordResetTokenByEmail(s *xorm.Session, tr *PasswordTokenRequ
 		}
 	}
 
-	return RequestUserPasswordResetToken(s, user)
+	// BRA-1475: an account that signs in with a provider gets no reset mail,
+	// and the person asking is not told that is why. RequestUserPasswordResetToken
+	// refuses it, and the refusal is swallowed here for the same reason the two
+	// above are: this endpoint needs no credentials, and any answer that differs
+	// from the ordinary one sorts a list of addresses into accounts and
+	// non-accounts. Nothing is sent, and the caller leaves the way success
+	// leaves.
+	err = RequestUserPasswordResetToken(s, user)
+	if IsErrAccountIsNotLocal(err) {
+		return nil //nolint:nilerr // saying nothing is the published contract
+	}
+
+	return err
 }
 
 // RequestUserPasswordResetToken sends a user a password reset email.
 func RequestUserPasswordResetToken(s *xorm.Session, user *User) (err error) {
+	// BRA-1475: AN ACCOUNT THAT SIGNS IN WITH A PROVIDER MUST NOT BE SENT A
+	// RESET LINK, because the link leads nowhere and leaves the person worse
+	// off than before they asked. Nothing checked this. ResetPassword writes a
+	// password hash onto whichever account the token names and, for an account
+	// awaiting confirmation, marks it active in the same write
+	// (user_password_reset.go:73-79). None of that gives the account a password
+	// to sign in with: CheckUserCredentials refuses a non-local account outright
+	// (user.go:410-412), so the person sets a password, is told it worked, and
+	// is refused at the sign-in page with a message about a different subject.
+	//
+	// Here rather than at the four call sites, because this is the function
+	// that mints the token and sends the mail, so a door added later is covered
+	// without anybody remembering. RequestPasswordResetAsAdmin already refuses
+	// the same case ahead of this (pkg/models/admin_user_actions.go:144-146),
+	// so nothing changes for an administrator; the CLI and the invalid-TOTP
+	// lockout mail now get the same refusal instead of sending a dead link.
+	//
+	// The self-service door swallows this error rather than reporting it — see
+	// RequestUserPasswordResetTokenByEmail, where saying "that account signs in
+	// with Google" to an unauthenticated stranger is the oracle BRA-1101 closed.
+	//
+	// THE ISSUER IS READ FROM THE STORED ROW AND NOT FROM THE *User PASSED IN,
+	// for exactly the reason CheckPasswordForOwnAccount re-reads it
+	// (user.go:441-443): a user built from sign-in token claims carries only its
+	// id, username and admin flag, so IsLocalUser() on one of those answers
+	// false for everybody. HandleFailedTOTPAuth passes such an object
+	// (totp.go:224), and reading the flag off the argument therefore refused a
+	// reset link to EVERY account locked out by ten wrong two-factor codes —
+	// while the by-email door above swallowed the refusal, so the person was
+	// told the mail had been sent. A customer with no way back in and nothing
+	// anywhere reporting it. That is what this lookup exists to prevent, and it
+	// is why the check cannot be written against the argument however convenient
+	// that reads.
+	//
+	// A status error still carries the row (getUser, user.go:340-346), so a
+	// locked or disabled account is read rather than refused here: a lockout is
+	// precisely the state a reset gets somebody out of. Anything else — an
+	// unreadable database, an id that names nobody — is returned as it is,
+	// because a token minted for an account we could not read is not a thing to
+	// mail.
+	stored, err := GetUserByID(s, user.ID)
+	if err != nil && !IsErrUserStatusError(err) {
+		return err
+	}
+
+	if !stored.IsLocalUser() {
+		return &ErrAccountIsNotLocal{UserID: user.ID}
+	}
+
 	token, err := generateToken(s, user, TokenPasswordReset)
 	if err != nil {
 		return

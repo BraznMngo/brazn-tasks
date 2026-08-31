@@ -90,7 +90,12 @@
      do not even match the scale — 30px, 32px and 36px have no token, and --font-size-body:14px
      names a size nothing uses). Do not re-introduce them by retro-fitting the literals; that is
      a redesign and bar 10 forbids it. --font is the one layout token anything actually reads. */
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  /* INTER LEADS, as the website's own token file does (web/app/tokens.css, --font-sans). It used
+     to sit fourth, behind the platform font, which meant these pages rendered in Segoe UI on
+     Windows while the account-creation page they are meant to match rendered in Inter — two
+     different faces side by side, which is half of what "the same design elements and page
+     style" is judged on. The platform fonts stay behind it as the fallback they always were. */
+  --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   color-scheme: light;
 }
@@ -721,4 +726,135 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
   .settings-nav{overflow:auto}
   .setting-row{grid-template-columns:1fr}
   .setting-control{min-width:0}
+}
+
+/* ============================================================================
+   THE PAGES A SIGNED-OUT PERSON SEES (BRA-1475)
+   ============================================================================
+   Sign in, the invitation, the password page, the confirmation result and the
+   general error page. Five documents, one look, and the look is the ONE
+   website's ACCOUNT-CREATION PAGE — not the settings window above.
+
+   WHY THIS IS REBUILT BY HAND RATHER THAN IMPORTED. The reference is
+   web/components/account/RegisterForm.module.css in the ONE Apps repository,
+   which is React with CSS modules behind a Next.js build and consumes
+   web/app/tokens.css. This stylesheet is served byte-for-byte with no build
+   step, so nothing there is reachable from here. The ticket says the reference
+   is that page's DESIGN, not its code, and that the look is rebuilt by hand.
+
+   WHAT WAS COPIED, VALUE BY VALUE, so a reviewer can hold the two side by side:
+   one focused white card on a calm pale field, 470px wide, centred, well down
+   the page; a 34px card radius falling to 27px on a phone; a 24px title at
+   weight 590 with -0.03em tracking and 1.1 leading; 15px gaps down the form and
+   5px inside a field; 13px medium labels; 42px inputs with a 10px radius and a
+   4px focus halo; the minimum-length password rule stated BEFORE the input; a
+   full-width 48px submit with a 14px radius that lifts one pixel on hover; 12px
+   muted notes; the danger surface for errors; 16px inputs under 560px so a
+   phone does not zoom on focus.
+
+   WHAT WAS DELIBERATELY NOT COPIED: the website's own colour literals. Every
+   colour here is one of this file's tokens, so these pages follow the reader's
+   light or dark preference exactly as the settings page does. The website is
+   light-only, and a page that ignored the preference would be the one surface
+   in this product that flashes white at somebody who asked for dark.
+
+   THIS IS JUDGED BY LOOKING, NOT BY READING. The ticket is explicit: a page
+   meeting every other requirement that does not look like the others has not
+   passed. */
+
+.auth-stage{min-height:100vh;background:var(--site-background);display:flex;align-items:flex-start;justify-content:center;padding-inline:24px;padding-block:clamp(56px,9vh,110px) 96px}
+.auth-card{width:100%;max-width:470px;background:var(--scheme-main);border:1px solid var(--card-border-color);border-radius:34px;box-shadow:var(--shadow-md);padding:36px 42px 42px;display:grid;gap:16px;align-content:start}
+
+/* The brand mark sits above the title, small and quiet, the way the checkout
+   card carries it. Both files ship; CSS picks by theme, as .brand-logo does. */
+.auth-brand{display:flex;justify-content:center;margin-bottom:4px}
+.auth-brand .brand-logo{inline-size:118px}
+
+/* Progress segments. The account-creation page shows a step count; only the
+   invitation page has a sequence, so the other four omit this block. */
+.auth-progress{display:grid;gap:10px;margin-bottom:8px}
+.auth-segments{display:flex;gap:6px}
+.auth-segment{height:3px;flex:1;border-radius:999px;background:var(--border)}
+.auth-segment.done{background:var(--text-strong)}
+.auth-step{font-size:11px;font-weight:650;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted)}
+
+.auth-title{font-size:24px;font-weight:590;letter-spacing:-.03em;line-height:1.1;color:var(--text-strong);margin:0 0 8px}
+.auth-lead{font-size:14px;line-height:1.5;color:var(--text-muted);margin:0}
+.auth-form{display:grid;gap:15px}
+.auth-field{display:grid;gap:5px}
+.auth-field label{font-size:13px;font-weight:500;color:var(--text-strong)}
+.auth-field input{width:100%;min-height:42px;padding:0 10px;border:1px solid var(--input-border-color);border-radius:10px;background:var(--scheme-main);color:var(--text);font:inherit;font-size:15px;transition:border-color .2s ease,box-shadow .2s ease}
+.auth-field input::placeholder{color:var(--text-light);opacity:1}
+.auth-field input:hover{border-color:var(--grey-300)}
+.auth-field input:focus{border-color:var(--primary);box-shadow:0 0 0 4px hsla(var(--primary-hsl), .15);outline:none}
+
+/* The locked address. It is readonly rather than disabled in the markup so it
+   stays in the tab order and is still announced — a field the reader is told
+   about and cannot reach is worse than one they can read and not change. The
+   colour is what says it is not theirs to edit. */
+.auth-field input[readonly]{background:var(--input-disabled-background-color);color:var(--input-disabled-color);cursor:default}
+.auth-field input[readonly]:hover{border-color:var(--input-border-color)}
+.auth-field input[readonly]:focus{border-color:var(--input-border-color);box-shadow:none}
+
+/* THE PASSWORD RULE SITS BELOW ITS FIELD, and this is a DELIBERATE DEPARTURE from the
+   account-creation page, recorded on the ticket so nobody restores it. Sebastian's instruction is
+   that the rule follows the input on every page here that asks somebody to choose a password. The
+   reference page states it first; that page is the website's registration page, which acceptance
+   criterion 19 deletes in this same change, so its placement is not a standard worth matching. */
+.auth-rule,.auth-note{font-size:12px;line-height:1.45;color:var(--text-muted);margin:0}
+.auth-rule{margin-top:-3px}
+
+/* THE REVEAL CONTROL. The reference page carries one and none of these pages did, so somebody
+   choosing a new password on the invitation page or the reset page typed it blind. Values are the
+   reference's own: a 34px square tucked inside the right-hand end of a 42px field, transparent
+   until hovered. The input reserves room for it so a long password never runs underneath. */
+/* THIS WRAPPER MUST HOLD THE INPUT ALONE. It is what `top:50%` centres against,
+   so if it is ever put back on `.auth-field` — a grid holding a label, a gap and
+   the input, 63px tall against the input's 42px — the control rides ten pixels
+   above the box and overlaps the label. auth-shell.js `passwordField` is the
+   only thing that emits this pair; keep them together. */
+.auth-reveal-wrap{position:relative}
+.auth-reveal-wrap input{padding-right:46px}
+.auth-reveal{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--text-muted);cursor:pointer;transition:background .14s ease,color .14s ease}
+.auth-reveal:hover{background:var(--grey-100);color:var(--text-strong)}
+.auth-reveal:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.auth-reveal svg{width:18px;height:18px;display:block}
+
+.auth-submit{width:100%;min-height:48px;padding:0 21px;border:0;border-radius:14px;background:var(--text-strong);color:var(--scheme-main);font:inherit;font-size:15px;font-weight:640;cursor:pointer;margin-top:8px;transition:transform .14s ease,opacity .14s ease}
+.auth-submit:hover:enabled{transform:translateY(-1px)}
+.auth-submit:active:enabled{transform:translateY(0) scale(.985)}
+.auth-submit:disabled{opacity:.45;cursor:not-allowed}
+
+/* Google, and the divider above it. Same height and weight as the submit so the
+   two read as one column rather than as a primary and an afterthought. */
+.auth-alt{width:100%;min-height:48px;padding:0 21px;display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid var(--input-border-color);border-radius:14px;background:var(--scheme-main);color:var(--text-strong);font:inherit;font-size:15px;font-weight:640;cursor:pointer;transition:background .14s ease,border-color .14s ease}
+.auth-alt:hover{background:var(--grey-100)}
+.auth-alt svg{width:18px;height:18px;flex-shrink:0}
+.auth-or{display:flex;align-items:center;gap:12px;color:var(--text-muted);font-size:12px}
+.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--border)}
+
+/* Every link on these pages, and there are only ever two of them. */
+.auth-links{display:grid;gap:8px;justify-items:center;margin-top:4px;text-align:center}
+.auth-links a{font-size:13px;color:var(--primary);text-decoration:none}
+.auth-links a:hover{text-decoration:underline}
+
+/* ONE PLACE ERRORS APPEAR, which the ticket requires in those words. Rendered
+   once at the top of the card, never beside a field and never as a toast: a
+   page with two error surfaces has one nobody reads. role="alert" is on the
+   node in the markup, so a message replacing an empty box is announced. */
+.auth-banner{border-radius:10px;padding:11px 16px;font-size:14px;line-height:1.45;white-space:pre-line;overflow-wrap:anywhere}
+.auth-banner:empty{display:none}
+.auth-banner.danger{background:hsla(var(--danger-h), var(--danger-s), var(--danger-l), .07);border:1px solid hsla(var(--danger-h), var(--danger-s), var(--danger-l), .22);color:var(--danger-text)}
+.auth-banner.success{background:hsla(var(--success-h), var(--success-s), var(--success-l), .08);border:1px solid hsla(var(--success-h), var(--success-s), var(--success-l), .20);color:var(--success)}
+
+/* A result screen — the confirmation and the error page — has a heading, a body
+   and at most one way onward. No form, so no form gaps. */
+.auth-result{display:grid;gap:12px}
+.auth-result p{margin:0;font-size:14px;line-height:1.55;color:var(--text-muted);white-space:pre-line;overflow-wrap:anywhere}
+
+@media(max-width:560px){
+  .auth-stage{padding-inline:16px;padding-block:40px 64px}
+  .auth-card{border-radius:27px;padding:24px 16px 30px}
+  /* 16px inputs prevent focus zoom on phones. */
+  .auth-field input{font-size:16px}
 }

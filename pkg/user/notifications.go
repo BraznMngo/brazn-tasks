@@ -110,7 +110,26 @@ func (n *ResetPasswordNotification) ToMail(lang string) *notifications.Mail {
 		Preheader(i18n.T(lang, "notifications.password.reset.preheader")).
 		Greeting(i18n.T(lang, "notifications.greeting", n.User.GetName())).
 		Line(i18n.T(lang, "notifications.password.reset.instructions")).
-		Action(i18n.T(lang, "notifications.common.actions.reset_password"), config.ServicePublicURL.GetString()+"?userPasswordReset="+n.Token.ClearTextToken).
+		// BRA-1475: this link points STRAIGHT AT THE PAGE THAT SETS A PASSWORD,
+		// and it used to be the site root with the token in the query. The root
+		// is redirected by the restricted-UI lockout, and a redirect carries
+		// only its destination, so the token was discarded before the reset
+		// page was ever reached and the customer's link was spent for nothing.
+		//
+		// The lockout still recognises the old shape, because links mailed
+		// before this change are sitting in inboxes and have to keep working
+		// (pkg/routes/static_brazn.go, restrictedUIMailedTokens). Pointing new
+		// mail at the document itself is what stops any future link depending
+		// on that list.
+		//
+		// The path is written out rather than shared with the lockout's
+		// constant: pkg/routes imports pkg/user, so the constant cannot come
+		// the other way without a cycle. Keep the two in step by hand.
+		//
+		// service.publicurl is normalised to end in "/" at startup
+		// (pkg/config/config.go:790-793), which is why the rest of this file
+		// appends bare paths the same way.
+		Action(i18n.T(lang, "notifications.common.actions.reset_password"), config.ServicePublicURL.GetString()+"one/password.html?userPasswordReset="+n.Token.ClearTextToken).
 		// valid_duration now carries both the 24-hour window and the
 		// "ignore this if you didn't request it" note as one line (BRA-1374,
 		// Sebastian's template combines them) -- "have_nice_day" no longer

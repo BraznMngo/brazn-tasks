@@ -297,7 +297,13 @@ jobs:
           # list is the locked file layout from the brief. Modules reached only
           # at runtime (view-task.js, view-settings.js) are covered by the
           # specifier check further down instead, so they are not duplicated here.
-          for f in task.html settings.html one.css app.js api.js i18n.js \
+          #
+          # The .html documents are NOT listed here, deliberately (BRA-1475
+          # criterion 18): they are named once, in the const block at the top of
+          # pkg/routes/static_brazn.go, and the "Every ONE document is on the one
+          # list" step below is what checks them against this directory. A second
+          # copy of that list here would be a second place for it to be wrong.
+          for f in one.css app.js api.js i18n.js \
                    i18n/en.json i18n/es-ES.json i18n/de-DE.json \
                    i18n/fr-FR.json i18n/zh-CN.json i18n/ja-JP.json \
                    logo-light.v1.png logo-dark.v1.png; do
@@ -384,6 +390,244 @@ jobs:
 
           if [[ "${failed}" == 0 ]]; then
             echo "The ONE Tasks page is complete, parses, and every specifier resolves."
+          fi
+          exit "${failed}"
+
+      - name: Every ONE document is on the one list
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # BRA-1475 criterion 18: one list of allowed pages exists in one
+          # place, and a build fails when something reachable is not on it.
+          #
+          # The list is the const block at the top of pkg/routes/static_brazn.go,
+          # and it is the server's own rather than a description of it:
+          # braznBlocksAppShell serves an .html under dist/one/ only when that
+          # block names it, so the block decides what is reachable. This step is
+          # the other half. It fails the build when the block and the documents
+          # that were actually written disagree, in either direction, and the
+          # two directions catch different mistakes:
+          #
+          #   a page in the directory and not in the block  a document somebody
+          #     added and nobody decided to serve. It answers 404 in production
+          #     and nothing else in this repository would ever say so.
+          #   a document in the block and not in the directory  the lockout
+          #     answering a customer's address with a page that was never
+          #     written. That is the shape of the fault BRA-1475 exists to fix,
+          #     arriving from the other side.
+          #
+          # Vite copies frontend/public/ into dist/ verbatim (no publicDir
+          # override in frontend/vite.config.ts) and frontend/embed.go embeds
+          # dist/, so an .html in that directory is an .html in the binary.
+          #
+          # Scope note, matching the one on the section above: this step reads
+          # pkg/routes/static_brazn.go and frontend/public/one and never .github/,
+          # so it cannot match its own search terms and needs no exclusion.
+          source=pkg/routes/static_brazn.go
+          dir=frontend/public/one
+
+          for required in "${source}" "${dir}"; do
+            if [[ ! -e "${required}" ]]; then
+              echo "::error::${required} is gone. The one list of documents lives in the" \
+                   "first and the documents themselves in the second, so this guard can" \
+                   "verify neither. Re-point it before merging."
+              exit 1
+            fi
+          done
+
+          # The block writes each document as a backticked /one/*.html literal,
+          # and its own comment forbids writing one anywhere else in that file.
+          # An extraction that finds nothing is a finding rather than a pass: a
+          # pattern that quietly stopped matching would otherwise report an
+          # empty list agreeing with an empty list, which is the
+          # glob-that-matches-nothing failure the step above is also written
+          # against.
+          listed="$(grep -oE '`/one/[A-Za-z0-9._-]+\.html`' "${source}" \
+            | tr -d '`' | sed 's|^/one/||' | sort -u)"
+          if [[ -z "${listed}" ]]; then
+            echo "::error::No document literals were found in ${source}. The const block" \
+                 "naming them has moved or changed shape, so this guard is checking" \
+                 "nothing at all. Re-point it before merging."
+            exit 1
+          fi
+
+          present="$(find "${dir}" -maxdepth 1 -type f -name '*.html' -exec basename {} \; | sort -u)"
+
+          failed=0
+
+          while IFS= read -r page; do
+            if [[ -z "${page}" ]]; then continue; fi
+            echo "::error::${dir}/${page} is embedded in the binary and served to anyone" \
+                 "who asks for it by name, and no document in ${source} names it. Add it" \
+                 "to the const block there, or delete the page."
+            failed=1
+          done < <(comm -13 <(echo "${listed}") <(echo "${present}"))
+
+          while IFS= read -r doc; do
+            if [[ -z "${doc}" ]]; then continue; fi
+            echo "::error::${source} names /one/${doc} as a document this product serves," \
+                 "and ${dir}/${doc} does not exist. The lockout answers an address with a" \
+                 "page nobody wrote, so a customer arriving there gets a 404."
+            failed=1
+          done < <(comm -23 <(echo "${listed}") <(echo "${present}"))
+
+          # ------------------------------------------------------------------
+          # THE BASE TAG, and it is the seam where the two halves of BRA-1475
+          # touch. A document the lockout hands back AT AN ADDRESS THAT IS NOT
+          # ITS OWN must carry <base href="/one/">, because every reference in
+          # it is written relative to the directory it lives in.
+          #
+          # What a customer sees without it: the password document is served at
+          # tasks.brazn.one/?userPasswordReset=<token>, so ./one.css resolves to
+          # /one.css and ./password.js to /password.js, and neither exists. The
+          # body of that document is one empty container built entirely in
+          # JavaScript, and its markup hides the container until the module
+          # loads — sound reasoning in general, and here it removes the last
+          # visible symptom. The person clicking the reset link in their mail
+          # gets A BLANK WHITE PAGE. Not a degraded page: an empty one.
+          #
+          # NOTHING ELSE IN THIS REPOSITORY WOULD REPORT IT, which is what makes
+          # it worth a guard rather than a comment. The frontend tests import
+          # the page modules and stand window.location at an address; they never
+          # load the document. The markup check in the step above resolves
+          # ./one.css against the directory the files live in, which is how they
+          # are authored, so it passes either way. The name check above compares
+          # document names, not whether a document works where it is served. And
+          # the Go routing tests assert that the document is served, which it
+          # still would be.
+          #
+          # WHICH DOCUMENTS NEED IT IS DERIVED RATHER THAN LISTED. A second list
+          # would drift from the serving decision the day somebody adds an
+          # address, and this file already argues that a list which can drift
+          # from the thing it describes is worse than no list. The set is
+          # exactly what braznRestrictedUIDocument can return, so it is read out
+          # of the two tables and the one function that decide it. The settings
+          # and task documents are answered only at their own /one/ address, so
+          # they are neither asked for the tag nor need it.
+          served="$(awk '
+            /^var restrictedUIRewrites =/ {inside=1}
+            /^var restrictedUIMailedTokens =/ {inside=1}
+            /^func braznRestrictedUIDocument\(/ {inside=1}
+            inside {print}
+            /^}$/ {inside=0}
+          ' "${source}" | grep -oE 'restrictedUI[A-Za-z]*Page' | sort -u || true)"
+
+          # An extraction that finds nothing is a finding, not a pass — the same
+          # trap the document-name check above is written against. If the tables
+          # are renamed or restructured this guard stops seeing them, and an
+          # empty set would silently agree with everything.
+          #
+          # THE `|| true` ON EVERY EXTRACTION ABOVE AND BELOW IS LOAD-BEARING,
+          # and leaving it off is how this test came to be run at all. Under
+          # `set -euo pipefail` a command substitution whose grep matches
+          # nothing exits non-zero and kills the script THERE, so the job goes
+          # red having printed no ::error:: line at all — and the branch below
+          # that exists to explain an empty extraction is never reached. A red
+          # job with no annotation is the worst of both: it blocks, and it does
+          # not say why.
+          if [[ -z "${served}" ]]; then
+            echo "::error::No document constant was found in ${source}'s serving tables." \
+                 "restrictedUIRewrites, restrictedUIMailedTokens or braznRestrictedUIDocument" \
+                 "has been renamed or restructured, so this guard no longer knows which" \
+                 "documents are served away from /one/ and is checking nothing. Re-point it" \
+                 "before merging."
+            exit 1
+          fi
+
+          for name in ${served}; do
+            path="$(grep -E "^[[:space:]]*${name}[[:space:]]*=" "${source}" \
+              | grep -oE '/one/[A-Za-z0-9._-]+\.html' | head -1 || true)"
+            if [[ -z "${path}" ]]; then
+              echo "::error::${source} serves ${name} at an address outside /one/, and this" \
+                   "guard cannot find which document that constant names. Re-point it before" \
+                   "merging."
+              failed=1
+              continue
+            fi
+
+            page="${path#/one/}"
+            # A document that does not exist is already reported above. Saying
+            # it twice would bury the one error that names the real problem.
+            if [[ ! -f "${dir}/${page}" ]]; then continue; fi
+
+            # READ WITH HTML COMMENTS BLANKED OUT, because a tag inside one is
+            # not a tag. Commenting the base out while chasing something else
+            # and shipping it that way is a realistic accident, and a guard that
+            # a commented-out tag satisfies is decorative — which is the defect
+            # this whole step exists to stop, arriving in the step itself. The
+            # awk below replaces comment spans with nothing while emitting one
+            # line per input line, so the line numbers this check reports are
+            # still the ones a person will find in the file.
+            #
+            # It matters for the ordering check too: these documents carry long
+            # comment blocks in the head, and a relative reference quoted inside
+            # one would otherwise be read as the first real reference. That
+            # second reason is prospective rather than live: today's documents
+            # quote their relative paths in backticks, which the ordering
+            # pattern does not match. The first reason is live, and a mutation
+            # proved it — a commented-out base tag satisfied this check before
+            # the blanking was added.
+            #
+            # THE LIMIT, STATED IN THE FILE RATHER THAN ONLY IN A HANDOFF,
+            # because a limit nobody can read is one somebody will later assume
+            # away. THIS READS THE DOCUMENT AS TEXT AND DOES NOT PARSE IT. Comment
+            # spans are understood and nothing else is, so a <base href="/one/">
+            # written inside a JavaScript string, a <script> block or an
+            # attribute value would satisfy this check without being a tag. An
+            # HTML parser would close that, and it was judged not worth the job
+            # budget: the accident this guard exists to catch is a tag deleted or
+            # commented out, not a tag counterfeited in a string. Reconsider if a
+            # document ever starts building its own head markup.
+            visible="$(awk '
+              {
+                line = $0; out = ""
+                while (length(line) > 0) {
+                  if (incomment) {
+                    i = index(line, "-->")
+                    if (i == 0) { line = ""; break }
+                    line = substr(line, i + 3); incomment = 0
+                  } else {
+                    i = index(line, "<!--")
+                    if (i == 0) { out = out line; line = ""; break }
+                    out = out substr(line, 1, i - 1); line = substr(line, i + 4); incomment = 1
+                  }
+                }
+                print out
+              }
+            ' "${dir}/${page}")"
+
+            base_line="$(printf '%s\n' "${visible}" \
+              | grep -nE "<base[[:space:]][^>]*href=[\"']?/one/" \
+              | head -1 | cut -d: -f1 || true)"
+            if [[ -z "${base_line}" ]]; then
+              echo "::error::${dir}/${page} carries no <base href=\"/one/\">, and the lockout" \
+                   "serves it at an address outside /one/ (${name} in ${source}). Its" \
+                   "stylesheet and its module resolve against the address the person asked" \
+                   "for, where neither exists, so the page renders empty. Add the tag in the" \
+                   "head, above the first relative reference. A relative base such as" \
+                   "href=\"one/\" is the same fault: it must be root-absolute."
+              failed=1
+              continue
+            fi
+
+            # A base tag BELOW a reference does not affect that reference, so a
+            # stylesheet above it still 404s. Present-but-too-late is the
+            # decorative version of this guard's own subject.
+            ref_line="$(printf '%s\n' "${visible}" \
+              | grep -nE "(src|href)=[\"']\./" | head -1 | cut -d: -f1 || true)"
+            if [[ -n "${ref_line}" ]] && (( base_line >= ref_line )); then
+              echo "::error::${dir}/${page} has its <base> on line ${base_line}, below the" \
+                   "relative reference on line ${ref_line}. A base tag only affects what" \
+                   "comes after it, so that reference still resolves against the address the" \
+                   "person asked for. Move the tag above it."
+              failed=1
+            fi
+          done
+
+          if [[ "${failed}" == 0 ]]; then
+            echo "Every document named in ${source} exists in ${dir}, every page there is on" \
+                 "the list, and every document served away from /one/ carries its base tag."
           fi
           exit "${failed}"
 

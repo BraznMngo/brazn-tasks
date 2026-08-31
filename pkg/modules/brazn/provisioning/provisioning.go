@@ -112,6 +112,58 @@ const (
 	// caller's request from being read as a password-signup request. A
 	// distinct name makes that impossible rather than merely unlikely.
 	OperationCreateUserWithPassword = "create_user_with_password"
+	// OperationJoinTeam is BRA-1475: putting one subject INTO a team this
+	// instance has already provisioned, which is the step that makes a team's
+	// shared projects reachable by an invited member. Access is granted to the
+	// TEAM as a group (see grantTeamAccess), so a member who is not in the team
+	// row sees an empty product however complete their entitlement is.
+	//
+	// ⚠ ITS PAYLOAD IS FIELD-FOR-FIELD create_team_roots'S - a contract version,
+	// an operation, an organization, a subject and a commercial team - so the
+	// two are indistinguishable in the bytes and the operation member is the
+	// whole of the difference. That is the same hazard erase_subject and
+	// create_personal_inbox carry, with the same consequence in one direction:
+	// under a shared name a request to JOIN an existing team would be carried
+	// out as a request to CREATE one, and models.provisionTeamRoots makes its
+	// subject the team's creator and a team ADMIN (CreateNewTeam's third
+	// argument). An invited member would then hold the team-management ability
+	// their invitation deliberately does not grant.
+	//
+	// THAT HARM IS CARRIED BY THE PAYLOAD ARRIVING AT create_team_roots' OWN
+	// DECODER, so DecodeCreateTeamRoots is where the check that prevents it
+	// lives, and it is the one to keep if either is ever questioned.
+	// DecodeJoinTeam checks its member too, for the mirror mistake, but that
+	// direction only adds an administrator to their own team as an ordinary
+	// member and grants nobody anything. An earlier revision of this comment
+	// claimed DecodeJoinTeam's check covered the escalation; it never did, and
+	// the two decoders were left asymmetric for a while on the strength of that
+	// sentence.
+	OperationJoinTeam = "join_team"
+	// OperationUsernameAvailable is BRA-1475: is this ONE EXACT username already
+	// held on this instance? The invitation form asks it while somebody types,
+	// so that a person whose only problem is a taken name is told THAT, rather
+	// than being told after submitting that "this account already exists" -
+	// which is what create_user_with_password's deliberately flat refusal reads
+	// as, because that refusal cannot say whether the mailbox or the name was
+	// the collision.
+	//
+	// ⚠ IT IS EXACT-MATCH ONLY AND ANSWERS ONE WORD. It does not prefix-match,
+	// it takes no wildcard, it returns no user id, no mailbox and no display
+	// name, and it says nothing about WHO holds a taken name. That shape is what
+	// keeps it on the permitted side of docs/Brazn-Tasks-Rules.md §5.1, which
+	// allows an exact lookup inside an invitation flow and forbids a general
+	// directory. A version of this that answered anything about the holder, or
+	// that matched anything but the whole string, would be the directory.
+	//
+	// ⚠ IT IS ADVICE AND NEVER AUTHORITY. A name can be taken between the
+	// answer and the submission, so create_user_with_password still refuses and
+	// the commercial layer still reports account_exists. Nothing may be relaxed
+	// anywhere on the strength of a prior available.
+	//
+	// It reads and writes nothing, so it is safe to call repeatedly. The bound
+	// on how often is the COMMERCIAL layer's, per invitation, because this
+	// channel has no notion of who is asking.
+	OperationUsernameAvailable = "username_available"
 )
 
 // maxMailboxLength is users.email's column width. An address past it is
@@ -377,6 +429,36 @@ type CreateUserWithPassword struct {
 	Password string `json:"password"`
 }
 
+// JoinTeam is the whole signed payload of a join_team operation (BRA-1475): one
+// subject, put into one team this instance has already provisioned.
+//
+// IT DECLARES ITS OWN COMPLETE PAYLOAD rather than sharing CreateTeamRoots',
+// even though the two are member for member identical, and here that is not the
+// usual forward-compatibility argument - it is the whole safety property. One
+// type used by both would make a join and a topology creation the same value to
+// everything below the switch, and the operation member would be the only thing
+// between adding a member to a team and minting a second team with that member
+// as its administrator. See OperationJoinTeam.
+type JoinTeam struct {
+	ContractVersion string `json:"contract_version"`
+	Operation       string `json:"operation"`
+	// OrganizationID is one half of the key the team is resolved by, and unlike
+	// CreatePersonalInbox's it DECIDES SOMETHING. A commercial team id is minted
+	// by a service this fork does not own the namespace of, so scoping the
+	// lookup to the organization is what keeps one customer's join from ever
+	// resolving to another customer's team - see models.provisionedTeamRoot,
+	// which this reuses rather than repeating.
+	OrganizationID string `json:"organization_id"`
+	// UserID is this instance's own users.id in decimal form: the person being
+	// put into the team, and never the administrator who invited them.
+	UserID string `json:"user_id"`
+	// TeamID is the COMMERCIAL team id and never this instance's, exactly as
+	// CreateTeamRoots' is. Nothing derives one from the other in either
+	// direction; the pair (organization, commercial team) is looked up against
+	// the row create_team_roots wrote.
+	TeamID string `json:"team_id"`
+}
+
 // operation is the lenient first read of a signed payload: enough to route it,
 // and deliberately nothing else. It ignores unknown members because at this
 // point every member of every operation is unknown to it.
@@ -446,6 +528,18 @@ func DecodeCreatePersonalInbox(payload json.RawMessage) (*CreatePersonalInbox, e
 // DecodeCreateTeamRoots reads a verified payload as a create_team_roots request
 // and checks the three identifiers it carries.
 //
+// IT CHECKS THE OPERATION MEMBER, and this is the decoder on which that check
+// carries the harm. join_team's payload is field-for-field this one's, so the
+// two are indistinguishable in the bytes. A join_team payload reaching THIS
+// decoder would be carried out as a request to create a team, and
+// models.ProvisionTeamRoots makes its subject the team's creator and a team
+// ADMIN (CreateNewTeam's third argument) - so the switch-editing mistake in
+// this direction hands an invited member exactly the team administration their
+// invitation withholds. The mistake in the other direction, caught by
+// DecodeJoinTeam, adds an administrator to their own team as an ordinary
+// member, which is untidy and grants nothing. Both are checked; only this one
+// is a privilege escalation.
+//
 // The team id is checked here rather than left to the write, because it is what
 // a later call is matched against: an id this build stored in some other shape
 // than the one that arrives next time would provision a SECOND set of roots for
@@ -456,6 +550,9 @@ func DecodeCreateTeamRoots(payload json.RawMessage) (*CreateTeamRoots, error) {
 		return nil, err
 	}
 	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationCreateTeamRoots {
 		return nil, ErrInvalidRequest
 	}
 	if !commercialID.MatchString(request.OrganizationID) ||
@@ -630,6 +727,89 @@ func DecodeCreateUserWithPassword(payload json.RawMessage) (*CreateUserWithPassw
 		return nil, ErrInvalidRequest
 	}
 	if len(request.Password) < minPasswordBytes || len([]byte(request.Password)) > maxPasswordBytes {
+		return nil, ErrInvalidRequest
+	}
+	return request, nil
+}
+
+// UsernameAvailable asks whether one exact username is free on this instance.
+//
+// IT CARRIES NO SUBJECT AND NO ORGANIZATION, and that absence is deliberate
+// rather than an omission. The question is about a column with a unique index
+// across the whole instance, so no identifier could narrow it, and a member
+// this operation does not use would be one a reader assumed it honoured - the
+// mistake create_personal_inbox's organization_id already documents making.
+// Who is allowed to ask is settled before the request is signed, by the
+// commercial layer holding an invitation and its token.
+type UsernameAvailable struct {
+	ContractVersion string `json:"contract_version"`
+	Operation       string `json:"operation"`
+	// Username is the whole name to look up, exactly as typed and
+	// UNTRANSFORMED. Nothing here lowercases or trims it: users.username is
+	// compared as stored, so a value this operation normalised would answer for
+	// a DIFFERENT name than the one create_user_with_password would go on to
+	// refuse, and the form would promise a name the submission then rejected.
+	Username string `json:"username"`
+}
+
+// DecodeUsernameAvailable reads a verified payload as a username_available
+// request and checks the one value it carries.
+//
+// IT CHECKS THE OPERATION MEMBER, for the reason DecodeEraseSubject gives about
+// its own: an editing mistake in the switch is the only way a payload reaches
+// the wrong decoder, and this one shares its two-member shape with nothing on
+// the channel today but would share it with any future single-string question.
+//
+// The length bound is the same users.username column width every other decoder
+// here bounds its own values against, and it is checked BEFORE the lookup so
+// that an over-long value is refused rather than truncated into a question
+// about somebody else's name.
+func DecodeUsernameAvailable(payload json.RawMessage) (*UsernameAvailable, error) {
+	request := &UsernameAvailable{}
+	if err := decodeExactly(payload, request); err != nil {
+		return nil, err
+	}
+	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationUsernameAvailable {
+		return nil, ErrInvalidRequest
+	}
+	if request.Username == "" || len(request.Username) > maxUsernameLength {
+		return nil, ErrInvalidRequest
+	}
+	return request, nil
+}
+
+// DecodeJoinTeam reads a verified payload as a join_team request and checks the
+// three identifiers it carries.
+//
+// IT CHECKS THE OPERATION MEMBER, as DecodeEraseSubject, DecodeResolveUser and
+// DecodeRevokeSession do, against an editing error in the switch. The error
+// THIS one catches is the harmless half of the pair: a create_team_roots
+// payload carried out as a join adds an administrator to their own team as an
+// ordinary member. The half that grants privilege runs the other way and is
+// caught in DecodeCreateTeamRoots; see OperationJoinTeam for the whole
+// argument, and do not read this check as covering that one.
+//
+// The team id is checked here rather than left to the write, for
+// DecodeCreateTeamRoots' reason: it is what the stored row is matched against,
+// so an id in some other shape than the one create_team_roots stored resolves to
+// no team at all and the join is refused for a team that plainly exists.
+func DecodeJoinTeam(payload json.RawMessage) (*JoinTeam, error) {
+	request := &JoinTeam{}
+	if err := decodeExactly(payload, request); err != nil {
+		return nil, err
+	}
+	if request.ContractVersion != ContractVersion {
+		return nil, ErrInvalidRequest
+	}
+	if request.Operation != OperationJoinTeam {
+		return nil, ErrInvalidRequest
+	}
+	if !commercialID.MatchString(request.OrganizationID) ||
+		!commercialID.MatchString(request.UserID) ||
+		!commercialID.MatchString(request.TeamID) {
 		return nil, ErrInvalidRequest
 	}
 	return request, nil

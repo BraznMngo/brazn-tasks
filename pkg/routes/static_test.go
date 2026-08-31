@@ -19,10 +19,15 @@ package routes
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"path"
+	"strings"
 	"testing"
 
 	"code.vikunja.io/api/frontend"
 	"code.vikunja.io/api/pkg/config"
+	"code.vikunja.io/api/pkg/notifications"
+	"code.vikunja.io/api/pkg/user"
 
 	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
@@ -491,25 +496,37 @@ func TestBraznRestrictedUITarget(t *testing.T) {
 // still answers 200 over HTTP and is invisible to every status assertion in this
 // file.
 //
-// MUTATION, traced, one per clause:
+// MUTATION, MEASURED rather than reasoned — every count below was produced by
+// making the change and reading which subtests turned red. The notes that stood
+// here were rewritten during BRA-1475's re-review because all three had gone
+// stale against the code they describe, which is a reminder that a traced
+// mutation note is only true of the revision it was traced on.
+//
+// The function now has two clauses that can block, not three, and this is what
+// each one costs:
 //
 //   - Deleting the `if !config.BraznRestrictedUIOnly.GetBool()` guard fails
-//     every row of the second pass whose want is true in the first — that is
-//     the root index and the two stray .html rows, three subtests.
-//   - Deleting the `name == path.Join(rootPath, indexFile)` clause fails NO row
-//     here, and saying so is the point of tracing it rather than asserting it:
-//     "dist/index.html" also ends in .html and is not under dist/one/, so the
-//     suffix clause catches it anyway. The clause is kept regardless, because it
-//     is the one the hole is actually about, and leaning on a suffix test for it
-//     would make a later narrowing of that test reopen the hole silently. This
-//     test therefore does not guard it; TestStaticRestrictedUIDoesNotServeThe-
-//     IndexFile guards the behaviour, which is what matters.
-//   - Deleting the `strings.HasPrefix(name, exemptDir)` exemption fails the
-//     dist/one/task.html row, and only it. On a real build that mutation is
-//     fatal rather than cosmetic: the restricted page would be diverted into
-//     braznServeAppShell, braznRestrictedUITarget would compute /one/task.html
-//     as its own target, and the loop guard would answer 404 — a locked-down
-//     instance serving no interface at all.
+//     FOUR rows of the second pass — every row whose want is true in the first:
+//     the root index, the service worker, and the two stray .html rows. The note
+//     here used to say three and omitted the service worker, which was added to
+//     the table after the note was written.
+//   - The last clause is a suffix test AND a lookup in the one list, and the two
+//     halves fail different rows, so both are covered here. Making it block
+//     nothing fails three rows of the first pass — the root index and the two
+//     stray .html — because those are the documents it is the only thing
+//     blocking. Reducing it to a BARE suffix test that blocks every .html fails
+//     exactly one row, dist/one/task.html, because that is a page this product
+//     ships. On a real build that second mutation is fatal rather than cosmetic:
+//     the restricted page would be diverted into braznServeAppShell, the loop
+//     guard would answer 404, and the instance would serve no interface at all.
+//   - There is no longer a `name == path.Join(rootPath, indexFile)` clause. It
+//     was removed in BRA-1475 as dead, and the note claiming it failed no row
+//     went with it. That claim was true and it was the reason to delete it: two
+//     conditions where one decides means neither can be shown to matter, and the
+//     redundant one reads as the live guard to whoever comes next. Removing it
+//     changed no behaviour and made the HTTP-level test at
+//     TestBRA1475TheOldApplicationIsNotServedAtAnyAddress able to detect a
+//     single deletion, which while both clauses stood it could not.
 func TestBraznBlocksAppShell(t *testing.T) {
 	config.InitDefaultConfig()
 
@@ -562,27 +579,36 @@ func TestBraznBlocksAppShell(t *testing.T) {
 }
 
 // TestStaticRestrictedUIKeepsAuthenticationReachable is the test that stops the
-// lockout locking out everyone, and it is the reason the exemption exists.
+// lockout locking out everyone, and it survives BRA-1475 with one assertion
+// removed and the other two kept.
 //
-// The sign-in form is part of the Vue application — there is no separate login
-// document. Without the exemption, a signed-out visitor is redirected to the
-// restricted page, the page finds no session and hands off to /login exactly as
-// the SPA does, /login matches no file and no route, and the fallback redirects
-// it straight back. The browser gives up with ERR_TOO_MANY_REDIRECTS and the
-// instance has no way in at all.
+// WHAT CHANGED, AND WHY THIS WAS NOT SIMPLY DELETED. When this was written the
+// sign-in form was part of the Vue application — there was no separate login
+// document — so "authentication is reachable" and "the Vue shell is served"
+// were the same sentence, and the test asserted the second to prove the first.
+// BRA-1475 gives every one of these addresses a document of ours, and its
+// criterion 17 forbids serving the old application at any address at all. So
+// the Server-header assertion is now asserting the defect and is gone.
 //
-// The assertion is on the Server header rather than the body for the reason
-// stated at the top of this file: CI's dist/index.html is an empty file, so no
-// body assertion can distinguish the shell from anything else here. serveFile
-// sets Server: Brazn Tasks (static.go:268) and is reached only when a document
-// is actually served, which is exactly the distinction under test.
+// The other two assertions were never about the Vue application and still
+// protect the thing this test was named for. A redirect here is the sign-in
+// loop: the page finds no session, hands off to /login, /login is redirected
+// back, and the browser gives up with ERR_TOO_MANY_REDIRECTS with no way into
+// the instance at all. That is asserted below and it holds in both
+// environments.
 //
-// MUTATION, traced: deleting the restrictedUIAuthPaths branch from
-// braznServeAppShell makes every subtest fail. Traced rather than assumed — with
-// the branch gone, /login reaches braznRestrictedUITarget, which returns the
-// general page because /login carries no /tasks/ prefix; that differs from the
-// request path so the loop guard does not fire; so the request is answered 302
-// with a Location and no Server header, failing all three assertions.
+// What replaces the deleted assertion is a statement of which of OUR documents
+// answers each address, which is the reachability the test was really about.
+// It is asserted as a decision rather than as a 200 because CI's stub dist/
+// carries no dist/one/, so the response there is an honest 404 — see
+// TestBRA1475AMissingDocumentIs404AndNeverALoop, which asserts exactly that.
+//
+// MUTATION, traced: deleting the restrictedUIRewrites lookup from
+// braznRestrictedUIDocument makes every subtest fail. With it gone /login is
+// not a mailed token and not under /auth/, so the function returns "", the
+// request falls through to http.Redirect and is answered 302 with a Location —
+// failing the redirect assertion — and the document assertion gets "" instead
+// of a page.
 func TestStaticRestrictedUIKeepsAuthenticationReachable(t *testing.T) {
 	config.InitDefaultConfig()
 	config.BraznRestrictedUIOnly.Set(true)
@@ -590,22 +616,25 @@ func TestStaticRestrictedUIKeepsAuthenticationReachable(t *testing.T) {
 
 	e := newStaticTestEcho()
 
-	for _, path := range []string{
-		"/login",
-		"/register",
-		"/password-reset",
-		"/get-password-reset",
-		"/auth/openid/google",
+	// Written as literals rather than as the constants the server uses, so a
+	// rename cannot make this agree with itself.
+	for path, wantDocument := range map[string]string{
+		"/login":              `/one/signin.html`,
+		"/register":           `/one/signin.html`,
+		"/password-reset":     `/one/password.html`,
+		"/get-password-reset": `/one/password.html`,
+		"/auth/openid/google": `/one/signin.html`,
 	} {
 		t.Run(path, func(t *testing.T) {
+			assert.Equal(t, wantDocument, braznRestrictedUIDocument(path, url.Values{}),
+				"authentication must stay reachable, and by a page of ours rather than the old application")
+
 			rec := doStaticRequest(t, e, path)
 
-			assert.Equal(t, http.StatusOK, rec.Code,
-				"authentication must stay reachable or nobody can sign in")
-			assert.Equal(t, "Brazn Tasks", rec.Header().Get("Server"),
-				"the app shell must actually be served, not merely not-redirected")
 			assert.Empty(t, rec.Header().Get("Location"),
 				"a redirect here is the sign-in loop this test exists to prevent")
+			assert.NotContains(t, rec.Body.String(), restrictedUISPAMarker,
+				"criterion 17: no address may serve the old application")
 		})
 	}
 }
@@ -686,19 +715,36 @@ func TestStaticServesTheRealServiceWorkerWhenTheLockoutIsOff(t *testing.T) {
 // ErrEmailNotConfirmed. Changing an email address from the shipped settings page
 // is enough to trigger it (frontend/public/one/view-settings.js:544).
 //
-// THE ASSERTION IS THAT THE SHELL IS SERVED, NOT THAT THE PATH IS ALLOWLISTED.
-// A path-only assertion passes while the token is still destroyed, which is
-// exactly the shape of test that would have shipped this bug. Serving the shell
-// keeps the ORIGINAL request intact — query included — for the SPA's router
-// guard at frontend/src/router/index.ts:582-584 to read.
+// THE ASSERTION IS THAT THE REQUEST IS NOT REDIRECTED, NOT THAT THE PATH IS
+// ALLOWLISTED. A path-only assertion passes while the token is still destroyed,
+// which is exactly the shape of test that would have shipped this bug.
 //
-// MUTATION, traced: deleting the braznCarriesConfirmationToken term from the
-// condition in braznServeAppShell makes the two root subtests fail. Traced: "/"
-// is not in restrictedUIAuthPaths and matches neither the /auth/ nor the /share/
-// prefix, so without that term it falls through to http.Redirect — 302, a
-// Location, and no Server header. The /confirm subtest fails instead if the
-// allowlist entry is removed, which is a different mutation and is why it is a
-// separate case.
+// WHAT BRA-1475 CHANGED HERE, in two different directions.
+//
+// The four token and consent cases keep their point and lose one assertion. The
+// original proved "not redirected" by proving the Vue shell was served, because
+// the shell was the only thing there was to serve. Criterion 17 forbids serving
+// it at all, so that assertion now asserts the defect and is replaced by its
+// honest form: no Location, no 3xx, and the document the lockout chose is the
+// one that owns the token. On CI's stub dist/ the response is a 404, which is
+// correct — the page was not built — and is asserted in
+// TestBRA1475AMissingDocumentIs404AndNeverALoop rather than papered over here.
+//
+// The /share/ case is REVERSED rather than adjusted. It asserted that a
+// signed-out share recipient reaches the application; BRA-1475 rules link
+// sharing shut for signed-out visitors, because that recipient authenticated at
+// /share/{hash}/auth, which is a route of the Vue application, so keeping the
+// prefix open kept the whole application open. Its replacement is
+// TestBRA1475LinkSharingIsClosedToASignedOutVisitor, which asserts the
+// redirect this test used to forbid.
+//
+// MUTATION, traced: deleting the restrictedUIMailedTokens loop from
+// braznRestrictedUIDocument makes the three token subtests fail. Traced: "/" is
+// not in restrictedUIRewrites and is not under /auth/, so without that loop the
+// function returns "" and the request falls through to http.Redirect — a 302
+// with a Location, failing both assertions. The /confirm and /oauth/authorize
+// subtests fail instead when their restrictedUIRewrites entries are removed,
+// which is a different mutation and is why they are separate cases.
 func TestStaticRestrictedUIDeliversConfirmationTokens(t *testing.T) {
 	config.InitDefaultConfig()
 	config.BraznRestrictedUIOnly.Set(true)
@@ -706,22 +752,29 @@ func TestStaticRestrictedUIDeliversConfirmationTokens(t *testing.T) {
 
 	e := newStaticTestEcho()
 
-	for _, target := range []string{
-		"/?userEmailConfirm=sometoken",
-		"/?accountDeletionConfirm=sometoken",
-		"/confirm?userEmailConfirm=sometoken",
-		"/oauth/authorize?client_id=x",
-		"/share/abc123/auth",
+	// The document each address must be answered by, written as a literal.
+	for target, wantDocument := range map[string]string{
+		"/?userEmailConfirm=sometoken":        `/one/confirmed.html`,
+		"/?accountDeletionConfirm=sometoken":  `/one/confirmed.html`,
+		"/confirm?userEmailConfirm=sometoken": `/one/confirmed.html`,
+		"/oauth/authorize?client_id=x":        `/one/signin.html`,
 	} {
 		t.Run(target, func(t *testing.T) {
+			requested, rawQuery, _ := strings.Cut(target, "?")
+			query, err := url.ParseQuery(rawQuery)
+			require.NoError(t, err)
+
+			assert.Equal(t, wantDocument, braznRestrictedUIDocument(requested, query),
+				"the document that owns this token is the one that must answer here")
+
 			rec := doStaticRequest(t, e, target)
 
-			assert.Equal(t, http.StatusOK, rec.Code,
-				"a confirmation link must reach the application, not be redirected")
 			assert.Empty(t, rec.Header().Get("Location"),
 				"a redirect drops the query, and the query IS the token")
-			assert.Equal(t, "Brazn Tasks", rec.Header().Get("Server"),
-				"the shell must actually be served — serveFile is what sets this")
+			assert.NotEqual(t, http.StatusFound, rec.Code,
+				"a redirect drops the query, and the query IS the token")
+			assert.NotContains(t, rec.Body.String(), restrictedUISPAMarker,
+				"criterion 17: the old application may not be served, here or anywhere")
 		})
 	}
 }
@@ -741,4 +794,469 @@ func TestStaticRestrictedUIStillRedirectsThePlainRoot(t *testing.T) {
 	assert.Equal(t, http.StatusFound, rec.Code,
 		"an ordinary root request, query or not, must still be redirected")
 	assert.Equal(t, restrictedUIPage, rec.Header().Get("Location"))
+}
+
+// BRA-1475 acceptance tests, written by the reviewing agent from the ticket
+// text before the implementation was read, and kept in their own file so that
+// what the ticket asked for stays separable from what the change happened to do.
+//
+// EVERY EXPECTATION BELOW IS WRITTEN OUT AS A LITERAL rather than taken from a
+// constant in pkg/routes. That is deliberate and it is docs/Testing-Rules.md's
+// first shape of a test that passes for the wrong reason: comparing against a
+// value the code under test produced makes the test agree with itself whatever
+// the code does. Renaming restrictedUIPasswordPage would leave every assertion
+// here still checking the address a customer's mail actually points at.
+//
+// The addresses and the documents come from the ticket's "The pages a
+// signed-out person sees are ours" section and from the orchestrator's
+// Decision 1 table, not from static_brazn.go.
+const (
+	bra1475SignInDocument    = `/one/signin.html`
+	bra1475PasswordDocument  = `/one/password.html`
+	bra1475ConfirmedDocument = `/one/confirmed.html`
+	bra1475SettingsDocument  = `/one/settings.html`
+	bra1475TaskDocument      = `/one/task.html`
+
+	// The query name the server has already mailed to customers. Written from
+	// the ticket's evidence block (`tasks.brazn.one/?userPasswordReset=…`),
+	// which is what makes this test able to fail if the name is ever changed.
+	bra1475MailedResetQuery   = `userPasswordReset`
+	bra1475MailedConfirmQuery = `userEmailConfirm`
+)
+
+// bra1475AllDocuments is every page the ticket says a person can be given.
+// Written here as a list of literals so that a document quietly dropped from
+// the server's own const block is a failure rather than a smaller loop.
+var bra1475AllDocuments = []string{
+	bra1475SettingsDocument,
+	bra1475TaskDocument,
+	bra1475SignInDocument,
+	`/one/join.html`,
+	bra1475PasswordDocument,
+	bra1475ConfirmedDocument,
+	`/one/error.html`,
+}
+
+// bra1475LockoutOn turns the key on for one test and puts it back afterwards.
+func bra1475LockoutOn(t *testing.T) {
+	t.Helper()
+	config.InitDefaultConfig()
+	config.BraznRestrictedUIOnly.Set(true)
+	t.Cleanup(func() { config.InitDefaultConfig() })
+}
+
+// bra1475DocumentIsBuilt reports whether this build actually carries the
+// document, because the answer differs between CI and a real image and the
+// tests have to say which they are asserting.
+//
+// Every Go job in .github/workflows/test.yml builds the embedded frontend with
+// nothing but `touch frontend/dist/index.html`, so on CI there is no dist/one/
+// at all. A test that demanded 200 here would be asserting the stub rather than
+// the product. The parts that hold in BOTH environments — that the request is
+// never redirected, and that the token therefore survives — are asserted
+// unconditionally; the 200 is asserted only where the page exists to serve.
+func bra1475DocumentIsBuilt(t *testing.T, document string) bool {
+	t.Helper()
+
+	file, err := http.FS(frontend.Files).Open(path.Join(rootPath, document))
+	if err != nil {
+		return false
+	}
+	_ = file.Close()
+
+	return true
+}
+
+// TestBRA1475MailedResetTokenIsAnsweredByThePasswordDocument is criterion 1's
+// first half: a link already sitting in a customer's inbox has to keep working.
+//
+// That link is the site root with the token in the query. The decision is
+// tested as a decision — the function is pure — because this is the exact point
+// at which the live fault occurred: the root was recognised as "an ordinary
+// request" and redirected, and a redirect carries only its destination, so the
+// token was gone before any page could read it.
+func TestBRA1475MailedResetTokenIsAnsweredByThePasswordDocument(t *testing.T) {
+	query := url.Values{bra1475MailedResetQuery: []string{"a-real-looking-token"}}
+
+	// Whatever path it arrives on. The mailed link is the root, but a customer
+	// who has bookmarked anything at all must not lose the token either.
+	for _, arrivedAt := range []string{"/", "/tasks/5", "/login", "/anything-at-all"} {
+		t.Run(arrivedAt, func(t *testing.T) {
+			assert.Equal(t, bra1475PasswordDocument, braznRestrictedUIDocument(arrivedAt, query),
+				"a mailed reset token must be answered by the page that sets a password")
+		})
+	}
+
+	// The control. Without this the test above would pass just as well if every
+	// request in the product were answered with the password page.
+	assert.Empty(t, braznRestrictedUIDocument("/tasks/5", url.Values{}),
+		"an ordinary request carries no token and must not be diverted to the password page")
+}
+
+// TestBRA1475MailedResetLinkIsNeverRedirected is the same criterion at the HTTP
+// layer, and it is the assertion that would have caught the live fault.
+//
+// A 302 is the defect, not a detail of it: http.Redirect writes only the target
+// string, so the token in the query never reaches the browser's next request
+// and the customer's link is spent for nothing. The assertion is therefore on
+// the ABSENCE of a Location header and of a 3xx code, which is true on CI's
+// stub dist/ and on a real image alike.
+func TestBRA1475MailedResetLinkIsNeverRedirected(t *testing.T) {
+	bra1475LockoutOn(t)
+
+	e := newStaticTestEcho()
+
+	for _, target := range []string{
+		"/?" + bra1475MailedResetQuery + "=sometoken",
+		"/?" + bra1475MailedConfirmQuery + "=sometoken",
+		"/password-reset",
+		"/get-password-reset",
+		"/confirm?" + bra1475MailedConfirmQuery + "=sometoken",
+	} {
+		t.Run(target, func(t *testing.T) {
+			rec := doStaticRequest(t, e, target)
+
+			assert.Empty(t, rec.Header().Get("Location"),
+				"a redirect carries only its destination, so the token would be discarded")
+			assert.NotContains(t, []int{http.StatusFound, http.StatusMovedPermanently, http.StatusSeeOther,
+				http.StatusTemporaryRedirect, http.StatusPermanentRedirect}, rec.Code,
+				"any redirect at all loses the query, and the query is the token")
+		})
+	}
+}
+
+// TestBRA1475ResetLinkReachesARealPageOnABuiltImage is the other half of
+// criterion 1, and it is SKIPPED ON CI ON PURPOSE rather than weakened.
+//
+// The criterion says the customer reaches a page that sets their password.
+// Routing them there is this branch's work and is asserted above; the page
+// existing is another branch's work. Where the page has been built, this
+// asserts the whole outcome; where it has not, it says so rather than passing
+// quietly, because "the document was never written" is precisely the state the
+// fork-guards step fails the build for.
+func TestBRA1475ResetLinkReachesARealPageOnABuiltImage(t *testing.T) {
+	bra1475LockoutOn(t)
+
+	if !bra1475DocumentIsBuilt(t, bra1475PasswordDocument) {
+		t.Skip("this build carries no " + bra1475PasswordDocument +
+			", so criterion 1 cannot be observed here; the fork-guards step is what fails on that")
+	}
+
+	rec := doStaticRequest(t, newStaticTestEcho(), "/?"+bra1475MailedResetQuery+"=sometoken")
+
+	assert.Equal(t, http.StatusOK, rec.Code, "the customer must be given the page, not an error")
+	assert.Equal(t, "Brazn Tasks", rec.Header().Get("Server"),
+		"the Server header is set by serveFile and is what proves a document was actually delivered")
+}
+
+// TestBRA1475EveryFormerlyExemptAddressIsAnsweredByOurOwnDocument is criterion
+// 17 stated positively, and it is the half that stops the lockout locking
+// everybody out.
+//
+// The six addresses are the exemption list the ticket says must end up empty,
+// read from its own evidence block. Each is now a page of ours. Testing the
+// decision rather than the response is what makes this hold on CI's stub dist/,
+// where none of the documents exist.
+func TestBRA1475EveryFormerlyExemptAddressIsAnsweredByOurOwnDocument(t *testing.T) {
+	// Written from the ticket and from Decision 1, not from restrictedUIRewrites.
+	for address, want := range map[string]string{
+		"/login":              bra1475SignInDocument,
+		"/register":           bra1475SignInDocument,
+		"/oauth/authorize":    bra1475SignInDocument,
+		"/password-reset":     bra1475PasswordDocument,
+		"/get-password-reset": bra1475PasswordDocument,
+		"/confirm":            bra1475ConfirmedDocument,
+		"/auth/openid/google": bra1475SignInDocument,
+	} {
+		t.Run(address, func(t *testing.T) {
+			assert.Equal(t, want, braznRestrictedUIDocument(address, url.Values{}),
+				"this address used to reach the old application and must now be a page of ours")
+		})
+	}
+}
+
+// TestBRA1475TheOldApplicationIsNotServedAtAnyAddress is criterion 17's real
+// assertion, and the one that bites in this environment.
+//
+// dist/index.html EXISTS on CI's stub, and it is the document that loads the
+// SPA's entry module. Before this work, asking for it by name defeated the
+// whole lockout: static() serves real files verbatim, so /index.html answered
+// 200 with the application. The Server header is what proves a file was
+// actually delivered, so its absence is what proves it was not.
+//
+// The escaped and dot-segment forms are here because path.Clean runs after
+// url.PathUnescape in static(), so each of these resolves to dist/index.html
+// and each is a way somebody would try.
+func TestBRA1475TheOldApplicationIsNotServedAtAnyAddress(t *testing.T) {
+	bra1475LockoutOn(t)
+
+	e := newStaticTestEcho()
+
+	for _, target := range []string{
+		"/index.html",
+		"/./index.html",
+		"/one/../index.html",
+		"//index.html",
+		"/%69ndex.html",
+	} {
+		t.Run(target, func(t *testing.T) {
+			rec := doStaticRequest(t, e, target)
+
+			assert.Empty(t, rec.Header().Get("Server"),
+				"the Server header means serveFile ran, which means the Vue application was handed out")
+			assert.NotEqual(t, http.StatusOK, rec.Code,
+				"one guessable address must not defeat the lockout")
+			assert.NotContains(t, rec.Body.String(), restrictedUISPAMarker,
+				"this cannot fail on CI's empty stub index, and it is what bites on a real image")
+		})
+	}
+}
+
+// TestBRA1475LinkSharingIsClosedToASignedOutVisitor is the part of criterion 17
+// that REVERSES a previously asserted behaviour, so it is written as its own
+// test rather than folded into another.
+//
+// A share recipient used to authenticate at /share/{hash}/auth, which is a
+// route of the Vue application, so keeping the prefix open kept the whole
+// application open. The ticket rules it shut like any other address.
+func TestBRA1475LinkSharingIsClosedToASignedOutVisitor(t *testing.T) {
+	bra1475LockoutOn(t)
+
+	for _, target := range []string{"/share/abc123/auth", "/share/abc123"} {
+		t.Run(target, func(t *testing.T) {
+			rec := doStaticRequest(t, newStaticTestEcho(), target)
+
+			assert.Equal(t, http.StatusFound, rec.Code,
+				"a signed-out visitor gets no share page, they get sent to the product")
+			assert.Equal(t, bra1475SettingsDocument, rec.Header().Get("Location"))
+			assert.Empty(t, rec.Header().Get("Server"),
+				"nothing of the old application may be served here")
+		})
+	}
+}
+
+// TestBRA1475NothingOutsideOurOwnPagesCanBeReached is the exemption list being
+// empty, expressed as something a test can actually observe.
+//
+// "The list is empty" is a statement about a variable, and a variable can be
+// added to tomorrow. What the criterion is really about is that no answer the
+// lockout gives is ever the old application — so every document it chooses and
+// every target it redirects to is asserted to be one of ours, over a corpus of
+// addresses drawn from the ticket rather than from the code.
+func TestBRA1475NothingOutsideOurOwnPagesCanBeReached(t *testing.T) {
+	corpus := []string{
+		"/", "/login", "/register", "/password-reset", "/get-password-reset",
+		"/confirm", "/oauth/authorize", "/auth/openid/google", "/share/abc/auth",
+		"/tasks/5", "/tasks/notanumber", "/projects/1", "/user/settings/general",
+		"/index.html", "/anything", "/one", "/one/",
+	}
+
+	known := map[string]bool{}
+	for _, document := range bra1475AllDocuments {
+		known[document] = true
+	}
+
+	for _, address := range corpus {
+		t.Run(address, func(t *testing.T) {
+			if document := braznRestrictedUIDocument(address, url.Values{}); document != "" {
+				assert.True(t, known[document],
+					"the lockout chose %q, which is not one of the pages this product ships", document)
+				return
+			}
+
+			target := braznRestrictedUITarget(address)
+			base := target
+			if i := strings.IndexByte(base, '?'); i >= 0 {
+				base = base[:i]
+			}
+			assert.True(t, known[base],
+				"a locked-out request was sent to %q, which is not one of the pages this product ships", target)
+		})
+	}
+}
+
+// TestBRA1475OnlyPagesOnTheOneListAreServed is criterion 18's server-side half:
+// the list decides what is reachable, so it is load-bearing rather than a
+// description of something decided elsewhere.
+//
+// The build-failing half is the "Every ONE document is on the one list" step in
+// .github/workflows/fork-guards.yml, which a Go test cannot run.
+func TestBRA1475OnlyPagesOnTheOneListAreServed(t *testing.T) {
+	bra1475LockoutOn(t)
+
+	t.Run("a page nobody decided to serve is blocked", func(t *testing.T) {
+		for _, name := range []string{
+			"dist/one/rogue.html",
+			"dist/one/admin.html",
+			"dist/one/nested/whatever.html",
+		} {
+			assert.True(t, braznBlocksAppShell(name),
+				"%s would be embedded in the binary and served to anyone who asked for it by name", name)
+		}
+	})
+
+	t.Run("every page the product ships is served", func(t *testing.T) {
+		for _, document := range bra1475AllDocuments {
+			assert.False(t, braznBlocksAppShell("dist"+document),
+				"%s is a page this product ships and must not be blocked", document)
+		}
+	})
+
+	t.Run("the old application's own index is blocked", func(t *testing.T) {
+		assert.True(t, braznBlocksAppShell("dist/index.html"))
+	})
+
+	// The control that keeps this fork byte-identical to upstream with the key
+	// off. Without it, blocking would be a deviation every self-hosted instance
+	// paid for.
+	t.Run("nothing is blocked while the lockout is off", func(t *testing.T) {
+		config.BraznRestrictedUIOnly.Set(false)
+		assert.False(t, braznBlocksAppShell("dist/index.html"))
+		assert.False(t, braznBlocksAppShell("dist/one/rogue.html"))
+		assert.False(t, braznBlocksAppShell("dist/sw.js"))
+	})
+}
+
+// TestBRA1475AMissingDocumentIs404AndNeverALoop is the failure mode the ticket
+// and this file's own comments both single out, and it is the one worth proving
+// rather than reasoning about.
+//
+// If a document the lockout answers with was not copied into dist/, every way
+// of handling that except a 404 ends in a redirect — and a redirect to a
+// document that is also missing is an infinite bounce. A customer sees the
+// browser give up with ERR_TOO_MANY_REDIRECTS and no page at all, which is
+// worse than the fault this ticket exists to fix.
+//
+// CI's stub dist/ has no dist/one/ whatsoever, so this environment IS the
+// broken build, and the assertion is exact rather than conditional.
+func TestBRA1475AMissingDocumentIs404AndNeverALoop(t *testing.T) {
+	bra1475LockoutOn(t)
+
+	if bra1475DocumentIsBuilt(t, bra1475SettingsDocument) {
+		t.Skip("this build carries the documents, so the missing-document case cannot be exercised here")
+	}
+
+	e := newStaticTestEcho()
+
+	t.Run("asking for a document that was never built", func(t *testing.T) {
+		for _, document := range bra1475AllDocuments {
+			rec := doStaticRequest(t, e, document)
+
+			assert.Equal(t, http.StatusNotFound, rec.Code,
+				"%s was not built, and a missing page has to read as missing", document)
+			assert.Empty(t, rec.Header().Get("Location"),
+				"%s redirected instead of 404ing, which is the infinite bounce", document)
+		}
+	})
+
+	t.Run("an address the lockout answers with a document that was never built", func(t *testing.T) {
+		for _, address := range []string{"/login", "/password-reset", "/confirm", "/oauth/authorize", "/auth/openid/google"} {
+			rec := doStaticRequest(t, e, address)
+
+			assert.Equal(t, http.StatusNotFound, rec.Code,
+				"%s must report the build failure rather than bouncing", address)
+			assert.Empty(t, rec.Header().Get("Location"))
+		}
+	})
+
+	// Following the chain rather than asserting one hop, because a loop of two
+	// is still a loop and a single-hop assertion cannot see it.
+	t.Run("every redirect chain terminates", func(t *testing.T) {
+		for _, start := range []string{"/", "/tasks/5", "/projects/1", "/share/abc/auth", "/index.html"} {
+			target := start
+			hops := 0
+			for {
+				rec := doStaticRequest(t, e, target)
+				location := rec.Header().Get("Location")
+				if location == "" {
+					break
+				}
+				hops++
+				require.LessOrEqual(t, hops, 3,
+					"starting at %s the browser is still being redirected after %d hops, which is the bounce", start, hops)
+				target = location
+			}
+		}
+	})
+}
+
+// TestBRA1475TheServiceWorkerIsStillEvicted guards a claim criterion 17 depends
+// on and that nothing else in this file covers: a browser that visited the old
+// application before the key was turned on serves it FROM ITS OWN CACHE and
+// never asks this server at all, so blocking dist/index.html is not by itself
+// "the old application is unreachable".
+func TestBRA1475TheServiceWorkerIsStillEvicted(t *testing.T) {
+	bra1475LockoutOn(t)
+
+	rec := doStaticRequest(t, newStaticTestEcho(), "/sw.js")
+
+	require.Equal(t, http.StatusOK, rec.Code, "a redirect leaves the installed worker in place")
+	assert.Contains(t, rec.Body.String(), "caches.delete",
+		"without this the cached copy of the old application survives the lockout")
+	assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"),
+		"a cacheable worker lets the browser satisfy its update check from its own cache")
+}
+
+// TestBRA1475TheMailedResetLinkLandsOnAPageThisServerServes is the join between
+// criterion 2 and criterion 1, and it exists because nothing else in either
+// repository makes it.
+//
+// pkg/user/notifications.go writes the address of the password page out as its
+// own string literal — it cannot import the constant, because pkg/routes
+// imports pkg/user and the cycle would be the other way round — so there are
+// now two independent spellings of one address. The fork-guards step checks the
+// const block against the documents that exist; it never reads
+// notifications.go. Rename the page in both of those and the build stays green
+// while every password-reset mail this product sends lands on a 404.
+//
+// This test is in pkg/routes because it is the only package that can see both
+// halves. It takes the address a customer will actually click, and asks the
+// lockout what it would do with it.
+func TestBRA1475TheMailedResetLinkLandsOnAPageThisServerServes(t *testing.T) {
+	bra1475LockoutOn(t)
+
+	const publicURL = "https://tasks.example.test/"
+	config.ServicePublicURL.Set(publicURL)
+	t.Cleanup(func() { config.ServicePublicURL.Set("") })
+
+	n := &user.ResetPasswordNotification{
+		User:  &user.User{Username: "somebody"},
+		Token: &user.Token{ClearTextToken: "a-real-looking-token"},
+	}
+	opts, err := notifications.RenderMail(n.ToMail("en"), "en")
+	require.NoError(t, err)
+
+	// Pull the customer's actual link out of the rendered mail rather than
+	// rebuilding it, so this asserts what was sent and not what we think was.
+	start := strings.Index(opts.HTMLMessage, publicURL)
+	require.GreaterOrEqual(t, start, 0, "no link to this instance appears in the reset mail at all")
+	rest := opts.HTMLMessage[start:]
+	end := strings.IndexAny(rest, `"'<> `)
+	// Positive rather than Greater(end, 0): identical meaning, and it is what
+	// this repository's linter requires. Both reject the two ways this can go
+	// wrong — IndexAny answers -1 when the link is never terminated, and 0
+	// would mean the link is empty.
+	require.Positive(t, end)
+	link := rest[:end]
+
+	parsed, err := url.Parse(strings.ReplaceAll(link, "&amp;", "&"))
+	require.NoError(t, err)
+
+	document := braznRestrictedUIDocument(parsed.Path, parsed.Query())
+	if document == "" {
+		// The link points at a real file rather than at an address the lockout
+		// rewrites, which is equally fine — so long as that file is a page this
+		// product has decided to serve.
+		document = parsed.Path
+	}
+
+	known := map[string]bool{}
+	for _, d := range bra1475AllDocuments {
+		known[d] = true
+	}
+	assert.True(t, known[document],
+		"the mail sends customers to %q, which this server does not serve; every reset link would 404", document)
+
+	assert.False(t, braznBlocksAppShell("dist"+document),
+		"the lockout blocks %q, so the customer's link is refused by the server that sent it", document)
 }

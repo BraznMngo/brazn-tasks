@@ -429,7 +429,12 @@
         "requestedTitle": "已提交删除请求",
         "requestedText": "只有在你打开我们邮件中的确认链接后，我们才会安排删除。"
       },
-      "emailNotifications": "电子邮件通知"
+      "emailNotifications": "电子邮件通知",
+      "signOut": {
+        "title": "退出登录",
+        "help": "结束这台设备上的本次登录。",
+        "action": "退出登录"
+      }
     },
     "org": {
       "teamLabel": "团队",
@@ -497,20 +502,41 @@
       "invitePendingAnonymous": "邀请 {id}…"
     },
     "join": {
-      "title": "加入你的组织",
-      "lead": "你已受邀加入 ONE Tasks 上的一个团队。",
-      "explain": "若已有账户请登录。首次使用请创建账户 — 邀请链接已准备好一切。仅当该邮箱已有账户时，“设置密码”才有效。",
-      "signIn": "登录",
-      "setPassword": "设置密码",
-      "accepting": "正在接受邀请…",
-      "accepted": "你已加入组织。欢迎加入。",
-      "alreadyMember": "你已在该组织中拥有席位，无需任何更改。",
-      "openApp": "打开 ONE Tasks",
-      "refusedLead": "无法接受邀请。",
-      "missingLink": "此链接不完整。请打开邀请邮件中的链接，或请邀请你的人重新发送一个。",
-      "explainWithToken": "请创建账户以接受邀请（Google 或邮箱）。若已注册请登录。仅当该邮箱已有账户时再设置密码。",
-      "createAccount": "创建账户",
-      "setPasswordHint": "“设置密码”仅在该邮箱已有账户时可用，不会创建新账户。"
+      "title": "你收到一份邀请",
+      "lead": "你受邀加入 ONE Personal Assistant 中 {organizationName} 的 {teamName} 团队。",
+      "email": "邮箱地址",
+      "emailLocked": "邀请已发送到这个地址，因此无法在此修改。",
+      "username": "用户名",
+      "password": "密码",
+      "passwordRule": "至少 8 个字符。",
+      "submit": "创建账户",
+      "working": "正在创建账户…",
+      "missingFields": "请填写用户名和密码后继续。",
+      "credentialsUnavailable": "无法用这些信息创建账户。请换一个用户名后重试。如果仍然不行，请联系管理员，把你添加为现有用户。",
+      "otherAccount": {
+        "title": "已登录其他账户",
+        "body": "当前登录的是其他账户。请先退出登录，再注册这个账户。",
+        "logout": "退出登录"
+      },
+      "missingLink": {
+        "title": "这个链接不完整",
+        "body": "请打开邀请邮件中的链接，或联系邀请你的人重新发一份。"
+      },
+      "usernameTooLong": "这个用户名太长了。请换一个短一些的。",
+      "passwordLength": "密码长度需要在 {min} 到 {max} 个字符之间。",
+      "alreadyMember": {
+        "title": "你已经有访问权限",
+        "body": "你已经是这个组织的成员，无需再设置。请用已有的账户登录。",
+        "bodyNamed": "你已经是 {organizationName} 的成员，无需再设置。请用已有的账户登录。",
+        "signIn": "登录"
+      },
+      "teamUnavailable": {
+        "title": "你的账户已就绪",
+        "body": "账户已创建，你也已经是组织的成员，现在就可以登录。共享列表还没有关联到你，这一步需要管理员完成，在这个页面上做什么都不会改变它。",
+        "signIn": "登录"
+      },
+      "usernameTaken": "这个用户名已被使用。请换一个。",
+      "usernameUnusable": "这个用户名无法使用。请换一个。"
     },
     "deny": {
       "personalEdition": "此功能属于 ONE Teams。",
@@ -546,11 +572,44 @@
       "belowActiveTeams": "该席位数少于你现有团队所需的数量，未做任何更改。"
     },
     "error": {
-      "loadFailed": "此页面加载失败。",
+      "loadFailed": "页面加载失败。",
       "sessionExpired": "你的登录状态已失效。请重新登录以继续。",
       "requestFailed": "操作未能完成。未做任何更改。",
       "serverUnavailable": "服务器当前不可用，未做任何更改。",
-      "catalogue": "无法加载此页面的文本。"
+      "catalogue": "无法加载这个页面的文本。",
+      "signIn": "前往登录",
+      "general": {
+        "title": "出了点问题",
+        "body": "我们无法完成这个操作。请重试；如果一直这样，请联系邀请你的人，重新发一份邀请。"
+      },
+      "invitationExpired": {
+        "title": "这份邀请已过期",
+        "body": "请联系邀请你的人，重新发一份邀请。"
+      },
+      "invitationRevoked": {
+        "title": "这份邀请已被撤回",
+        "body": "请联系邀请你的人，确认撤回是不是有意的。"
+      },
+      "invitationUnknown": {
+        "title": "没有找到这份邀请",
+        "body": "请打开邀请邮件中的链接，或联系邀请你的人重新发一份。"
+      },
+      "seatsFull": {
+        "title": "这个组织没有空余席位",
+        "body": "请联系管理员增加一个席位，然后重新邀请你。"
+      },
+      "accountExists": {
+        "title": "无法创建你的账户",
+        "body": "这个账户已存在。请联系管理员，把你添加为现有用户。"
+      },
+      "notInvitable": {
+        "title": "无法邀请这个地址",
+        "body": "这个地址已经属于另一个账户。请联系管理员，把你添加为现有用户。"
+      },
+      "linkExpired": {
+        "title": "这个链接已过期",
+        "body": "你的邀请仍然有效，只是链接过期了。请联系邀请你的人重新发一个链接。"
+      }
     },
     "toast": {
       "taskAdded": "任务已添加。",
@@ -569,6 +628,76 @@
       "organizationRenamed": "组织名称已更改。",
       "exportDownloaded": "导出文件已下载。",
       "commentUpdated": "评论已更新。"
+    },
+    "auth": {
+      "signIn": {
+        "title": "登录",
+        "username": "用户名或邮箱",
+        "password": "密码",
+        "submit": "登录",
+        "working": "正在登录…",
+        "or": "或",
+        "withProvider": "使用 {provider} 继续",
+        "forgotPassword": "忘记密码？",
+        "noAccount": "还没有账户？点击这里",
+        "totp": "验证码",
+        "totpHint": "请打开身份验证器应用，输入其中显示的验证码。",
+        "totpRequired": "这个账户启用了两步验证。请输入身份验证器应用中的验证码。",
+        "totpWrong": "验证码未通过。请在身份验证器应用中确认后重试。",
+        "emailNotConfirmed": "你的邮箱还没有确认。请先打开我们发来的链接，然后重新登录。",
+        "missingCredentials": "请输入用户名或邮箱，以及密码。",
+        "failed": "无法登录。请检查填写的信息后重试。",
+        "providerFailed": "本次登录未完成。请重试，或使用密码登录。",
+        "returningToApp": "正在返回应用…",
+        "desktopFailed": "无法连接应用。请关闭这个窗口，然后从应用重试。"
+      },
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码"
+    },
+    "password": {
+      "working": "处理中…",
+      "backToSignIn": "返回登录",
+      "request": {
+        "title": "重置密码",
+        "lead": "请输入你的邮箱地址，我们会给你发送设置新密码的链接。",
+        "email": "邮箱地址",
+        "submit": "发送链接",
+        "missingEmail": "请输入你在 ONE 使用的邮箱地址。",
+        "failed": "无法发送该链接。请稍后重试。",
+        "sentTitle": "请查收邮件",
+        "sentBody": "如果这个地址有对应的账户，设置新密码的链接已经在路上。链接只能用一次，并且会过期。"
+      },
+      "set": {
+        "title": "设置新密码",
+        "lead": "请设置一个你在这里没用过的密码。",
+        "newPassword": "新密码",
+        "rule": "至少 {count} 个字符。",
+        "submit": "保存密码",
+        "tooShort": "请至少使用 {count} 个字符。",
+        "linkExpired": "这个链接已经用过或已过期。请在下方申请新链接。",
+        "failed": "无法设置该密码。请稍后重试。",
+        "doneTitle": "密码已设置",
+        "doneBody": "现在可以用新密码登录了。",
+        "signIn": "登录"
+      }
+    },
+    "confirmed": {
+      "title": "你的邮箱地址已确认",
+      "body": "谢谢。现在可以登录了。",
+      "signIn": "登录",
+      "workingTitle": "请稍候",
+      "workingBody": "正在检查这个链接。",
+      "failedTitle": "这个链接无法使用",
+      "failedBody": "这个链接已经用过或已过期。请从登录页面申请新链接。",
+      "noToken": "这个地址里没有需要确认的内容。请打开我们发来的邮件中的链接。",
+      "deletion": {
+        "doneTitle": "账户删除已确认",
+        "doneBody": "你的账户以及其中的全部内容都会被删除。你不需要再做任何操作。",
+        "failedTitle": "这个链接无法使用",
+        "failedBody": "无法确认删除。这个链接可能已经用过，或者已过期。",
+        "signInTitle": "请登录以确认",
+        "signInBody": "删除账户必须由登录该账户的本人确认。登录后，这个链接会自动完成。"
+      }
     }
   }
 }

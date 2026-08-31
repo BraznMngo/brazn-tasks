@@ -429,6 +429,11 @@
         "successorText": "The selected team member must become organization administrator before deletion can be requested.",
         "requestedTitle": "Deletion requested",
         "requestedText": "Deletion is scheduled only after you open the confirmation link we email you."
+      },
+      "signOut": {
+        "title": "Sign out",
+        "help": "End this session on this device.",
+        "action": "Sign out"
       }
     },
     "org": {
@@ -497,20 +502,41 @@
       "invitePendingAnonymous": "Invitation {id}…"
     },
     "join": {
-      "title": "Join your organization",
-      "lead": "You have been invited to a team on ONE Tasks.",
-      "explain": "Sign in if you already have an account. If this is your first time, create an account — the invitation link already prepared everything. You can also set a password if an account was opened for your email.",
-      "signIn": "Sign in",
-      "setPassword": "Set a password",
-      "accepting": "Accepting your invitation…",
-      "accepted": "You have joined your organization. Welcome aboard.",
-      "alreadyMember": "You already hold a seat in this organization, so nothing needed to change.",
-      "openApp": "Open ONE Tasks",
-      "refusedLead": "The invitation could not be accepted.",
-      "missingLink": "This link is incomplete. Open the link from your invitation email, or ask the person who invited you to send a new one.",
-      "explainWithToken": "Create an account to claim this invitation (Google or email). If you already registered, sign in instead. Set a password only if an account already exists for your email.",
-      "createAccount": "Create an account",
-      "setPasswordHint": "Set a password only works when an account already exists for your email. It does not create one."
+      "title": "You have been invited",
+      "lead": "You have been invited to join the {teamName} team of {organizationName} for ONE Personal Assistant.",
+      "email": "Email address",
+      "emailLocked": "Your invitation was sent to this address, so it cannot be changed here.",
+      "username": "Username",
+      "password": "Password",
+      "passwordRule": "At least 8 characters.",
+      "submit": "Create my account",
+      "working": "Setting up your account…",
+      "missingFields": "Choose a username and a password to continue.",
+      "credentialsUnavailable": "We could not create an account with those details. Choose a different username and try again. If that does not help, ask your administrator to add you as an existing user instead.",
+      "otherAccount": {
+        "title": "Already signed in",
+        "body": "You are currently logged into another account. Log out to register for this account.",
+        "logout": "Log out"
+      },
+      "missingLink": {
+        "title": "This link is incomplete",
+        "body": "Open the link from your invitation email, or ask the person who invited you to send a new one."
+      },
+      "usernameTooLong": "That username is too long. Choose a shorter one.",
+      "passwordLength": "Your password needs between {min} and {max} characters.",
+      "alreadyMember": {
+        "title": "You already have access",
+        "body": "You are already a member of this organisation, so there was nothing to set up. Sign in with the account you already have.",
+        "bodyNamed": "You are already a member of {organizationName}, so there was nothing to set up. Sign in with the account you already have.",
+        "signIn": "Sign in"
+      },
+      "teamUnavailable": {
+        "title": "Your account is ready",
+        "body": "Your account and your membership of the organisation are set up, and you can sign in now. The shared lists are not connected to you yet. Your administrator can finish that, and nothing you do here will change it.",
+        "signIn": "Sign in"
+      },
+      "usernameTaken": "This username is already taken. Choose another one.",
+      "usernameUnusable": "This username cannot be used. Choose another one."
     },
     "deny": {
       "personalEdition": "This is part of ONE Teams.",
@@ -550,7 +576,40 @@
       "sessionExpired": "Your session has ended. Sign in to continue.",
       "requestFailed": "That did not work. Nothing was changed.",
       "serverUnavailable": "The server is unavailable right now, so nothing was changed.",
-      "catalogue": "The text for this page could not be loaded."
+      "catalogue": "The text for this page could not be loaded.",
+      "signIn": "Go to sign in",
+      "general": {
+        "title": "Something went wrong",
+        "body": "We could not finish that. Try again, and if it keeps happening ask the person who invited you to send a new invitation."
+      },
+      "invitationExpired": {
+        "title": "This invitation has expired",
+        "body": "Ask the person who invited you to send a new invitation."
+      },
+      "invitationRevoked": {
+        "title": "This invitation was withdrawn",
+        "body": "Ask the person who invited you whether it was meant to be withdrawn."
+      },
+      "invitationUnknown": {
+        "title": "We could not find this invitation",
+        "body": "Open the link from your invitation email, or ask the person who invited you to send a new one."
+      },
+      "seatsFull": {
+        "title": "This organisation has no free seats",
+        "body": "Ask your administrator to add a seat, and then to invite you again."
+      },
+      "accountExists": {
+        "title": "We could not create your account",
+        "body": "This account already exists. Please ask your administrator to add you as an existing user instead."
+      },
+      "notInvitable": {
+        "title": "This address cannot be invited",
+        "body": "This address already belongs to another account. Ask your administrator to add you as an existing user instead."
+      },
+      "linkExpired": {
+        "title": "This link has expired",
+        "body": "Your invitation is still good; only the link ran out. Ask the person who invited you for a fresh link."
+      }
     },
     "toast": {
       "taskAdded": "The task was added.",
@@ -569,6 +628,76 @@
       "organizationRenamed": "The organization's name was changed.",
       "exportDownloaded": "The export was downloaded.",
       "commentUpdated": "The comment was updated."
+    },
+    "auth": {
+      "signIn": {
+        "title": "Sign in",
+        "username": "Username or email address",
+        "password": "Password",
+        "submit": "Sign in",
+        "working": "Signing you in…",
+        "or": "or",
+        "withProvider": "Continue with {provider}",
+        "forgotPassword": "Forgotten your password?",
+        "noAccount": "you don't have an account yet? click here",
+        "totp": "Authentication code",
+        "totpHint": "Open your authenticator app and enter the code it shows.",
+        "totpRequired": "This account has a second step. Enter the code from your authenticator app.",
+        "totpWrong": "That code was not accepted. Check your authenticator app and try again.",
+        "emailNotConfirmed": "Your email address has not been confirmed yet. Open the link we emailed you, then sign in again.",
+        "missingCredentials": "Enter your username or email address and your password.",
+        "failed": "We could not sign you in. Check your details and try again.",
+        "providerFailed": "That sign-in did not finish. Try again, or sign in with your password.",
+        "returningToApp": "Taking you back to the app…",
+        "desktopFailed": "We could not connect the app. Close this window and try again from the app."
+      },
+      "showPassword": "Show password",
+      "hidePassword": "Hide password"
+    },
+    "password": {
+      "working": "Working…",
+      "backToSignIn": "Back to sign in",
+      "request": {
+        "title": "Reset your password",
+        "lead": "Enter your email address and we will send you a link to set a new password.",
+        "email": "Email address",
+        "submit": "Send the link",
+        "missingEmail": "Enter the email address you use for ONE.",
+        "failed": "We could not send that link. Try again in a moment.",
+        "sentTitle": "Check your email",
+        "sentBody": "If there is an account for that address, a link to set a new password is on its way. It works once, and it expires."
+      },
+      "set": {
+        "title": "Set a new password",
+        "lead": "Choose a password you have not used here before.",
+        "newPassword": "New password",
+        "rule": "At least {count} characters.",
+        "submit": "Save the password",
+        "tooShort": "Use at least {count} characters.",
+        "linkExpired": "This link has already been used, or it has expired. Ask for a new one below.",
+        "failed": "We could not set that password. Try again in a moment.",
+        "doneTitle": "Your password is set",
+        "doneBody": "You can sign in with your new password now.",
+        "signIn": "Sign in"
+      }
+    },
+    "confirmed": {
+      "title": "Your email address is confirmed",
+      "body": "Thank you. You can sign in now.",
+      "signIn": "Sign in",
+      "workingTitle": "One moment",
+      "workingBody": "We are checking your link.",
+      "failedTitle": "This link did not work",
+      "failedBody": "The link has already been used, or it has expired. Ask for a new one from the sign-in page.",
+      "noToken": "This address carries nothing to confirm. Open the link from the email we sent you.",
+      "deletion": {
+        "doneTitle": "Your account deletion is confirmed",
+        "doneBody": "Your account and everything in it will be removed. Nothing further is needed from you.",
+        "failedTitle": "This link did not work",
+        "failedBody": "The deletion could not be confirmed. The link may already have been used, or it may have expired.",
+        "signInTitle": "Sign in to confirm",
+        "signInBody": "Deleting an account has to be confirmed by the person signed in to it. Sign in, and this link finishes on its own."
+      }
     }
   }
 }
