@@ -262,11 +262,27 @@ export function googleMark() {
  * @param {object} attrs  everything else the input needs, already escaped
  */
 export function passwordField(id, labelKey, attrs = '') {
-  return `<div class="auth-field auth-reveal-wrap">
+  // THE WRAPPER WRAPS THE INPUT ALONE, NOT THE FIELD GROUP, and that is the whole
+  // of what positions this control. `.auth-field` is a grid holding a label, a
+  // gap and the input — 63 pixels tall against the input's 42 — so a control
+  // centred on it lands ten pixels above the input's own centre, with its top
+  // edge above the top of the box, overlapping the label. Wrapping the input by
+  // itself makes the wrapper exactly as tall as the input, so `top: 50%` centres
+  // on the box a person is actually typing in.
+  //
+  // It is also what the reference page does (`RegisterForm.tsx`: `.pwWrap` holds
+  // the input and the toggle, and sits inside `.field` alongside the label), so
+  // this is the design being matched rather than an offset chosen to cancel an
+  // error out. Centring rather than a fixed inset also survives the field
+  // growing: under 560px the input takes a 16px font to stop phones zooming on
+  // focus, and a hardcoded distance from one edge would drift as it grows.
+  return `<div class="auth-field">
     <label for="${esc(id)}">${tx(labelKey)}</label>
-    <input id="${esc(id)}" type="password" ${attrs}>
-    <button type="button" class="auth-reveal" data-action="reveal-password" data-reveals="${esc(id)}"
-      aria-pressed="false" aria-label="${tx('one.auth.showPassword')}">${eyeMark(false)}</button>
+    <div class="auth-reveal-wrap">
+      <input id="${esc(id)}" type="password" ${attrs}>
+      <button type="button" class="auth-reveal" data-action="reveal-password" data-reveals="${esc(id)}"
+        aria-pressed="false" aria-label="${tx('one.auth.showPassword')}">${eyeMark(false)}</button>
+    </div>
   </div>`;
 }
 

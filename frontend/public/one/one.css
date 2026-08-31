@@ -808,6 +808,11 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
    choosing a new password on the invitation page or the reset page typed it blind. Values are the
    reference's own: a 34px square tucked inside the right-hand end of a 42px field, transparent
    until hovered. The input reserves room for it so a long password never runs underneath. */
+/* THIS WRAPPER MUST HOLD THE INPUT ALONE. It is what `top:50%` centres against,
+   so if it is ever put back on `.auth-field` — a grid holding a label, a gap and
+   the input, 63px tall against the input's 42px — the control rides ten pixels
+   above the box and overlaps the label. auth-shell.js `passwordField` is the
+   only thing that emits this pair; keep them together. */
 .auth-reveal-wrap{position:relative}
 .auth-reveal-wrap input{padding-right:46px}
 .auth-reveal{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--text-muted);cursor:pointer;transition:background .14s ease,color .14s ease}
