@@ -7,6 +7,7 @@ import {
 	destinationFromHash,
 	signInSurface,
 } from '../../../public/one/signin.js'
+import {passwordField} from '../../../public/one/auth-shell.js'
 import enRaw from '../../../public/one/i18n/en.json?raw'
 import {
 	ORIGIN,
@@ -383,6 +384,73 @@ describe('the destination a sign-in is allowed to return somebody to', () => {
 		// client is handed a code it cannot redeem.
 		expect(desktopAuthorizationFrom(full.replace('&code_challenge_method=S256', ''))).toBeNull()
 		expect(desktopAuthorizationFrom('')).toBeNull()
+	})
+})
+
+/* ================================================================== *
+ * THE SHARED PASSWORD FIELD, and the one thing about it that is positional
+ * ================================================================== */
+
+describe('the reveal control sits inside the box a person types in', () => {
+	/*
+	 * WHAT THIS GUARDS, AND WHY IT IS A TEST RATHER THAN A COMMENT. The control is centred with
+	 * `top: 50%`, which resolves against whatever the wrapper turns out to be. When the wrapper was
+	 * put on the whole `.auth-field` - a grid holding a label, a gap and the input, 63px tall
+	 * against the input's 42 - the control rode ten pixels above the box and overlapped the label,
+	 * on all three password fields at once. Nothing failed: the markup was valid, every unit test
+	 * passed, and it was found only by measuring a rendered page.
+	 *
+	 * The stylesheet now carries a comment asking for the two to be kept together. A comment is not
+	 * a guard, so this is the guard: the wrapper holds the input and the button, and the label is
+	 * NOT inside it. That is a structural fact a test can hold, and it is the whole difference
+	 * between a centred control and a misplaced one.
+	 */
+	function wrapperOf(markup: string): Element {
+		const host = document.createElement('div')
+		host.innerHTML = markup
+		const wrap = host.querySelector('.auth-reveal-wrap')
+		if (wrap === null) throw new Error('no password field emitted a reveal wrapper')
+		return wrap
+	}
+
+	it('wraps the INPUT ALONE, with the label outside it', () => {
+		const wrap = wrapperOf(passwordField('password', 'one.auth.signIn.password', 'name="password"'))
+
+		// MUTATION: putting `auth-reveal-wrap` back on the `.auth-field` element makes this red.
+		expect(wrap.querySelector('input')).not.toBeNull()
+		expect(wrap.querySelector('[data-action="reveal-password"]')).not.toBeNull()
+		expect(wrap.querySelector('label')).toBeNull()
+		// The label still exists and still points at the field - it moved out of the wrapper, it
+		// was not dropped.
+		const host = document.createElement('div')
+		host.innerHTML = passwordField('password', 'one.auth.signIn.password', 'name="password"')
+		expect(host.querySelector('label')?.getAttribute('for')).toBe('password')
+		expect(host.querySelector('.auth-field')).not.toBeNull()
+	})
+
+	it('is emitted through the one shared helper on every page that asks for a password', async () => {
+		// A page that hand-rolled its own password field would miss the reveal control, or place it
+		// against the wrong wrapper, and neither would show up anywhere else.
+		const join = await import('../../../public/one/join.js')
+		const password = await import('../../../public/one/password.js')
+
+		const surfaces = [
+			['sign in', signInSurface({phase: 'form', providers: [], checkoutUrl: null, passwordUrl: '/one/password.html'})],
+			['invitation', join.invitationSurface({phase: 'form', teamName: 'Design', organizationName: 'Ack', invitedEmail: 'ada@example.com', username: ''})],
+			['set password', password.setSurface({phase: 'form'})],
+		] as const
+
+		for (const [name, markup] of surfaces) {
+			const wrap = wrapperOf(markup)
+			expect(wrap.querySelector('input'), name).not.toBeNull()
+			expect(wrap.querySelector('label'), name).toBeNull()
+			// `type="button"` is load-bearing: a bare button inside a form defaults to submit, so
+			// revealing the password would send the form.
+			const button = wrap.querySelector('[data-action="reveal-password"]') as HTMLButtonElement
+			expect(button.getAttribute('type'), name).toBe('button')
+			expect(button.getAttribute('aria-pressed'), name).toBe('false')
+			expect(button.getAttribute('data-reveals'), name).toBe('password')
+		}
 	})
 })
 

@@ -151,6 +151,14 @@ export interface CommercialOps {
 	 * must branch on `result.outcome` in every case.
 	 */
 	readonly INVITATION_COMPLETION: CommercialOp
+	/**
+	 * BRA-1475. Is this username free? Answers `status`, not `outcome`, so its
+	 * shape is OUTCOME_ABSENT - and that guard is load-bearing rather than a
+	 * formality: an unrouted `/v1/...` is answered with the app shell at HTTP
+	 * 200, which without the content-type check would read as a body with no
+	 * outcome and let every name through.
+	 */
+	readonly INVITATION_USERNAME: CommercialOp
 	/** Recognises nothing; the default when a caller names no operation. */
 	readonly UNKNOWN: CommercialOp
 }
