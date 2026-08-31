@@ -331,13 +331,19 @@ async function returnToDesktopApplication(request) {
   }
 
   // The application's own address, which is a custom scheme rather than a web
-  // address, so it is built with URL and handed to the browser unchanged. The
-  // state is attached only when the client sent one — an empty `state=` is a
-  // parameter the client did not ask for.
+  // address, so it is built with URL and handed to the browser unchanged.
+  //
+  // ONLY THE SERVER'S ECHOED `state`, AND ONLY WHEN IT SENT ONE. This used to
+  // fall back to the client's own value when the server echoed none, which is
+  // arguably the better reading of the OAuth specification and is the wrong
+  // change to make here: criterion 22 is that a real desktop application gets
+  // its access exactly as it does TODAY, and a strict client receiving a
+  // parameter the page this replaces never sent is a risk with no upside. The
+  // old page attached `state` on a truthy echoed value and on nothing else
+  // (frontend/src/views/user/OAuthAuthorize.vue), so this does the same.
   const url = new URL(returnTo);
   url.searchParams.set('code', code);
-  const echoed = typeof answer?.state === 'string' ? answer.state : request.state;
-  if (echoed !== '' && echoed !== undefined && echoed !== null) url.searchParams.set('state', String(echoed));
+  if (answer?.state) url.searchParams.set('state', String(answer.state));
   location.assign(url.toString());
 }
 
@@ -409,10 +415,30 @@ function startOpenIdSignIn(provider) {
   }
   try {
     sessionStorage.setItem(OIDC_STATE_KEY, opaque);
-    // The destination survives the trip to the provider and back, because the
-    // fragment does not: the browser leaves this origin entirely.
-    const hashDestination = destinationFromHash(location.hash);
-    if (hashDestination !== null) sessionStorage.setItem(OIDC_DESTINATION_KEY, hashDestination);
+
+    // WHAT MUST SURVIVE THE TRIP TO THE PROVIDER, and it is two different
+    // things depending on how the person got here. Storage is the only bridge
+    // that survives, because the browser leaves this origin entirely: the
+    // fragment does not travel, and neither does the query.
+    //
+    // A DESKTOP APPLICATION'S REQUEST IS THE ONE THAT BREAKS SILENTLY. It puts
+    // its five parameters in the QUERY of /oauth/authorize, and this document
+    // is served in place at that address rather than redirected to, so there is
+    // no `#redirect=` fragment holding them the way there was on the page this
+    // replaces (frontend/src/router/index.ts, getAuthForRoute, whose own
+    // comment says that hash is the only bridge that survives a provider round
+    // trip). Without the line below, a person who presses Continue with Google
+    // signs in, lands on the settings page, and the application that sent them
+    // waits forever — and no check on this side can see it happen.
+    //
+    // The whole address is kept rather than the five parameters, so the return
+    // leg replays the arrival exactly and `landAfterSignIn` makes the same
+    // decision it would have made without the detour.
+    const desktop = desktopAuthorizationFrom(location.search);
+    const destination = desktop !== null
+      ? location.pathname + location.search
+      : destinationFromHash(location.hash);
+    if (destination !== null) sessionStorage.setItem(OIDC_DESTINATION_KEY, destination);
   } catch {
     // Storage refused. The round trip still works; only the check below is lost.
   }
@@ -487,8 +513,12 @@ async function completeOpenIdReturn(providerKey) {
     return;
   }
 
-  // A destination that was carried into the provider round trip comes back out
-  // of storage, because the fragment did not survive leaving this origin.
+  // Whatever was carried into the provider round trip comes back out of storage,
+  // because neither the fragment nor the query survived leaving this origin.
+  // For a desktop application this is the address it opened, five parameters
+  // and all: replaying it lands back on this document with a session, and
+  // `landAfterSignIn` then makes the same decision it would have made had the
+  // person never needed to sign in.
   let stored = null;
   try {
     stored = sessionStorage.getItem(OIDC_DESTINATION_KEY);

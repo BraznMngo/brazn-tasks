@@ -8,9 +8,16 @@
 // language's file rather than blanked, because the resolver below treats a missing key as
 // "fall through to en" and a present-but-empty string as a bug worth surfacing.
 
-// The Vue app's SUPPORTED_LOCALES are exact tags (frontend/src/i18n/index.ts:13-47). We match
-// that list exactly for the six launch languages and never widen a region: 'es' must NOT become
-// 'es-ES'. Widening is what produces a page that is half-translated in a locale nobody shipped.
+// One catalogue per LANGUAGE, and the names are the Vue app's exact tags
+// (frontend/src/i18n/index.ts:13-47) because the files were trimmed from its own.
+//
+// THE NAMES CARRY A REGION AND THE CATALOGUES DO NOT. `de-DE` is simply where our German lives;
+// there is no `de-AT` to be half-translated into, and there will not be one. An earlier note here
+// said a region must never be widened — that 'es' must not become 'es-ES' — and it was reasoning
+// about the Vue app, which ships many locales per language and where widening really does land a
+// reader in one nobody finished. It is the wrong rule for this file, and it is corrected rather
+// than deleted because it reads convincingly and somebody will otherwise re-derive it.
+//
 // ar-SA / fa-IR / he-IL are deliberately absent: the page's CSS still uses physical properties
 // (translateX, background-position, object-position), so RTL is out of scope for this change.
 const SUPPORTED_LOCALES = Object.freeze(['en', 'es-ES', 'de-DE', 'fr-FR', 'zh-CN', 'ja-JP']);
@@ -37,15 +44,51 @@ export function supportedLocales() {
  return SUPPORTED_LOCALES;
 }
 
-// Exact-tag negotiation. `preferred` is settings.language from GET /user (the fork returns user
-// settings snake_cased, but this key is a single word so it is 'language' either way).
-// Anything not in SUPPORTED_LOCALES falls to en rather than to a near neighbour.
+// The language part of a tag, lower-cased. BCP 47 is case-insensitive and engines do not all
+// agree on the casing they report, so every comparison below goes through here or through the
+// same lower-casing.
+function primaryLanguage(tag) {
+ return String(tag ?? '').split('-')[0].toLowerCase();
+}
+
+// A CATALOGUE FOR ONE TAG, TRIED THE ONLY TWO WAYS THAT CAN MATCH.
+//
+// Exact first, so somebody who asks for `de-DE` can never land on anything else. Then the
+// language alone, which is what makes `en-US` find `en`, `de-AT` find `de-DE`, and a bare `es`
+// find `es-ES`. The six primary languages are distinct, so a language match is never ambiguous
+// and `find` is never choosing between two.
+function catalogueFor(tag) {
+ const wanted = String(tag ?? '').toLowerCase();
+ if (wanted === '') return null;
+
+ const exact = SUPPORTED_LOCALES.find(locale => locale.toLowerCase() === wanted);
+ if (exact !== undefined) return exact;
+
+ const language = primaryLanguage(tag);
+ return SUPPORTED_LOCALES.find(locale => primaryLanguage(locale) === language) ?? null;
+}
+
+// `preferred` is settings.language from GET /user (the fork returns user settings snake_cased,
+// but this key is a single word so it is 'language' either way), then the browser's own list in
+// its own order.
+//
+// EACH CANDIDATE IS RESOLVED COMPLETELY BEFORE THE NEXT IS CONSIDERED, and that ordering is the
+// whole fix. Browsers send region tags: a reader in the United States sends `en-US`, and matching
+// only exact tags meant `en-US` missed the catalogue named `en` and fell through to whatever came
+// SECOND in their list. On the machine this was found on that was `de-DE`, so an English reader
+// was shown German — on the sign-in page, the reset page and the invitation page, which are the
+// five documents a locked-out customer sees and where criterion 9 requires the reader's own
+// language. Trying every candidate for an exact match first would keep that bug: it would prefer
+// somebody's second language over their first.
+//
+// Anything with no catalogue at all still falls to en rather than to a near neighbour.
 export function negotiateLanguage(preferred, navigatorLanguages) {
  const candidates = [];
  if (preferred) candidates.push(String(preferred));
  for (const tag of navigatorLanguages || []) candidates.push(String(tag));
  for (const tag of candidates) {
-  if (SUPPORTED_LOCALES.includes(tag)) return tag;
+  const locale = catalogueFor(tag);
+  if (locale !== null) return locale;
  }
  return DEFAULT_LOCALE;
 }

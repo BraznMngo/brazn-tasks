@@ -41,17 +41,72 @@ function serve(catalogues: Record<string, Catalogue>) {
 }
 
 describe('one/i18n.js language negotiation', () => {
-	it('matches EXACT tags and never widens a region', () => {
+	it('resolves each candidate COMPLETELY before considering the next one', () => {
+		/*
+		 * THIS ASSERTION REPLACES ITS OWN OPPOSITE, DELIBERATELY. The case that stood here asserted
+		 * exact-tag matching and named the primary-subtag fallback as the mutation it existed to
+		 * catch. It was a guard doing its job against a rule that has since changed, so it is
+		 * rewritten rather than deleted, and the new rule is pinned as firmly as the old one was.
+		 *
+		 * WHY THE RULE CHANGED. Browsers send region tags. A reader in the United States sends
+		 * `en-US`, exact matching missed the catalogue called `en`, and negotiation fell through to
+		 * whatever came SECOND in their list - which on the machine this was found on was `de-DE`.
+		 * An English reader was served German on the five pages a locked-out customer sees, which
+		 * is where criterion 9 requires the reader's own language.
+		 *
+		 * THE ORDERING IS THE WHOLE FIX and it is the row below that proves it. Trying every
+		 * candidate for an exact match first, and only then falling back to language matching,
+		 * would ALSO make `en-US` find `en` - and would still be wrong, because it would prefer
+		 * somebody's second language over their first.
+		 */
+		// MUTATION: resolving all candidates exact-first, then all candidates by language, makes
+		// this row red - `de-DE` is an exact hit and would win over the reader's actual first
+		// choice.
+		expect(negotiateLanguage(null, ['en-US', 'de-DE'])).toBe('en')
+		expect(negotiateLanguage(null, ['de-AT', 'en'])).toBe('de-DE')
+
+		// An exact ask never lands anywhere else.
 		expect(negotiateLanguage('de-DE', ['en'])).toBe('de-DE')
 		expect(negotiateLanguage(null, ['fr-FR', 'en'])).toBe('fr-FR')
+		expect(negotiateLanguage(null, ['zh-CN'])).toBe('zh-CN')
 
-		// The Vue app's SUPPORTED_LOCALES are exact tags. Widening is what produces a page that is
-		// half-translated in a locale nobody shipped.
-		// MUTATION: adding a primary-subtag match (`tag.split('-')[0]`) to negotiateLanguage makes
-		// this red - 'es' would resolve to 'es-ES'.
-		expect(negotiateLanguage('es', ['es'])).toBe('en')
+		// The language alone finds the one catalogue that speaks it. There is exactly one per
+		// language, so this is never a choice between two.
+		// MUTATION: deleting the language fallback from catalogueFor makes these red, and every
+		// browser sending a region tag - which is all of them - gets English.
+		expect(negotiateLanguage('es', ['es'])).toBe('es-ES')
+		expect(negotiateLanguage(null, ['en-GB'])).toBe('en')
+		expect(negotiateLanguage(null, ['ja-JP'])).toBe('ja-JP')
+
+		// Case is not significant: BCP 47 is case-insensitive and engines disagree on what they
+		// report.
+		expect(negotiateLanguage(null, ['EN-us'])).toBe('en')
+		expect(negotiateLanguage('DE-de', [])).toBe('de-DE')
+
+		// A language with no catalogue at all still falls to en rather than to a near neighbour,
+		// and it does not consume the candidate list - the next candidate is still tried.
 		expect(negotiateLanguage('pt-BR', ['ar-SA'])).toBe('en')
+		expect(negotiateLanguage(null, ['pt-BR', 'fr-FR'])).toBe('fr-FR')
 		expect(negotiateLanguage(null, [])).toBe('en')
+		expect(negotiateLanguage(null, [''])).toBe('en')
+	})
+
+	it('sends Traditional Chinese readers to the Simplified catalogue, which is a KNOWN COMPROMISE', () => {
+		/*
+		 * PINNED SO IT IS VISIBLE, NOT BECAUSE IT IS IDEAL. `zh-TW` and `zh-HK` are Traditional
+		 * script and the only Chinese catalogue that ships is Simplified, so language matching
+		 * sends them there. The alternative is English, which is further from what those readers
+		 * asked for than Simplified is.
+		 *
+		 * It is a real cost and it is the one place in this file where the language fallback gives
+		 * somebody something they did not ask for. If a Traditional catalogue is ever added, this
+		 * case is where the decision was recorded and where it should be revisited - it will start
+		 * failing, which is the point.
+		 */
+		expect(negotiateLanguage(null, ['zh-TW'])).toBe('zh-CN')
+		expect(negotiateLanguage(null, ['zh-HK'])).toBe('zh-CN')
+		// An exact ask for Simplified is of course unaffected.
+		expect(negotiateLanguage(null, ['zh-CN'])).toBe('zh-CN')
 	})
 
 	it('lets the stored preference beat the browser', () => {

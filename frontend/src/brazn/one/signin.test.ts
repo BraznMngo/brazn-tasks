@@ -19,6 +19,7 @@ import {
 	json,
 	mountAuthCard,
 	navigations,
+	press,
 	requests,
 	captureDocumentListeners,
 	releaseDocumentListeners,
@@ -384,6 +385,183 @@ describe('the destination a sign-in is allowed to return somebody to', () => {
 		// client is handed a code it cannot redeem.
 		expect(desktopAuthorizationFrom(full.replace('&code_challenge_method=S256', ''))).toBeNull()
 		expect(desktopAuthorizationFrom('')).toBeNull()
+	})
+})
+
+/* ================================================================== *
+ * CRITERION 22 - the desktop application's round trip, which nothing on this
+ * side can observe failing
+ * ================================================================== */
+
+describe('criterion 22 - a desktop application gets its code back', () => {
+	/*
+	 * WHAT MAKES THIS BLOCK DIFFERENT FROM EVERY OTHER ONE IN THIS FILE. Every other failure here
+	 * shows up as a wrong sentence on a page somebody is looking at. This one does not: the person
+	 * signs in successfully, sees a working product, and the application that sent them waits
+	 * forever. No check on this site can see it, which is exactly why the ticket says criterion 22
+	 * needs a real application - and why these cases go as close to the boundary as a test can.
+	 *
+	 * The defect these were written against: a desktop application puts its five parameters in the
+	 * QUERY of /oauth/authorize, this document is served in place at that address, and the trip to
+	 * Google destroys the query. There is no fragment to fall back on, because nothing redirected
+	 * here to put one there.
+	 */
+	const DESKTOP = 'response_type=code&client_id=one-desktop&redirect_uri=percy%3A%2F%2Fcb'
+		+ '&code_challenge=abc123&code_challenge_method=S256'
+	const PROVIDER = {
+		key: 'google', name: 'Google', client_id: 'g-1', scope: 'openid email',
+		auth_url: 'https://accounts.google.com/o/oauth2/v2/auth',
+	}
+
+	/**
+	 * The instance information a deployment with Google turned on publishes. It has to come
+	 * through `info()` rather than be rendered by hand: the click handler resolves the provider
+	 * out of the page's OWN list, so a hand-rendered button belongs to no provider and does
+	 * nothing - which is a way to write a test that passes while the path under test never runs.
+	 */
+	const WITH_GOOGLE = () => info({auth: {openid_connect: {enabled: true, providers: [PROVIDER]}}})
+
+	it('CARRIES THE WHOLE ARRIVAL ADDRESS INTO THE PROVIDER ROUND TRIP', async () => {
+		// The five parameters live in the query and the query does not survive leaving this origin.
+		// Storage is the only bridge, and what is stored has to be enough to reconstruct the
+		// request - so the whole address is kept rather than a destination pulled out of a fragment
+		// that is not there.
+		standAt('/oauth/authorize', `?${DESKTOP}`)
+		enqueue(WITH_GOOGLE(), noSession())
+		const {boot} = await freshPage()
+		await boot()
+		await settle()
+
+		press('signin-openid')
+		await settle()
+
+		// MUTATION: storing `destinationFromHash(location.hash)` here - which is what this did
+		// before, and which is correct for every OTHER arrival - makes this red, and every desktop
+		// application signing in with Google waits forever while its owner sees a working product.
+		expect(sessionStorage.getItem('brazn.one.oidc-destination')).toBe(`/oauth/authorize?${DESKTOP}`)
+		// And the browser really did leave for the provider.
+		expect(navigations()[0]).toContain('accounts.google.com')
+	})
+
+	it('still carries a FRAGMENT destination for every arrival that is not a desktop one', async () => {
+		// The other half of the same branch: an ordinary sign-in reached through a hand-off carries
+		// its destination in the fragment, and that must not have been traded away for the desktop
+		// case.
+		standAt('/one/signin.html', '', '#redirect=%2Fone%2Ftask.html%3Ftask%3D7')
+		enqueue(WITH_GOOGLE(), noSession())
+		const {boot} = await freshPage()
+		await boot()
+		await settle()
+
+		press('signin-openid')
+		await settle()
+
+		expect(sessionStorage.getItem('brazn.one.oidc-destination')).toBe('/one/task.html?task=7')
+	})
+
+	it('replays the stored address on the way back, and it is still recognised as a desktop request', async () => {
+		// The return leg lands at /auth/openid/google with the provider's own code in the query.
+		// The desktop parameters are gone from the address by then; the replay is what brings them
+		// back, and `desktopAuthorizationFrom` has to still see them afterwards.
+		sessionStorage.setItem('brazn.one.oidc-state', 'idem-1')
+		sessionStorage.setItem('brazn.one.oidc-destination', `/oauth/authorize?${DESKTOP}`)
+		standAt('/auth/openid/google', '?code=g-code&state=idem-1')
+		enqueue(info(), json({token: 'access-1'}))
+
+		const {boot} = await freshPage()
+		await boot()
+		await settle()
+
+		const replayed = navigations()[navigations().length - 1]
+		expect(replayed).toBe(`${ORIGIN}/oauth/authorize?${DESKTOP}`)
+		// The whole point: what comes back is still a desktop authorization.
+		const {desktopAuthorizationFrom: parse} = await import('../../../public/one/signin.js')
+		expect(parse(new URL(replayed).search)).toMatchObject({
+			response_type: 'code', client_id: 'one-desktop', redirect_uri: 'percy://cb',
+			code_challenge: 'abc123', code_challenge_method: 'S256',
+		})
+		// Consumed, so a later unrelated sign-in in this tab is not sent to a stale address.
+		expect(sessionStorage.getItem('brazn.one.oidc-destination')).toBeNull()
+	})
+
+	it('REFUSES a stored destination pointing off this origin', async () => {
+		// The replay is a navigation to a value read out of storage, so the open-redirect guard has
+		// to still cover it. A sign-in page that lands somebody on a stranger's copy of itself is
+		// the most valuable open redirect in a product.
+		sessionStorage.setItem('brazn.one.oidc-state', 'idem-1')
+		sessionStorage.setItem('brazn.one.oidc-destination', 'https://evil.example/oauth/authorize')
+		standAt('/auth/openid/google', '?code=g-code&state=idem-1')
+		enqueue(info(), json({token: 'access-1'}))
+
+		const {boot} = await freshPage()
+		await boot()
+		await settle()
+
+		// MUTATION: dropping the allowedDestination call around the stored value makes this red.
+		for (const url of navigations()) expect(url).not.toContain('evil.example')
+		// It falls through to the ordinary landing rather than going nowhere.
+		expect(navigations()[navigations().length - 1]).toBe(`${ORIGIN}/one/settings.html`)
+	})
+
+	it('does NOT regress the password sign-in, which never needed the round trip', async () => {
+		// One of the three paths that already worked. A desktop request signed in with a password
+		// goes straight to the exchange, with no provider and no storage involved.
+		standAt('/oauth/authorize', `?${DESKTOP}`)
+		enqueue(info(), noSession(), json({token: 'access-1'}),
+			json({code: 'one-time', redirect_uri: 'percy://cb', state: ''}))
+
+		const {boot} = await freshPage()
+		await boot()
+		await settle()
+		submitForm('signInForm', {username: 'ada', password: 'correct horse'})
+		await settle()
+
+		const handBack = navigations()[navigations().length - 1]
+		expect(handBack).toContain('percy://cb')
+		expect(handBack).toContain('code=one-time')
+	})
+
+	it('does NOT regress the pass-through for somebody already signed in', async () => {
+		// The second path that already worked, and the ticket says it must keep working: somebody
+		// already signed in when the application opens that address never sees a form at all.
+		standAt('/oauth/authorize', `?${DESKTOP}`)
+		enqueue(info(), json({token: 'access-1'}),
+			json({code: 'one-time', redirect_uri: 'percy://cb', state: ''}))
+
+		const {boot} = await freshPage()
+		await boot()
+		await settle()
+
+		expect(document.getElementById('signInForm')).toBeNull()
+		expect(navigations()[navigations().length - 1]).toContain('code=one-time')
+	})
+
+	it('attaches `state` ONLY when the server echoed one', async () => {
+		// The third path, and the conservative reading: the page this replaces attached `state` on a
+		// truthy echoed value and on nothing else. A strict client receiving a parameter the old
+		// page never sent is a risk with no upside, and criterion 22 is that a real application gets
+		// its access exactly as it does today.
+		for (const [label, answer, expected] of [
+			['the server echoed one', {code: 'c', redirect_uri: 'percy://cb', state: 'abc'}, true],
+			['the server echoed an empty one', {code: 'c', redirect_uri: 'percy://cb', state: ''}, false],
+			['the server echoed none at all', {code: 'c', redirect_uri: 'percy://cb'}, false],
+		] as const) {
+			resetHarness()
+			// The client DID send a state, so a fallback to the client's own value would show up
+			// here as an attached parameter on the last two rows.
+			standAt('/oauth/authorize', `?${DESKTOP}&state=client-sent-this`)
+			enqueue(info(), json({token: 'access-1'}), json(answer))
+			const {boot} = await freshPage()
+			await boot()
+			await settle()
+
+			const handBack = navigations()[navigations().length - 1]
+			// MUTATION: falling back to `request.state` when the server echoes none makes the last
+			// two rows red.
+			expect(handBack.includes('state='), label).toBe(expected)
+			if (expected) expect(handBack, label).toContain('state=abc')
+			expect(handBack, label).not.toContain('client-sent-this')
+		}
 	})
 })
 

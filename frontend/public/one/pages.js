@@ -35,10 +35,15 @@
 /**
  * Every document this front end ships, and the addresses each one answers at.
  *
- * `name` is what callers use. `file` is what ships. `answersAt` is what the SERVER must route to
- * that file, written here so the two halves of the lockout are readable side by side; nothing in
- * the browser consults it, because a browser is never asked to route `/login` — it is handed the
- * document the server already chose. It is the machine-readable form of the ticket's five-row
+ * `name` is what callers use. `file` is what ships. `answersAt` is every address the SERVER
+ * SERVES THAT FILE AT, written here so the two halves of the lockout are readable side by side.
+ *
+ * SERVED AT, NEVER REDIRECTED TO, and the distinction is the whole value of the table. The server
+ * does both: it serves a document in place at the addresses below, so a token in the query
+ * survives to be read; and it redirects `/` and `/tasks/{id}` to a document's own address, which
+ * discards the query and is why those two are deliberately absent. A row for a redirected address
+ * would make `documentForAddress` claim a page is standing somewhere it never stands, and the
+ * only reader of that claim is the guard that stops a page navigating to itself. It is the machine-readable form of the ticket's five-row
  * table, and it is what a build check compares against the server's tables.
  *
  * A path in `answersAt` is exact. A trailing `/*` means a prefix, which is how the OpenID return
@@ -49,12 +54,24 @@ export const ONE_DOCUMENTS = Object.freeze([
   Object.freeze({
     name: 'settings',
     file: 'settings.html',
-    answersAt: Object.freeze(['/', '/one/settings.html']),
+    // The site root is NOT here, and its absence is load-bearing. The server
+    // REDIRECTS `/` to this document rather than serving it there
+    // (`braznRestrictedUITarget`), so nothing is ever standing at `/` believing
+    // it is the settings page. Listing it made `documentForAddress('/')` answer
+    // "settings", and the only page that is ever at `/` is one of ours serving a
+    // mailed token that has just tidied the token out of the address bar — so a
+    // later "take me into the product" control on the password or confirmation
+    // page would ask `isCurrentDocument('settings', '/')`, be told yes, skip the
+    // navigation, and leave the person where they were with no error.
+    answersAt: Object.freeze(['/one/settings.html']),
   }),
   Object.freeze({
     name: 'task',
     file: 'task.html',
-    answersAt: Object.freeze(['/one/task.html', '/tasks/*']),
+    // `/tasks/{id}` is NOT here, for the reason the site root is not: the server
+    // redirects a task deep link to `/one/task.html?task={id}` rather than
+    // serving this document at it.
+    answersAt: Object.freeze(['/one/task.html']),
   }),
   Object.freeze({
     name: 'signin',

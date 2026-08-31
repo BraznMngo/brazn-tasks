@@ -79,7 +79,32 @@ describe('which document answers a mailed link', () => {
 		expect(documentForAddress('/password-reset')).toBe('password')
 		expect(documentForAddress('/get-password-reset')).toBe('password')
 		expect(documentForAddress('/confirm')).toBe('confirmed')
-		expect(documentForAddress('/')).toBe('settings')
+	})
+
+	it('claims NO address the server merely redirects to, and the site root is the one that matters', () => {
+		/*
+		 * SERVED AT, NEVER REDIRECTED TO. The table is a list of addresses the server hands a
+		 * document back AT, because that is what leaves a mailed token in the query intact. `/` and
+		 * `/tasks/{id}` are the two the server REDIRECTS instead (`braznRestrictedUITarget`), so
+		 * nothing is ever standing at either believing it is that document.
+		 *
+		 * This assertion replaces one that claimed `documentForAddress('/')` is the settings page.
+		 * That claim was false, and it was not harmless: the only page ever standing at `/` is one
+		 * of ours serving a mailed token, which tidies the token out of the address bar and leaves
+		 * the browser at `/`. A control there asking `isCurrentDocument('settings', '/')` would be
+		 * told YES, skip its navigation, and leave the person exactly where they were with nothing
+		 * shown and no error. The row's own comment said it covered the six formerly exempt
+		 * addresses plus two prefixes; `/` was never one of them.
+		 *
+		 * MUTATION: putting '/' back into the settings row's `answersAt` makes this red.
+		 */
+		expect(documentForAddress('/')).toBeNull()
+		expect(documentForAddress('/tasks/12')).toBeNull()
+		// A mailed token still names its document wherever it appears, INCLUDING at the root -
+		// that is the query rule, and it is what fault 1 turned on. Removing the row must not have
+		// touched it.
+		expect(documentForAddress('/', '?userPasswordReset=tok')).toBe('password')
+		expect(documentForAddress('/', '?userEmailConfirm=tok')).toBe('confirmed')
 	})
 
 	it('claims nothing it does not own', () => {
