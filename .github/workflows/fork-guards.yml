@@ -551,7 +551,38 @@ jobs:
             # it twice would bury the one error that names the real problem.
             if [[ ! -f "${dir}/${page}" ]]; then continue; fi
 
-            base_line="$(grep -nE "<base[[:space:]][^>]*href=[\"']?/one/" "${dir}/${page}" \
+            # READ WITH HTML COMMENTS BLANKED OUT, because a tag inside one is
+            # not a tag. Commenting the base out while chasing something else
+            # and shipping it that way is a realistic accident, and a guard that
+            # a commented-out tag satisfies is decorative — which is the defect
+            # this whole step exists to stop, arriving in the step itself. The
+            # awk below replaces comment spans with nothing while emitting one
+            # line per input line, so the line numbers this check reports are
+            # still the ones a person will find in the file.
+            #
+            # It matters for the ordering check too: these documents carry long
+            # comment blocks in the head, and a relative reference quoted inside
+            # one would otherwise be read as the first real reference.
+            visible="$(awk '
+              {
+                line = $0; out = ""
+                while (length(line) > 0) {
+                  if (incomment) {
+                    i = index(line, "-->")
+                    if (i == 0) { line = ""; break }
+                    line = substr(line, i + 3); incomment = 0
+                  } else {
+                    i = index(line, "<!--")
+                    if (i == 0) { out = out line; line = ""; break }
+                    out = out substr(line, 1, i - 1); line = substr(line, i + 4); incomment = 1
+                  }
+                }
+                print out
+              }
+            ' "${dir}/${page}")"
+
+            base_line="$(printf '%s\n' "${visible}" \
+              | grep -nE "<base[[:space:]][^>]*href=[\"']?/one/" \
               | head -1 | cut -d: -f1 || true)"
             if [[ -z "${base_line}" ]]; then
               echo "::error::${dir}/${page} carries no <base href=\"/one/\">, and the lockout" \
@@ -567,7 +598,8 @@ jobs:
             # A base tag BELOW a reference does not affect that reference, so a
             # stylesheet above it still 404s. Present-but-too-late is the
             # decorative version of this guard's own subject.
-            ref_line="$(grep -nE "(src|href)=[\"']\./" "${dir}/${page}" | head -1 | cut -d: -f1 || true)"
+            ref_line="$(printf '%s\n' "${visible}" \
+              | grep -nE "(src|href)=[\"']\./" | head -1 | cut -d: -f1 || true)"
             if [[ -n "${ref_line}" ]] && (( base_line >= ref_line )); then
               echo "::error::${dir}/${page} has its <base> on line ${base_line}, below the" \
                    "relative reference on line ${ref_line}. A base tag only affects what" \
