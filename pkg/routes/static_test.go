@@ -754,10 +754,10 @@ func TestStaticRestrictedUIDeliversConfirmationTokens(t *testing.T) {
 
 	// The document each address must be answered by, written as a literal.
 	for target, wantDocument := range map[string]string{
-		"/?userEmailConfirm=sometoken":         `/one/confirmed.html`,
-		"/?accountDeletionConfirm=sometoken":   `/one/confirmed.html`,
-		"/confirm?userEmailConfirm=sometoken":  `/one/confirmed.html`,
-		"/oauth/authorize?client_id=x":         `/one/signin.html`,
+		"/?userEmailConfirm=sometoken":        `/one/confirmed.html`,
+		"/?accountDeletionConfirm=sometoken":  `/one/confirmed.html`,
+		"/confirm?userEmailConfirm=sometoken": `/one/confirmed.html`,
+		"/oauth/authorize?client_id=x":        `/one/signin.html`,
 	} {
 		t.Run(target, func(t *testing.T) {
 			requested, rawQuery, _ := strings.Cut(target, "?")
@@ -811,11 +811,11 @@ func TestStaticRestrictedUIStillRedirectsThePlainRoot(t *testing.T) {
 // signed-out person sees are ours" section and from the orchestrator's
 // Decision 1 table, not from static_brazn.go.
 const (
-	bra1475SignInDocument   = `/one/signin.html`
-	bra1475PasswordDocument = `/one/password.html`
+	bra1475SignInDocument    = `/one/signin.html`
+	bra1475PasswordDocument  = `/one/password.html`
 	bra1475ConfirmedDocument = `/one/confirmed.html`
-	bra1475SettingsDocument = `/one/settings.html`
-	bra1475TaskDocument     = `/one/task.html`
+	bra1475SettingsDocument  = `/one/settings.html`
+	bra1475TaskDocument      = `/one/task.html`
 
 	// The query name the server has already mailed to customers. Written from
 	// the ticket's evidence block (`tasks.brazn.one/?userPasswordReset=…`),
@@ -1232,7 +1232,11 @@ func TestBRA1475TheMailedResetLinkLandsOnAPageThisServerServes(t *testing.T) {
 	require.GreaterOrEqual(t, start, 0, "no link to this instance appears in the reset mail at all")
 	rest := opts.HTMLMessage[start:]
 	end := strings.IndexAny(rest, `"'<> `)
-	require.Greater(t, end, 0)
+	// Positive rather than Greater(end, 0): identical meaning, and it is what
+	// this repository's linter requires. Both reject the two ways this can go
+	// wrong — IndexAny answers -1 when the link is never terminated, and 0
+	// would mean the link is empty.
+	require.Positive(t, end)
 	link := rest[:end]
 
 	parsed, err := url.Parse(strings.ReplaceAll(link, "&amp;", "&"))
