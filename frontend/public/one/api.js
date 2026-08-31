@@ -1222,8 +1222,10 @@ export const COMMERCIAL_OPS = Object.freeze({
    * but the team join failed and they will see nothing shared. Treating it as a
    * success would recreate the exact defect this ticket exists to fix, with the
    * product looking empty and nobody told why. It is handled by name in
-   * `join.js`, and until the task server is deployed IT IS WHAT EVERY
-   * COMPLETION ANSWERS.
+   * `join.js`. It is a RARE branch — a build cannot reach it for want of the
+   * team-joining operation, because a completion needs that page and that page
+   * ships in the same build as the operation — and it stays reachable for the
+   * case it names: a team whose roots were never provisioned.
    *
    * `account_exists` means the address OR the username is taken and the service
    * cannot tell which. Nothing was spent, so a different username can be

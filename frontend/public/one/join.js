@@ -271,9 +271,13 @@ export function alreadyMemberSurface(state) {
  * success and must be said as one. The person can sign in with what they just
  * chose, and they will see nothing shared until an administrator finishes it.
  *
- * THIS IS WHAT EVERY COMPLETION ANSWERS UNTIL THE TASK SERVER IS DEPLOYED, so
- * it is not a rare branch to be worded carelessly — for now it is the common
- * one. Telling somebody "something went wrong" here would be false twice: their
+ * IT IS A RARE BRANCH AND STILL A REACHABLE ONE: the seat and the account are
+ * made, and the team a person was invited to has no roots to put them in. A
+ * build cannot reach it for want of the team-joining operation — a completion
+ * needs this page, and this page ships in the same build as that operation, so
+ * no build can carry one without the other.
+ *
+ * Telling somebody "something went wrong" here would be false twice: their
  * account is real, and their seat is real. Landing them silently in an empty
  * product would recreate the exact defect this whole ticket exists to fix,
  * where an invited person sees nothing and nobody tells them why.
