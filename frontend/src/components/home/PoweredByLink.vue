@@ -10,8 +10,11 @@
 			every locale, and we cannot supply translations we have not had
 			reviewed. Full notice, including the upstream link and the pinned
 			upstream version, lives in NOTICE.md in the linked repository.
+
+			BRA-1476 F8: the product customers see is ONE. Keep the Vikunja fork
+			attribution; do not present "Brazn Tasks" as the product brand here.
 		-->
-		Brazn Tasks — a modified fork of Vikunja. Source code.
+		ONE — a modified fork of Vikunja. Source code.
 	</BaseButton>
 </template>
 
