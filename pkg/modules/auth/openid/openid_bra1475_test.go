@@ -131,12 +131,19 @@ func TestBRA1475EachGoogleRefusalFiresOnItsOwnCondition(t *testing.T) {
 	// test would pass just as well if this function refused everybody.
 	t.Run("a self-hosted instance refuses nobody", func(t *testing.T) {
 		config.BraznManagedMode.Set(false)
+		// Restored through Cleanup rather than by a line at the end of this
+		// sub-test. require aborts the sub-test where it fails, so a trailing
+		// Set would not run on a failure and would leave managed mode off for
+		// anything appended after this — a later case would then pass because
+		// none of these rules applied, which is the quietest way for a test to
+		// stop testing. Cleanup runs either way.
+		t.Cleanup(func() { config.BraznManagedMode.Set(true) })
+
 		db.LoadAndAssertFixtures(t)
 		s := db.NewSession()
 		defer s.Close()
 
-		assert.NoError(t, decideManagedSignUp(s, &claims{Email: "user1@example.com", EmailVerified: true}, ""),
+		require.NoError(t, decideManagedSignUp(s, &claims{Email: "user1@example.com", EmailVerified: true}, ""),
 			"none of this applies off a managed instance, and this fork must stay usable self-hosted")
-		config.BraznManagedMode.Set(true)
 	})
 }
