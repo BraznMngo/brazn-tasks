@@ -440,7 +440,21 @@ function startOpenIdSignIn(provider) {
       : destinationFromHash(location.hash);
     if (destination !== null) sessionStorage.setItem(OIDC_DESTINATION_KEY, destination);
   } catch {
-    // Storage refused. The round trip still works; only the check below is lost.
+    // Storage refused — a private window, or a policy that forbids it.
+    //
+    // FOR AN ORDINARY SIGN-IN this costs only the check below: the round trip
+    // still works and the person still lands in the product.
+    //
+    // FOR A DESKTOP APPLICATION IT DOES NOT, and that is worth stating rather
+    // than leaving somebody to find it. The arrival address is the only thing
+    // that survives leaving this origin for the provider, and storage is the
+    // only place to keep it. With nothing stored, the return leg finds no
+    // address, the person lands in the product on the web, and the application
+    // waits forever with nothing anywhere reporting it.
+    //
+    // There is no second bridge to fall back on, which is why this is accepted
+    // rather than repaired. Do not read the sentence above as covering this
+    // case; it was written before the desktop hand-off lived here.
   }
   location.assign(api.buildOpenIdAuthorizeUrl(provider, opaque));
 }
