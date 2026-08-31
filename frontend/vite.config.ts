@@ -289,6 +289,15 @@ function getServeConfig(env: Record<string, string>) {
 					// Strips prefix for the backend
 					rewrite: (path: string) => path.replace(new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), ''),
 				},
+				// Commercial `/v1/...` sits beside the fork's `/api/v1/` on the same
+				// Traefik host in production (account erasure, org rename, …). Without
+				// this, a local Vite origin answers those posts with a bare 404 and the
+				// SPA invents a wrong refusal.
+				'/v1': {
+					target: env.DEV_PROXY,
+					changeOrigin: true,
+					secure: false,
+				},
 			}}),
 		},
 	}
