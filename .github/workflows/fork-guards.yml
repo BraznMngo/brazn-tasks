@@ -562,7 +562,23 @@ jobs:
             #
             # It matters for the ordering check too: these documents carry long
             # comment blocks in the head, and a relative reference quoted inside
-            # one would otherwise be read as the first real reference.
+            # one would otherwise be read as the first real reference. That
+            # second reason is prospective rather than live: today's documents
+            # quote their relative paths in backticks, which the ordering
+            # pattern does not match. The first reason is live, and a mutation
+            # proved it — a commented-out base tag satisfied this check before
+            # the blanking was added.
+            #
+            # THE LIMIT, STATED IN THE FILE RATHER THAN ONLY IN A HANDOFF,
+            # because a limit nobody can read is one somebody will later assume
+            # away. THIS READS THE DOCUMENT AS TEXT AND DOES NOT PARSE IT. Comment
+            # spans are understood and nothing else is, so a <base href="/one/">
+            # written inside a JavaScript string, a <script> block or an
+            # attribute value would satisfy this check without being a tag. An
+            # HTML parser would close that, and it was judged not worth the job
+            # budget: the accident this guard exists to catch is a tag deleted or
+            # commented out, not a tag counterfeited in a string. Reconsider if a
+            # document ever starts building its own head markup.
             visible="$(awk '
               {
                 line = $0; out = ""
