@@ -3,7 +3,10 @@
 		<div class="noauth-container">
 			<section
 				class="image"
-				:class="{ 'has-message': motd !== '' }"
+				:class="{
+					'has-message': motd !== '',
+					'is-create-account': isCreateAccount,
+				}"
 			>
 				<Message v-if="motd !== ''">
 					{{ motd }}
@@ -175,6 +178,10 @@ const shouldShowApiConfig = computed(() =>
 
 const route = useRoute()
 const { t, locale } = useI18n({ useScope: 'global' })
+// BRA-1476 F7: the splash bitmap still says "Welcome Back". That is fine on
+// sign-in; on Create account it is wrong. Cover the baked-in phrase rather
+// than running image tooling on this host.
+const isCreateAccount = computed(() => route.path === '/register')
 const title = computed(() =>
 	route.meta?.title ? t(route.meta.title as string) : '',
 )
@@ -261,6 +268,8 @@ async function onLanguageChange(event: Event) {
 
 .image {
 	inline-size: 50%;
+	position: relative;
+	overflow: hidden;
 
 	@media screen and (max-width: $tablet) {
 		display: none;
@@ -280,6 +289,28 @@ async function onLanguageChange(event: Event) {
 		padding: 1.5rem;
 		display: flex;
 		align-items: flex-start;
+	}
+
+	// Create account must not read "Welcome Back". Bias the crop toward the
+	// mark and cover the bottom band where that phrase is painted into the JPG.
+	&.is-create-account {
+		@media screen and (min-width: $tablet) {
+			background-position: center 28%;
+		}
+
+		&::after {
+			content: "";
+			position: absolute;
+			inset-inline: 0;
+			inset-block-end: 0;
+			block-size: 22%;
+			background: linear-gradient(
+				to top,
+				hsl(222, 48%, 10%) 55%,
+				hsla(222, 48%, 10%, 0)
+			);
+			pointer-events: none;
+		}
 	}
 }
 
