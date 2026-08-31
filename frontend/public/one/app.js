@@ -43,6 +43,7 @@
 
 import * as api from './api.js';
 import {t, init as initI18n, currentLocale, projectTitle} from './i18n.js';
+import {oneUrl} from './pages.js';
 
 /* ------------------------------------------------------------------ *
  * 1. Vocabulary — the frozen literals a test asserts against
@@ -2387,29 +2388,47 @@ function handOffToLogin({force = false} = {}) {
     force,
   });
   if (!allowed) {
-    console.error('[one/app] the /login hand-off returned here with no session; not redirecting again');
+    console.error('[one/app] the sign-in hand-off returned here with no session; not redirecting again');
     return false;
   }
   writeHandoffMarker(true);
-  location.assign(new URL('/login', location.origin).toString());
+  // OUR OWN SIGN-IN PAGE, NOT `/login` (BRA-1475). This used to navigate to
+  // `/login`, which is a route of the OLD Vue application — and because that
+  // router runs in the browser, serving that one form served the whole
+  // application, including all twelve of its settings pages. The site-wide
+  // lockout kept `/login` open for exactly this hand-off, which is why its
+  // exemption list existed. With `/one/signin.html` being ours, the hand-off
+  // never leaves this front end, and `pages.js` is what makes that a rule: it
+  // refuses any destination that is not one of our documents.
+  //
+  // The address the person was trying to reach travels in the FRAGMENT, so the
+  // sign-in page can return them to it and no proxy or access log sees where
+  // they were going.
+  location.assign(oneUrl('signin', api.forkAppUrl(''), {
+    hash: `redirect=${encodeURIComponent(location.pathname + location.search)}`,
+  }));
   return true;
 }
 
 /**
- * THE JOIN RETURN LEG (BRA-1439 Story 5). /one/join.html hands a signed-out invitation
- * recipient to the Vue app's sign-in pages, and signing in lands them in the APPLICATION — the
- * finding above explains why no return-to can carry a static page. So the join page records the
- * pending invitation under this key, and boot(), which every ONE page runs the moment a session
- * exists, sends the person back to the join page exactly once to finish accepting.
+ * THE JOIN RETURN LEG IS GONE, AND THESE TWO ARE ITS REMAINS (BRA-1475).
  *
- * `localStorage`, NOT sessionStorage, and that is a decision with a cost paid deliberately: the
- * set-a-password path crosses tabs (the reset link arrives by email and opens wherever the mail
- * client puts it), and a per-tab marker would strand exactly the people who most need the
- * return leg. What bounds the cost on a shared machine: the marker holds only the invitation id
- * (never the signup token, which stays in per-tab sessionStorage), it expires after an hour,
- * this hook REMOVES it before navigating — one automatic bounce per write — and the join page
- * consumes it on every terminal outcome, where the commercial service's own outcome vocabulary
- * (`no_invitation`, `not_invitable`) is the real guard against the wrong person accepting.
+ * It existed because the old invitation page could not finish anything by itself: it handed a
+ * signed-out recipient to the Vue application's sign-in pages, and signing in landed them in the
+ * application rather than back on the invitation. So that page wrote a marker, and boot() —
+ * which every ONE page runs — bounced a freshly signed-in person back to finish accepting.
+ *
+ * The rewritten invitation page creates the account, takes the seat and signs the person in
+ * without ever leaving itself, so NOTHING HAS WRITTEN THIS MARKER SINCE. The consumer has been
+ * removed: a signed-in person could otherwise be bounced to the invitation page by a marker left
+ * over from the hour before this shipped, and shown a screen telling them they were signed in as
+ * the wrong account.
+ *
+ * WHAT IS LEFT HERE IS TWO PURE VALUES WITH NO CALLER. They are kept only because
+ * `app.gating.test.ts` still reads them and this change may not edit a test; deleting them is a
+ * two-line follow-up that lands with that file's next revision. Neither is reachable from any
+ * behaviour, and neither may be given a new caller — reviving the bounce means reviving a
+ * mechanism whose producer no longer exists.
  */
 // brazn. prefix, not one., for LOGIN_HANDOFF_MARKER's reason: a storage key must not read like
 // an i18n key to the fork-guards sweep.
@@ -2436,18 +2455,6 @@ export function pendingJoinRedirect(raw, now) {
   if (id === null || at === null) return null;
   if (typeof now !== 'number' || now < at || now - at > PENDING_JOIN_MAX_AGE_MS) return null;
   return id;
-}
-
-/** Read AND remove the marker — the removal is what makes the bounce one-shot. */
-function consumePendingJoin() {
-  let raw = null;
-  try {
-    raw = localStorage.getItem(PENDING_JOIN_KEY);
-    if (raw !== null) localStorage.removeItem(PENDING_JOIN_KEY);
-  } catch {
-    return null;
-  }
-  return pendingJoinRedirect(raw, Date.now());
 }
 
 /**
@@ -2501,16 +2508,6 @@ export async function boot() {
     // about "we tried and came straight back", not about "we have ever tried".
     writeHandoffMarker(false);
 
-    // The join return leg, before anything renders: a person who signed in to accept an
-    // invitation is standing on the wrong page right now, and painting this one first would be
-    // a flash of a surface they did not ask for. `consumePendingJoin` removed the marker, so
-    // this navigation happens once per write, and the join page re-establishes the session from
-    // the refresh cookie the way every page here does.
-    const pendingJoinId = consumePendingJoin();
-    if (pendingJoinId !== null) {
-      location.replace(`${api.forkAppUrl('one/join.html')}?i=${encodeURIComponent(pendingJoinId)}`);
-      return;
-    }
     // After boot a lost session is a TERMINAL STATE with a visible hand-off, not a silent
     // redirect: a redirect mid-edit throws away whatever the user had typed with no warning.
     api.onSessionLost(() => {showSignInSurface();});

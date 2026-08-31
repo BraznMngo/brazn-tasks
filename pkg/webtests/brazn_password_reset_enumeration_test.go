@@ -45,14 +45,25 @@ import (
 // unreachable, so it was dropped on the merge rather than kept as dead code
 // with a comment describing behaviour that had moved.
 //
-// WHAT BREAKS IF THAT GUARD IS DELETED, reasoned through because it cannot be
-// run on this host. Removing the `IsErrUserDoesNotExist(err) ||
-// IsErrAccountDisabled(err)` branch from pkg/user/user_password_reset.go makes
-// the unregistered addresses answer 404 with an error body while the registered
-// one still answers 200 with {"message":"Token was sent."}. Every equality
-// assertion below then fails, on both API versions. The final subtest is the
-// other half of the check: it fails if the branch is widened into "swallow
+// WHAT BREAKS IF THAT GUARD IS DELETED. This paragraph used to say "reasoned
+// through because it cannot be run on this host". It has now been run, on
+// 2026-08-31, during BRA-1475's independent QA pass, and the reasoning was
+// right: replacing the `IsErrUserDoesNotExist(err) || IsErrAccountDisabled(err)`
+// branch in pkg/user/user_password_reset.go with `if false` makes this test
+// fail, with the unregistered addresses answering
+//
+//	404 {"title":"Not Found","status":404,"detail":"The user does not exist.","code":1005}
+//
+// while the registered one still answers 200 {"message":"Token was sent."} —
+// which is the address oracle in one line. Both the status assertion and the
+// body assertion go red, on both API versions. The final subtest is the other
+// half of the check: it fails if the branch is widened into "swallow
 // everything", because an address that is not an address must still be refused.
+//
+// The correction is recorded rather than quietly applied, because "cannot be
+// run here" is the kind of sentence that gets carried forward for a year after
+// it stops being true, and the delete-the-guard check is the only thing that
+// tells a real guard from a decorative one.
 func TestPasswordResetRequestDoesNotEnumerateAddresses(t *testing.T) {
 	e, err := setupTestEnv()
 	require.NoError(t, err)
