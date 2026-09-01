@@ -71,7 +71,7 @@ func TestFeedbackProjectRouteEnsuresAndReturnsTheCallersSubProject(t *testing.T)
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &first))
 	require.True(t, first.Available)
 	require.NotZero(t, first.ProjectID)
-	assert.Equal(t, models.FeedbackProjectTitle, first.Title)
+	assert.Equal(t, models.FeedbackSubProjectTitle(testuser1.Username), first.Title)
 
 	rec = env.request(http.MethodGet, feedbackProjectPath, "", &testuser1)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())

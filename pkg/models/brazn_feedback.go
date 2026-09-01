@@ -38,6 +38,14 @@ import (
 // written keeps pointing at the same project id it always did.
 const FeedbackProjectTitle = "Feedback"
 
+// FeedbackSubProjectTitle is the display title for a reporter's Feedback
+// sub-project beneath the instance root. The root keeps FeedbackProjectTitle;
+// each reporter's sub-project is named after them so staff can tell them apart
+// in a list (BRA-1479).
+func FeedbackSubProjectTitle(username string) string {
+	return username + "'s Feedback"
+}
+
 // FeedbackProject returns the protected entity for this instance's single
 // Feedback project, or nil when none has been provisioned.
 //
@@ -188,11 +196,10 @@ func ensureFeedbackProject(s *xorm.Session, owner *user.User) (int64, error) {
 // membership and nothing else; sub.Create(s, owner) is what keeps ownership on
 // the Brazn account rather than the reporter creating it.
 //
-// SAME DISPLAY TITLE AS THE ROOT, deliberately, so a client that finds "the"
-// Feedback project by title - the only way anything outside this package has
-// ever done so, since there is no dedicated lookup route - keeps working
-// unmodified: every reporter's own sub-project is the one project so named
-// that they can see.
+// PER-REPORTER TITLES (BRA-1479) name each sub-project after its reporter
+// (`<username>'s Feedback`) so staff triage lists stay readable. Legacy
+// sub-projects that still carry FeedbackProjectTitle are renamed on the next
+// resolve.
 //
 // The lookup is the idempotence: CreateNewProjectForUser runs this on every
 // registration attempt an account makes, and a repeat must find the
@@ -207,18 +214,29 @@ func ensureFeedbackProject(s *xorm.Session, owner *user.User) (int64, error) {
 // gets a users_projects row for the join to find. Without this branch, every
 // repeat call for the owner's account would find nothing and create a second
 // sub-project.
+//
+// THE LOOKUP MUST ALSO EXCLUDE CUSTOMER SUB-PROJECTS (BRA-1479). Every
+// sub-project is owned by the staff account, so parent plus owner alone would
+// return whichever customer project happened to exist first; the owner's own
+// sub-project is the child under the root that carries no users_projects row.
 func ensureFeedbackSubProject(s *xorm.Session, rootID int64, owner, u *user.User) (int64, error) {
 	if u.ID == owner.ID {
 		existing := &Project{}
-		has, err := s.Where("parent_project_id = ? AND owner_id = ?", rootID, owner.ID).Get(existing)
+		has, err := s.
+			Where("parent_project_id = ? AND owner_id = ?", rootID, owner.ID).
+			And("NOT EXISTS (SELECT 1 FROM users_projects WHERE users_projects.project_id = projects.id)").
+			Get(existing)
 		if err != nil {
 			return 0, err
 		}
 		if has {
+			if err := syncFeedbackSubProjectTitle(s, existing, u.Username); err != nil {
+				return 0, err
+			}
 			return existing.ID, nil
 		}
 
-		sub := &Project{Title: FeedbackProjectTitle, ParentProjectID: Ptr(rootID)}
+		sub := &Project{Title: FeedbackSubProjectTitle(u.Username), ParentProjectID: Ptr(rootID)}
 		if err := sub.Create(s, owner); err != nil {
 			return 0, err
 		}
@@ -234,10 +252,13 @@ func ensureFeedbackSubProject(s *xorm.Session, rootID int64, owner, u *user.User
 		return 0, err
 	}
 	if has {
+		if err := syncFeedbackSubProjectTitle(s, existing, u.Username); err != nil {
+			return 0, err
+		}
 		return existing.ID, nil
 	}
 
-	sub := &Project{Title: FeedbackProjectTitle, ParentProjectID: Ptr(rootID)}
+	sub := &Project{Title: FeedbackSubProjectTitle(u.Username), ParentProjectID: Ptr(rootID)}
 	if err := sub.Create(s, owner); err != nil {
 		return 0, err
 	}
@@ -251,4 +272,16 @@ func ensureFeedbackSubProject(s *xorm.Session, rootID int64, owner, u *user.User
 		return 0, err
 	}
 	return sub.ID, nil
+}
+
+// syncFeedbackSubProjectTitle renames a sub-project that still carries the
+// legacy root title to the per-reporter form. Idempotent when already correct.
+func syncFeedbackSubProjectTitle(s *xorm.Session, project *Project, username string) error {
+	expected := FeedbackSubProjectTitle(username)
+	if project.Title == expected {
+		return nil
+	}
+	project.Title = expected
+	_, err := s.ID(project.ID).Cols("title").Update(project)
+	return err
 }

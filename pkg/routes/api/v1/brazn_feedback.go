@@ -83,6 +83,12 @@ func BraznGetFeedbackProject(c *echo.Context) error {
 			Message:   braznFeedbackUnavailable,
 		})
 	}
+	project, err := models.GetProjectSimpleByID(s, projectID)
+	if err != nil {
+		_ = s.Rollback()
+		return echo.NewHTTPError(http.StatusInternalServerError, "Feedback could not be loaded.").Wrap(err)
+	}
+
 	if err := s.Commit(); err != nil {
 		_ = s.Rollback()
 		return echo.NewHTTPError(http.StatusInternalServerError, "Feedback could not be saved.").Wrap(err)
@@ -91,6 +97,6 @@ func BraznGetFeedbackProject(c *echo.Context) error {
 	return c.JSON(http.StatusOK, BraznFeedbackProjectResponse{
 		Available: true,
 		ProjectID: projectID,
-		Title:     models.FeedbackProjectTitle,
+		Title:     project.Title,
 	})
 }
