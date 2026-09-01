@@ -243,6 +243,64 @@ func TestListUsers(t *testing.T) {
 		assert.Empty(t, all[0].Email)
 	})
 
+	const orgDiscoverabilityTestOrg = "org_discoverability_test"
+
+	// Organization discoverability bypass tests.
+	// User 10 and user 11 share an organization via entitlement projections.
+	// User 11 has discoverable_by_name=false and discoverable_by_email=false.
+	t.Run("organization member discoverable by name", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		clearProjections(t)
+		storeProjection(t, 10, orgDiscoverabilityTestOrg)
+		storeProjection(t, 11, orgDiscoverabilityTestOrg)
+		s := db.NewSession()
+		defer s.Close()
+
+		all, err := user.ListUsers(s, "Some one else", user10, nil)
+		require.NoError(t, err)
+		assert.Len(t, all, 1)
+		assert.Equal(t, int64(11), all[0].ID)
+	})
+	t.Run("organization member discoverable by email", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		clearProjections(t)
+		storeProjection(t, 10, orgDiscoverabilityTestOrg)
+		storeProjection(t, 11, orgDiscoverabilityTestOrg)
+		s := db.NewSession()
+		defer s.Close()
+
+		all, err := user.ListUsers(s, "user11@example.com", user10, nil)
+		require.NoError(t, err)
+		assert.Len(t, all, 1)
+		assert.Equal(t, int64(11), all[0].ID)
+	})
+	t.Run("non-organization user cannot discover by name", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		clearProjections(t)
+		storeProjection(t, 10, orgDiscoverabilityTestOrg)
+		storeProjection(t, 11, orgDiscoverabilityTestOrg)
+		s := db.NewSession()
+		defer s.Close()
+
+		all, err := user.ListUsers(s, "Some one else", user1, nil)
+		require.NoError(t, err)
+		assert.Empty(t, all)
+	})
+	// DELETE-THE-GUARD: remove the `if callerOrgID != ""` gate and both users
+	// with empty organization_id would match each other through the bypass.
+	t.Run("empty organization does not bypass discoverability", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		clearProjections(t)
+		storeProjection(t, 1, "")
+		storeProjection(t, 2, "")
+		s := db.NewSession()
+		defer s.Close()
+
+		all, err := user.ListUsers(s, "user2@example.com", user1, nil)
+		require.NoError(t, err)
+		assert.Empty(t, all)
+	})
+
 	// Bot visibility in user search:
 	// - A user's own bots are filtered by the search string (matched against
 	//   username and name), but bypass the discoverable_by_name flag that

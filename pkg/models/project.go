@@ -81,6 +81,14 @@ type Project struct {
 	Expand        ProjectExpandable `xorm:"-" json:"-" query:"expand"`
 	MaxPermission Permission        `xorm:"-" json:"max_permission" readOnly:"true" doc:"The maximum permission the requesting user has on this project (0 = read, 1 = read/write, 2 = admin)."`
 
+	// Role is the managed-topology kind of this project's root ancestor, when
+	// that root is a team root. Empty for ordinary private projects.
+	Role string `xorm:"-" json:"role,omitempty" readOnly:"true" doc:"The managed-topology role of this project's root ancestor. Set to team-root for team projects; omitted for ordinary private projects."`
+	// TeamID is the fork team id behind a team-root project. Omitted otherwise.
+	TeamID int64 `xorm:"-" json:"team_id,omitempty" readOnly:"true" doc:"The team id for a team-root project. Omitted for ordinary private projects."`
+	// TeamName is the display name of TeamID. Omitted when TeamID is unset.
+	TeamName string `xorm:"-" json:"team_name,omitempty" readOnly:"true" doc:"The team name for a team-root project. Omitted for ordinary private projects."`
+
 	// A timestamp when this project was created. You cannot change this value.
 	Created time.Time `xorm:"created not null" json:"created" readOnly:"true" doc:"A timestamp when this project was created. You cannot change this value."`
 	// A timestamp when this project was last updated. You cannot change this value.
@@ -890,12 +898,47 @@ func addProjectDetails(s *xorm.Session, projects []*Project, a web.Auth) (err er
 		viewMap[v.ProjectID] = append(viewMap[v.ProjectID], v)
 	}
 
+	projectRoots := make(map[int64]*ProtectedEntity, len(projects))
+	teamIDs := make(map[int64]struct{})
+	for _, p := range projects {
+		root, rootErr := ProtectedRootOf(s, p.ID)
+		if rootErr != nil {
+			log.Errorf("Could not resolve the protected root for project %d: %s", p.ID, rootErr.Error())
+			continue
+		}
+		if root == nil {
+			continue
+		}
+		projectRoots[p.ID] = root
+		if root.Kind == ProtectedKindTeamRoot && root.TeamID > 0 {
+			teamIDs[root.TeamID] = struct{}{}
+		}
+	}
+
+	teamNames := make(map[int64]string, len(teamIDs))
+	for teamID := range teamIDs {
+		team, teamErr := GetTeamByID(s, teamID)
+		if teamErr != nil {
+			log.Errorf("Could not resolve team %d for project list: %s", teamID, teamErr.Error())
+			continue
+		}
+		teamNames[teamID] = team.Name
+	}
+
 	for _, p := range projects {
 		if o, exists := owners[p.OwnerID]; exists {
 			p.Owner = o
 		}
 		if p.BackgroundFileID != 0 {
 			p.BackgroundInformation = &ProjectBackgroundType{Type: ProjectBackgroundUpload}
+		}
+
+		if root, exists := projectRoots[p.ID]; exists && root != nil {
+			if root.Kind == ProtectedKindTeamRoot && root.TeamID > 0 {
+				p.Role = string(root.Kind)
+				p.TeamID = root.TeamID
+				p.TeamName = teamNames[root.TeamID]
+			}
 		}
 
 		// Don't override the favorite state if it was already set from before (favorite saved filters do this)

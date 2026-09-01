@@ -255,6 +255,21 @@ func (env *managedEnv) revoke(userID int64) {
 	require.NoError(env.t, s.Commit())
 }
 
+// clearEntitlementProjections empties the projection table so fixture-backed
+// discoverability tests start without organization state left by managed-mode
+// cases. go-testfixtures has no file for this table, so LoadFixtures never
+// resets it.
+func clearEntitlementProjections(t *testing.T) {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+
+	_, err := s.Where("id > 0").Delete(&models.EntitlementProjection{})
+	require.NoError(t, err)
+	require.NoError(t, s.Commit())
+}
+
 // protect gives a project its role in the managed topology.
 func (env *managedEnv) protect(kind models.ProtectedKind, projectID, teamID int64) {
 	env.t.Helper()
