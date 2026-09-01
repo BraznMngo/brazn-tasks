@@ -836,6 +836,57 @@ func GetAllParentProjects(s *xorm.Session, projectID int64) (allProjects map[int
 	return
 }
 
+type projectListTeamContextEntry struct {
+	role     string
+	teamID   int64
+	teamName string
+}
+
+// projectListTeamContext resolves team-root context for each project on a list
+// page, including descendants whose protected root is not on the same page.
+func projectListTeamContext(s *xorm.Session, projects []*Project) map[int64]projectListTeamContextEntry {
+	projectRoots := make(map[int64]*ProtectedEntity, len(projects))
+	teamIDs := make(map[int64]struct{})
+	for _, p := range projects {
+		root, rootErr := ProtectedRootOf(s, p.ID)
+		if rootErr != nil {
+			log.Errorf("Could not resolve the protected root for project %d: %s", p.ID, rootErr.Error())
+			continue
+		}
+		if root == nil {
+			continue
+		}
+		projectRoots[p.ID] = root
+		if root.Kind == ProtectedKindTeamRoot && root.TeamID > 0 {
+			teamIDs[root.TeamID] = struct{}{}
+		}
+	}
+
+	teamNames := make(map[int64]string, len(teamIDs))
+	for teamID := range teamIDs {
+		team, teamErr := GetTeamByID(s, teamID)
+		if teamErr != nil {
+			log.Errorf("Could not resolve team %d for project list: %s", teamID, teamErr.Error())
+			continue
+		}
+		teamNames[teamID] = team.Name
+	}
+
+	result := make(map[int64]projectListTeamContextEntry, len(projectRoots))
+	for projectID, root := range projectRoots {
+		if root.Kind != ProtectedKindTeamRoot || root.TeamID <= 0 {
+			continue
+		}
+		result[projectID] = projectListTeamContextEntry{
+			role:     string(root.Kind),
+			teamID:   root.TeamID,
+			teamName: teamNames[root.TeamID],
+		}
+	}
+
+	return result
+}
+
 // addProjectDetails adds owner user objects and project tasks to all projects in the slice
 func addProjectDetails(s *xorm.Session, projects []*Project, a web.Auth) (err error) {
 	if len(projects) == 0 {
@@ -898,32 +949,7 @@ func addProjectDetails(s *xorm.Session, projects []*Project, a web.Auth) (err er
 		viewMap[v.ProjectID] = append(viewMap[v.ProjectID], v)
 	}
 
-	projectRoots := make(map[int64]*ProtectedEntity, len(projects))
-	teamIDs := make(map[int64]struct{})
-	for _, p := range projects {
-		root, rootErr := ProtectedRootOf(s, p.ID)
-		if rootErr != nil {
-			log.Errorf("Could not resolve the protected root for project %d: %s", p.ID, rootErr.Error())
-			continue
-		}
-		if root == nil {
-			continue
-		}
-		projectRoots[p.ID] = root
-		if root.Kind == ProtectedKindTeamRoot && root.TeamID > 0 {
-			teamIDs[root.TeamID] = struct{}{}
-		}
-	}
-
-	teamNames := make(map[int64]string, len(teamIDs))
-	for teamID := range teamIDs {
-		team, teamErr := GetTeamByID(s, teamID)
-		if teamErr != nil {
-			log.Errorf("Could not resolve team %d for project list: %s", teamID, teamErr.Error())
-			continue
-		}
-		teamNames[teamID] = team.Name
-	}
+	teamContext := projectListTeamContext(s, projects)
 
 	for _, p := range projects {
 		if o, exists := owners[p.OwnerID]; exists {
@@ -933,12 +959,10 @@ func addProjectDetails(s *xorm.Session, projects []*Project, a web.Auth) (err er
 			p.BackgroundInformation = &ProjectBackgroundType{Type: ProjectBackgroundUpload}
 		}
 
-		if root, exists := projectRoots[p.ID]; exists && root != nil {
-			if root.Kind == ProtectedKindTeamRoot && root.TeamID > 0 {
-				p.Role = string(root.Kind)
-				p.TeamID = root.TeamID
-				p.TeamName = teamNames[root.TeamID]
-			}
+		if tc, exists := teamContext[p.ID]; exists {
+			p.Role = tc.role
+			p.TeamID = tc.teamID
+			p.TeamName = tc.teamName
 		}
 
 		// Don't override the favorite state if it was already set from before (favorite saved filters do this)
