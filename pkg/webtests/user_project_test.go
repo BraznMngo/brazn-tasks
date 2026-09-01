@@ -27,6 +27,8 @@ import (
 )
 
 func TestUserProject(t *testing.T) {
+	clearEntitlementProjections(t)
+
 	t.Run("Normal test", func(t *testing.T) {
 		rec, err := newTestRequestWithUser(t, http.MethodPost, apiv1.UserList, &testuser1, "", nil, nil)
 		require.NoError(t, err)

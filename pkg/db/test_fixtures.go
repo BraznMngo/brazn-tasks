@@ -44,7 +44,6 @@ func InitFixtures(tablenames ...string) (err error) {
 	// Otherwise, load all fixtures
 	if len(tablenames) > 0 {
 		for i, name := range tablenames {
-			// path.Join, not filepath.Join: embed.FS paths always use '/'.
 			tablenames[i] = path.Join(dir, name+".yml")
 		}
 		testfiles = testfixtures.Files(tablenames...)

@@ -63,6 +63,28 @@ func ListUsers(s *xorm.Session, search string, currentUser *User, opts *ProjectU
 
 	conds := []builder.Cond{}
 
+	const entitlementProjectionsTable = "brazn_entitlement_projections"
+
+	var callerOrgID string
+	_, err = s.Table(entitlementProjectionsTable).
+		Where("user_id = ?", currentUser.ID).
+		Cols("organization_id").
+		Get(&callerOrgID)
+	if err != nil {
+		return nil, err
+	}
+
+	var orgMemberIDs *builder.Builder
+	if callerOrgID != "" {
+		orgMemberIDs = builder.Select("user_id").
+			From(entitlementProjectionsTable).
+			Where(builder.And(
+				builder.Eq{"organization_id": callerOrgID},
+				builder.Neq{"organization_id": ""},
+				builder.Neq{"user_id": currentUser.ID},
+			))
+	}
+
 	// Subquery: find user IDs that share an external team with the current user
 	externalTeamMemberIDs := builder.Select("tm2.user_id").
 		From("team_members tm1").
@@ -96,7 +118,7 @@ func ListUsers(s *xorm.Session, search string, currentUser *User, opts *ProjectU
 				usernameCond = builder.Expr("username = ? COLLATE NOCASE", queryPart)
 			}
 
-			conds = append(conds,
+			partConds := []builder.Cond{
 				usernameCond,
 				builder.And(
 					db.ILIKE("name", queryPart),
@@ -110,7 +132,19 @@ func ListUsers(s *xorm.Session, search string, currentUser *User, opts *ProjectU
 						builder.Eq{"email": queryPart},
 					),
 				),
-			)
+			}
+			if orgMemberIDs != nil {
+				// Organization bypass: colleagues in the same org are discoverable
+				// by name or email without the discoverability flags.
+				partConds = append(partConds, builder.And(
+					builder.In("id", orgMemberIDs),
+					builder.Or(
+						db.ILIKE("name", queryPart),
+						builder.Eq{"email": queryPart},
+					),
+				))
+			}
+			conds = append(conds, partConds...)
 		}
 	}
 
