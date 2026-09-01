@@ -195,6 +195,79 @@ func TestFeedbackOwnerReprovisioningDoesNotDuplicateTheirOwnSubProject(t *testin
 	assert.Len(t, subProjects, 1, "the owner's own account must not accumulate a second sub-project")
 }
 
+// TestFeedbackSubProjectsUseReporterUsername pins BRA-1479: each reporter's
+// sub-project is titled after them, while the instance root keeps the shared
+// FeedbackProjectTitle.
+func TestFeedbackSubProjectsUseReporterUsername(t *testing.T) {
+	env := newFeedbackEnv(t)
+
+	feedbackA := env.provisionFeedback(&testuser1)
+	feedbackB := env.provisionFeedback(&testuser2)
+
+	s := db.NewSession()
+	defer s.Close()
+
+	projectA, err := models.GetProjectSimpleByID(s, feedbackA)
+	require.NoError(t, err)
+	projectB, err := models.GetProjectSimpleByID(s, feedbackB)
+	require.NoError(t, err)
+
+	assert.Equal(t, models.FeedbackSubProjectTitle(testuser1.Username), projectA.Title)
+	assert.Equal(t, models.FeedbackSubProjectTitle(testuser2.Username), projectB.Title)
+
+	root, err := models.FeedbackProject(s)
+	require.NoError(t, err)
+	rootProject, err := models.GetProjectSimpleByID(s, root.ProjectID)
+	require.NoError(t, err)
+	assert.Equal(t, models.FeedbackProjectTitle, rootProject.Title)
+}
+
+// TestFeedbackOwnerLookupIgnoresCustomerSubProjects is the BRA-1479 guard on
+// ensureFeedbackSubProject's owner branch. Every sub-project is owned by the
+// staff account, so a lookup on parent plus owner alone can return a customer's
+// project; the owner's own sub-project is the one with no users_projects row.
+func TestFeedbackOwnerLookupIgnoresCustomerSubProjects(t *testing.T) {
+	env := newFeedbackEnv(t)
+
+	customerFeedback := env.provisionFeedback(&testuser1)
+
+	owner, err := user.GetUserByUsername(dbSessionForTest(t), models.OneAdminUsername)
+	require.NoError(t, err)
+
+	ownerFeedback := env.provisionFeedback(owner)
+	require.NotEqual(t, customerFeedback, ownerFeedback,
+		"the owner's sub-project must not be a customer's sub-project")
+
+	s := db.NewSession()
+	defer s.Close()
+
+	ownerProject, err := models.GetProjectSimpleByID(s, ownerFeedback)
+	require.NoError(t, err)
+	assert.Equal(t, models.FeedbackSubProjectTitle(owner.Username), ownerProject.Title)
+}
+
+// TestFeedbackRenamesLegacySubProjectTitle pins BRA-1479's migration path:
+// sub-projects that still carry FeedbackProjectTitle are renamed on resolve.
+func TestFeedbackRenamesLegacySubProjectTitle(t *testing.T) {
+	env := newFeedbackEnv(t)
+
+	feedback := env.provisionFeedback(&testuser1)
+
+	s := db.NewSession()
+	defer s.Close()
+
+	_, err := s.ID(feedback).Cols("title").Update(&models.Project{Title: models.FeedbackProjectTitle})
+	require.NoError(t, err)
+	require.NoError(t, s.Commit())
+
+	second := env.provisionFeedback(&testuser1)
+	assert.Equal(t, feedback, second)
+
+	project, err := models.GetProjectSimpleByID(dbSessionForTest(t), feedback)
+	require.NoError(t, err)
+	assert.Equal(t, models.FeedbackSubProjectTitle(testuser1.Username), project.Title)
+}
+
 // TestFeedbackExemptionFollowsTheProjectIDAndNotTheTitle is the leak BRA-764
 // exists to prevent, stated as a test.
 //
