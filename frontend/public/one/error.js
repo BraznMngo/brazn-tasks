@@ -34,6 +34,7 @@ import {
   brandBlock,
   esc,
   goToPage,
+  installAuthLanguage,
   loadStrings,
   renderAuth,
   takeErrorSentence,
@@ -144,6 +145,12 @@ export function errorSurface(state) {
  * 2. The impure spine
  * ------------------------------------------------------------------ */
 
+const errorState = {reason: null, sentence: null};
+
+function render() {
+  renderAuth(errorSurface(errorState));
+}
+
 export async function boot() {
   if (typeof document === 'undefined') return;
 
@@ -154,14 +161,14 @@ export async function boot() {
     goToPage('signin');
   });
 
+  installAuthLanguage(render);
   await loadStrings();
 
-  renderAuth(errorSurface({
-    reason: reasonFromSearch(location.search),
-    // Consumed on read, so a refusal cannot reappear on a later visit that had
-    // nothing to do with it.
-    sentence: takeErrorSentence(),
-  }));
+  errorState.reason = reasonFromSearch(location.search);
+  // Consumed on read, so a refusal cannot reappear on a later visit that had
+  // nothing to do with it. Kept in memory so a language change can re-render.
+  errorState.sentence = takeErrorSentence();
+  render();
 }
 
 /* Boot only on the real page. */

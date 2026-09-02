@@ -9,14 +9,26 @@ export function esc(value: unknown): string
 /** A catalogue string, escaped. */
 export function tx(key: string, params?: Record<string, unknown>): string
 
-/** Load the catalogue before anything paints. Negotiates from the browser alone. */
+/** Load the catalogue before anything paints. Honours a stored signed-out choice. */
 export function loadStrings(): Promise<void>
 
-/** Paint the card into `#auth` and reveal the stage. */
+/** Paint the card into `#auth`, append the language selector, and reveal the stage. */
 export function renderAuth(html: string): void
 
 /** The brand mark. Both files ship; the stylesheet picks by theme. */
 export function brandBlock(): string
+
+/** Language selector markup (BRA-1444). Appended by `renderAuth`. */
+export function languageBlock(): string
+
+/** Remembered signed-out language, or null. Same localStorage key as Vue. */
+export function getStoredLanguage(): string | null
+
+/** Persist a signed-out language choice. */
+export function saveLanguage(locale: string): void
+
+/** Wire the language selector; call once from each page boot with that page's render. */
+export function installAuthLanguage(rerender: () => void): void
 
 /** The one place errors appear, empty until there is something to say. */
 export function bannerBlock(): string

@@ -54,6 +54,7 @@ import {
   brandBlock,
   esc,
   goToPage,
+  installAuthLanguage,
   installPasswordReveal,
   loadStrings,
   passwordField,
@@ -722,6 +723,7 @@ export async function boot() {
   if (typeof document === 'undefined') return;
 
   installListeners();
+  installAuthLanguage(render);
   await loadStrings();
 
   state.signupToken = captureSignupToken();

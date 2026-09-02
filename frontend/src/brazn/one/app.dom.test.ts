@@ -416,7 +416,7 @@ describe('one/app.js i18n hydration', () => {
 		// Template content is a separate DocumentFragment, so document.querySelectorAll never sees
 		// these two nodes. The markup's own alt is the English fallback that would otherwise ship
 		// to all six languages in silence.
-		expect(template.content.querySelector('img')?.getAttribute('alt')).toBe('ONE Tasks')
+		expect(template.content.querySelector('img')?.getAttribute('alt')).toBe('ONE')
 
 		hydrateI18n(template.content)
 		// MUTATION: making hydrateI18n reject a DocumentFragment root - or hydrateShell dropping

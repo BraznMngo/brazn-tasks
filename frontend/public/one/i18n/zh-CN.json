@@ -242,7 +242,7 @@
   },
   "one": {
     "page": {
-      "title": "ONE Tasks"
+      "title": "ONE"
     },
     "brand": {
       "logoAlt": "ONE",
@@ -652,7 +652,8 @@
         "desktopFailed": "无法连接应用。请关闭这个窗口，然后从应用重试。"
       },
       "showPassword": "显示密码",
-      "hidePassword": "隐藏密码"
+      "hidePassword": "隐藏密码",
+    "language": "语言"
     },
     "password": {
       "working": "处理中…",

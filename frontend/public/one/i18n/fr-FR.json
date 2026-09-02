@@ -242,7 +242,7 @@
   },
   "one": {
     "page": {
-      "title": "ONE Tasks"
+      "title": "ONE"
     },
     "brand": {
       "logoAlt": "ONE",
@@ -652,7 +652,8 @@
         "desktopFailed": "Impossible de connecter l’application. Fermez cette fenêtre et réessayez depuis l’application."
       },
       "showPassword": "Afficher le mot de passe",
-      "hidePassword": "Masquer le mot de passe"
+      "hidePassword": "Masquer le mot de passe",
+    "language": "Langue"
     },
     "password": {
       "working": "Un instant…",

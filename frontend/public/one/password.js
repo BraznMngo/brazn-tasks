@@ -40,6 +40,7 @@ import {
   esc,
   forkErrorSentence,
   goToPage,
+  installAuthLanguage,
   installPasswordReveal,
   loadStrings,
   pageUrl,
@@ -268,6 +269,7 @@ export async function boot() {
   if (typeof document === 'undefined') return;
 
   installListeners();
+  installAuthLanguage(render);
   await loadStrings();
 
   state.signInUrl = pageUrl('signin');
