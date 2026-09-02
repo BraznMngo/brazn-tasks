@@ -157,7 +157,7 @@ func TestStaticServesTheSPAWhenTheLockoutIsOff(t *testing.T) {
 	rec := doStaticRequest(t, newStaticTestEcho(), "/")
 
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "Brazn Tasks", rec.Header().Get("Server"),
+	assert.Equal(t, "ONE", rec.Header().Get("Server"),
 		"the index file must still be served when the lockout is off")
 	assert.Empty(t, rec.Header().Get("Location"))
 }
@@ -315,7 +315,7 @@ func TestStaticServesTheIndexFileUnchangedWhenTheLockoutIsOff(t *testing.T) {
 	rec := doStaticRequest(t, newStaticTestEcho(), "/index.html")
 
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, "Brazn Tasks", rec.Header().Get("Server"))
+	assert.Equal(t, "ONE", rec.Header().Get("Server"))
 	assert.Empty(t, rec.Header().Get("Location"))
 	assert.NotEmpty(t, rec.Header().Get("Etag"),
 		"an absent ETag means /index.html was diverted through serveIndexFile rather than served as the file it is")
@@ -945,7 +945,7 @@ func TestBRA1475ResetLinkReachesARealPageOnABuiltImage(t *testing.T) {
 	rec := doStaticRequest(t, newStaticTestEcho(), "/?"+bra1475MailedResetQuery+"=sometoken")
 
 	assert.Equal(t, http.StatusOK, rec.Code, "the customer must be given the page, not an error")
-	assert.Equal(t, "Brazn Tasks", rec.Header().Get("Server"),
+	assert.Equal(t, "ONE", rec.Header().Get("Server"),
 		"the Server header is set by serveFile and is what proves a document was actually delivered")
 }
 

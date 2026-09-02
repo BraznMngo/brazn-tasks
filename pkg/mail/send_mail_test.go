@@ -21,6 +21,8 @@ import (
 
 	"code.vikunja.io/api/pkg/config"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/wneessen/go-mail"
 )
 
 func TestGetMessageSetsMessageID(t *testing.T) {
@@ -62,6 +64,17 @@ func TestGetMessageFromNameIsConfigured(t *testing.T) {
 		getMessage(opts)
 		assert.Equal(t, "Custom Sender <test@example.com>", opts.From)
 		assert.NotContains(t, opts.From, "Brazn Tasks")
+		config.MailerFromName.Set("ONE")
+	})
+
+	t.Run("user agent names ONE", func(t *testing.T) {
+		config.MailerFromName.Set("ONE")
+		opts := &Opts{To: "recipient@example.com", Subject: "Test", ContentType: ContentTypePlain}
+		msg := getMessage(opts)
+		userAgent := msg.GetGenHeader(mail.HeaderUserAgent)
+		require.Len(t, userAgent, 1)
+		assert.Contains(t, userAgent[0], "ONE ")
+		assert.NotContains(t, userAgent[0], "Brazn Tasks")
 		config.MailerFromName.Set("ONE")
 	})
 
