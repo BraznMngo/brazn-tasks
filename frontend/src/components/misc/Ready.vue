@@ -37,6 +37,7 @@
 				</p>
 			</Message>
 			<ApiConfig
+				v-if="!configStore.braznManagedMode"
 				:configure-open="true"
 				@foundApi="baseStore.loadApp()"
 			/>
@@ -86,9 +87,13 @@ import {ERROR_NO_API_URL} from '@/helpers/checkAndSetApiUrl'
 
 import {useOnline} from '@/composables/useOnline'
 import {useBaseStore} from '@/stores/base'
+import {useConfigStore} from '@/stores/config'
 
 const online = useOnline()
 const baseStore = useBaseStore()
+// BRA-1444 #4 residual: managed hosts have one server; the instance chooser is
+// not a choice a customer can make (same rule as NoAuthWrapper).
+const configStore = useConfigStore()
 </script>
 
 <style lang="scss" scoped>

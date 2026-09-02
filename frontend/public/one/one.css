@@ -770,6 +770,11 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 .auth-brand{display:flex;justify-content:center;margin-bottom:4px}
 .auth-brand .brand-logo{inline-size:118px}
 
+/* Language selector (BRA-1444 #5). Quiet footer control under the card content. */
+.auth-language{display:grid;gap:8px;margin-top:8px;padding-top:16px;border-top:1px solid var(--border)}
+.auth-language-label{font-size:12px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted)}
+.auth-language-select{width:100%;height:42px;border-radius:12px;border:1px solid var(--border);background:var(--scheme-main);color:var(--text);padding-inline:12px;font:inherit}
+
 /* Progress segments. The account-creation page shows a step count; only the
    invitation page has a sequence, so the other four omit this block. */
 .auth-progress{display:grid;gap:10px;margin-bottom:8px}

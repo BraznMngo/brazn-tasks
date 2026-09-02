@@ -43,6 +43,7 @@ import {
   forkErrorSentence,
   goToPage,
   googleMark,
+  installAuthLanguage,
   installPasswordReveal,
   loadStrings,
   pageUrl,
@@ -580,6 +581,7 @@ export async function boot() {
   if (typeof document === 'undefined') return;
 
   installListeners();
+  installAuthLanguage(render);
   await loadStrings();
 
   // The addresses to link to are built once, through pages.js, so this page

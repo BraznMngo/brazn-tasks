@@ -23,9 +23,52 @@
 
 'use strict';
 
-import {t, init as initI18n} from './i18n.js';
+import {t, init as initI18n, currentLocale, supportedLocales} from './i18n.js';
 import {oneUrl, isCurrentDocument} from './pages.js';
 import {forkAppUrl} from './api.js';
+
+/**
+ * Same key the Vue signed-out shell uses (`frontend/src/i18n/index.ts`).
+ * Without sharing it, choosing a language on /one/signin.html and then meeting
+ * the Vue lockout-off login (or the reverse) would silently disagree.
+ */
+const LANGUAGE_STORAGE_KEY = 'language';
+
+/** Endonyms for the six launch locales — labels, not catalogue sentences. */
+const LOCALE_LABELS = Object.freeze({
+  en: 'English',
+  'de-DE': 'Deutsch',
+  'es-ES': 'Español',
+  'fr-FR': 'Français',
+  'ja-JP': '日本語',
+  'zh-CN': '简体中文',
+});
+
+let languageRerender = null;
+let languageListenerInstalled = false;
+
+/**
+ * Language chosen before sign-in, if any. Matches Vue's `getPreferredLanguage`
+ * storage half so the choice survives reloads and the handoff into the session
+ * bootstrap (BRA-1444 Done-when #5).
+ */
+export function getStoredLanguage() {
+  try {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored !== null && supportedLocales().includes(stored)) return stored;
+  } catch {
+    // Storage refused — fall through to browser negotiation.
+  }
+  return null;
+}
+
+export function saveLanguage(locale) {
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, locale);
+  } catch {
+    // A browser refusing storage is not a reason to fail to change language.
+  }
+}
 
 /* ------------------------------------------------------------------ *
  * 1. Escaping, which is not optional on these pages
@@ -60,17 +103,40 @@ export function tx(key, params) {
 /**
  * Load the catalogue before anything paints.
  *
- * There is no user preference to honour: nobody is signed in, so the language
- * is negotiated from the browser alone, which is the same rule app.js uses on
- * its own no-session path. A catalogue that fails to load still renders —
- * `t()` falls back to the key path — because a page of key paths is legible and
- * a blank page is not.
+ * Prefer a language this person already chose on a signed-out screen (same
+ * localStorage key as the Vue NoAuthWrapper), then the browser list. A
+ * catalogue that fails to load still renders — `t()` falls back to the key
+ * path — because a page of key paths is legible and a blank page is not.
  */
 export async function loadStrings() {
   try {
-    await initI18n(null, typeof navigator !== 'undefined' ? navigator.languages : []);
+    await initI18n(
+      getStoredLanguage(),
+      typeof navigator !== 'undefined' ? navigator.languages : [],
+    );
+    applyDocumentChrome();
   } catch (err) {
     console.error('[one/auth] no string catalogue could be loaded', err);
+  }
+}
+
+/** Tab title, document language, and logo alts after the catalogue is known. */
+function applyDocumentChrome() {
+  const title = t('one.page.title');
+  if (typeof document !== 'undefined') {
+    document.title = title && title !== 'one.page.title' ? title : 'ONE';
+    const locale = currentLocale();
+    document.documentElement.lang = String(locale).split('-')[0] || 'en';
+  }
+  applyBrandAlts();
+}
+
+function applyBrandAlts() {
+  if (typeof document === 'undefined') return;
+  const alt = t('one.brand.logoAlt');
+  const value = alt && alt !== 'one.brand.logoAlt' ? alt : 'ONE';
+  for (const img of document.querySelectorAll('[data-i18n-alt="one.brand.logoAlt"]')) {
+    img.setAttribute('alt', value);
   }
 }
 
@@ -83,20 +149,72 @@ export async function loadStrings() {
  * hidden makes such a failure INVISIBLE rather than WRONG — an empty card
  * bordered on a pale field, with no explanation, forever — and this call is the
  * only thing that reveals it.
+ *
+ * The language selector is appended here (BRA-1444 #5) so every signed-out
+ * document gets it without each surface remembering to include it.
  */
 export function renderAuth(html) {
   const root = document.getElementById('auth');
   if (root === null) return;
-  root.innerHTML = html;
+  root.innerHTML = `${html}${languageBlock()}`;
   document.querySelector('.auth-stage')?.classList.remove('hidden');
+  applyBrandAlts();
 }
 
 /** The brand mark. Both files ship and the stylesheet picks by theme. */
 export function brandBlock() {
+  // Fallback alt is ONE (BRA-1444 #6), never "ONE Tasks". Hydrated from the
+  // catalogue once strings are loaded.
   return `<div class="auth-brand">
-    <img class="brand-logo light" src="./logo-light.v1.png" width="155" height="72" alt="ONE Tasks" data-i18n-alt="one.brand.logoAlt">
-    <img class="brand-logo dark" src="./logo-dark.v1.png" width="155" height="72" alt="ONE Tasks" data-i18n-alt="one.brand.logoAlt">
+    <img class="brand-logo light" src="./logo-light.v1.png" width="155" height="72" alt="ONE" data-i18n-alt="one.brand.logoAlt">
+    <img class="brand-logo dark" src="./logo-dark.v1.png" width="155" height="72" alt="ONE" data-i18n-alt="one.brand.logoAlt">
   </div>`;
+}
+
+/**
+ * Language selector for signed-out pages (BRA-1444 Done-when #5).
+ *
+ * A plain <select> with a real <label>, same shape as NoAuthWrapper: works with
+ * a keyboard and a screen reader without any code of ours.
+ */
+export function languageBlock() {
+  const current = currentLocale();
+  const options = supportedLocales().map((code) => {
+    const label = LOCALE_LABELS[code] ?? code;
+    const selected = code === current ? ' selected' : '';
+    return `<option value="${esc(code)}"${selected}>${esc(label)}</option>`;
+  }).join('');
+  return `<div class="auth-language">
+    <label class="auth-language-label" for="auth-language">${tx('one.auth.language')}</label>
+    <select id="auth-language" class="auth-language-select" data-action="auth-language">${options}</select>
+  </div>`;
+}
+
+/**
+ * Wire the language selector. Call once from each page's boot with that page's
+ * `render` so a change reloads the catalogue and repaints the card.
+ */
+export function installAuthLanguage(rerender) {
+  languageRerender = typeof rerender === 'function' ? rerender : null;
+  if (languageListenerInstalled) return;
+  languageListenerInstalled = true;
+  document.addEventListener('change', async (event) => {
+    const select = event.target instanceof HTMLSelectElement
+      && event.target.getAttribute('data-action') === 'auth-language'
+      ? event.target
+      : null;
+    if (select === null) return;
+    const chosen = select.value;
+    if (!supportedLocales().includes(chosen)) return;
+    saveLanguage(chosen);
+    try {
+      await initI18n(chosen, []);
+      applyDocumentChrome();
+    } catch (err) {
+      console.error('[one/auth] language catalogue failed to load', err);
+    }
+    if (languageRerender !== null) languageRerender();
+  });
 }
 
 /**

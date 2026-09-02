@@ -242,7 +242,7 @@
   },
   "one": {
     "page": {
-      "title": "ONE Tasks"
+      "title": "ONE"
     },
     "brand": {
       "logoAlt": "ONE",
@@ -652,7 +652,8 @@
         "desktopFailed": "アプリに接続できませんでした。このウィンドウを閉じて、アプリからやり直してください。"
       },
       "showPassword": "パスワードを表示",
-      "hidePassword": "パスワードを非表示"
+      "hidePassword": "パスワードを非表示",
+    "language": "言語"
     },
     "password": {
       "working": "処理しています…",

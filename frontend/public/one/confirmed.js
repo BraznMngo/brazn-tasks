@@ -44,6 +44,7 @@ import {
   esc,
   forkErrorSentence,
   goToPage,
+  installAuthLanguage,
   loadStrings,
   renderAuth,
   tx,
@@ -241,6 +242,7 @@ export async function boot() {
     });
   });
 
+  installAuthLanguage(render);
   await loadStrings();
 
   const confirmation = confirmationFrom(location.search, location.hash);
