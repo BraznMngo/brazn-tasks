@@ -131,3 +131,14 @@ func TestHandleFailedTOTPAuthLockoutCanBeUnlockedByPasswordReset(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, StatusActive, unlocked.Status)
 }
+
+func TestEnrollTOTPIssuerNamesONE(t *testing.T) {
+	db.LoadAndAssertFixtures(t)
+	s := db.NewSession()
+	defer s.Close()
+
+	entry, err := EnrollTOTP(s, &User{ID: 2, Username: "user2"})
+	require.NoError(t, err)
+	assert.Contains(t, entry.URL, "issuer=ONE")
+	assert.NotContains(t, entry.URL, "Brazn Tasks")
+}
