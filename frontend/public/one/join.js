@@ -310,6 +310,7 @@ const state = {
   invitationId: null,
   signupToken: null,
   organizationName: null,
+  organizationId: null,
   teamName: null,
   invitedEmail: null,
   username: '',
@@ -772,7 +773,13 @@ export async function boot() {
   }
 
   const details = api.readInvitationSummaryBody(summary);
-  state.organizationName = details.organizationName;
+  // BRA-1495: show name + id so two "Acme Corp" invitations are distinguishable
+  // before accept. When the name is absent, keep Story 2's sentence (no bare org_).
+  state.organizationName =
+    details.organizationName && details.organizationId
+      ? `${details.organizationName} (${details.organizationId})`
+      : details.organizationName;
+  state.organizationId = details.organizationId;
 
   // THE STATE IS THE VERDICT AND `ok` IS NOT. All five states arrive at HTTP
   // 200, including the three a person cannot act on, so a page that read `ok`

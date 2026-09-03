@@ -618,6 +618,8 @@ export interface InvitationSummary {
 	 */
 	state: string | null
 	organizationName: string | null
+	/** Stable id that distinguishes two companies with the same display name (BRA-1495). */
+	organizationId: string | null
 	/** Only `usable` carries these two; the other four answer with nulls. */
 	teamName: string | null
 	invitedEmail: string | null

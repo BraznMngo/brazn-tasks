@@ -3080,9 +3080,13 @@ export function completeInvitation({invitationId, signupToken, username, passwor
  */
 export function readInvitationSummaryBody(result) {
   const body = objectOrNull(result?.body);
+  const organizationName = stringOrNull(body?.organization_name);
+  const organizationId = stringOrNull(body?.organization_id);
   return {
     state: stringOrNull(body?.state),
-    organizationName: stringOrNull(body?.organization_name),
+    organizationName,
+    // BRA-1495: id distinguishes identically named companies on the join page.
+    organizationId,
     teamName: stringOrNull(body?.team_name),
     invitedEmail: stringOrNull(body?.email),
   };
