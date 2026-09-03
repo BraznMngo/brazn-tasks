@@ -481,7 +481,8 @@
         "required": "需要 {count} 个席位 | 需要 {count} 个席位",
         "members": "{count} 位成员 | {count} 位成员",
         "pending": "{count} 个待处理的邀请 | {count} 个待处理的邀请",
-        "teams": "{count} 个团队 | {count} 个团队"
+        "teams": "{count} 个团队 | {count} 个团队",
+        "prorationDue": "此变更在本计费周期剩余时间内需支付 {amount}。"
       },
       "tile": {
         "privateKind": "私人",

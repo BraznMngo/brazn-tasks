@@ -1042,6 +1042,14 @@ export const COMMERCIAL_OPS = Object.freeze({
   GET_ENTITLEMENTS: commercialOp(OUTCOME_ABSENT),
 
   /**
+   * POST /v1/accounts/conversion/claims — BRA-1442.
+   * Body: `{user_id, email, edition, organization_id, organization_name, seats, claim}`.
+   * No `outcome`. A non-convertible account is a bare 404. User bearer only —
+   * the website redeems the claim with the service credential on a different route.
+   */
+  ISSUE_CONVERSION_CLAIM: commercialOp(OUTCOME_ABSENT),
+
+  /**
    * GET /v1/account/successor-candidates.
    * Body: `{candidates: [{user_id}]}` (client-http-27c95232:2986-2988), from
    * `listSuccessorCandidates`, which answers an account array. No `outcome`, and
@@ -3379,6 +3387,20 @@ export function purchaseSeats(organizationId, seats, idempotencyKey = newIdempot
     seats,
     idempotency_key: idempotencyKey,
   });
+}
+
+/**
+ * POST /v1/accounts/conversion/claims — mint a short-lived trial→paid claim
+ * for the signed-in user (BRA-1442). The website redeems it; this page only
+ * appends `claim=` onto a convert checkout destination after login.
+ *
+ * Answers `{user_id, email, edition, organization_id, organization_name, seats, claim}`
+ * with no `outcome`. A 404 means the account cannot convert (already paid, or
+ * not a trial) — callers must treat that as a soft failure and land on settings
+ * rather than bouncing the person through login again without a claim.
+ */
+export function issueTrialConversionClaim() {
+  return commercialPost('accounts/conversion/claims', COMMERCIAL_OPS.ISSUE_CONVERSION_CLAIM);
 }
 
 /**

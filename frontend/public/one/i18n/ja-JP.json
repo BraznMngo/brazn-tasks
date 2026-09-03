@@ -481,7 +481,8 @@
         "required": "ライセンス {count} 件が必要 | ライセンス {count} 件が必要",
         "members": "メンバー {count} 人 | メンバー {count} 人",
         "pending": "保留中の招待 {count} 件 | 保留中の招待 {count} 件",
-        "teams": "チーム {count} 件 | チーム {count} 件"
+        "teams": "チーム {count} 件 | チーム {count} 件",
+        "prorationDue": "この変更は、本請求期間の残りについて {amount} かかります。"
       },
       "tile": {
         "privateKind": "プライベート",

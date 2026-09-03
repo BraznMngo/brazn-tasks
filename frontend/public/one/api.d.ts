@@ -134,6 +134,8 @@ export interface CommercialOps {
 	readonly GIVE_RENEWAL_CONSENT: CommercialOp
 	readonly RESUME_CHECKOUT: CommercialOp
 	readonly GET_ENTITLEMENTS: CommercialOp
+	/** POST /v1/accounts/conversion/claims — mint a trial→paid claim (BRA-1442). */
+	readonly ISSUE_CONVERSION_CLAIM: CommercialOp
 	readonly LIST_SUCCESSOR_CANDIDATES: CommercialOp
 	readonly ERASE_ACCOUNT: CommercialOp
 	readonly REVOKE_INVITATION: CommercialOp
@@ -497,6 +499,8 @@ export function purchaseSeats(
 	seats: number,
 	idempotencyKey?: string,
 ): Promise<CommercialResult>
+/** POST /v1/accounts/conversion/claims — mint a trial→paid claim (BRA-1442). */
+export function issueTrialConversionClaim(): Promise<CommercialResult>
 /**
  * No `from_user_id` parameter exists: it is the resolved bearer, never a body field.
  *

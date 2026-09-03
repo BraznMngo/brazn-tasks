@@ -38,7 +38,7 @@
  */
 
 import * as api from './api.js';
-import {t} from './i18n.js';
+import {t, currentLocale} from './i18n.js';
 // The browser-side half of the site-wide lockout: the ONLY way this front end
 // builds an address to navigate to, so a control here can never send somebody
 // into the old application (BRA-1475).
@@ -110,6 +110,27 @@ function tx(key, params) {
 /** ` · ` as a catalogue value, because the separator is not the same glyph in every language. */
 function joinParts(parts) {
   return parts.filter(Boolean).join(t('one.common.separator'));
+}
+
+/**
+ * Format a seat-proration quote for the confirmation modal (BRA-1442).
+ * Reads only `base_minor` and `currency` from `SeatProration`. Returns null when
+ * there is nothing to charge (`null` proration, non-positive amount, or unreadable fields).
+ */
+function formatSeatProrationDue(proration) {
+  if (proration === null || typeof proration !== 'object') return null;
+  const minor = proration.base_minor;
+  const currency = proration.currency;
+  if (!Number.isInteger(minor) || minor <= 0) return null;
+  if (typeof currency !== 'string' || currency.trim() === '') return null;
+  try {
+    return new Intl.NumberFormat(currentLocale(), {
+      style: 'currency',
+      currency: currency.trim(),
+    }).format(minor / 100);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -2113,18 +2134,19 @@ registerActions({
     // `SeatPurchaseRequest.seats` is "ABSOLUTE, never a delta, and bounded 3-100" (:854-855), so
     // the server is the authority on the figure the administrator is about to agree to.
     //
-    // `proration` IS DELIBERATELY NOT RENDERED, which is a gap and is recorded as one rather than
-    // filled with a guess — and it is emphatically not read as a failure signal: `null` is an
-    // ordinary answer meaning this costs nothing now, "a perfectly ordinary answer and never an
-    // error" (:906-909), so no branch here treats it as one. But `SeatProration` is declared in the
-    // service's `billing.ts` (client-service-27c95232:122 imports it from there), which is not
-    // among the extracted sources, so its field names are unknown and bar 7 forbids inventing them
-    // to put an amount on screen. The figure is reported as the remaining half of BRA-1075.
+    // `proration` is rendered from `base_minor` + `currency` (BRA-1442) via Intl — the same
+    // fields `SeatProration` declares in the commercial billing module. `null` remains an
+    // ordinary "costs nothing now" answer and is never treated as a failure.
     const body = quote.body ?? {};
     const seatsAfter = Number.isInteger(body.seats_after) ? body.seats_after : seats;
     setViewState(NS, {seatPurchase: {seats: seatsAfter}});
+    const due = formatSeatProrationDue(body.proration);
+    const notice = due === null
+      ? `<div class="notice">${tx('one.org.seats.inSubscription', {count: seatsAfter})}</div>`
+      : `<div class="notice">${tx('one.org.seats.inSubscription', {count: seatsAfter})}</div>
+         <div class="notice">${tx('one.org.seats.prorationDue', {amount: due})}</div>`;
     modal(t('organization.seats.title'),
-      `<div class="notice">${tx('one.org.seats.inSubscription', {count: seatsAfter})}</div>`,
+      notice,
       `${footCancel()}<button class="btn primary" data-action="confirm-seats">${
         tx('organization.seats.add')}</button>`);
   },

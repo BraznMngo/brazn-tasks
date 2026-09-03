@@ -481,7 +481,8 @@
         "required": "{count} licence requise | {count} licences requises",
         "members": "{count} membre | {count} membres",
         "pending": "{count} invitation en attente | {count} invitations en attente",
-        "teams": "{count} équipe | {count} équipes"
+        "teams": "{count} équipe | {count} équipes",
+        "prorationDue": "Ce changement coûte {amount} pour le reste de cette période de facturation."
       },
       "tile": {
         "privateKind": "Privé",

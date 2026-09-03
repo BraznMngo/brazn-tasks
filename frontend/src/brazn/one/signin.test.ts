@@ -251,6 +251,56 @@ describe('criterion 5 — signing in with chosen credentials actually gets someb
 		expect(navigations()[0]).toBe(`${ORIGIN}/one/settings.html`)
 	})
 
+	it('mints a conversion claim and appends it before returning to convert checkout (BRA-1442)', async () => {
+		const convert = 'https://brazn.one/en/checkout?convert=1'
+		standAt('/one/signin.html', '', `#redirect=${encodeURIComponent(convert)}`)
+		enqueue(
+			info({brazn_checkout_url: 'https://brazn.one/checkout'}),
+			noSession(),
+			json({token: 'access-1'}),
+			json({
+				user_id: 'u1',
+				email: 'ada@example.com',
+				edition: 'personal-cloud',
+				organization_id: null,
+				organization_name: null,
+				seats: null,
+				claim: 'claim-token',
+			}),
+		)
+
+		const {boot} = await freshPage()
+		await boot()
+		await settle()
+		submitForm('signInForm', {username: 'ada', password: 'correct horse'})
+		await settle()
+
+		const claimPost = requests().find(c => String(c.url).endsWith('/v1/accounts/conversion/claims'))
+		expect(claimPost, 'conversion claim was never minted').toBeDefined()
+		expect(navigations()[navigations().length - 1]).toBe(
+			'https://brazn.one/en/checkout?convert=1&claim=claim-token',
+		)
+	})
+
+	it('lands on settings when a conversion claim cannot be minted, rather than looping login (BRA-1442)', async () => {
+		const convert = 'https://brazn.one/en/checkout?convert=1'
+		standAt('/one/signin.html', '', `#redirect=${encodeURIComponent(convert)}`)
+		enqueue(
+			info({brazn_checkout_url: 'https://brazn.one/checkout'}),
+			noSession(),
+			json({token: 'access-1'}),
+			new Response(null, {status: 404}),
+		)
+
+		const {boot} = await freshPage()
+		await boot()
+		await settle()
+		submitForm('signInForm', {username: 'ada', password: 'correct horse'})
+		await settle()
+
+		expect(navigations()[navigations().length - 1]).toBe(`${ORIGIN}/one/settings.html`)
+	})
+
 	it('leaves no session behind when the password was wrong', async () => {
 		enqueue(info(), noSession(), forkRefusal(1004, 'Wrong username or password.'))
 
