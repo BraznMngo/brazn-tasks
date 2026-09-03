@@ -29,15 +29,27 @@ func TestValidateRedirectURI(t *testing.T) {
 	t.Run("accepts vikunja-desktop scheme", func(t *testing.T) {
 		assert.True(t, ValidateRedirectURI("vikunja-desktop://auth"))
 	})
-	t.Run("accepts the percy scheme", func(t *testing.T) {
+	t.Run("accepts the one scheme", func(t *testing.T) {
+		assert.True(t, ValidateRedirectURI("one://oauth/callback"))
+	})
+	t.Run("accepts the one scheme case-insensitively", func(t *testing.T) {
+		assert.True(t, ValidateRedirectURI("ONE://oauth/callback"))
+	})
+	t.Run("accepts the legacy percy scheme", func(t *testing.T) {
 		assert.True(t, ValidateRedirectURI("percy://oauth/callback"))
 	})
 	t.Run("accepts the percy scheme case-insensitively", func(t *testing.T) {
 		assert.True(t, ValidateRedirectURI("PERCY://oauth/callback"))
 	})
-	// The percy allowance is an exact scheme match, unlike the vikunja- prefix
-	// rule. These two guard that distinction: loosening it to a prefix later
+	// The fork allowances are exact scheme matches, unlike the vikunja- prefix
+	// rule. These guards that distinction: loosening either to a prefix later
 	// would silently widen what the authorization endpoint accepts.
+	t.Run("rejects one- prefixed schemes", func(t *testing.T) {
+		assert.False(t, ValidateRedirectURI("one-evil://callback"))
+	})
+	t.Run("rejects schemes merely starting with one", func(t *testing.T) {
+		assert.False(t, ValidateRedirectURI("oneevil://callback"))
+	})
 	t.Run("rejects percy- prefixed schemes", func(t *testing.T) {
 		assert.False(t, ValidateRedirectURI("percy-evil://callback"))
 	})

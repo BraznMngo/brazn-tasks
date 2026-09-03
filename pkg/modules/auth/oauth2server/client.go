@@ -22,16 +22,17 @@ import (
 	"strings"
 )
 
-// forkAllowedScheme is the one native-app redirect scheme this fork accepts in
-// addition to upstream's "vikunja-" prefixed schemes. Percy registers
-// percy://oauth/callback with the OS; upstream v2.4.0 accepts only "vikunja-"
+// forkAllowedSchemes are the native-app redirect schemes this fork accepts in
+// addition to upstream's "vikunja-" prefixed schemes. The ONE desktop app
+// registers one://oauth/callback with the OS (and still accepts a legacy
+// percy://oauth/callback deep link); upstream v2.4.0 accepts only "vikunja-"
 // prefixed schemes, and registering a user-visible "vikunja-" scheme from a
 // de-branded product would assert a mark we have no licence to use. Relaxing
 // validation is therefore the honest fix rather than a workaround.
 //
-// This is deliberately an exact scheme, not a "percy-" prefix. The rule above
-// it is a prefix rule and so admits any vikunja-* scheme; Percy needs exactly
-// one scheme, so this adds exactly one and widens nothing else.
+// These are deliberately exact schemes, not "one-" / "percy-" prefixes. The
+// rule above is a prefix rule and so admits any vikunja-* scheme; ONE needs
+// exactly these two schemes, so this adds exactly those and widens nothing else.
 //
 // FORK PATCH — RE-VERIFY ON EVERY UPSTREAM UPGRADE. Redirect-URI validation is
 // exactly the code an upstream security fix touches. A merge that drops,
@@ -39,13 +40,13 @@ import (
 // endpoint will mint a code for. Nothing else about the OAuth flow is modified
 // here: PKCE remains required, and the token endpoint still requires the
 // presented redirect_uri to equal the one bound to the code.
-const forkAllowedScheme = "percy"
+var forkAllowedSchemes = []string{"one", "percy"}
 
 // ValidateRedirectURI checks that the redirect_uri is a native app scheme —
-// either a "vikunja-" prefixed scheme (e.g. vikunja-flutter://callback) or the
-// "percy" scheme (see forkAllowedScheme above) — or a loopback http URL as
-// recommended by RFC 8252 for native apps that cannot register a custom
-// scheme. Any address in 127.0.0.0/8, the IPv6 loopback (::1, in any
+// either a "vikunja-" prefixed scheme (e.g. vikunja-flutter://callback) or one
+// of the fork-allowed schemes (see forkAllowedSchemes above) — or a loopback
+// http URL as recommended by RFC 8252 for native apps that cannot register a
+// custom scheme. Any address in 127.0.0.0/8, the IPv6 loopback (::1, in any
 // notation), and the literal hostname "localhost" are accepted; dangerous
 // schemes like javascript:, data:, https://, or non-loopback http:// targets
 // are rejected.
@@ -59,8 +60,10 @@ func ValidateRedirectURI(redirectURI string) bool {
 		return true
 	}
 
-	if strings.EqualFold(u.Scheme, forkAllowedScheme) {
-		return true
+	for _, allowed := range forkAllowedSchemes {
+		if strings.EqualFold(u.Scheme, allowed) {
+			return true
+		}
 	}
 
 	if u.Scheme == "http" {
