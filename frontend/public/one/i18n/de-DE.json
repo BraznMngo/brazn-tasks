@@ -481,7 +481,8 @@
         "required": "{count} Sitzplatz erforderlich | {count} Sitzplätze erforderlich",
         "members": "{count} Mitglied | {count} Mitglieder",
         "pending": "{count} ausstehende Einladung | {count} ausstehende Einladungen",
-        "teams": "{count} Team | {count} Teams"
+        "teams": "{count} Team | {count} Teams",
+        "prorationDue": "Diese Änderung kostet {amount} für den Rest dieses Abrechnungszeitraums."
       },
       "tile": {
         "privateKind": "Privat",

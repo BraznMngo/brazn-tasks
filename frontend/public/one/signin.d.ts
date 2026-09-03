@@ -41,6 +41,13 @@ export function allowedDestination(
 /** The provider list from `GET /api/v1/info`, or an empty list. */
 export function openIdProviders(info: any): Array<Record<string, any>>
 
+/**
+ * When `destination` is a convert checkout URL, mint a claim and append
+ * `&claim=`. Otherwise return the destination unchanged. `null` means mint
+ * failed (BRA-1442).
+ */
+export function withConversionClaimIfNeeded(destination: string): Promise<string | null>
+
 /** The provider key out of `/auth/openid/{provider}`, or null. */
 export function openIdProviderFromPath(pathname: string | null | undefined): string | null
 

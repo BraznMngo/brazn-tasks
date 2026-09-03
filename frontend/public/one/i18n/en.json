@@ -481,7 +481,8 @@
         "required": "{count} seat required | {count} seats required",
         "members": "{count} member | {count} members",
         "pending": "{count} pending invitation | {count} pending invitations",
-        "teams": "{count} team | {count} teams"
+        "teams": "{count} team | {count} teams",
+        "prorationDue": "This change costs {amount} for the rest of this billing period."
       },
       "tile": {
         "privateKind": "Private",

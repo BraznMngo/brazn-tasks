@@ -291,11 +291,49 @@ async function landAfterSignIn() {
     [state.checkoutUrl ?? '', state.accountUrl ?? ''],
   );
   if (destination !== null) {
-    location.assign(destination);
+    // Trial→paid conversion (BRA-1442): the website sent us back with
+    // `#redirect=…/checkout?convert=1`. Mint a claim under this session and
+    // append it before leaving — without a claim the website would bounce the
+    // person through login again (an infinite loop). A mint failure lands on
+    // settings instead of that loop.
+    const withClaim = await withConversionClaimIfNeeded(destination);
+    if (withClaim === null) {
+      goToPage('settings');
+      return;
+    }
+    location.assign(withClaim);
     return;
   }
 
   goToPage('settings');
+}
+
+/**
+ * When `destination` is a convert checkout URL, mint a claim and append
+ * `&claim=`. Otherwise return the destination unchanged. `null` means mint
+ * failed — callers must not send the person back to convert without a claim.
+ *
+ * Exported for tests (BRA-1442).
+ *
+ * @param {string} destination
+ * @returns {Promise<string|null>}
+ */
+export async function withConversionClaimIfNeeded(destination) {
+  let target;
+  try {
+    target = new URL(destination);
+  } catch {
+    return destination;
+  }
+  if (target.searchParams.get('convert') !== '1') return destination;
+
+  const result = await api.issueTrialConversionClaim();
+  const claim = result.ok && result.body !== null && typeof result.body === 'object'
+    ? result.body.claim
+    : null;
+  if (typeof claim !== 'string' || claim.trim() === '') return null;
+  target.searchParams.set('claim', claim.trim());
+  return target.toString();
 }
 
 /**
@@ -543,7 +581,12 @@ async function completeOpenIdReturn(providerKey) {
   }
   const destination = allowedDestination(stored, location.origin, [state.checkoutUrl ?? '', state.accountUrl ?? '']);
   if (destination !== null) {
-    location.assign(destination);
+    const withClaim = await withConversionClaimIfNeeded(destination);
+    if (withClaim === null) {
+      goToPage('settings');
+      return;
+    }
+    location.assign(withClaim);
     return;
   }
   await landAfterSignIn();

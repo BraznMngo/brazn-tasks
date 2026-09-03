@@ -481,7 +481,8 @@
         "required": "{count} puesto necesario | {count} puestos necesarios",
         "members": "{count} miembro | {count} miembros",
         "pending": "{count} invitación pendiente | {count} invitaciones pendientes",
-        "teams": "{count} equipo | {count} equipos"
+        "teams": "{count} equipo | {count} equipos",
+        "prorationDue": "Este cambio cuesta {amount} por el resto de este periodo de facturación."
       },
       "tile": {
         "privateKind": "Privado",

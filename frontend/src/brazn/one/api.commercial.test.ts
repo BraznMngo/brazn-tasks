@@ -458,6 +458,26 @@ const OPERATIONS: OpCase[] = [
 		refusal: {label: 'an unread outcome vocabulary', body: {edition: 'teams-cloud', outcome: 'ok'}},
 	},
 	{
+		name: 'issue conversion claim (POST /v1/accounts/conversion/claims)',
+		op: api.COMMERCIAL_OPS.ISSUE_CONVERSION_CLAIM,
+		shape: 'absent',
+		affirmative: [
+			{
+				label: '{user_id, email, edition, claim}',
+				body: {
+					user_id: 'usr-1',
+					email: 'ada@example.com',
+					edition: 'personal-cloud',
+					organization_id: null,
+					organization_name: null,
+					seats: null,
+					claim: 'claim-1',
+				},
+			},
+		],
+		refusal: {label: 'an unread outcome vocabulary', body: {claim: 'x', outcome: 'issued'}},
+	},
+	{
 		name: 'list successor candidates (GET /v1/account/successor-candidates)',
 		op: api.COMMERCIAL_OPS.LIST_SUCCESSOR_CANDIDATES,
 		shape: 'absent',
@@ -643,9 +663,10 @@ describe('one/api.js commercial guard - the per-operation outcome vocabulary', (
 		// INVITATION_COMPLETION the sixth required row (BRA-1475) - and the summary sitting on the
 		// ABSENT side is the load-bearing half of that pair, because its verdict is a `state`
 		// rather than an `outcome`. INVITATION_USERNAME is the sixteenth absent row, on the same
-		// side and for the same reason: it answers a `status`.
+		// side and for the same reason: it answers a `status`. ISSUE_CONVERSION_CLAIM is the
+		// seventeenth (BRA-1442): claim mint answers fields with no `outcome`.
 		expect(OPERATIONS.filter(entry => entry.shape === 'required')).toHaveLength(6)
-		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(16)
+		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(17)
 	})
 
 	for (const entry of OPERATIONS) {
@@ -905,6 +926,25 @@ describe('one/api.js commercial calls (bar 6, ruling C17)', () => {
 		// seat purchase in production reports a failure the customer's card was charged for.
 		expect(result.ok).toBe(true)
 		expect(calls[0].url).toBe('https://dev.tasks.brazn.one/v1/organizations/seats')
+	})
+
+	it('posts conversion claims to /v1/accounts/conversion/claims (BRA-1442)', async () => {
+		queue = [jsonResponse({
+			user_id: 'u1',
+			email: 'ada@example.com',
+			edition: 'personal-cloud',
+			organization_id: null,
+			organization_name: null,
+			seats: null,
+			claim: 'claim-1',
+		})]
+
+		const result = await api.issueTrialConversionClaim()
+
+		expect(result.ok).toBe(true)
+		expect(result.body.claim).toBe('claim-1')
+		expect(calls[0].url).toBe('https://dev.tasks.brazn.one/v1/accounts/conversion/claims')
+		expect(calls[0].init.method).toBe('POST')
 	})
 
 	it('sends admin-transfer with exactly three fields and NEVER from_user_id', async () => {
