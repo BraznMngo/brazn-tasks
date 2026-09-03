@@ -108,6 +108,7 @@ function summary(state: string, extra: Record<string, unknown> = {}): Response {
 	return json({
 		state,
 		organization_name: 'Ackermann GmbH',
+		organization_id: 'org_ackermann1',
 		team_name: 'Design',
 		email: 'ada@example.com',
 		...extra,
@@ -509,7 +510,7 @@ describe('criterion 4, the page half — what the invited person sees', () => {
 		await settle()
 
 		const text = cardText()
-		expect(text).toContain('You have been invited to join the Design team of Ackermann GmbH for ONE Personal Assistant.')
+		expect(text).toContain('You have been invited to join the Design team of Ackermann GmbH (org_ackermann1) for ONE Personal Assistant.')
 		const email = document.getElementById('email') as HTMLInputElement
 		expect(email.value).toBe('ada@example.com')
 		// Readonly rather than disabled: a disabled field is out of the tab order and unreadable to
