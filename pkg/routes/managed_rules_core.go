@@ -45,7 +45,7 @@ func init() {
 	registerPreflightRule(ruleServiceManaged, func(e *managedEval) error {
 		log.Debugf("[managed] %s %s is performed by the commercial service, not by request",
 			e.c.Request().Method, e.c.Path())
-		return errManagedUnavailable()
+		return errManagedUnavailable(e.c)
 	})
 
 	// Signing in is never gated by managed mode, for two reasons that both

@@ -34,7 +34,9 @@ import (
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/models"
 	auth2 "code.vikunja.io/api/pkg/modules/auth"
+	apiv2 "code.vikunja.io/api/pkg/routes/api/v2"
 	"code.vikunja.io/api/pkg/user"
+	"code.vikunja.io/api/pkg/web"
 
 	"github.com/labstack/echo/v5"
 	"xorm.io/xorm"
@@ -324,7 +326,7 @@ func refuseRestrictedWrite(c *echo.Context) error {
 
 	log.Debugf("[managed] %s %s refused: this account's writes are restricted to settings",
 		c.Request().Method, c.Path())
-	return errWritesRestricted()
+	return errWritesRestricted(c)
 }
 
 // writeRestrictedSubject answers for whichever way the request authenticated.
@@ -388,24 +390,99 @@ func writeRestrictedBasicAuthSubject(c *echo.Context) bool {
 	return entitled != nil && entitled.WriteRestricted
 }
 
+// Stable machine codes for the managed gate's refusals, in the field every
+// Vikunja error carries one (`code`). The 20000 range is this fork's own:
+// upstream's codes stop in the 19000s and each upstream domain takes a
+// thousand, so a range this far above them cannot collide on an upstream
+// merge. The values are contract once shipped - ONE's connector appends them
+// to what it shows a person as "(code N)", and a caller telling refusals
+// apart keys on them - so they may gain neighbours but never change meaning.
+const (
+	errCodeWritesRestricted   = 20001
+	errCodeManagedUnavailable = 20002
+)
+
+// managedRefusal carries a managed-mode refusal's words and machine code in
+// the error dialect of the surface that refused (BRA-1539).
+//
+// The gate is middleware, so no handler's error translation ever sees its
+// errors: on both API versions they land in CreateHTTPErrorHandler. As plain
+// echo.HTTPErrors they reached every caller in v1's {"message"} shape with no
+// code - and a v2 caller reads RFC 9457's `detail` and `title` plus Vikunja's
+// `code`, the shape every /api/v2 error documents, so it found nothing it
+// knew. That is how a read-only trial account's refused write reached ONE as
+// wordless on 6 September 2026 and was presented as an outage. The refusal is
+// therefore built where the request is known and renders itself: json.Marshaler
+// plus GetHTTPCode is the error handler's marshaler branch, which writes these
+// bytes and this status verbatim on either surface.
+type managedRefusal struct {
+	status  int
+	code    int
+	message string
+	// problem selects RFC 9457's field names - {title, status, detail, code},
+	// matching apiv2's vikunjaErrorModel. False is v1's {code, message}.
+	problem bool
+}
+
+func (m *managedRefusal) Error() string { return m.message }
+
+// GetHTTPCode is read by CreateHTTPErrorHandler's marshaler branch.
+func (m *managedRefusal) GetHTTPCode() int { return m.status }
+
+func (m *managedRefusal) MarshalJSON() ([]byte, error) {
+	if m.problem {
+		return json.Marshal(struct {
+			Title  string `json:"title"`
+			Status int    `json:"status"`
+			Detail string `json:"detail"`
+			Code   int    `json:"code"`
+		}{http.StatusText(m.status), m.status, m.message, m.code})
+	}
+	return json.Marshal(web.HTTPError{Code: m.code, Message: m.message})
+}
+
+// refuseManaged builds the refusal for the surface this request came in on.
+// The v2 prefix is matched on the raw request path rather than the registered
+// route because the answer only has to pick a dialect, and the raw path is
+// present on every request including ones no route matched.
+func refuseManaged(c *echo.Context, code int, message string) error {
+	return &managedRefusal{
+		status:  http.StatusForbidden,
+		code:    code,
+		message: message,
+		problem: strings.HasPrefix(c.Request().URL.Path, apiv2.GroupPrefix+"/"),
+	}
+}
+
 // errWritesRestricted is the refusal a write-restricted subject gets.
 //
 // Unlike errManagedUnavailable it says what is wrong and what fixes it, and the
 // difference is deliberate. "Not available for this account" is true of a
 // feature the plan never included and there is nothing the reader can do about
-// it; this one is temporary, self-inflicted and curable, and the customer is
-// the only person who can cure it. Telling them their account cannot do this
-// would send them to support to be told to pay an invoice.
+// it; this one is temporary and curable, and only the customer's side can cure
+// it. Telling them their account cannot do this would send them to support to
+// be told to check their own subscription.
+//
+// THE CAUSE IS NAMED AS THREE POSSIBILITIES BECAUSE THE PROJECTION CANNOT TELL
+// THEM APART. The commercial service reaches `settings_only` from three arms -
+// a trial term that ran out, an invoice unpaid past the grace period, and a
+// sign-up whose address was never confirmed - and sends the same one word for
+// all three. An earlier revision of this message asserted the middle arm
+// ("its subscription is unpaid... settling the outstanding invoice restores
+// it") for everyone, which told a customer whose trial had ended to pay an
+// invoice that does not exist.
 //
 // It names no amount, no date and no invoice, because the projection carries
 // none - what is owed is the commercial service's to say and the billing
-// surface's to show.
-func errWritesRestricted() error {
-	return echo.NewHTTPError(http.StatusForbidden,
-		"This account is read-only because its subscription is unpaid. "+
-			"Your existing work is still here and can still be read, and "+
-			"settling the outstanding invoice restores it. Your password, "+
-			"email address, data export and account deletion are unaffected.")
+// surface's to show, which is also why the one next step points there.
+func errWritesRestricted(c *echo.Context) error {
+	return refuseManaged(c, errCodeWritesRestricted,
+		"This change was refused because the account can view but not change "+
+			"anything right now - its trial or subscription has ended, an invoice "+
+			"is unpaid, or its sign-up was never confirmed. Nothing was lost, and "+
+			"everything already here stays readable. The subscription page for "+
+			"this account shows what will restore writing. The password, email "+
+			"address, data export and account deletion still work.")
 }
 
 // decideManagedRule runs a rule's preflight decision if it has one, and
@@ -451,7 +528,7 @@ func (e *managedEval) decideByEdition() error {
 	acting, err := actingUser(c)
 	if err != nil {
 		log.Debugf("[managed] %s %s refused: no acting user (%s)", c.Request().Method, c.Path(), err)
-		return errManagedUnavailable()
+		return errManagedUnavailable(c)
 	}
 	e.user = acting
 
@@ -459,7 +536,7 @@ func (e *managedEval) decideByEdition() error {
 	if !entitled {
 		log.Debugf("[managed] %s %s refused for user %d: the session token carries no entitlement",
 			c.Request().Method, c.Path(), acting.ID)
-		return errManagedUnavailable()
+		return errManagedUnavailable(c)
 	}
 	e.edition = edition
 
@@ -698,7 +775,7 @@ func (e *managedEval) hasFeedbackAccess(projectID int64) (bool, error) {
 // both are read defensively: a policy check must not be the thing that panics.
 func (e *managedEval) refuse(reason string) error {
 	e.logRefusal(reason)
-	return errManagedUnavailable()
+	return errManagedUnavailable(e.c)
 }
 
 func (e *managedEval) logRefusal(reason string) {
@@ -814,9 +891,11 @@ func projectIDParam(path string) string {
 
 // errManagedUnavailable is the refusal every policy rule returns. The wording
 // is deliberately flat: it never names another plan and never implies an
-// upgrade path, because this release has none to offer.
-func errManagedUnavailable() error {
-	return echo.NewHTTPError(http.StatusForbidden,
+// upgrade path, because this release has none to offer. What BRA-1539 added is
+// the shape and the machine code around the unchanged sentence, so a caller
+// can tell this refusal from an outage and from the write restriction.
+func errManagedUnavailable(c *echo.Context) error {
+	return refuseManaged(c, errCodeManagedUnavailable,
 		"This operation is managed by Brazn and is not available for this account.")
 }
 

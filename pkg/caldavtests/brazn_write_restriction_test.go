@@ -86,7 +86,7 @@ const caldavRestrictionProject = "36"
 // their own, and a test that counted 403s would pass while something else
 // entirely did the refusing. That is the failure shape this repository has
 // shipped before.
-const writeRestrictionSentence = "read-only because its subscription is unpaid"
+const writeRestrictionSentence = "can view but not change anything right now"
 
 // restrictedEnv is an instance in managed mode holding a projection this test
 // wrote, reachable exactly the way a CalDAV client reaches the real one.
