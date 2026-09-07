@@ -555,6 +555,14 @@
       "forkConflict": "Das passt nicht zum aktuellen Stand. Es wurde nichts geändert."
     },
     "commercial": {
+      "notice": {
+        "linkWord": "hier",
+        "trialEnded": "Dein Konto wurde in den schreibgeschützten Modus versetzt. Bitte schließe {link} ein Abonnement ab, um es freizuschalten.",
+        "graceAdministrator": "Dein Konto befindet sich in der Nachfrist. Es verbleiben noch {days}, bis dein Konto gesperrt wird. Bitte bezahle {link} deine offene Rechnung.",
+        "graceMember": "Dein Konto befindet sich in der Nachfrist. Es verbleiben noch {days}, bis dein Konto gesperrt wird. Bitte wende dich an deinen Administrator, um mehr zu erfahren.",
+        "lockedAdministrator": "Dein Konto wurde in den schreibgeschützten Modus versetzt. Bitte bezahle {link} deine offene Rechnung.",
+        "lockedMember": "Dein Konto wurde in den schreibgeschützten Modus versetzt. Bitte wende dich an deinen Administrator, um mehr zu erfahren."
+      },
       "notAuthenticated": "Der Abo-Dienst hat deine Sitzung nicht akzeptiert. Es wurde nichts geändert.",
       "paymentRequired": "Deine Zahlung konnte nicht eingezogen werden. Es wurde nichts geändert.",
       "forbidden": "Der Abo-Dienst hat das nicht erlaubt. Es wurde nichts geändert.",

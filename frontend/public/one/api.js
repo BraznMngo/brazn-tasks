@@ -656,6 +656,34 @@ export const PERSONAL_EDITION = 'personal-cloud';
 
 const EDITION_CLAIM = 'brazn_edition';
 const WRITE_RESTRICTED_CLAIM = 'brazn_write_restricted';
+const WRITE_REASON_CLAIM = 'brazn_write_reason';
+const WRITE_GRACE_UNTIL_CLAIM = 'brazn_write_grace_until';
+
+/**
+ * The reasons the commercial service gives for cutting a subject's writes back,
+ * mirroring entitlement.WriteReason* (pkg/modules/brazn/entitlement/entitlement.go).
+ *
+ * Copied rather than imported, for the reason PERSONAL_EDITION is copied: the
+ * value travels as a plain string in the JWT and there is no module boundary
+ * between the server and this page to import across.
+ *
+ * THE SET IS OPEN AND A VALUE THIS BUILD DOES NOT RECOGNISE IS READ AS ABSENT.
+ * That is the safe direction for a reason, and it is the opposite of the rule
+ * for `write_access` itself. `write_access` decides whether a control works, so
+ * an unrecognised value there has to restrict; this decides only which SENTENCE
+ * a person reads, so an unrecognised value must fall back to the sentence that
+ * asserts no cause at all. Guessing here would tell a customer to pay an
+ * invoice that does not exist, which is the defect BRA-1539 was raised for.
+ */
+export const WRITE_REASON_TRIAL_ENDED = 'trial_ended';
+export const WRITE_REASON_INVOICE_UNPAID = 'invoice_unpaid';
+export const WRITE_REASON_SIGNUP_UNCONFIRMED = 'signup_unconfirmed';
+
+const KNOWN_WRITE_REASONS = Object.freeze([
+  WRITE_REASON_TRIAL_ENDED,
+  WRITE_REASON_INVOICE_UNPAID,
+  WRITE_REASON_SIGNUP_UNCONFIRMED,
+]);
 
 /**
  * Decode a JWT payload. The signature is NOT verified and must not be: this is
@@ -733,6 +761,54 @@ export function hasEditionClaim() {
 export function isWriteRestricted() {
   const claims = sessionClaims();
   return claims !== null && claims[WRITE_RESTRICTED_CLAIM] === true;
+}
+
+/**
+ * WHY this subject's writes are cut back, or are about to be — one of the three
+ * constants above, or null.
+ *
+ * NULL IS THE ORDINARY ANSWER AND MUST STAY READABLE AS "we were not told".
+ * Every token minted before this claim existed carries none, so a page that
+ * treated absence as any particular cause would state that cause for every
+ * session in flight on the day this ships. The one sentence a null reason
+ * produces names no cause at all.
+ *
+ * An unrecognised string is folded to null rather than passed through, so the
+ * only values that ever reach a `switch` are the three this build has copy for.
+ */
+export function getWriteReason() {
+  const claims = sessionClaims();
+  if (claims === null) return null;
+  const reason = claims[WRITE_REASON_CLAIM];
+  return KNOWN_WRITE_REASONS.includes(reason) ? reason : null;
+}
+
+/**
+ * The instant this subject's writes fall back to settings-only unless the
+ * outstanding invoice is paid, in milliseconds since the epoch, or null.
+ *
+ * THE DEADLINE IS CARRIED, NOT THE NUMBER OF DAYS, and that is the whole reason
+ * this is a timestamp. A day count stamped into a token is wrong from the first
+ * midnight after it was minted, and this page holds a token for its whole
+ * lifetime; a deadline is still true whenever the page happens to read it, so
+ * the count is computed at render time from the clock in front of the reader.
+ *
+ * IT IS PRESENT WHILE WRITING STILL WORKS. A subject inside the commercial
+ * grace period is not write-restricted — `brazn_write_restricted` is absent for
+ * them — so this claim is the ONLY thing that tells the page a countdown is
+ * running. Reading it only when writes are already restricted would render the
+ * grace warning to nobody.
+ *
+ * The claim is seconds on the wire, because that is what every other time claim
+ * in a JWT is; it is returned here in milliseconds so callers can compare it
+ * with `Date.now()` without a second conversion nobody would remember.
+ */
+export function getWriteGraceUntil() {
+  const claims = sessionClaims();
+  if (claims === null) return null;
+  const seconds = claims[WRITE_GRACE_UNTIL_CLAIM];
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return null;
+  return seconds * 1000;
 }
 
 /* ------------------------------------------------------------------ *

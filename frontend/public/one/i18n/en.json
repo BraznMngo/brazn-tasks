@@ -555,6 +555,14 @@
       "forkConflict": "That does not fit the current state, so nothing was changed."
     },
     "commercial": {
+      "notice": {
+        "linkWord": "here",
+        "trialEnded": "Your account has been set into read only mode. Please get a subscription {link} to unlock.",
+        "graceAdministrator": "Your account in on Grace Period. There are {days} remaining until your account will be locked. Please pay your pending invoice {link}.",
+        "graceMember": "Your account in on Grace Period. There are {days} remaining until your account will be locked. Please contact your admin for more information.",
+        "lockedAdministrator": "Your account has been set into read only mode. Please pay your pending invoice {link}.",
+        "lockedMember": "Your account has been set into read only mode. Please contact your admin for more information."
+      },
       "notAuthenticated": "The subscription service did not accept your session, so nothing was changed.",
       "paymentRequired": "Your payment could not be taken, so nothing was changed.",
       "forbidden": "The subscription service would not allow that, so nothing was changed.",

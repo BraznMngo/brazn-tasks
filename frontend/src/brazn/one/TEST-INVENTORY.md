@@ -42,7 +42,7 @@ assertions actually read. Trace from the assertion backwards, not from the inten
 * **No Playwright spec, for `/v1` or for fork routes** (ruling C7). Nothing below may be reported
   as evidence that a commercial route works; CI starts no commercial service.
 
-## Nine files
+## Ten files
 
 **No case counts are recorded here, deliberately.** An earlier version of this file carried
 them and they went stale inside one afternoon — `api.commercial.test.ts` was listed at 16 while
@@ -61,6 +61,7 @@ source that cannot be wrong.
 | `app.gating.test.ts` | the role matrix through `decideGate`, fact derivation, routing, the login hand-off, the action registry |
 | `app.seats.test.ts` | the seat formula against the literal contract `3 * (teams_used + 1)` |
 | `app.dom.test.ts` | the DOM applier, the one shared refusal path, hydration, organization/roster facts |
+| `app.commercial-notice.test.ts` | **the one sentence a blocked account reads (BRA-1546)**: which of the six situations it is in, the day count, who may be shown a payment link, the two shipped languages, and that no write-refused control carries a sentence any more while all eleven stay refused |
 | `join.test.ts` | the invitation acceptance page (BRA-1439 Story 5): the query/fragment parsers, the five surfaces, and the boot flow against a stubbed fetch — including the return-leg marker and the `signupToken` hand-off key |
 | `view-task.naming.test.ts` | **every place the task page prints a project name (BRA-1414)**, driven through the shipped controls on a mounted shell rather than through the naming helper: the header chip, the Move picker, the relation scope line, that line again after a re-type, and `app.js`'s Add task picker |
 
@@ -199,6 +200,29 @@ followed it in `app.dom.test.ts` (see the header) — §4's warning is not theor
 | A route round-trips through the query string | Change the serialisation without changing the parser |
 | The seven chrome actions app.js owns are registered | Add or remove one |
 | Registering a duplicate action name throws | Delete the `actions.has(name)` check from `registerActions` — two views could claim one hook and the last loaded would win silently |
+
+## `app.commercial-notice.test.ts` — one sentence per screen (BRA-1546)
+
+The situation a blocked account is in is chosen by `decideCommercialNotice`, which is pure and
+takes its clock as an argument, so all six situations are a table rather than six mounted
+sessions. The suppression — no write-refused control carries a sentence any more — is asserted
+separately against the eleven controls of the task screen, because the two fail independently.
+
+| Behaviour | Mutation that must make it fail |
+| -- | -- |
+| Nothing is said at all for an account in good standing | Return a notice from `decideCommercialNotice` before its two state checks — a red block on a screen where nothing is wrong |
+| Each of the six situations is chosen for its own facts, and carries its own message key | Collapse any branch of `decideCommercialNotice`. **Traced: forcing `administrator` to `true` reddens 3 rows; disabling the grace branch reddens 7** |
+| A running countdown outranks a write restriction, and is reachable while writing still works | Read `graceUntil` inside the `writeRestricted` branch instead of before it — the grace warning would render to nobody, because the commercial service leaves write access full until the grace period runs out |
+| A member is never given a payment link, including out of an ended trial | Give `GRACE_MEMBER` or `LOCKED_MEMBER` a link in `COMMERCIAL_NOTICE_LINK`, or route a non-administrator to `TRIAL_ENDED` |
+| A personal subscriber counts as the person who pays | Drop `\|\| personalEdition` from `decideCommercialNotice` — `orgAdmin` is false for them, so they would be told to contact an administrator they have never had |
+| A reason this build does not recognise names no cause | Make the `LOCKED_ADMINISTRATOR` / `LOCKED_MEMBER` pair the fallback instead of the `invoice_unpaid` branch — a lapsed trial would be told to settle an invoice that was never raised, which is the defect BRA-1539 was opened for |
+| Part of a day rounds up, and the count never reaches zero | Drop the `Math.max(1, …)` or the `Math.ceil` — "0 remaining" beside an account that still writes contradicts the screen it sits on |
+| The link resolves through the address `/api/v1/info` published, never a literal | Write any address into `app.js` — the fixture's addresses are not real ones, so a literal appears in the markup instead of them |
+| The sentence survives when the instance published no address; only the anchor goes | Return `''` from `renderCommercialNotice` when the address is null — a self-hosted instance would lose the sentence as well as the link |
+| Every one of the six keys resolves in **both** shipped catalogues, and the German carries `{days}` | Rename a value in `COMMERCIAL_NOTICE_MESSAGE_KEY` without adding the key, or drop `{days}` from the German — a countdown with no number in it for every German reader |
+| None of the eleven write-refused controls carries a sentence | Restore `one.deny.writeRestricted` to `DENY_MESSAGE_KEY[DENY.WRITE_RESTRICTED]`. **Traced: reddens this row with eleven sentences, and `app.gating`'s catalogue sweep with it** |
+| …while every one of them is still refused, with the disabled shape its element type calls for | Drop `refuseControl` from `applyDecision`'s disabled branch — the notices would go and so would the fact that the control cannot be used |
+| Every OTHER refusal keeps its own sentence beside its own control | Null another entry in `DENY_MESSAGE_KEY` — the suppression is scoped to the one refusal that is true of the whole screen |
 
 ## `app.seats.test.ts`
 
