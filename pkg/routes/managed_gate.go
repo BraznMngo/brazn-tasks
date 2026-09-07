@@ -396,7 +396,7 @@ func writeRestrictedBasicAuthSubject(c *echo.Context) bool {
 // thousand, so a range this far above them cannot collide on an upstream
 // merge. The values are contract once shipped - ONE's connector appends them
 // to what it shows a person as "(code N)", and a caller telling refusals
-// apart keys on them - so they may gain neighbours but never change meaning.
+// apart keys on them - so they may gain neighbors but never change meaning.
 const (
 	errCodeWritesRestricted   = 20001
 	errCodeManagedUnavailable = 20002
