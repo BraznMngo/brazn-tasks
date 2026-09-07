@@ -43,10 +43,10 @@ import (
 // It is matched rather than the status code because the code alone cannot tell
 // this refusal from errManagedUnavailable's, and they are different refusals for
 // different reasons: one says an account may never do a thing, this one says it
-// may not until an invoice is paid. A test that only counted 403s would pass
-// while an unrelated guard did the refusing, which is the exact shape that let a
-// defect through on this codebase before.
-const writeRestrictionSentence = "read-only because its subscription is unpaid"
+// may not while the subscription state blocks it. A test that only counted 403s
+// would pass while an unrelated guard did the refusing, which is the exact shape
+// that let a defect through on this codebase before.
+const writeRestrictionSentence = "can view but not change anything right now"
 
 func settingsOnly() *string {
 	value := entitlement.WriteAccessSettingsOnly
