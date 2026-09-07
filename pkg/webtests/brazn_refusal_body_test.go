@@ -124,13 +124,15 @@ func TestWriteRestrictedRefusalKeepsV1Shape(t *testing.T) {
 	var body map[string]interface{}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body), rec.Body.String())
 
-	assert.Equal(t, float64(pinnedCodeWritesRestricted), body["code"], rec.Body.String())
+	code, hasCode := body["code"].(float64)
+	require.True(t, hasCode, "v1 carries a numeric code: %s", rec.Body.String())
+	assert.Equal(t, pinnedCodeWritesRestricted, int(code), rec.Body.String())
 	message, isString := body["message"].(string)
 	require.True(t, isString, "v1 carries the words under `message`: %s", rec.Body.String())
 	assert.Contains(t, message, writeRestrictionSentence)
 	assert.Contains(t, message, "The subscription page")
-	assert.NotContains(t, body, "detail",
-		"v1 must keep its own dialect rather than turning problem-shaped")
+	_, hasDetail := body["detail"]
+	assert.False(t, hasDetail, "v1 must keep its own dialect rather than turning problem-shaped")
 }
 
 // TestWriteRestrictedLeavesV2ReadsAlone is the reads half on the surface the

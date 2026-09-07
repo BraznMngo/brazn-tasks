@@ -424,11 +424,14 @@ type managedRefusal struct {
 	problem bool
 }
 
+// Error implements the error interface so the refusal can travel as a normal error.
 func (m *managedRefusal) Error() string { return m.message }
 
 // GetHTTPCode is read by CreateHTTPErrorHandler's marshaler branch.
 func (m *managedRefusal) GetHTTPCode() int { return m.status }
 
+// MarshalJSON implements json.Marshaler so CreateHTTPErrorHandler writes the
+// surface-correct body (problem shape on /api/v2, classic Vikunja shape elsewhere).
 func (m *managedRefusal) MarshalJSON() ([]byte, error) {
 	if m.problem {
 		return json.Marshal(struct {
