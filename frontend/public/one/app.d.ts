@@ -85,6 +85,18 @@ export interface GateFacts {
 	orgAdmin: boolean
 	/** `brazn_write_restricted === true`. Absence is the permitting case. */
 	writeRestricted: boolean
+	/**
+	 * `brazn_write_reason`, or null when the token did not say. Never guessed at.
+	 *
+	 * OPTIONAL, AND ABSENT MEANS EXACTLY WHAT NULL MEANS — "we were not told" — which is why it
+	 * may be omitted where `writeRestricted` may not. A fixture that says nothing about why an
+	 * account is restricted is making a true statement about a token minted before this claim
+	 * existed, and that is the ordinary case rather than an incomplete one. `readGateFacts`
+	 * always sets it.
+	 */
+	writeReason?: string | null
+	/** `brazn_write_grace_until` in epoch MILLISECONDS, or null. Set while writing still works. */
+	graceUntil?: number | null
 	/** Keyed by team id as a string. A missing key reads as unreadable. */
 	teams: Record<string, TeamFact>
 }
@@ -109,6 +121,43 @@ export interface GateDecision {
  * whole role matrix can be driven as a table with nothing mounted and no catalogue loaded.
  */
 export function decideGate(request: GateRequest, facts: GateFacts): GateDecision
+
+/* --- the commercial standing notice (BRA-1546) -------------------- */
+
+/** The six situations the one-per-screen notice can be in. Never rendered, never translated. */
+export const COMMERCIAL_NOTICE: Readonly<Record<string, string>>
+/** Case -> the `t()` key of its sentence. Every value must resolve in the shipped catalogue. */
+export const COMMERCIAL_NOTICE_MESSAGE_KEY: Readonly<Record<string, string>>
+/** Case -> `'checkout'`, `'account'`, or null for the cases that carry no link. */
+export const COMMERCIAL_NOTICE_LINK: Readonly<Record<string, string | null>>
+
+export interface CommercialNotice {
+	/** One of the `COMMERCIAL_NOTICE` values. */
+	case: string
+	messageKey: string
+	/** Which published address the link resolves through, or null when there is no link. */
+	link: string | null
+	/** Whole days left in the grace period, rounded up and never below 1. Null off the countdown. */
+	days: number | null
+}
+
+/** The one situation this account is in, or null when there is nothing to say. Pure. */
+export function decideCommercialNotice(facts: GateFacts, now: number): CommercialNotice | null
+
+/** `brazn_checkout_url` / `brazn_account_url` as published by `GET /api/v1/info`, or null. */
+export function publishedAddress(name: string): string | null
+
+export interface PublishedAddresses {
+	checkout: string | null
+	account: string | null
+}
+
+/** The banner's markup, or `''` when there is nothing to say. Addresses and clock are arguments. */
+export function renderCommercialNotice(
+	facts: GateFacts,
+	addresses: PublishedAddresses,
+	now?: number,
+): string
 
 /** IMPURE: reads the live JWT claims and the loaded organization. The only impure half. */
 export function readGateFacts(): GateFacts

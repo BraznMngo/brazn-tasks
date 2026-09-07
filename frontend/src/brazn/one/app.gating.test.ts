@@ -304,7 +304,11 @@ describe('one/app.js role matrix', () => {
 				if (messageKey !== null) reachable.add(messageKey)
 			}
 		}
-		reachable.add(decideGate({requires: 'write'}, {...FACTS.M, writeRestricted: true}).messageKey ?? '')
+		// The write restriction is the one refused reason that renders NO sentence beside the
+		// control (BRA-1546): it is true of the whole screen, so it is stated once at the top of
+		// the page instead of eleven times down it. The row stays in this sweep asserting exactly
+		// that, because a key reappearing here is how the eleven copies would come back.
+		expect(decideGate({requires: 'write'}, {...FACTS.M, writeRestricted: true}).messageKey).toBeNull()
 		expect(reachable.size).toBeGreaterThanOrEqual(4)
 		for (const key of reachable) {
 			expect(typeof lookup(catalogue, key), `${key} in en.json`).toBe('string')
@@ -317,8 +321,9 @@ describe('one/app.js role matrix', () => {
 		// behind it. This is the assertion the sentence below is actually about.
 		// MUTATION: renaming ANY DENY_MESSAGE_KEY value without adding the key to
 		// public/one/i18n/en.json makes this red.
+		// Eight, not nine: WRITE_RESTRICTED gave its key up to the page-level notice (BRA-1546).
 		const declared = Object.values(DENY_MESSAGE_KEY).filter((key): key is string => key !== null)
-		expect(declared.length).toBe(9)
+		expect(declared.length).toBe(8)
 		for (const key of declared) {
 			expect(typeof lookup(catalogue, key), `${key} in en.json`).toBe('string')
 		}

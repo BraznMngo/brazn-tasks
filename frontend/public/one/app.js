@@ -131,6 +131,23 @@ export const DENY = Object.freeze({
 /**
  * Reason -> `t()` key. Hidden reasons have no key: nothing is rendered to explain them.
  *
+ * `WRITE_RESTRICTED` IS NULL AND IT IS NOT HIDDEN, which is the one entry here that needs
+ * explaining (BRA-1546). A write restriction is the only refusal on this page that is true of
+ * the WHOLE SCREEN rather than of one control, so repeating its sentence beside each refused
+ * control said the same thing eleven times on one task screen — beside the project picker, the
+ * complete button, the title, the labels, the assignee, the priority, the progress, the due
+ * date, the reminders, the description and the attachments — while naming no cause and offering
+ * nothing to do. It is now stated once, at the top of the page, by `commercialNotice`, in words
+ * that say which situation the account is in and what will change it.
+ *
+ * NOTHING ELSE ABOUT THE REFUSAL MOVED. The control still gets `.is-refused`, still gets the
+ * `readOnly` / `aria-disabled` / `disabled` its element type calls for, and still carries
+ * `data-deny-reason="write-restricted"`. A person can still see that they cannot edit; they are
+ * simply no longer told why eleven times.
+ *
+ * Every OTHER reason keeps its own sentence, because every other reason is true of the control
+ * it sits beside and of nothing else on the screen.
+ *
  * EXPORTED so a test can assert that EVERY key in it resolves in the shipped catalogue, not
  * only the ones `decideGate` happens to reach. `DENY.COMMERCIAL` and `DENY.SERVER` are written
  * by `describeCommercialRefusal` / `describeForkError` rather than by the gating engine, so a
@@ -141,7 +158,7 @@ export const DENY_MESSAGE_KEY = Object.freeze({
   [DENY.NOT_ADMIN]: null,
   [DENY.NO_EDITION]: null,
   [DENY.PERSONAL]: 'one.deny.personalEdition',
-  [DENY.WRITE_RESTRICTED]: 'one.deny.writeRestricted',
+  [DENY.WRITE_RESTRICTED]: null,
   [DENY.TEAM_UNREADABLE]: 'one.deny.rosterUnavailable',
   [DENY.NO_TEAM]: 'one.deny.noTeams',
   [DENY.TEAM_NOT_ADMIN]: 'one.deny.notAdministrator',
@@ -213,6 +230,15 @@ const state = {
   organizationError: null,
   /** teamId (string) -> {id, readable, admin, team, error} */
   teams: new Map(),
+  /**
+   * The two addresses `GET /api/v1/info` publishes — `brazn_checkout_url` and
+   * `brazn_account_url` — or null for each when this instance published none.
+   *
+   * NULL IS THE CORRECT AND COMMON ANSWER. A self-hosted instance has no commercial service
+   * behind it and publishes neither, and every notice that would have linked out then renders
+   * its sentence with no link rather than an address that goes nowhere.
+   */
+  addresses: {checkout: null, account: null},
   route: {taskId: null, view: 'settings', tab: 'account'},
   viewState: Object.create(null),
 };
@@ -270,6 +296,19 @@ export function getOrganization() {
  */
 export function getOrganizationError() {
   return state.organizationError;
+}
+
+/**
+ * The published address for one of the two names `COMMERCIAL_NOTICE_LINK` uses, or null.
+ *
+ * THIS PAGE HOLDS NO ADDRESS OF ITS OWN AND MUST NOT ACQUIRE ONE. Both values are operator
+ * configuration (`brazn.checkouturl` and `brazn.accounturl`), the sign-in page already resolves
+ * its links through the same two, and a literal written here would be a second address to keep
+ * in step with the first — which is exactly how two surfaces end up sending customers to
+ * different places.
+ */
+export function publishedAddress(name) {
+  return state.addresses[name] ?? null;
 }
 
 /** `{id, readable, admin, team, error}` for one team, or null when the team is unknown. */
@@ -416,6 +455,8 @@ export function navigate(patch, {replace = false} = {}) {
  * @property {boolean} personalEdition  the claim is exactly `personal-cloud`
  * @property {boolean} orgAdmin         the organization read returned 200
  * @property {boolean} writeRestricted  `brazn_write_restricted === true`
+ * @property {string|null} writeReason  `brazn_write_reason`, or null when we were not told
+ * @property {number|null} graceUntil   `brazn_write_grace_until` in epoch ms, or null
  * @property {Record<string, {readable: boolean, admin: boolean}>} teams
  */
 
@@ -444,6 +485,8 @@ export function readGateFacts() {
     personalEdition: api.isPersonalEdition(),
     orgAdmin: state.organization !== null,
     writeRestricted: api.isWriteRestricted(),
+    writeReason: api.getWriteReason(),
+    graceUntil: api.getWriteGraceUntil(),
     teams,
   });
 }
@@ -483,6 +526,189 @@ export function readGateFacts() {
 export function editionMessageKey(facts = readGateFacts()) {
   if (!facts.hasEdition) return null;
   return facts.personalEdition ? 'one.edition.personal' : 'one.edition.teams';
+}
+
+/* ------------------------------------------------------------------ *
+ * 4b. The commercial standing notice — one sentence per screen (BRA-1546)
+ * ------------------------------------------------------------------ */
+
+/**
+ * The situations a person can be told about, and the whole vocabulary of them.
+ *
+ * These land in `data-notice` and are what a test asserts on. They are never
+ * rendered and never translated, exactly like `DENY.*`.
+ */
+export const COMMERCIAL_NOTICE = Object.freeze({
+  /** A trial that has ended. The account can view but not change anything. */
+  TRIAL_ENDED: 'trial-ended',
+  /** An invoice is unpaid, the countdown is running, and this person can pay. */
+  GRACE_ADMINISTRATOR: 'grace-administrator',
+  /** The same countdown, seen by somebody who cannot pay it. */
+  GRACE_MEMBER: 'grace-member',
+  /** The countdown ran out. This person can pay. */
+  LOCKED_ADMINISTRATOR: 'locked-administrator',
+  /** The countdown ran out, seen by somebody who cannot pay it. */
+  LOCKED_MEMBER: 'locked-member',
+  /**
+   * Writing is cut back and the token did not say why.
+   *
+   * THIS IS THE ORDINARY CASE UNTIL THE COMMERCIAL SERVICE SHIPS ITS HALF, and
+   * it is a sixth case rather than a default onto one of the five because every
+   * one of the five asserts a cause. Telling a lapsed-trial customer to settle
+   * an invoice that was never raised is the exact defect BRA-1539 was opened
+   * for, and guessing here would reintroduce it one screen earlier.
+   *
+   * Its sentence is the one the page already shipped — the same words that used
+   * to appear eleven times beside eleven controls, now appearing once.
+   */
+  LOCKED_UNEXPLAINED: 'locked-unexplained',
+});
+
+/**
+ * Case -> the `t()` key of the sentence a person reads.
+ *
+ * EXPORTED so a test can assert that every key here resolves in the shipped
+ * catalogue, rather than only the ones a particular set of facts happens to
+ * reach. That is the same protection `DENY_MESSAGE_KEY` carries and it exists
+ * for the same reason: a renamed key would otherwise ship as a raw dotted path
+ * onto the one banner a blocked customer is looking at.
+ */
+export const COMMERCIAL_NOTICE_MESSAGE_KEY = Object.freeze({
+  [COMMERCIAL_NOTICE.TRIAL_ENDED]: 'one.commercial.notice.trialEnded',
+  [COMMERCIAL_NOTICE.GRACE_ADMINISTRATOR]: 'one.commercial.notice.graceAdministrator',
+  [COMMERCIAL_NOTICE.GRACE_MEMBER]: 'one.commercial.notice.graceMember',
+  [COMMERCIAL_NOTICE.LOCKED_ADMINISTRATOR]: 'one.commercial.notice.lockedAdministrator',
+  [COMMERCIAL_NOTICE.LOCKED_MEMBER]: 'one.commercial.notice.lockedMember',
+  [COMMERCIAL_NOTICE.LOCKED_UNEXPLAINED]: 'one.deny.writeRestricted',
+});
+
+/**
+ * Case -> which published address the sentence's link points at, or null for
+ * the cases that carry no link at all.
+ *
+ * THE THREE NULLS ARE A PRODUCT RULE AND NOT AN OMISSION. A person who cannot
+ * pay is never sent to a payment page: they are told to speak to the person who
+ * can. A link they could not use would read as an offer and end in a page that
+ * refuses them, which is worse than no link.
+ *
+ * `'checkout'` and `'account'` name the two addresses `GET /api/v1/info`
+ * publishes — `brazn_checkout_url` and `brazn_account_url`. NEITHER IS WRITTEN
+ * DOWN ANYWHERE ON THIS PAGE. They are configuration an operator set, they are
+ * already what the sign-in page's links resolve through, and a second copy here
+ * would be a second address to keep in step with the first.
+ */
+export const COMMERCIAL_NOTICE_LINK = Object.freeze({
+  [COMMERCIAL_NOTICE.TRIAL_ENDED]: 'checkout',
+  [COMMERCIAL_NOTICE.GRACE_ADMINISTRATOR]: 'account',
+  [COMMERCIAL_NOTICE.GRACE_MEMBER]: null,
+  [COMMERCIAL_NOTICE.LOCKED_ADMINISTRATOR]: 'account',
+  [COMMERCIAL_NOTICE.LOCKED_MEMBER]: null,
+  [COMMERCIAL_NOTICE.LOCKED_UNEXPLAINED]: null,
+});
+
+/** One day, in milliseconds. The unit the grace sentence counts in. */
+const ONE_DAY_MS = 86400000;
+
+/**
+ * CHOOSE THE ONE SITUATION THIS ACCOUNT IS IN. PURE: no DOM, no module state,
+ * no `t()`, no network, and the clock arrives as an argument so a test can put
+ * the reader at any point in the countdown.
+ *
+ * Returns null when there is nothing to say, which is the answer for almost
+ * every session: a subject with full write access and no countdown running.
+ *
+ * ORDER OF RESOLUTION, and each step is load-bearing:
+ *
+ *   1. A RUNNING COUNTDOWN OUTRANKS EVERYTHING. It is the only state in which
+ *      writing still works, so it is the only sentence with something to do
+ *      before something is lost. It is also the only case reachable while
+ *      `writeRestricted` is false, which is why the countdown is read first
+ *      rather than inside a write-restriction branch.
+ *   2. Then, and only then, a write restriction.
+ *   3. An ended trial is its own sentence, because the cure is different: there
+ *      is no invoice to settle, there is a subscription to start.
+ *   4. Everything else that restricts writing resolves by who is reading it.
+ *
+ * WHO COUNTS AS "THE ADMINISTRATOR" IS `orgAdmin || personalEdition`, and the
+ * second half of that is not padding. `orgAdmin` is false for a personal-cloud
+ * account (the organization read 403s for them — see readGateFacts), so an
+ * administrator test of `orgAdmin` alone would send a personal subscriber the
+ * member's sentence and tell them to contact an administrator they do not have
+ * and have never had. A personal account holder is the person who pays for it.
+ *
+ * A MEMBER IS NEVER ROUTED TO A PAYMENT PAGE, INCLUDING OUT OF AN ENDED TRIAL.
+ * Sebastian's five situations give the ended trial no member variant, because a
+ * trial is normally one person's. A Teams trial that ends with members still on
+ * it is the case his list does not enumerate, and it is resolved here to the
+ * member's locked sentence rather than to the trial one: "the account is in
+ * read-only mode, speak to your administrator" is true for them, carries no
+ * link they cannot use, and does not break the rule that only the administrator
+ * is asked to pay.
+ *
+ * @param {GateFacts} facts
+ * @param {number} now epoch milliseconds
+ * @returns {{case: string, messageKey: string, link: string|null, days: number|null}|null}
+ */
+export function decideCommercialNotice(facts, now) {
+  const administrator = facts?.orgAdmin === true || facts?.personalEdition === true;
+  const graceUntil = typeof facts?.graceUntil === 'number' ? facts.graceUntil : null;
+
+  if (graceUntil !== null && graceUntil > now) {
+    return commercialNotice(
+      administrator ? COMMERCIAL_NOTICE.GRACE_ADMINISTRATOR : COMMERCIAL_NOTICE.GRACE_MEMBER,
+      // ROUNDED UP, AND NEVER TO ZERO. Part of a day left is still a day the
+      // customer has, and "0 remaining" beside an account that still writes is
+      // a sentence that contradicts the screen it sits on.
+      Math.max(1, Math.ceil((graceUntil - now) / ONE_DAY_MS)),
+    );
+  }
+
+  if (facts?.writeRestricted !== true) return null;
+
+  if (facts.writeReason === TRIAL_ENDED_REASON) {
+    return commercialNotice(
+      administrator ? COMMERCIAL_NOTICE.TRIAL_ENDED : COMMERCIAL_NOTICE.LOCKED_MEMBER,
+      null,
+    );
+  }
+
+  if (facts.writeReason === INVOICE_UNPAID_REASON) {
+    return commercialNotice(
+      administrator ? COMMERCIAL_NOTICE.LOCKED_ADMINISTRATOR : COMMERCIAL_NOTICE.LOCKED_MEMBER,
+      null,
+    );
+  }
+
+  // EVERY OTHER REASON, INCLUDING NONE AND INCLUDING ONE THIS BUILD HAS NEVER HEARD OF, lands
+  // here rather than on a sentence that asserts a cause. `api.getWriteReason` already folds an
+  // unrecognised value to null, so this is the second of two closed vocabularies rather than the
+  // only one — but this function is pure and takes its facts from whoever calls it, so a fallback
+  // that reached the invoice sentence would be one refactor away from telling a customer to
+  // settle an invoice a newer producer never raised.
+  return commercialNotice(COMMERCIAL_NOTICE.LOCKED_UNEXPLAINED, null);
+}
+
+/**
+ * Mirror api.WRITE_REASON_TRIAL_ENDED and api.WRITE_REASON_INVOICE_UNPAID. Read the note there
+ * before adding a third copy: the values travel as plain strings in the JWT and there is no
+ * module boundary between the server and this page to import across.
+ *
+ * `signup_unconfirmed` is deliberately NOT mirrored. It is a real value the commercial service
+ * emits, and it lands on the unexplained sentence on purpose: an account whose sign-up was never
+ * confirmed has neither a trial to renew nor an invoice to pay, so both of the sentences that
+ * name a cure would be wrong for it. What it needs is a confirmation mail, which is a different
+ * surface's sentence and not this banner's to invent.
+ */
+const TRIAL_ENDED_REASON = 'trial_ended';
+const INVOICE_UNPAID_REASON = 'invoice_unpaid';
+
+function commercialNotice(name, days) {
+  return Object.freeze({
+    case: name,
+    messageKey: COMMERCIAL_NOTICE_MESSAGE_KEY[name],
+    link: COMMERCIAL_NOTICE_LINK[name],
+    days,
+  });
 }
 
 /**
@@ -2170,7 +2396,7 @@ function render() {
   }
 
   const ctx = {route, facts};
-  app.innerHTML = pageNotices(route) + view.render(ctx);
+  app.innerHTML = pageNotices(route, facts) + view.render(ctx);
   view.mount?.(app, ctx);
   // AFTER the view's mount and BEFORE hydration and gates, and all three positions matter.
   // After mount, so a view that rebuilds its own header cannot drop the block again. Before
@@ -2189,9 +2415,80 @@ function render() {
  * view's because both describe the PAGE's state — the facts it was drawn from — and neither
  * belongs to the task detail or to one settings tab.
  */
-function pageNotices(route) {
+function pageNotices(route, facts) {
   return (state.stale ? staleNotice() : '')
+    + renderCommercialNotice(facts, state.addresses)
     + (route.view === 'settings' && state.organizationError !== null ? organizationNotice() : '');
+}
+
+/**
+ * THE ONE SENTENCE A BLOCKED ACCOUNT READS, ONCE PER SCREEN (BRA-1546).
+ *
+ * Until this existed the same sentence appeared beside every refused control — eleven times on
+ * one task screen, once next to the project picker, the complete button, the title, the labels,
+ * the assignee, the priority, the progress, the due date, the reminders, the description and the
+ * attachments. It said the same thing each time, named no cause, and offered nothing to do.
+ *
+ * IT IS HERE, WITH THE OTHER PAGE NOTICES, RATHER THAN IN EITHER VIEW. It describes the account
+ * the page was drawn for, which is neither the task detail's business nor one settings tab's,
+ * and both documents must show it — the settings screen most of all, because settings are the
+ * one thing a restricted account may still change and the payment method is among them.
+ *
+ * IT IS NOT SUPPRESSED WHILE WRITING STILL WORKS. The grace cases are a warning before anything
+ * is lost, which is the only moment at which the sentence can still prevent the block.
+ *
+ * `.notice.refusal-text` is the stylesheet's existing red notice, already used on the settings
+ * screen. No new rule is added: a second red treatment would drift from the first.
+ *
+ * `role="status"` rather than `role="alert"`: the banner is present from the first paint rather
+ * than arriving in response to something the person just did, and an alert interrupts whatever
+ * a screen reader is currently saying to announce a state that has been true all along.
+ *
+ * THE ADDRESSES AND THE CLOCK ARE ARGUMENTS, not reads of module state, so the whole of what a
+ * blocked customer sees can be driven from a test without mounting a session. `pageNotices` is
+ * the only caller that passes anything but a fixture.
+ *
+ * @param {GateFacts} facts
+ * @param {{checkout: string|null, account: string|null}} addresses as published by /api/v1/info
+ * @param {number} now epoch milliseconds
+ */
+export function renderCommercialNotice(facts, addresses, now = Date.now()) {
+  const notice = decideCommercialNotice(facts, now);
+  if (notice === null) return '';
+  return `<div class="load-surface"><div class="notice refusal-text" role="status"
+    data-notice="commercial-standing" data-notice-case="${escapeHtml(notice.case)}"
+    >${commercialNoticeSentence(notice, addresses)}</div></div>`;
+}
+
+/**
+ * A placeholder that survives HTML-escaping, so the sentence can be escaped WHOLE and the link
+ * put in afterwards.
+ *
+ * The obvious alternative — escaping the two halves either side of the link and concatenating —
+ * needs the sentence split before it is translated, which makes every catalogue value two values
+ * and puts the sentence's word order in this file. This keeps one value per language, and the
+ * only thing this file decides is where the anchor goes.
+ *
+ * It carries no character `escapeHtml` touches, which is what makes the substitution exact.
+ */
+const LINK_SLOT = 'ONELINKSLOT';
+
+/**
+ * One notice, rendered.
+ *
+ * THE LINK IS DROPPED, AND THE SENTENCE IS NOT, WHEN THERE IS NO ADDRESS TO LINK TO. A
+ * self-hosted instance publishes neither address, and so does an instance whose `/api/v1/info`
+ * read failed. "Please pay your pending invoice here." with no link still tells the person what
+ * has to happen; an anchor with no destination tells them to click something that does nothing.
+ */
+function commercialNoticeSentence(notice, addresses) {
+  const href = notice.link === null ? null : (addresses?.[notice.link] ?? null);
+  const sentence = escapeHtml(t(notice.messageKey, {days: notice.days, link: LINK_SLOT}));
+  const word = escapeHtml(t('one.commercial.notice.linkWord'));
+  if (href === null) return sentence.split(LINK_SLOT).join(word);
+  return sentence.split(LINK_SLOT).join(
+    `<a href="${escapeHtml(href)}" data-notice-link="${escapeHtml(notice.link)}">${word}</a>`,
+  );
 }
 
 /**
@@ -2528,6 +2825,7 @@ export async function boot() {
 
     await loadOrganization();
     await loadTeams();
+    await loadPublishedAddresses();
 
     state.route = parseRoute(location.search, document.body?.dataset?.defaultView);
     await loadViews();
@@ -2566,6 +2864,31 @@ function navigatorLanguages() {
  * organization, and losing the whole page over a surface most users never see would be worse
  * than losing that surface.
  */
+/**
+ * The two addresses the instance publishes, read once at boot.
+ *
+ * IT CAN NEVER FAIL THE BOOT, and that is the whole reason it swallows. `GET /api/v1/info` is
+ * unauthenticated and is the only call here that is not needed to draw the page: the addresses
+ * decorate one notice most sessions never see. Letting a failure here reach boot's catch would
+ * replace a working task screen with the fatal surface over a link.
+ *
+ * Both values stay null on failure, which is the same state a self-hosted instance is in
+ * permanently, so the notice already renders correctly for it.
+ */
+async function loadPublishedAddresses() {
+  try {
+    const info = await api.getInfo();
+    const checkout = info?.brazn_checkout_url;
+    const account = info?.brazn_account_url;
+    state.addresses = {
+      checkout: typeof checkout === 'string' && checkout !== '' ? checkout : null,
+      account: typeof account === 'string' && account !== '' ? account : null,
+    };
+  } catch (err) {
+    console.warn('[one/app] published addresses unavailable', err);
+  }
+}
+
 async function loadOrganization() {
   try {
     state.organization = await api.getOrganization();

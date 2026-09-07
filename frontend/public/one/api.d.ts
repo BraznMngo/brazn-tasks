@@ -89,6 +89,21 @@ export function isPersonalEdition(): boolean
 export function hasEditionClaim(): boolean
 export function isWriteRestricted(): boolean
 
+/** The three reasons the commercial service gives for cutting writes back. */
+export const WRITE_REASON_TRIAL_ENDED: 'trial_ended'
+export const WRITE_REASON_INVOICE_UNPAID: 'invoice_unpaid'
+export const WRITE_REASON_SIGNUP_UNCONFIRMED: 'signup_unconfirmed'
+
+export type WriteReason =
+	| 'trial_ended'
+	| 'invoice_unpaid'
+	| 'signup_unconfirmed'
+
+/** `brazn_write_reason`, or null when absent or not one of the three. */
+export function getWriteReason(): WriteReason | null
+/** `brazn_write_grace_until` in epoch MILLISECONDS, or null. Present while writing still works. */
+export function getWriteGraceUntil(): number | null
+
 /* --- the commercial guard (ruling C14) ---------------------------- */
 
 /**
