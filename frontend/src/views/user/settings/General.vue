@@ -71,10 +71,6 @@
 				:label="$t('user.settings.general.showLastViewed')"
 			/>
 			<FormCheckbox
-				v-model="settings.emailRemindersEnabled"
-				:label="$t('user.settings.general.emailReminders')"
-			/>
-			<FormCheckbox
 				v-model="settings.overdueTasksRemindersEnabled"
 				:label="$t('user.settings.general.overdueReminders')"
 			/>

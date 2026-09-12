@@ -58,8 +58,9 @@ export default class NotificationModel extends AbstractModel<INotification> impl
 				break
 			case NOTIFICATION_NAMES.TASK_REMINDER:
 				this.notification = {
-					task: new TaskModel(this.notification.task),
-					project: new ProjectModel(this.notification.project),
+					task: this.notification.task ? new TaskModel(this.notification.task) : null,
+					project: this.notification.project ? new ProjectModel(this.notification.project) : null,
+					text: this.notification.text,
 				}
 				break
 			case NOTIFICATION_NAMES.TASK_MENTIONED:
@@ -101,6 +102,9 @@ export default class NotificationModel extends AbstractModel<INotification> impl
 
 				return `added ${who} to the ${this.notification.team.name} team`
 			case NOTIFICATION_NAMES.TASK_REMINDER:
+				if (!this.notification.task) {
+					return `Reminder: ${this.notification.text ?? ''}`
+				}
 				return `Reminder for ${this.notification.task.getTextIdentifier()} ${this.notification.task.title} (${this.notification.project.title})`
 			case NOTIFICATION_NAMES.TASK_MENTIONED:
 				return `${getDisplayName(this.notification.doer)} mentioned you on ${this.notification.task.getTextIdentifier()}`

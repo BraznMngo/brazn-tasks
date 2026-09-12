@@ -38,9 +38,12 @@ interface NotificationCreated extends Notification {
 	project: IProject
 }
 
+// A reminder about nothing in particular has no task and no project. `text` then carries
+// the words the person asked to be reminded with.
 interface NotificationTaskReminder extends Notification {
-	task: ITask
-	project: IProject
+	task: ITask | null
+	project: IProject | null
+	text?: string
 }
 
 interface NotificationMemberAdded extends Notification {

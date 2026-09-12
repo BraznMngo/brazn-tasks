@@ -70,6 +70,9 @@
                 }
             }
         },
+        "reminder": {
+            "subject": "Reminder: %[1]s"
+        },
         "task": {
             "reminder": {
                 "subject": "Reminder for \"%[1]s\" (%[2]s)",

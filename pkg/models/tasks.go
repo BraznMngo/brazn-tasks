@@ -1830,6 +1830,20 @@ func updateRelativeReminderDates(task *Task) (err error) {
 // The parameter is a slice which holds the new reminders.
 func (t *Task) updateReminders(s *xorm.Session, task *Task) (err error) {
 
+	// Rewriting the rows must not lose which reminders already fired, or editing a task
+	// would make every reminder on it that has already gone off fire a second time.
+	existingReminders := []*TaskReminder{}
+	err = s.Where("task_id = ?", t.ID).Find(&existingReminders)
+	if err != nil {
+		return
+	}
+	firedAt := make(map[int64]time.Time, len(existingReminders))
+	for _, r := range existingReminders {
+		if !r.FiredAt.IsZero() {
+			firedAt[r.Reminder.UTC().Unix()] = r.FiredAt
+		}
+	}
+
 	_, err = s.
 		Where("task_id = ?", t.ID).
 		Delete(&TaskReminder{})
@@ -1856,7 +1870,9 @@ func (t *Task) updateReminders(s *xorm.Session, task *Task) (err error) {
 			TaskID:         t.ID,
 			Reminder:       r.Reminder,
 			RelativePeriod: r.RelativePeriod,
-			RelativeTo:     r.RelativeTo}
+			RelativeTo:     r.RelativeTo,
+			SubjectKind:    ReminderSubjectTask,
+			FiredAt:        firedAt[r.Reminder.UTC().Unix()]}
 		_, err = s.Insert(taskReminder)
 		if err != nil {
 			return err

@@ -1183,6 +1183,58 @@ func (err ErrReminderRelativeToMissing) HTTPError() web.HTTPError {
 	}
 }
 
+// ErrReminderDoesNotExist represents an error where a reminder does not exist
+type ErrReminderDoesNotExist struct {
+	ID int64
+}
+
+// IsErrReminderDoesNotExist checks if an error is ErrReminderDoesNotExist.
+func IsErrReminderDoesNotExist(err error) bool {
+	_, ok := err.(ErrReminderDoesNotExist)
+	return ok
+}
+
+func (err ErrReminderDoesNotExist) Error() string {
+	return fmt.Sprintf("Reminder does not exist [ID: %v]", err.ID)
+}
+
+// ErrCodeReminderDoesNotExist holds the unique world-error code of this error
+const ErrCodeReminderDoesNotExist = 4030
+
+// HTTPError holds the http error description
+func (err ErrReminderDoesNotExist) HTTPError() web.HTTPError {
+	return web.HTTPError{
+		HTTPCode: http.StatusNotFound,
+		Code:     ErrCodeReminderDoesNotExist,
+		Message:  "This reminder does not exist.",
+	}
+}
+
+// ErrReminderMomentMissing represents an error where a reminder has no moment to fire at
+type ErrReminderMomentMissing struct{}
+
+// IsErrReminderMomentMissing checks if an error is ErrReminderMomentMissing.
+func IsErrReminderMomentMissing(err error) bool {
+	_, ok := err.(ErrReminderMomentMissing)
+	return ok
+}
+
+func (err ErrReminderMomentMissing) Error() string {
+	return "Reminder has no moment to fire at"
+}
+
+// ErrCodeReminderMomentMissing holds the unique world-error code of this error
+const ErrCodeReminderMomentMissing = 4031
+
+// HTTPError holds the http error description
+func (err ErrReminderMomentMissing) HTTPError() web.HTTPError {
+	return web.HTTPError{
+		HTTPCode: http.StatusBadRequest,
+		Code:     ErrCodeReminderMomentMissing,
+		Message:  "Please provide the moment the reminder should fire at.",
+	}
+}
+
 // ErrTaskRelationCycle represents an error where the user tries to create an already existing relation
 type ErrTaskRelationCycle struct {
 	Kind        RelationKind

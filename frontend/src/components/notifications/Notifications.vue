@@ -179,7 +179,11 @@ onUnmounted(() => {
 
 function startPollingFallback() {
 	pollInterval = setInterval(async () => {
-		if (!wsConnected.value && document.visibilityState === 'visible') {
+		// Polls even while the socket is up, because the socket only announces new
+		// notifications. When something else marks one read - ONE reporting a reminder it
+		// has acted on, or another browser tab - re-reading the list is the only way the
+		// unread count here comes down.
+		if (document.visibilityState === 'visible') {
 			await loadNotifications()
 		}
 	}, POLL_INTERVAL)
@@ -208,8 +212,14 @@ function getNotificationRoute(n: INotification): RouteLocationRaw | null {
 		case names.TASK_COMMENT:
 		case names.TASK_ASSIGNED:
 		case names.TASK_REMINDER:
-		case names.TASK_MENTIONED:
-			return {name: 'task.detail', params: {id: (n.notification as {task: {id: number}}).task.id}}
+		case names.TASK_MENTIONED: {
+			// A reminder about nothing in particular has no task to open.
+			const task = (n.notification as {task: {id: number} | null}).task
+			if (!task) {
+				return null
+			}
+			return {name: 'task.detail', params: {id: task.id}}
+		}
 		case names.PROJECT_CREATED:
 			return {name: 'task.index', params: {projectId: (n.notification as {project: {id: number}}).project.id}}
 		case names.TEAM_MEMBER_ADDED:
