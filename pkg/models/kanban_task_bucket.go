@@ -187,7 +187,7 @@ func updateTaskBucket(s *xorm.Session, a web.Auth, b *TaskBucket) (err error) {
 			return
 		}
 
-		err = task.updateReminders(s, task)
+		err = task.updateReminders(s, task, a)
 		if err != nil {
 			return
 		}

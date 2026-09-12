@@ -17,6 +17,7 @@
 package models
 
 import (
+	"strconv"
 	"time"
 
 	"code.vikunja.io/api/pkg/config"
@@ -87,6 +88,19 @@ type TaskReminder struct {
 // TableName returns a pretty table name
 func (TaskReminder) TableName() string {
 	return "task_reminders"
+}
+
+// reminderIdentity names a reminder within its task, so that a task's reminders can be
+// rewritten without losing what was already known about each one.
+//
+// A reminder tied to one of the task's dates is named by that tie, because its moment moves
+// whenever that date does and naming it by the moment would lose it on every date change.
+// One that stands at a fixed moment is named by that moment, which is all it has.
+func reminderIdentity(r *TaskReminder) string {
+	if r.RelativeTo != "" {
+		return "relative:" + string(r.RelativeTo) + ":" + strconv.FormatInt(r.RelativePeriod, 10)
+	}
+	return "at:" + strconv.FormatInt(r.Reminder.UTC().Unix(), 10)
 }
 
 // standaloneRemindersOf names the reminders about nothing which belong to one person.
@@ -345,19 +359,25 @@ func getTaskUsersForTasks(s *xorm.Session, taskIDs []int64, cond builder.Cond) (
 	return
 }
 
-// getTasksWithRemindersDueAndTheirUsers returns everybody who has to be told about every
-// reminder that is due and has not fired yet.
+// getTasksWithRemindersDueAndTheirUsers returns the one person to tell about each reminder
+// that is due and has not fired yet.
 //
 // "Due" means the moment has passed, not that it falls inside the coming minute, so a
 // reminder whose moment went by while nothing was running still fires on the next pass.
 // The reminders it returns carry no fired timestamp; stamping them is the caller's job,
 // and it belongs after the notification is written.
 //
+// Every reminder reaches the person it belongs to and nobody else, whether it is about a
+// task or about nothing at all. A reminder on a task somebody shares therefore no longer
+// tells everybody who can see that task, and it no longer asks whether its person can still
+// see the task before telling them. That is why this reads neither the task's people nor
+// their permissions, where it once read both.
+//
 // It takes no recipient filter, and used to. The filter narrowed the people it read to those
 // whose email preference was switched on, and nothing narrows them now: firing a reminder
-// writes a notification record for everybody who has to be told, whatever any mail setting
-// says. The overdue digest still filters its own recipients and still passes one to
-// getTaskUsersForTasks, which is why that function keeps the argument.
+// writes a notification record whatever any mail setting says. The overdue digest still
+// filters its own recipients and still passes one to getTaskUsersForTasks, which is why that
+// function keeps the argument.
 func getTasksWithRemindersDueAndTheirUsers(s *xorm.Session, now time.Time) (reminderNotifications []*ReminderDueNotification, err error) {
 	now = utils.GetTimeWithoutNanoSeconds(now)
 	reminderNotifications = []*ReminderDueNotification{}
@@ -407,51 +427,46 @@ func getTasksWithRemindersDueAndTheirUsers(s *xorm.Session, now time.Time) (remi
 			continue
 		}
 		due = append(due, r)
-		if r.SubjectKind == ReminderSubjectNone {
-			ownerIDs = append(ownerIDs, r.CreatedByID)
-			continue
+		ownerIDs = append(ownerIDs, r.CreatedByID)
+		if r.SubjectKind != ReminderSubjectNone {
+			taskIDs = append(taskIDs, r.TaskID)
 		}
-		taskIDs = append(taskIDs, r.TaskID)
 	}
 
 	if len(due) == 0 {
 		return
 	}
 
-	usersPerTask := make(map[int64][]*taskUser)
+	// The tasks are read plainly, by id, with nobody's permission consulted. A reminder
+	// belongs to the person who set it and follows them rather than the task: moving the
+	// task somewhere they can no longer see must not take their own reminder away.
+	tasks := make(map[int64]*Task)
 	projects := make(map[int64]*Project)
 	if len(taskIDs) > 0 {
-		usersWithReminders, err := getTaskUsersForTasks(s, taskIDs, nil)
+		err = s.In("id", taskIDs).Find(&tasks)
 		if err != nil {
-			return nil, err
-		}
-
-		for _, ur := range usersWithReminders {
-			usersPerTask[ur.Task.ID] = append(usersPerTask[ur.Task.ID], ur)
+			return
 		}
 
 		projects, err = GetProjectsMapSimpleByTaskIDs(s, taskIDs)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	owners := make(map[int64]*user.User)
-	if len(ownerIDs) > 0 {
-		owners, err = user.GetUsersByCond(s, builder.In("id", ownerIDs))
 		if err != nil {
 			return
 		}
 	}
 
-	seen := make(map[int64]map[int64]bool)
+	owners, err := user.GetUsersByCond(s, builder.In("id", ownerIDs))
+	if err != nil {
+		return
+	}
+
 	for _, r := range due {
+		u, has := owners[r.CreatedByID]
+		if !has {
+			log.Errorf("[Task Reminder Cron] Reminder %d has nobody to remind, skipping", r.ID)
+			continue
+		}
+
 		if r.SubjectKind == ReminderSubjectNone {
-			u, has := owners[r.CreatedByID]
-			if !has {
-				log.Errorf("[Task Reminder Cron] Reminder %d is about nothing and has no owner, skipping", r.ID)
-				continue
-			}
 			reminderNotifications = append(reminderNotifications, &ReminderDueNotification{
 				User:         u,
 				TaskReminder: r,
@@ -460,23 +475,18 @@ func getTasksWithRemindersDueAndTheirUsers(s *xorm.Session, now time.Time) (remi
 			continue
 		}
 
-		for _, u := range usersPerTask[r.TaskID] {
-			// This ensures we send each reminder only once to each user
-			if seen[r.ID] == nil {
-				seen[r.ID] = make(map[int64]bool)
-			}
-			if _, exists := seen[r.ID][u.User.ID]; exists {
-				continue
-			}
-			seen[r.ID][u.User.ID] = true
-
-			reminderNotifications = append(reminderNotifications, &ReminderDueNotification{
-				User:         u.User,
-				Task:         u.Task,
-				Project:      projects[u.Task.ProjectID],
-				TaskReminder: r,
-			})
+		task, hasTask := tasks[r.TaskID]
+		if !hasTask {
+			log.Errorf("[Task Reminder Cron] Reminder %d is about task %d, which is gone, skipping", r.ID, r.TaskID)
+			continue
 		}
+
+		reminderNotifications = append(reminderNotifications, &ReminderDueNotification{
+			User:         u,
+			Task:         task,
+			Project:      projects[task.ProjectID],
+			TaskReminder: r,
+		})
 	}
 
 	return
