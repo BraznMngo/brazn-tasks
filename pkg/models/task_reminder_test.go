@@ -49,7 +49,7 @@ func TestReminderSweepSelectsWhatIsDueAndHasNotFired(t *testing.T) {
 		s := db.NewSession()
 		defer s.Close()
 
-		due, err := getTasksWithRemindersDueAndTheirUsers(s, dueMoment, nil)
+		due, err := getTasksWithRemindersDueAndTheirUsers(s, dueMoment)
 		require.NoError(t, err)
 		require.Len(t, due, 1)
 		assert.Equal(t, int64(6), due[0].TaskReminder.ID,
@@ -62,7 +62,7 @@ func TestReminderSweepSelectsWhatIsDueAndHasNotFired(t *testing.T) {
 		s := db.NewSession()
 		defer s.Close()
 
-		due, err := getTasksWithRemindersDueAndTheirUsers(s, dueMoment, nil)
+		due, err := getTasksWithRemindersDueAndTheirUsers(s, dueMoment)
 		require.NoError(t, err)
 		for _, n := range due {
 			assert.NotEqual(t, int64(51), n.TaskReminder.TaskID,
@@ -77,7 +77,7 @@ func TestReminderSweepSelectsWhatIsDueAndHasNotFired(t *testing.T) {
 
 		before, err := time.Parse(time.RFC3339Nano, "2018-07-01T00:00:00Z")
 		require.NoError(t, err)
-		due, err := getTasksWithRemindersDueAndTheirUsers(s, before, nil)
+		due, err := getTasksWithRemindersDueAndTheirUsers(s, before)
 		require.NoError(t, err)
 		assert.Empty(t, due, "no fixture reminder has come due by July 2018")
 	})
@@ -90,7 +90,7 @@ func TestReminderSweepSelectsWhatIsDueAndHasNotFired(t *testing.T) {
 		_, err := s.Exec("UPDATE task_reminders SET fired_at = reminder WHERE id = ?", 6)
 		require.NoError(t, err)
 
-		due, err := getTasksWithRemindersDueAndTheirUsers(s, dueMoment, nil)
+		due, err := getTasksWithRemindersDueAndTheirUsers(s, dueMoment)
 		require.NoError(t, err)
 		assert.Empty(t, due,
 			"the only reminder that was due carries a fired stamp, so nothing is left to fire")

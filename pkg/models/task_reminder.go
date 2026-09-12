@@ -352,7 +352,13 @@ func getTaskUsersForTasks(s *xorm.Session, taskIDs []int64, cond builder.Cond) (
 // reminder whose moment went by while nothing was running still fires on the next pass.
 // The reminders it returns carry no fired timestamp; stamping them is the caller's job,
 // and it belongs after the notification is written.
-func getTasksWithRemindersDueAndTheirUsers(s *xorm.Session, now time.Time, cond builder.Cond) (reminderNotifications []*ReminderDueNotification, err error) {
+//
+// It takes no recipient filter, and used to. The filter narrowed the people it read to those
+// whose email preference was switched on, and nothing narrows them now: firing a reminder
+// writes a notification record for everybody who has to be told, whatever any mail setting
+// says. The overdue digest still filters its own recipients and still passes one to
+// getTaskUsersForTasks, which is why that function keeps the argument.
+func getTasksWithRemindersDueAndTheirUsers(s *xorm.Session, now time.Time) (reminderNotifications []*ReminderDueNotification, err error) {
 	now = utils.GetTimeWithoutNanoSeconds(now)
 	reminderNotifications = []*ReminderDueNotification{}
 
@@ -415,7 +421,7 @@ func getTasksWithRemindersDueAndTheirUsers(s *xorm.Session, now time.Time, cond 
 	usersPerTask := make(map[int64][]*taskUser)
 	projects := make(map[int64]*Project)
 	if len(taskIDs) > 0 {
-		usersWithReminders, err := getTaskUsersForTasks(s, taskIDs, cond)
+		usersWithReminders, err := getTaskUsersForTasks(s, taskIDs, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -514,7 +520,7 @@ func RegisterReminderCron() {
 // 4, 5 and 10 of BRA-1571 are all about what happens across two passes, and nothing could
 // observe that while this was an anonymous closure inside a scheduler registration.
 func fireDueReminders(s *xorm.Session, now time.Time, webhookEnabled bool) error {
-	reminders, err := getTasksWithRemindersDueAndTheirUsers(s, now, nil)
+	reminders, err := getTasksWithRemindersDueAndTheirUsers(s, now)
 	if err != nil {
 		return err
 	}

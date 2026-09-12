@@ -131,17 +131,18 @@ func taskCount(t *testing.T, s *xorm.Session) int64 {
 // does, so a datetime written as raw text and read back through the ORM comes back shifted by
 // the host's offset on any machine that is not on UTC. Writing it the way the application
 // writes it means the round trip is consistent wherever this runs.
-func insertTaskReminder(t *testing.T, s *xorm.Session, taskID int64, moment time.Time) *TaskReminder {
+// It returns nothing. Every caller establishes a precondition and then asks the sweep what it
+// found, so a returned row would be a handle nobody reads; the tests that need the identifier
+// read it back from the table, which is also the harsher question to ask.
+func insertTaskReminder(t *testing.T, s *xorm.Session, taskID int64, moment time.Time) {
 	t.Helper()
 
-	r := &TaskReminder{
+	_, err := s.Insert(&TaskReminder{
 		TaskID:      taskID,
 		Reminder:    moment.UTC(),
 		SubjectKind: ReminderSubjectTask,
-	}
-	_, err := s.Insert(r)
+	})
 	require.NoError(t, err)
-	return r
 }
 
 // stampFired puts a reminder into the state a previous pass would have left it in, without
@@ -447,7 +448,7 @@ func TestBRA1571TheSweepReadsTheRemindersOwnIdentity(t *testing.T) {
 	require.NotEqual(t, int64(1), reminderID,
 		"this test needs a reminder whose id differs from its task's, or it cannot tell them apart")
 
-	due, err := getTasksWithRemindersDueAndTheirUsers(s, time.Now(), nil)
+	due, err := getTasksWithRemindersDueAndTheirUsers(s, time.Now())
 	require.NoError(t, err)
 	require.NotEmpty(t, due)
 
@@ -473,7 +474,7 @@ func TestBRA1571TheSweepReadsTheRemindersOwnIdentity(t *testing.T) {
 		_, err := CreateStandaloneReminder(s, person, past, "and I still belong to somebody")
 		return err
 	}())
-	due, err = getTasksWithRemindersDueAndTheirUsers(s, time.Now(), nil)
+	due, err = getTasksWithRemindersDueAndTheirUsers(s, time.Now())
 	require.NoError(t, err)
 	var mine *ReminderDueNotification
 	for _, n := range due {
@@ -548,11 +549,26 @@ func TestBRA1571CreateListAndRemoveAReminderAboutNothing(t *testing.T) {
 	assert.Equal(t, int64(1), total, "a removed reminder is gone from the list")
 
 	// And a removed reminder does not fire.
+	//
+	// The words are matched in Go rather than in the query. The payload column holds JSON, and
+	// Postgres — which is what production runs — has no text-matching operator for a JSON
+	// column, so a query that pattern-matches it is refused outright rather than answering
+	// wrongly. Reading the rows and looking at them here asks the same question on every
+	// database this project supports.
 	require.NoError(t, fireDueReminders(s, soon.Add(time.Minute), false))
-	assert.Equal(t, int64(0), countReminderRows(t, s,
-		"SELECT COUNT(*) FROM notifications WHERE notifiable_id = ? AND name = ? AND notification LIKE ?",
-		person.ID, "task.reminder", "%the sooner one%"),
-		"a reminder that was removed must not fire")
+	payloads := []string{}
+	require.NoError(t, s.
+		Table("notifications").
+		Cols("notification").
+		Where("notifiable_id = ? AND name = ?", person.ID, "task.reminder").
+		Find(&payloads))
+	// The task's own reminder was due at the same moment and was not removed, so something
+	// must have fired. Without this the loop below could pass over nothing at all.
+	require.NotEmpty(t, payloads, "the task's reminder was due and must have fired")
+	for _, payload := range payloads {
+		assert.NotContains(t, payload, "the sooner one",
+			"a reminder that was removed must not fire")
+	}
 }
 
 // A task's reminders are a field that replaces whole, and that is a data-loss hazard rather
@@ -581,7 +597,12 @@ func TestBRA1571ATasksRemindersReplaceWholeSoACallerMustReadFirst(t *testing.T) 
 	existing := []*TaskReminder{}
 	require.NoError(t, s.Where("task_id = ?", 1).OrderBy("reminder ASC").Find(&existing))
 	require.Len(t, existing, 2)
-	all := append(existing, &TaskReminder{Reminder: third})
+	// Copied rather than appended in place. Appending to a slice read from the database and
+	// naming the result something else leaves two names for one array, and whichever of them
+	// the assertions below read would depend on whether the append had to grow it.
+	all := make([]*TaskReminder, 0, len(existing)+1)
+	all = append(all, existing...)
+	all = append(all, &TaskReminder{Reminder: third})
 	require.NoError(t, (&Task{ID: 1, Reminders: all}).Update(s, person))
 
 	kept := []*TaskReminder{}
