@@ -41,8 +41,7 @@
 					v-for="(n, index) in notifications"
 					:key="n.id"
 					class="single-notification"
-					:class="{'is-clickable': notificationHasRoute(n)}"
-					@click="() => notificationHasRoute(n) && to(n, index)()"
+					@click="to(n, index)()"
 				>
 					<div
 						class="read-indicator"
@@ -229,18 +228,18 @@ function getNotificationRoute(n: INotification): RouteLocationRaw | null {
 	}
 }
 
-function notificationHasRoute(n: INotification): boolean {
-	return getNotificationRoute(n) !== null
-}
-
 function to(n: INotification, index: number) {
 	return async () => {
 		const route = getNotificationRoute(n)
-		if (route === null) return
-		
-		const failure = await router.push(route)
-		if (isNavigationFailure(failure, NavigationFailureType.duplicated)) {
-			router.go(0)
+
+		// Reading it is the action and going somewhere is optional. A reminder about
+		// nothing in particular has nothing to open, and so does a notification about a
+		// task that was deleted, and both still have to be clearable from here.
+		if (route !== null) {
+			const failure = await router.push(route)
+			if (isNavigationFailure(failure, NavigationFailureType.duplicated)) {
+				router.go(0)
+			}
 		}
 
 		n.read = true
@@ -249,7 +248,11 @@ function to(n: INotification, index: number) {
 			Object.assign(allNotifications.value[index], await notificationService.update(n))
 		}
 
-		showNotifications.value = false
+		// Only a click that took the person somewhere else closes the list. Marking one as
+		// seen leaves it open, so they can see the mark land and deal with the rest.
+		if (route !== null) {
+			showNotifications.value = false
+		}
 	}
 }
 
@@ -325,12 +328,9 @@ async function markAllRead() {
 			display: flex;
 			align-items: center;
 			padding: 0.25rem 0;
+			cursor: pointer;
 
 			transition: background-color $transition;
-
-			&.is-clickable {
-				cursor: pointer;
-			}
 
 			&:hover {
 				background: var(--grey-100);
