@@ -356,6 +356,8 @@
     { "method": "PUT", "path": "/api/v2/projects/:project/webhooks/:webhook", "class": "access-expanding", "managed": "disabled" },
     { "method": "POST", "path": "/api/v2/projects/:projectid/duplicate", "class": "protected-topology", "managed": "project-duplicate" },
     { "method": "POST", "path": "/api/v2/register", "class": "access-expanding", "managed": "service-managed" },
+    { "method": "POST", "path": "/api/v2/reminders", "class": "ordinary" },
+    { "method": "DELETE", "path": "/api/v2/reminders/:id", "class": "ordinary" },
     { "method": "POST", "path": "/api/v2/shares/:share/auth", "class": "ordinary", "write": "authentication" },
     { "method": "DELETE", "path": "/api/v2/subscriptions/:entity/:entityID", "class": "ordinary" },
     { "method": "POST", "path": "/api/v2/subscriptions/:entity/:entityID", "class": "ordinary" },

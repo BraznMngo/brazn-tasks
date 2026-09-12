@@ -22,35 +22,78 @@ import (
 
 	"code.vikunja.io/api/pkg/db"
 
-	"xorm.io/builder"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestReminderGetTasksInTheNextMinute(t *testing.T) {
-	t.Run("Found Tasks", func(t *testing.T) {
+// TestReminderSweepSelectsWhatIsDueAndHasNotFired replaces
+// TestReminderGetTasksInTheNextMinute, which asserted the semantics BRA-1571 removes.
+//
+// That test pinned "due" to the coming minute: one reminder found at a fixture moment, none
+// found at a later one. Both statements are now wrong on purpose. A reminder whose moment went
+// by while nothing was running has to fire on the next pass (acceptance 4), so the sweep looks
+// at everything that has come due and not fired rather than at a one-minute window, and
+// "nothing is due" is now established by the stamp rather than by the clock having moved on.
+//
+// The window is not simply widened here. What replaces it is the pair of conditions that
+// actually decide the outcome: the moment has passed, and the reminder carries no fired stamp.
+func TestReminderSweepSelectsWhatIsDueAndHasNotFired(t *testing.T) {
+	// 2018-12-01 01:12:00Z: fixture reminder 6 (task 47) went by in August and never fired,
+	// so it is due. Reminder 8 falls on this exact moment but sits on the soft-deleted task
+	// 51, and reminders 1 to 5 and 7 are all still to come.
+	dueMoment, err := time.Parse(time.RFC3339Nano, "2018-12-01T01:12:00Z")
+	require.NoError(t, err)
+
+	t.Run("a moment that has passed is due, however long ago it went by", func(t *testing.T) {
 		db.LoadAndAssertFixtures(t)
 		s := db.NewSession()
 		defer s.Close()
 
-		now, err := time.Parse(time.RFC3339Nano, "2018-12-01T01:12:00Z")
+		due, err := getTasksWithRemindersDueAndTheirUsers(s, dueMoment)
 		require.NoError(t, err)
-		notifications, err := getTasksWithRemindersDueAndTheirUsers(s, now, builder.Eq{"users.email_reminders_enabled": true})
-		require.NoError(t, err)
-		assert.Len(t, notifications, 1)
-		assert.Equal(t, int64(27), notifications[0].Task.ID)
+		require.Len(t, due, 1)
+		assert.Equal(t, int64(6), due[0].TaskReminder.ID,
+			"the reminder that went by in August is the one that is due")
+		assert.Equal(t, int64(47), due[0].Task.ID)
 	})
-	t.Run("Found No Tasks", func(t *testing.T) {
+
+	t.Run("a soft-deleted task's reminder is never due, even at its exact moment", func(t *testing.T) {
 		db.LoadAndAssertFixtures(t)
 		s := db.NewSession()
 		defer s.Close()
 
-		now, err := time.Parse(time.RFC3339Nano, "2018-12-02T01:13:00Z")
+		due, err := getTasksWithRemindersDueAndTheirUsers(s, dueMoment)
 		require.NoError(t, err)
-		taskIDs, err := getTasksWithRemindersDueAndTheirUsers(s, now, builder.Eq{"users.email_reminders_enabled": true})
+		for _, n := range due {
+			assert.NotEqual(t, int64(51), n.TaskReminder.TaskID,
+				"reminder 8 sits on the deleted task 51 and falls on this exact moment")
+		}
+	})
+
+	t.Run("a moment still to come is not due", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		before, err := time.Parse(time.RFC3339Nano, "2018-07-01T00:00:00Z")
 		require.NoError(t, err)
-		assert.Empty(t, taskIDs)
+		due, err := getTasksWithRemindersDueAndTheirUsers(s, before)
+		require.NoError(t, err)
+		assert.Empty(t, due, "no fixture reminder has come due by July 2018")
+	})
+
+	t.Run("a reminder that already fired is not due again", func(t *testing.T) {
+		db.LoadAndAssertFixtures(t)
+		s := db.NewSession()
+		defer s.Close()
+
+		_, err := s.Exec("UPDATE task_reminders SET fired_at = reminder WHERE id = ?", 6)
+		require.NoError(t, err)
+
+		due, err := getTasksWithRemindersDueAndTheirUsers(s, dueMoment)
+		require.NoError(t, err)
+		assert.Empty(t, due,
+			"the only reminder that was due carries a fired stamp, so nothing is left to fire")
 	})
 }
 

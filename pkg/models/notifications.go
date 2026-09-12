@@ -57,28 +57,30 @@ func getThreadID(taskID int64) string {
 	return fmt.Sprintf("<task-%d@%s>", taskID, mail.GetMailDomain())
 }
 
-// ReminderDueNotification represents a ReminderDueNotification notification
+// ReminderDueNotification represents a ReminderDueNotification notification.
+// Task and Project are empty when the reminder is about nothing at all; Text then carries
+// the words the person asked to be reminded with.
 type ReminderDueNotification struct {
 	User         *user.User    `json:"user,omitempty"`
 	Task         *Task         `json:"task"`
 	Project      *Project      `json:"project"`
 	TaskReminder *TaskReminder `json:"reminder"`
+	Text         string        `json:"text,omitempty"`
 }
 
 // ToTitle returns the translated one-line title for ReminderDueNotification
 func (n *ReminderDueNotification) ToTitle(lang string) string {
+	if n.Task == nil {
+		return i18n.T(lang, "notifications.reminder.subject", n.Text)
+	}
 	return i18n.T(lang, "notifications.task.reminder.subject", n.Task.Title, n.Project.Title)
 }
 
-// ToMail returns the mail notification for ReminderDueNotification
-func (n *ReminderDueNotification) ToMail(lang string) *notifications.Mail {
-	return notifications.NewMail().
-		IncludeLinkToSettings(lang).
-		To(n.User.Email).
-		Greeting(i18n.T(lang, "notifications.greeting", n.User.GetName())).
-		Line(i18n.T(lang, "notifications.task.reminder.message", notifications.EscapeMarkdown(n.Task.Title), notifications.EscapeMarkdown(n.Project.Title))).
-		Action(i18n.T(lang, "notifications.common.actions.open_task"), config.ServicePublicURL.GetString()+"tasks/"+strconv.FormatInt(n.Task.ID, 10)).
-		Line(i18n.T(lang, "notifications.common.have_nice_day"))
+// ToMail returns nothing: a reminder is delivered as a notification record and never as
+// mail. The record is written whatever the mail configuration says, so turning mail off no
+// longer takes the reminder and its seen state with it.
+func (n *ReminderDueNotification) ToMail(_ string) *notifications.Mail {
+	return nil
 }
 
 // ToDB returns the ReminderDueNotification notification in a format which can be saved in the db
@@ -86,17 +88,13 @@ func (n *ReminderDueNotification) ToDB() interface{} {
 	return &ReminderDueNotification{
 		Task:    n.Task,
 		Project: n.Project,
+		Text:    n.Text,
 	}
 }
 
 // Name returns the name of the notification
 func (n *ReminderDueNotification) Name() string {
 	return "task.reminder"
-}
-
-// ThreadID returns the thread ID for email threading
-func (n *ReminderDueNotification) ThreadID() string {
-	return getThreadID(n.Task.ID)
 }
 
 // TaskCommentNotification represents a TaskCommentNotification notification

@@ -614,10 +614,11 @@ func TestTaskCollection_ReadAll(t *testing.T) {
 		CreatedBy:   user1,
 		Reminders: []*TaskReminder{
 			{
-				ID:       6,
-				TaskID:   47,
-				Reminder: time.Date(2018, 8, 1, 12, 0, 0, 0, loc),
-				Created:  time.Unix(1543626724, 0).In(loc),
+				ID:          6,
+				TaskID:      47,
+				CreatedByID: 1,
+				Reminder:    time.Date(2018, 8, 1, 12, 0, 0, 0, loc),
+				Created:     time.Unix(1543626724, 0).In(loc),
 			},
 			{
 				ID:       7,

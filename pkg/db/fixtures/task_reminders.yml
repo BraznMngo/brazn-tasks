@@ -28,6 +28,7 @@
 # Reminder before the window:
 - id: 6
   task_id: 47
+  created_by_id: 1
   reminder: 2018-08-01 12:00:00
   created: 2018-12-01 01:12:04
 # Reminder after the window:

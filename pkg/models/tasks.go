@@ -1019,7 +1019,7 @@ func createTask(s *xorm.Session, t *Task, a web.Auth, updateAssignees bool, setB
 	}
 
 	// Update the reminders
-	if err := t.updateReminders(s, t); err != nil {
+	if err := t.updateReminders(s, t, a); err != nil {
 		return err
 	}
 
@@ -1328,7 +1328,7 @@ func (t *Task) updateSingleTask(s *xorm.Session, a web.Auth, fields []string) (e
 	}
 
 	// Update the reminders
-	if err := ot.updateReminders(s, t); err != nil {
+	if err := ot.updateReminders(s, t, a); err != nil {
 		return err
 	}
 
@@ -1828,7 +1828,39 @@ func updateRelativeReminderDates(task *Task) (err error) {
 // trying to figure out which reminders changed and then only re-add those needed. And since it does
 // not make a performance difference we'll just do that.
 // The parameter is a slice which holds the new reminders.
-func (t *Task) updateReminders(s *xorm.Session, task *Task) (err error) {
+func (t *Task) updateReminders(s *xorm.Session, task *Task, a web.Auth) (err error) {
+
+	// Rewriting the rows must not lose which reminders already fired, or editing a task
+	// would make every reminder on it that has already gone off fire a second time. Nor
+	// must it lose who a reminder belongs to, or saving somebody else's task would hand
+	// their reminder to whoever saved it.
+	existingReminders := []*TaskReminder{}
+	err = s.Where("task_id = ?", t.ID).Find(&existingReminders)
+	if err != nil {
+		return
+	}
+
+	// Two different questions need two different keys. "Has this already fired?" is asked
+	// of a moment, so moving a task's due date moves the firing, which is the point of a
+	// relative reminder. "Whose is this?" is asked of the reminder, which stays the same
+	// person's however its moment moves.
+	firedAt := make(map[int64]time.Time, len(existingReminders))
+	owner := make(map[string]int64, len(existingReminders))
+	for _, r := range existingReminders {
+		if !r.FiredAt.IsZero() {
+			firedAt[r.Reminder.UTC().Unix()] = r.FiredAt
+		}
+		if r.CreatedByID != 0 {
+			owner[reminderIdentity(r)] = r.CreatedByID
+		}
+	}
+
+	// Whoever is saving owns any reminder that was not already there. On a task nobody
+	// shares, that is the same person either way.
+	savedBy := int64(0)
+	if u, uErr := user.GetFromAuth(a); uErr == nil {
+		savedBy = u.ID
+	}
 
 	_, err = s.
 		Where("task_id = ?", t.ID).
@@ -1852,11 +1884,19 @@ func (t *Task) updateReminders(s *xorm.Session, task *Task) (err error) {
 
 	// Loop through all reminders and add them
 	for _, r := range reminderMap {
+		belongsTo, wasThere := owner[reminderIdentity(r)]
+		if !wasThere {
+			belongsTo = savedBy
+		}
+
 		taskReminder := &TaskReminder{
 			TaskID:         t.ID,
 			Reminder:       r.Reminder,
 			RelativePeriod: r.RelativePeriod,
-			RelativeTo:     r.RelativeTo}
+			RelativeTo:     r.RelativeTo,
+			SubjectKind:    ReminderSubjectTask,
+			CreatedByID:    belongsTo,
+			FiredAt:        firedAt[r.Reminder.UTC().Unix()]}
 		_, err = s.Insert(taskReminder)
 		if err != nil {
 			return err

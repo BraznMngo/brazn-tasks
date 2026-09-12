@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"embed"
+	"errors"
 	"html"
 	templatehtml "html/template"
 	"net/url"
@@ -599,8 +600,16 @@ func convertLinesToPlain(lines []*mailLine) []*mailLine {
 	return plain
 }
 
+var errNoMailToRender = errors.New("no mail to render")
+
 // RenderMail takes a precomposed mail message and renders it into a ready to send mail.Opts object
 func RenderMail(m *Mail, lang string) (mailOpts *mail.Opts, err error) {
+	// A notification kind which sends no mail builds nothing to render. Every caller in
+	// production checks for that first, so arriving here with nothing is a caller's
+	// mistake and should surface as an error rather than take the process down.
+	if m == nil {
+		return nil, errNoMailToRender
+	}
 
 	var htmlContent bytes.Buffer
 	var plainContent bytes.Buffer

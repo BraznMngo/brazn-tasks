@@ -17,6 +17,7 @@
 package models
 
 import (
+	"strconv"
 	"time"
 
 	"code.vikunja.io/api/pkg/config"
@@ -27,6 +28,7 @@ import (
 	"code.vikunja.io/api/pkg/notifications"
 	"code.vikunja.io/api/pkg/user"
 	"code.vikunja.io/api/pkg/utils"
+	"code.vikunja.io/api/pkg/web"
 
 	"xorm.io/builder"
 	"xorm.io/xorm"
@@ -42,11 +44,26 @@ const (
 	ReminderRelationEndDate   ReminderRelation = `end_date`
 )
 
+// ReminderSubject says what a reminder is about.
+type ReminderSubject string
+
+// All valid ReminderSubjects
+const (
+	// ReminderSubjectNone is a reminder about nothing in particular. It carries its own
+	// words, belongs to one person, and nothing can complete or delete it out from under it.
+	ReminderSubjectNone ReminderSubject = `none`
+	// ReminderSubjectTask is a reminder about a task. Its words are the task's title and
+	// it reaches everybody who can see that task.
+	ReminderSubjectTask ReminderSubject = `task`
+)
+
 // TaskReminder holds a reminder on a task.
 // If RelativeTo and the assciated date field are defined, then the attribute Reminder will be computed.
 // If RelativeTo is missing, than Reminder must be given.
 type TaskReminder struct {
-	ID     int64 `xorm:"bigint autoincr not null unique pk" json:"-"`
+	ID int64 `xorm:"bigint autoincr not null unique pk" json:"-"`
+	// 0 when SubjectKind is ReminderSubjectNone. The column stays not-null so that
+	// making a reminder's subject optional needed no table rebuild on live data.
 	TaskID int64 `xorm:"bigint not null INDEX" json:"-"`
 	// The absolute time when the user wants to be reminded of the task.
 	Reminder time.Time `xorm:"DATETIME not null INDEX 'reminder'" json:"reminder"`
@@ -55,11 +72,111 @@ type TaskReminder struct {
 	RelativePeriod int64 `xorm:"bigint null" json:"relative_period"`
 	// The name of the date field to which the relative period refers to.
 	RelativeTo ReminderRelation `xorm:"varchar(50) null" json:"relative_to"`
+	// What this reminder is about.
+	SubjectKind ReminderSubject `xorm:"varchar(20) null" json:"-"`
+	// The words this reminder fires with. Only a reminder with no subject carries them;
+	// a task reminder takes its words from the task.
+	Text string `xorm:"'reminder_text' longtext null" json:"-"`
+	// Who is reminded. Only set for a reminder with no subject.
+	CreatedByID int64 `xorm:"bigint null" json:"-"`
+	// When this reminder fired. Stamped after the notification is written, which is what
+	// makes the sweep idempotent: a restart, or a minute nothing was running, cannot fire
+	// it twice and cannot lose it.
+	FiredAt time.Time `xorm:"datetime null" json:"-"`
 }
 
 // TableName returns a pretty table name
 func (TaskReminder) TableName() string {
 	return "task_reminders"
+}
+
+// reminderIdentity names a reminder within its task, so that a task's reminders can be
+// rewritten without losing what was already known about each one.
+//
+// A reminder tied to one of the task's dates is named by that tie, because its moment moves
+// whenever that date does and naming it by the moment would lose it on every date change.
+// One that stands at a fixed moment is named by that moment, which is all it has.
+func reminderIdentity(r *TaskReminder) string {
+	if r.RelativeTo != "" {
+		return "relative:" + string(r.RelativeTo) + ":" + strconv.FormatInt(r.RelativePeriod, 10)
+	}
+	return "at:" + strconv.FormatInt(r.Reminder.UTC().Unix(), 10)
+}
+
+// standaloneRemindersOf names the reminders about nothing which belong to one person.
+func standaloneRemindersOf(userID int64) builder.Cond {
+	return builder.And(
+		builder.Eq{"created_by_id": userID},
+		builder.Eq{"subject_kind": string(ReminderSubjectNone)},
+	)
+}
+
+// CreateStandaloneReminder stores a reminder which is about nothing at all, belonging to
+// the person who asked for it. Its moment is stored in UTC and no task is created or
+// touched. A link share cannot set one, because there would be nobody to remind.
+func CreateStandaloneReminder(s *xorm.Session, a web.Auth, reminder time.Time, text string) (tr *TaskReminder, err error) {
+	u, err := user.GetFromAuth(a)
+	if err != nil {
+		return nil, err
+	}
+
+	if reminder.IsZero() {
+		return nil, ErrReminderMomentMissing{}
+	}
+
+	tr = &TaskReminder{
+		Reminder:    reminder.UTC(),
+		Text:        text,
+		SubjectKind: ReminderSubjectNone,
+		CreatedByID: u.ID,
+	}
+
+	_, err = s.Insert(tr)
+	return tr, err
+}
+
+// GetStandaloneReminders returns the reminders about nothing which belong to this person,
+// soonest first.
+func GetStandaloneReminders(s *xorm.Session, a web.Auth, limit, start int) (reminders []*TaskReminder, total int64, err error) {
+	u, err := user.GetFromAuth(a)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	reminders = []*TaskReminder{}
+	err = s.
+		Where(standaloneRemindersOf(u.ID)).
+		OrderBy("reminder ASC").
+		Limit(limit, start).
+		Find(&reminders)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err = s.Where(standaloneRemindersOf(u.ID)).Count(&TaskReminder{})
+	return reminders, total, err
+}
+
+// DeleteStandaloneReminder removes a reminder about nothing, fired or not. Only the person
+// it belongs to can, and a reminder about a task is not reachable this way: it is removed
+// with the task's own reminders.
+func DeleteStandaloneReminder(s *xorm.Session, a web.Auth, id int64) (err error) {
+	u, err := user.GetFromAuth(a)
+	if err != nil {
+		return err
+	}
+
+	deleted, err := s.
+		Where(builder.And(builder.Eq{"id": id}, standaloneRemindersOf(u.ID))).
+		Delete(&TaskReminder{})
+	if err != nil {
+		return err
+	}
+	if deleted == 0 {
+		return ErrReminderDoesNotExist{ID: id}
+	}
+
+	return nil
 }
 
 type taskUser struct {
@@ -242,21 +359,55 @@ func getTaskUsersForTasks(s *xorm.Session, taskIDs []int64, cond builder.Cond) (
 	return
 }
 
-func getTasksWithRemindersDueAndTheirUsers(s *xorm.Session, now time.Time, cond builder.Cond) (reminderNotifications []*ReminderDueNotification, err error) {
+// getTasksWithRemindersDueAndTheirUsers returns the one person to tell about each reminder
+// that is due and has not fired yet.
+//
+// "Due" means the moment has passed, not that it falls inside the coming minute, so a
+// reminder whose moment went by while nothing was running still fires on the next pass.
+// The reminders it returns carry no fired timestamp; stamping them is the caller's job,
+// and it belongs after the notification is written.
+//
+// Every reminder reaches the person it belongs to and nobody else, whether it is about a
+// task or about nothing at all. A reminder on a task somebody shares therefore no longer
+// tells everybody who can see that task, and it no longer asks whether its person can still
+// see the task before telling them. That is why this reads neither the task's people nor
+// their permissions, where it once read both.
+//
+// It takes no recipient filter, and used to. The filter narrowed the people it read to those
+// whose email preference was switched on, and nothing narrows them now: firing a reminder
+// writes a notification record whatever any mail setting says. The overdue digest still
+// filters its own recipients and still passes one to getTaskUsersForTasks, which is why that
+// function keeps the argument.
+func getTasksWithRemindersDueAndTheirUsers(s *xorm.Session, now time.Time) (reminderNotifications []*ReminderDueNotification, err error) {
 	now = utils.GetTimeWithoutNanoSeconds(now)
 	reminderNotifications = []*ReminderDueNotification{}
 
-	nextMinute := now.Add(1 * time.Minute)
+	log.Debugf("[Task Reminder Cron] Looking for reminders due at or before %s to send...", now)
 
-	log.Debugf("[Task Reminder Cron] Looking for reminders between %s and %s to send...", now, nextMinute)
-
+	// The bound is formatted text compared against a stored DATETIME, and the ORM stores
+	// every datetime column in UTC, so the bound is formatted in UTC too. It keeps the same
+	// 14h of slack the previous query carried, because the filter only has to be generous:
+	// the exact comparison below is on absolute instants. There is no lower bound, which is
+	// what lets a reminder that came due while nothing was running still fire.
+	//
+	// A reminder about nothing is not subject to the done-or-deleted filter, because it has
+	// nothing that could be done or deleted.
 	reminders := []*TaskReminder{}
 	err = s.
-		Join("INNER", "tasks", "tasks.id = task_reminders.task_id").
-		// All reminders from -12h to +14h to include all time zones
-		Where("reminder >= ? and reminder < ?", now.Add(time.Hour*-12).Format(dbTimeFormat), nextMinute.Add(time.Hour*14).Format(dbTimeFormat)).
-		And("tasks.done = false").
-		And("tasks.deleted_at IS NULL").
+		// The columns have to be named. Left to itself xorm selects * once a join is
+		// present, and tasks carries id, created and created_by_id too, so the task's
+		// values would land on the reminder and the wrong rows would be stamped as fired.
+		Select("task_reminders.*").
+		Join("LEFT", "tasks", "tasks.id = task_reminders.task_id").
+		Where("task_reminders.fired_at IS NULL").
+		And("task_reminders.reminder < ?", now.UTC().Add(time.Hour*14).Format(dbTimeFormat)).
+		And(builder.Or(
+			builder.Eq{"task_reminders.subject_kind": string(ReminderSubjectNone)},
+			builder.And(
+				builder.Eq{"tasks.done": false},
+				builder.IsNull{"tasks.deleted_at"},
+			),
+		)).
 		Find(&reminders)
 	if err != nil {
 		return
@@ -268,92 +419,87 @@ func getTasksWithRemindersDueAndTheirUsers(s *xorm.Session, now time.Time, cond 
 		return
 	}
 
+	due := make([]*TaskReminder, 0, len(reminders))
 	var taskIDs []int64
+	var ownerIDs []int64
 	for _, r := range reminders {
-		taskIDs = append(taskIDs, r.TaskID)
-	}
-
-	if len(taskIDs) == 0 {
-		return
-	}
-
-	usersWithReminders, err := getTaskUsersForTasks(s, taskIDs, cond)
-	if err != nil {
-		return
-	}
-
-	usersPerTask := make(map[int64][]*taskUser, len(usersWithReminders))
-	for _, ur := range usersWithReminders {
-		usersPerTask[ur.Task.ID] = append(usersPerTask[ur.Task.ID], ur)
-	}
-
-	seen := make(map[int64]map[int64]bool)
-
-	projects, err := GetProjectsMapSimpleByTaskIDs(s, taskIDs)
-	if err != nil {
-		return
-	}
-
-	// Time zone cache per time zone string to avoid parsing the same time zone over and over again
-	tzs := make(map[string]*time.Location)
-	// Figure out which reminders are actually due in the time zone of the users
-	for _, r := range reminders {
-
-		for _, u := range usersPerTask[r.TaskID] {
-
-			// This ensures we send each reminder only once to each user
-			if seen[r.TaskID] == nil {
-				seen[r.TaskID] = make(map[int64]bool)
-			}
-
-			if _, exists := seen[r.TaskID][u.User.ID]; exists {
-				continue
-			}
-
-			if u.User.Timezone == "" {
-				u.User.Timezone = config.GetTimeZone().String()
-			}
-
-			// I think this will break once there's more reminders than what we can handle in one minute
-			tz, exists := tzs[u.User.Timezone]
-			if !exists {
-				tz, err = time.LoadLocation(u.User.Timezone)
-				if err != nil {
-					return
-				}
-				tzs[u.User.Timezone] = tz
-			}
-
-			actualReminder := r.Reminder.In(tz)
-			if (actualReminder.After(now) && actualReminder.Before(now.Add(time.Minute))) || actualReminder.Equal(now) {
-				seen[r.TaskID][u.User.ID] = true
-
-				reminderNotifications = append(reminderNotifications, &ReminderDueNotification{
-					User:         u.User,
-					Task:         u.Task,
-					Project:      projects[u.Task.ProjectID],
-					TaskReminder: r,
-				})
-			}
+		if r.Reminder.After(now) {
+			continue
 		}
+		due = append(due, r)
+		ownerIDs = append(ownerIDs, r.CreatedByID)
+		if r.SubjectKind != ReminderSubjectNone {
+			taskIDs = append(taskIDs, r.TaskID)
+		}
+	}
+
+	if len(due) == 0 {
+		return
+	}
+
+	// The tasks are read plainly, by id, with nobody's permission consulted. A reminder
+	// belongs to the person who set it and follows them rather than the task: moving the
+	// task somewhere they can no longer see must not take their own reminder away.
+	tasks := make(map[int64]*Task)
+	projects := make(map[int64]*Project)
+	if len(taskIDs) > 0 {
+		err = s.In("id", taskIDs).Find(&tasks)
+		if err != nil {
+			return
+		}
+
+		projects, err = GetProjectsMapSimpleByTaskIDs(s, taskIDs)
+		if err != nil {
+			return
+		}
+	}
+
+	owners, err := user.GetUsersByCond(s, builder.In("id", ownerIDs))
+	if err != nil {
+		return
+	}
+
+	for _, r := range due {
+		u, has := owners[r.CreatedByID]
+		if !has {
+			log.Errorf("[Task Reminder Cron] Reminder %d has nobody to remind, skipping", r.ID)
+			continue
+		}
+
+		if r.SubjectKind == ReminderSubjectNone {
+			reminderNotifications = append(reminderNotifications, &ReminderDueNotification{
+				User:         u,
+				TaskReminder: r,
+				Text:         r.Text,
+			})
+			continue
+		}
+
+		task, hasTask := tasks[r.TaskID]
+		if !hasTask {
+			log.Errorf("[Task Reminder Cron] Reminder %d is about task %d, which is gone, skipping", r.ID, r.TaskID)
+			continue
+		}
+
+		reminderNotifications = append(reminderNotifications, &ReminderDueNotification{
+			User:         u,
+			Task:         task,
+			Project:      projects[task.ProjectID],
+			TaskReminder: r,
+		})
 	}
 
 	return
 }
 
-// RegisterReminderCron registers a cron function which runs every minute to check if any reminders are due the
-// next minute to send emails.
+// RegisterReminderCron registers a cron function which runs every minute and fires every
+// reminder that has come due and has not fired yet.
+//
+// It is registered whatever the mail configuration says, because a reminder now writes a
+// notification record rather than an email, and that record is what the desktop app and the
+// notification bell both read.
 func RegisterReminderCron() {
 	webhookEnabled := config.WebhooksEnabled.GetBool()
-	emailEnabled := config.ServiceEnableEmailReminders.GetBool() && config.MailerEnabled.GetBool()
-
-	if !emailEnabled && !webhookEnabled {
-		return
-	}
-
-	if !emailEnabled {
-		log.Info("Mailer is disabled, not sending reminders per mail")
-	}
 
 	tz := config.GetTimeZone()
 	log.Debugf("[Task Reminder Cron] Timezone is %s", tz)
@@ -362,50 +508,9 @@ func RegisterReminderCron() {
 		s := db.NewSession()
 		defer s.Close()
 
-		now := time.Now()
-
-		// When only email is enabled, filter to email-enabled users for efficiency.
-		// When webhooks are enabled, we need all users so the event system can
-		// look up matching webhooks.
-		var cond builder.Cond
-		if emailEnabled && !webhookEnabled {
-			cond = builder.Eq{"users.email_reminders_enabled": true}
-		}
-
-		reminders, err := getTasksWithRemindersDueAndTheirUsers(s, now, cond)
-		if err != nil {
-			log.Errorf("[Task Reminder Cron] Could not get tasks with reminders in the next minute: %s", err)
+		if err := fireDueReminders(s, time.Now(), webhookEnabled); err != nil {
+			log.Errorf("[Task Reminder Cron] Pass failed: %s", err)
 			return
-		}
-
-		if len(reminders) == 0 {
-			return
-		}
-
-		log.Debugf("[Task Reminder Cron] Sending %d reminders", len(reminders))
-
-		for _, n := range reminders {
-			if emailEnabled && n.User.EmailRemindersEnabled {
-				err = notifications.Notify(n.User, n, s)
-				if err != nil {
-					log.Errorf("[Task Reminder Cron] Could not notify user %d: %s", n.User.ID, err)
-					return
-				}
-			}
-
-			if webhookEnabled {
-				err = events.Dispatch(&TaskReminderFiredEvent{
-					Task:     n.Task,
-					User:     n.User,
-					Project:  n.Project,
-					Reminder: n.TaskReminder,
-				})
-				if err != nil {
-					log.Errorf("[Task Reminder Cron] Could not dispatch reminder event for task %d: %s", n.Task.ID, err)
-				}
-			}
-
-			log.Debugf("[Task Reminder Cron] Sent reminder for task %d to user %d", n.Task.ID, n.User.ID)
 		}
 
 		if err := s.Commit(); err != nil {
@@ -415,4 +520,71 @@ func RegisterReminderCron() {
 	if err != nil {
 		log.Fatalf("Could not register reminder cron: %s", err)
 	}
+}
+
+// fireDueReminders is one pass of the sweep: everything the cron does except opening the
+// session and committing it.
+//
+// It is a named function rather than the body of the cron's closure so that a test can run
+// a pass, run a second one, and count what the person actually received. Acceptance items
+// 4, 5 and 10 of BRA-1571 are all about what happens across two passes, and nothing could
+// observe that while this was an anonymous closure inside a scheduler registration.
+func fireDueReminders(s *xorm.Session, now time.Time, webhookEnabled bool) error {
+	reminders, err := getTasksWithRemindersDueAndTheirUsers(s, now)
+	if err != nil {
+		return err
+	}
+
+	if len(reminders) == 0 {
+		return nil
+	}
+
+	log.Debugf("[Task Reminder Cron] Sending %d reminders", len(reminders))
+
+	failed := make(map[int64]bool)
+	notified := make(map[int64]bool)
+	for _, n := range reminders {
+		err = notifications.Notify(n.User, n, s)
+		if err != nil {
+			log.Errorf("[Task Reminder Cron] Could not notify user %d: %s", n.User.ID, err)
+			failed[n.TaskReminder.ID] = true
+			continue
+		}
+
+		if webhookEnabled && n.Task != nil {
+			err = events.Dispatch(&TaskReminderFiredEvent{
+				Task:     n.Task,
+				User:     n.User,
+				Project:  n.Project,
+				Reminder: n.TaskReminder,
+			})
+			if err != nil {
+				log.Errorf("[Task Reminder Cron] Could not dispatch reminder event for task %d: %s", n.Task.ID, err)
+			}
+		}
+
+		notified[n.TaskReminder.ID] = true
+		log.Debugf("[Task Reminder Cron] Sent reminder %d to user %d", n.TaskReminder.ID, n.User.ID)
+	}
+
+	firedIDs := []int64{}
+	for id := range notified {
+		if failed[id] {
+			continue
+		}
+		firedIDs = append(firedIDs, id)
+	}
+
+	// Stamped only now, after every notification for these reminders has been
+	// written. A reminder whose notification could not be written keeps no stamp and
+	// is picked up again on the next pass. The other order would lose a reminder
+	// whenever writing its notification failed.
+	if len(firedIDs) > 0 {
+		_, err = s.In("id", firedIDs).Cols("fired_at").Update(&TaskReminder{FiredAt: time.Now().UTC()})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
