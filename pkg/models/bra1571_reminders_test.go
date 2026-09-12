@@ -141,6 +141,7 @@ func insertTaskReminder(t *testing.T, s *xorm.Session, taskID int64, moment time
 		TaskID:      taskID,
 		Reminder:    moment.UTC(),
 		SubjectKind: ReminderSubjectTask,
+		CreatedByID: 1,
 	})
 	require.NoError(t, err)
 }
