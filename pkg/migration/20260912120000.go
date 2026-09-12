@@ -19,8 +19,6 @@ package migration
 import (
 	"time"
 
-	"code.vikunja.io/api/pkg/config"
-
 	"src.techknowlogick.com/xormigrate"
 	"xorm.io/xorm"
 )
@@ -66,9 +64,11 @@ func init() {
 				return err
 			}
 
-			// Formatted in the timezone xorm stores times in, because this
-			// compares against a stored DATETIME rather than going through xorm.
-			now := time.Now().In(config.GetTimeZone()).Format("2006-01-02 15:04:05")
+			// UTC, because this compares against a stored DATETIME rather than
+			// going through the ORM, and the ORM stores every datetime column in
+			// UTC. Getting the zone wrong here would stamp a reminder that is
+			// still to come as already fired, and it would never arrive.
+			now := time.Now().UTC().Format("2006-01-02 15:04:05")
 			_, err := tx.Exec("UPDATE task_reminders SET fired_at = reminder WHERE fired_at IS NULL AND reminder < ?", now)
 			return err
 		},

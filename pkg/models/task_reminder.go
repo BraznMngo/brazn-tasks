@@ -358,18 +358,23 @@ func getTasksWithRemindersDueAndTheirUsers(s *xorm.Session, now time.Time, cond 
 
 	log.Debugf("[Task Reminder Cron] Looking for reminders due at or before %s to send...", now)
 
-	// The database filter is deliberately coarse. The bound is formatted text compared
-	// against a stored DATETIME, so the two can be a whole time zone apart; the upper
-	// bound carries the same 14h of slack the previous query used, and the exact
-	// comparison below is on absolute instants, where a location cannot change the answer.
+	// The bound is formatted text compared against a stored DATETIME, and the ORM stores
+	// every datetime column in UTC, so the bound is formatted in UTC too. It keeps the same
+	// 14h of slack the previous query carried, because the filter only has to be generous:
+	// the exact comparison below is on absolute instants. There is no lower bound, which is
+	// what lets a reminder that came due while nothing was running still fire.
 	//
 	// A reminder about nothing is not subject to the done-or-deleted filter, because it has
 	// nothing that could be done or deleted.
 	reminders := []*TaskReminder{}
 	err = s.
+		// The columns have to be named. Left to itself xorm selects * once a join is
+		// present, and tasks carries id, created and created_by_id too, so the task's
+		// values would land on the reminder and the wrong rows would be stamped as fired.
+		Select("task_reminders.*").
 		Join("LEFT", "tasks", "tasks.id = task_reminders.task_id").
 		Where("task_reminders.fired_at IS NULL").
-		And("task_reminders.reminder < ?", now.Add(time.Hour*14).Format(dbTimeFormat)).
+		And("task_reminders.reminder < ?", now.UTC().Add(time.Hour*14).Format(dbTimeFormat)).
 		And(builder.Or(
 			builder.Eq{"task_reminders.subject_kind": string(ReminderSubjectNone)},
 			builder.And(
