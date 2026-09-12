@@ -226,25 +226,59 @@ func TestUserMentionedInTaskNotification_ToTitle(t *testing.T) {
 	})
 }
 
-func TestReminderDueNotification_TitleIsMarkdownEscaped(t *testing.T) {
+// TestReminderDueNotificationSendsNoMail replaces
+// TestReminderDueNotification_TitleIsMarkdownEscaped, which rendered a reminder email.
+//
+// BRA-1571 acceptance 6: a fired reminder produces a notification record and no mail, so
+// there is no reminder email left to escape anything in. The escaping that test protected
+// still matters, and the last subtest keeps it — against a notification kind that does still
+// send mail, carrying the same hostile title.
+func TestReminderDueNotificationSendsNoMail(t *testing.T) {
 	originalPublicURL := config.ServicePublicURL.GetString()
 	t.Cleanup(func() { config.ServicePublicURL.Set(originalPublicURL) })
 	config.ServicePublicURL.Set("https://vikunja.example.com/")
 
-	n := &ReminderDueNotification{
-		User:    &user.User{ID: 1, Name: "alice"},
-		Task:    &Task{ID: 99, Title: "![](https://evil.com/track.png)"},
-		Project: &Project{ID: 1, Title: "proj"},
-	}
+	evilTitle := "![](https://evil.com/track.png)"
 
-	mail := n.ToMail("en")
-	opts, err := notifications.RenderMail(mail, "en")
-	require.NoError(t, err)
+	t.Run("a reminder builds no mail at all", func(t *testing.T) {
+		aboutATask := &ReminderDueNotification{
+			User:    &user.User{ID: 1, Name: "alice"},
+			Task:    &Task{ID: 99, Title: evilTitle},
+			Project: &Project{ID: 1, Title: "proj"},
+		}
+		assert.Nil(t, aboutATask.ToMail("en"), "a task reminder must build no mail")
 
-	// The injection must not create an <img> tag. The literal title
-	// characters may still be present as escaped text.
-	assert.NotContains(t, opts.HTMLMessage, "<img src=\"https://evil.com",
-		"tracking pixel must not render as an <img> tag")
-	assert.NotContains(t, opts.HTMLMessage, `href="https://evil.com`,
-		"tracking URL must not render as an anchor")
+		aboutNothing := &ReminderDueNotification{
+			User: &user.User{ID: 1, Name: "alice"},
+			Text: evilTitle,
+		}
+		assert.Nil(t, aboutNothing.ToMail("en"), "a reminder about nothing must build no mail")
+	})
+
+	t.Run("a reminder about nothing still carries the person's own words", func(t *testing.T) {
+		// Not the sentence around them, which a writer must stay free to change: what is
+		// asserted is that the words reach the title at all, because the desktop app and
+		// the notification bell both read it.
+		aboutNothing := &ReminderDueNotification{
+			User: &user.User{ID: 1, Name: "alice"},
+			Text: "collect the dry cleaning",
+		}
+		assert.Contains(t, aboutNothing.ToTitle("en"), "collect the dry cleaning")
+	})
+
+	t.Run("markdown escaping still holds for a kind that does send mail", func(t *testing.T) {
+		overdue := &UndoneTaskOverdueNotification{
+			User:    &user.User{ID: 1, Name: "alice"},
+			Task:    &Task{ID: 99, Title: evilTitle, DueDate: time.Now().Add(-time.Hour)},
+			Project: &Project{ID: 1, Title: "proj"},
+		}
+
+		opts, err := notifications.RenderMail(overdue.ToMail("en"), "en")
+		require.NoError(t, err)
+
+		assert.NotContains(t, opts.HTMLMessage, "<img src=\"https://evil.com",
+			"tracking pixel must not render as an <img> tag")
+		assert.NotContains(t, opts.HTMLMessage, `href="https://evil.com`,
+			"tracking URL must not render as an anchor")
+	})
 }

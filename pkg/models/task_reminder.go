@@ -492,64 +492,9 @@ func RegisterReminderCron() {
 		s := db.NewSession()
 		defer s.Close()
 
-		now := time.Now()
-
-		reminders, err := getTasksWithRemindersDueAndTheirUsers(s, now, nil)
-		if err != nil {
-			log.Errorf("[Task Reminder Cron] Could not get reminders which are due: %s", err)
+		if err := fireDueReminders(s, time.Now(), webhookEnabled); err != nil {
+			log.Errorf("[Task Reminder Cron] Pass failed: %s", err)
 			return
-		}
-
-		if len(reminders) == 0 {
-			return
-		}
-
-		log.Debugf("[Task Reminder Cron] Sending %d reminders", len(reminders))
-
-		failed := make(map[int64]bool)
-		notified := make(map[int64]bool)
-		for _, n := range reminders {
-			err = notifications.Notify(n.User, n, s)
-			if err != nil {
-				log.Errorf("[Task Reminder Cron] Could not notify user %d: %s", n.User.ID, err)
-				failed[n.TaskReminder.ID] = true
-				continue
-			}
-
-			if webhookEnabled && n.Task != nil {
-				err = events.Dispatch(&TaskReminderFiredEvent{
-					Task:     n.Task,
-					User:     n.User,
-					Project:  n.Project,
-					Reminder: n.TaskReminder,
-				})
-				if err != nil {
-					log.Errorf("[Task Reminder Cron] Could not dispatch reminder event for task %d: %s", n.Task.ID, err)
-				}
-			}
-
-			notified[n.TaskReminder.ID] = true
-			log.Debugf("[Task Reminder Cron] Sent reminder %d to user %d", n.TaskReminder.ID, n.User.ID)
-		}
-
-		firedIDs := []int64{}
-		for id := range notified {
-			if failed[id] {
-				continue
-			}
-			firedIDs = append(firedIDs, id)
-		}
-
-		// Stamped only now, after every notification for these reminders has been
-		// written. A reminder whose notification could not be written keeps no stamp and
-		// is picked up again on the next pass. The other order would lose a reminder
-		// whenever writing its notification failed.
-		if len(firedIDs) > 0 {
-			_, err = s.In("id", firedIDs).Cols("fired_at").Update(&TaskReminder{FiredAt: time.Now()})
-			if err != nil {
-				log.Errorf("[Task Reminder Cron] Could not record that reminders fired: %s", err)
-				return
-			}
 		}
 
 		if err := s.Commit(); err != nil {
@@ -559,4 +504,71 @@ func RegisterReminderCron() {
 	if err != nil {
 		log.Fatalf("Could not register reminder cron: %s", err)
 	}
+}
+
+// fireDueReminders is one pass of the sweep: everything the cron does except opening the
+// session and committing it.
+//
+// It is a named function rather than the body of the cron's closure so that a test can run
+// a pass, run a second one, and count what the person actually received. Acceptance items
+// 4, 5 and 10 of BRA-1571 are all about what happens across two passes, and nothing could
+// observe that while this was an anonymous closure inside a scheduler registration.
+func fireDueReminders(s *xorm.Session, now time.Time, webhookEnabled bool) error {
+	reminders, err := getTasksWithRemindersDueAndTheirUsers(s, now, nil)
+	if err != nil {
+		return err
+	}
+
+	if len(reminders) == 0 {
+		return nil
+	}
+
+	log.Debugf("[Task Reminder Cron] Sending %d reminders", len(reminders))
+
+	failed := make(map[int64]bool)
+	notified := make(map[int64]bool)
+	for _, n := range reminders {
+		err = notifications.Notify(n.User, n, s)
+		if err != nil {
+			log.Errorf("[Task Reminder Cron] Could not notify user %d: %s", n.User.ID, err)
+			failed[n.TaskReminder.ID] = true
+			continue
+		}
+
+		if webhookEnabled && n.Task != nil {
+			err = events.Dispatch(&TaskReminderFiredEvent{
+				Task:     n.Task,
+				User:     n.User,
+				Project:  n.Project,
+				Reminder: n.TaskReminder,
+			})
+			if err != nil {
+				log.Errorf("[Task Reminder Cron] Could not dispatch reminder event for task %d: %s", n.Task.ID, err)
+			}
+		}
+
+		notified[n.TaskReminder.ID] = true
+		log.Debugf("[Task Reminder Cron] Sent reminder %d to user %d", n.TaskReminder.ID, n.User.ID)
+	}
+
+	firedIDs := []int64{}
+	for id := range notified {
+		if failed[id] {
+			continue
+		}
+		firedIDs = append(firedIDs, id)
+	}
+
+	// Stamped only now, after every notification for these reminders has been
+	// written. A reminder whose notification could not be written keeps no stamp and
+	// is picked up again on the next pass. The other order would lose a reminder
+	// whenever writing its notification failed.
+	if len(firedIDs) > 0 {
+		_, err = s.In("id", firedIDs).Cols("fired_at").Update(&TaskReminder{FiredAt: time.Now().UTC()})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
