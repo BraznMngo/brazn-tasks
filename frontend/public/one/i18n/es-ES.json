@@ -429,6 +429,17 @@
         "requestedTitle": "Eliminación solicitada",
         "requestedText": "La eliminación no se programa hasta que abras el enlace de confirmación que te enviamos por correo electrónico."
       },
+      "cancelSubscription": {
+        "title": "Cancelar suscripción",
+        "help": "Detén la renovación automática de tu suscripción ONE Personal.",
+        "confirmTitle": "¿Cancelar tu suscripción?",
+        "confirmText": "Tu suscripción dejará de renovarse.",
+        "confirmHelp": "Conservas el acceso hasta el final del período que ya pagaste.",
+        "successTitle": "Suscripción cancelada",
+        "successText": "Tu acceso continúa hasta el {date}.",
+        "successTextUnknown": "Tu acceso continúa hasta el final del período que ya pagaste.",
+        "toast": "Tu suscripción ha sido cancelada."
+      },
       "emailNotifications": "Notificaciones por correo",
       "signOut": {
         "title": "Cerrar sesión",

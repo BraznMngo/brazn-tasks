@@ -50,6 +50,7 @@ import {
   describeCommercialRefusal,
   describeForkError,
   editionMessageKey,
+  formatDate,
   getOrganization,
   getSettings,
   getTeamState,
@@ -807,15 +808,35 @@ function otherCard() {
  * no-claim case states itself; that is the same choice `membersCard` makes for an organization
  * with no team, and for the same reason (an absent fact and an unreadable one are different).
  *
- * NOTHING ELSE IS SHOWN, and the omissions are omissions rather than gaps to fill. A renewal date,
- * a seat total, a price or an auto-renewal state would each have to come from a `/v1` body whose
- * shape is not among the extracted commercial sources — `GET /v1/entitlements` exists and api.js
- * exports it, but no field of its response is documented at the verified commit, and bar 7's
- * discipline covers response fields as much as routes. They are listed in the report instead. A
- * restricted view showing the edition truthfully beats a billing dashboard showing a guess.
+ * A RENEWAL DATE, A SEAT TOTAL AND A PRICE ARE STILL OMITTED, and that stands for the reason
+ * above: each would have to come from a `/v1` body whose shape is not among the extracted
+ * commercial sources — `GET /v1/entitlements` exists and api.js exports it, but no field of its
+ * response is documented at the verified commit, and bar 7's discipline covers response fields as
+ * much as routes. They are listed in the report instead. A restricted view showing the edition
+ * truthfully beats a billing dashboard showing a guess.
+ *
+ * THE CANCEL CONTROL (BRA-1140) IS THE ONE ADDITION, and it does not reopen that restriction: it
+ * acts through `POST /v1/subscription/cancellation`, whose request and response shapes ARE
+ * documented at the verified commit (`api.cancelSubscription`; `CancellationResult` at
+ * client-service-27c95232:740-746), and it reads nothing back from `/v1/entitlements`. It is
+ * drawn only for a Personal Cloud subscription: `cancelSubscription`'s own ladder answers 403 for
+ * a Teams member or administrator and 409 for `community` (`http.ts` :3088, :3105), and
+ * acceptance point 4 asks that an account the route would refuse be told why rather than shown a
+ * control built to refuse it — so the row is omitted rather than offered and left to fail. Teams
+ * is left to the product decision the ticket itself leaves open.
  */
 function subscriptionCard() {
+  const key = editionMessageKey();
   const edition = subscriptionLabel();
+  const cancelRow = key === 'one.edition.personal' ? `
+    <div class="setting-row">
+      <div>
+        <div class="setting-name">${tx('one.settings.cancelSubscription.title')}</div>
+        <div class="setting-desc">${tx('one.settings.cancelSubscription.help')}</div>
+      </div>
+      <button class="btn small danger" data-action="cancel-subscription" data-requires="write">
+        ${tx('one.settings.cancelSubscription.title')}</button>
+    </div>` : '';
   return `<div class="card settings-card wide">
     <div class="card-title">${tx('one.settings.subscription')}</div>
     <div class="setting-row">
@@ -824,7 +845,7 @@ function subscriptionCard() {
           edition === null ? tx('one.subscription.unknown') : esc(edition)}</div>
         <div class="setting-desc">${tx('one.subscription.help')}</div>
       </div>
-    </div>
+    </div>${cancelRow}
   </div>`;
 }
 
@@ -1986,6 +2007,46 @@ registerActions({
    * listener has nothing to dispatch even if a stale `data-action="cancel-deletion"` survived a
    * cache.
    */
+
+  /**
+   * BRA-1140. `subscriptionCard()` draws this control only for a Personal Cloud subscription, so
+   * reaching this handler at all already implies the one edition `cancelSubscription` can succeed
+   * against — but the button's own visibility is not the guard; the ladder inside the confirmed
+   * handler below is.
+   */
+  'cancel-subscription': () => {
+    modal(t('one.settings.cancelSubscription.confirmTitle'), `<div class="notice">
+      <strong>${tx('one.settings.cancelSubscription.confirmText')}</strong>${
+        tx('one.settings.cancelSubscription.confirmHelp')}</div><div class="help">${
+        tx('misc.cannotBeUndone')}</div>`,
+      `${footCancel()}<button class="btn danger" data-action="confirm-cancel-subscription">${
+        tx('one.settings.cancelSubscription.title')}</button>`);
+  },
+
+  /**
+   * `POST /v1/subscription/cancellation` answers ok:true with NO `outcome` field — `res.ok` is the
+   * whole guard (http.ts :1074-1075) — so the ladder here is only `result.ok`, exactly as
+   * `confirm-delete-account` reads `api.eraseAccount()` above. `access_ends_at` is the STORED date
+   * the service already committed to (http.ts :396), read directly off this call's own documented
+   * response rather than re-fetched from `/v1/entitlements` — see the doc comment on
+   * `subscriptionCard` for why that is not the same thing bar 7 forbids.
+   */
+  'confirm-cancel-subscription': async () => {
+    const result = await api.cancelSubscription();
+    if (!result.ok) {
+      refuseModal(describeCommercialRefusal(result));
+      return;
+    }
+
+    const accessEndsAt = formatDate(result.body?.access_ends_at);
+    modal(t('one.settings.cancelSubscription.successTitle'), `<div class="notice">
+      <strong>${tx('one.settings.cancelSubscription.successTitle')}</strong>${
+        accessEndsAt === ''
+          ? tx('one.settings.cancelSubscription.successTextUnknown')
+          : tx('one.settings.cancelSubscription.successText', {date: accessEndsAt})}</div>`,
+      `<button class="btn primary" data-action="modal-close">${tx('misc.close')}</button>`);
+    toast(t('one.settings.cancelSubscription.toast'));
+  },
 
   /* --- organization ------------------------------------------------ */
 

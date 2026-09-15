@@ -429,6 +429,17 @@
         "requestedTitle": "削除をリクエストしました",
         "requestedText": "メールでお送りする確認リンクを開くまで、削除は予定されません。"
       },
+      "cancelSubscription": {
+        "title": "サブスクリプションを解約",
+        "help": "ONE Personal サブスクリプションの自動更新を停止します。",
+        "confirmTitle": "サブスクリプションを解約しますか？",
+        "confirmText": "サブスクリプションは更新されなくなります。",
+        "confirmHelp": "すでに支払い済みの期間の終了までは引き続き利用できます。",
+        "successTitle": "サブスクリプションを解約しました",
+        "successText": "{date} まで引き続き利用できます。",
+        "successTextUnknown": "すでに支払い済みの期間の終了まで引き続き利用できます。",
+        "toast": "サブスクリプションを解約しました。"
+      },
       "emailNotifications": "メール通知",
       "signOut": {
         "title": "ログアウト",

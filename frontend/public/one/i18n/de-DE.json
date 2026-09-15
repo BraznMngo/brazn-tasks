@@ -430,6 +430,17 @@
         "requestedTitle": "Löschung angefordert",
         "requestedText": "Die Löschung wird erst geplant, wenn du den Bestätigungslink öffnest, den wir dir per E-Mail schicken."
       },
+      "cancelSubscription": {
+        "title": "Abonnement kündigen",
+        "help": "Beende die automatische Verlängerung deines ONE Personal-Abonnements.",
+        "confirmTitle": "Abonnement kündigen?",
+        "confirmText": "Dein Abonnement wird nicht mehr verlängert.",
+        "confirmHelp": "Du behältst den Zugriff bis zum Ende des bereits bezahlten Zeitraums.",
+        "successTitle": "Abonnement gekündigt",
+        "successText": "Dein Zugriff bleibt bis zum {date} bestehen.",
+        "successTextUnknown": "Dein Zugriff bleibt bis zum Ende des bereits bezahlten Zeitraums bestehen.",
+        "toast": "Dein Abonnement wurde gekündigt."
+      },
       "signOut": {
         "title": "Abmelden",
         "help": "Beendet diese Sitzung auf diesem Gerät.",
