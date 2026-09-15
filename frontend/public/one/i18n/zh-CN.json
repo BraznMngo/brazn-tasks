@@ -429,6 +429,17 @@
         "requestedTitle": "已提交删除请求",
         "requestedText": "只有在你打开我们邮件中的确认链接后，我们才会安排删除。"
       },
+      "cancelSubscription": {
+        "title": "取消订阅",
+        "help": "停止自动续订你的 ONE 个人版订阅。",
+        "confirmTitle": "要取消订阅吗？",
+        "confirmText": "你的订阅将不再续订。",
+        "confirmHelp": "你可以继续使用到已付费周期结束。",
+        "successTitle": "订阅已取消",
+        "successText": "你可以继续使用至 {date}。",
+        "successTextUnknown": "你可以继续使用到已付费周期结束。",
+        "toast": "你的订阅已取消。"
+      },
       "emailNotifications": "电子邮件通知",
       "signOut": {
         "title": "退出登录",

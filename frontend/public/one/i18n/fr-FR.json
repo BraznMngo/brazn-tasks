@@ -429,6 +429,17 @@
         "requestedTitle": "Suppression demandée",
         "requestedText": "La suppression n’est programmée qu’après l’ouverture du lien de confirmation que nous vous envoyons par e-mail."
       },
+      "cancelSubscription": {
+        "title": "Résilier l’abonnement",
+        "help": "Arrêtez le renouvellement automatique de votre abonnement ONE Personal.",
+        "confirmTitle": "Résilier votre abonnement ?",
+        "confirmText": "Votre abonnement cessera d’être renouvelé.",
+        "confirmHelp": "Vous conservez l’accès jusqu’à la fin de la période déjà payée.",
+        "successTitle": "Abonnement résilié",
+        "successText": "Votre accès reste actif jusqu’au {date}.",
+        "successTextUnknown": "Votre accès reste actif jusqu’à la fin de la période déjà payée.",
+        "toast": "Votre abonnement a été résilié."
+      },
       "emailNotifications": "Notifications par e-mail",
       "signOut": {
         "title": "Se déconnecter",

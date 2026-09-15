@@ -430,6 +430,17 @@
         "requestedTitle": "Deletion requested",
         "requestedText": "Deletion is scheduled only after you open the confirmation link we email you."
       },
+      "cancelSubscription": {
+        "title": "Cancel subscription",
+        "help": "Stop the automatic renewal of your ONE Personal subscription.",
+        "confirmTitle": "Cancel your subscription?",
+        "confirmText": "Your subscription will stop renewing.",
+        "confirmHelp": "You keep access until the end of the period you already paid for.",
+        "successTitle": "Subscription cancelled",
+        "successText": "Your access continues until {date}.",
+        "successTextUnknown": "Your access continues until the end of the period you already paid for.",
+        "toast": "Your subscription has been cancelled."
+      },
       "signOut": {
         "title": "Sign out",
         "help": "End this session on this device.",
