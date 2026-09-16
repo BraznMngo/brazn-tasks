@@ -36,7 +36,8 @@ type TaskComment struct {
 	Author   *user.User `xorm:"-" json:"author" readOnly:"true" doc:"The user who wrote the comment. Set from the authenticated user on create; ignored on write."`
 	TaskID   int64      `xorm:"index not null" json:"-" param:"task"`
 
-	Reactions ReactionMap `xorm:"-" json:"reactions" readOnly:"true" doc:"The reactions on this comment, keyed by reaction value. Managed through the reactions endpoints, not by writing here."`
+	// omitempty: same AutoPatch null-map defect as Task.Reactions (BRA-1363).
+	Reactions ReactionMap `xorm:"-" json:"reactions,omitempty" readOnly:"true" doc:"The reactions on this comment, keyed by reaction value. Managed through the reactions endpoints, not by writing here."`
 
 	OrderBy string `xorm:"-" json:"-" query:"order_by"`
 

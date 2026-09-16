@@ -25,6 +25,7 @@ import (
 	"code.vikunja.io/api/pkg/utils"
 	"code.vikunja.io/api/pkg/web"
 
+	"github.com/danielgtaylor/huma/v2"
 	"xorm.io/xorm"
 )
 
@@ -66,6 +67,18 @@ func (st SubscriptionEntityType) MarshalJSON() ([]byte, error) {
 	}
 
 	return []byte(`nil`), nil
+}
+
+// Schema lets Huma (/api/v2) reflect this type as a string enum. The custom
+// Marshal/UnmarshalJSON above serialize it as a string, but the underlying Go
+// type is an int — without this, Huma generates an integer schema and AutoPatch
+// rejects the string form the wire actually carries (BRA-1363). Same pattern as
+// ProjectViewKind.
+func (*SubscriptionEntityType) Schema(_ huma.Registry) *huma.Schema {
+	return &huma.Schema{
+		Type: "string",
+		Enum: []any{"project", "task"},
+	}
 }
 
 func getEntityTypeFromString(entityType string) SubscriptionEntityType {
