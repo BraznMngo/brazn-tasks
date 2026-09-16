@@ -157,7 +157,10 @@ type Task struct {
 	Position float64 `xorm:"-" json:"position" readOnly:"true" doc:"The task's position, saved per view. Only non-zero when the task is fetched through a view endpoint; use the task-position endpoint to change it."`
 
 	// Reactions on that task.
-	Reactions ReactionMap `xorm:"-" json:"reactions" readOnly:"true" doc:"Reactions on this task. Only present when requested via the reactions expand option."`
+	// omitempty: AutoPatch merges the GET body into the PUT; without it a nil
+	// map is emitted as null and Huma's object schema rejects every PATCH
+	// (BRA-1363). Only present when requested via ?expand=reactions.
+	Reactions ReactionMap `xorm:"-" json:"reactions,omitempty" readOnly:"true" doc:"Reactions on this task. Only present when requested via the reactions expand option."`
 
 	// The user who initially created the task.
 	CreatedBy   *user.User `xorm:"-" json:"created_by" valid:"-" readOnly:"true" doc:"The user who created this task. Set by the server."`
