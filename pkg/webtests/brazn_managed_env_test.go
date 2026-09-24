@@ -101,7 +101,7 @@ func (env *managedEnv) grantUntil(
 ) {
 	env.t.Helper()
 
-	env.grantProjection(userID, edition, organizationAdmin, validTo, nil, nil, managedTestOrganization, nil)
+	env.grantProjection(userID, edition, organizationAdmin, validTo, nil, nil, managedTestOrganization, nil, nil)
 }
 
 // grantWriteAccess writes a projection carrying the contract's optional
@@ -118,7 +118,7 @@ func (env *managedEnv) grantUntil(
 func (env *managedEnv) grantWriteAccess(userID int64, edition string, writeAccess *string) {
 	env.t.Helper()
 
-	env.grantProjection(userID, edition, false, nil, nil, nil, managedTestOrganization, writeAccess)
+	env.grantProjection(userID, edition, false, nil, nil, nil, managedTestOrganization, writeAccess, nil)
 }
 
 // grantSeats writes an administrator's projection carrying an organization's
@@ -130,7 +130,7 @@ func (env *managedEnv) grantSeats(userID int64, organizationAdmin bool, seatsPur
 	env.t.Helper()
 
 	env.grantProjection(userID, entitlement.EditionTeams, organizationAdmin, nil, seatsPurchased,
-		nil, managedTestOrganization, nil)
+		nil, managedTestOrganization, nil, nil)
 }
 
 // grantSeatsNamed is grantSeats carrying `state.organization_name`, the
@@ -147,7 +147,7 @@ func (env *managedEnv) grantSeatsNamed(
 	env.t.Helper()
 
 	env.grantProjection(userID, entitlement.EditionTeams, organizationAdmin, nil, seatsPurchased,
-		organizationName, managedTestOrganization, nil)
+		organizationName, managedTestOrganization, nil, nil)
 }
 
 // grantIn is grantSeats for a NAMED organization, which is what makes a
@@ -157,7 +157,16 @@ func (env *managedEnv) grantSeatsNamed(
 func (env *managedEnv) grantIn(userID int64, organization string, seatsPurchased *int) {
 	env.t.Helper()
 
-	env.grantProjection(userID, entitlement.EditionTeams, true, nil, seatsPurchased, nil, organization, nil)
+	env.grantProjection(userID, entitlement.EditionTeams, true, nil, seatsPurchased, nil, organization, nil, nil)
+}
+
+// grantCollaboration writes a Collaboration administrator projection carrying
+// max_collaborators (BRA-1064). Nil ceiling is the fail-closed case.
+func (env *managedEnv) grantCollaboration(userID int64, organizationAdmin bool, maxCollaborators *int) {
+	env.t.Helper()
+
+	env.grantProjection(userID, entitlement.EditionCollaboration, organizationAdmin, nil, nil,
+		nil, managedTestOrganization, nil, maxCollaborators)
 }
 
 func (env *managedEnv) grantProjection(
@@ -169,6 +178,7 @@ func (env *managedEnv) grantProjection(
 	organizationName *string,
 	organization string,
 	writeAccess *string,
+	maxCollaborators *int,
 ) {
 	env.t.Helper()
 
@@ -186,6 +196,7 @@ func (env *managedEnv) grantProjection(
 			OrganizationAdmin: organizationAdmin,
 			EffectiveState:    "active",
 			SeatsPurchased:    seatsPurchased,
+			MaxCollaborators:  maxCollaborators,
 			OrganizationName:  organizationName,
 			WriteAccess:       writeAccess,
 			// Comfortably in the past, so no test below is accidentally about

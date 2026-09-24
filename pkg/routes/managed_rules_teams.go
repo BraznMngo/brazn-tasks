@@ -18,6 +18,7 @@ package routes
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"code.vikunja.io/api/pkg/models"
@@ -25,29 +26,24 @@ import (
 	"code.vikunja.io/api/pkg/user"
 )
 
-// The Teams edition's policy table (BRA-787).
-//
-// A Teams organization has a shape: one private Inbox per member, one Public
-// root for the organization, one root per team. Everything a customer creates
-// hangs beneath a Team or Public root, which is what makes an unmanaged
-// top-level project impossible rather than merely discouraged.
-//
-// The roots are not equivalent to each other. A team may name its own root;
-// the Inbox and the Public root may not be renamed, because every member
-// navigates by them. Only Public and its descendants can be handed to the
-// anonymous internet. And an Inbox belongs to exactly one member: nothing in
-// this table, and no administrator flag anywhere, opens someone else's.
+// The Teams edition's policy table (BRA-787), and Collaboration's reuse of the
+// same topology rules (BRA-1060 / BRA-1064). Collaboration is Teams-with-one-
+// member commercially: same project/share/membership gates, plus a collaborator
+// roster ceiling on team-member add.
 func init() {
-	teams := entitlement.EditionTeams
+	registerTeamsLikeRules(entitlement.EditionTeams, decideTeamsMembership)
+	registerTeamsLikeRules(entitlement.EditionCollaboration, decideCollaborationMembership)
+}
 
-	registerEditionRule(ruleProjectCreate, teams, decideTeamsProjectCreate)
-	registerEditionRule(ruleProjectDuplicate, teams, decideTeamsProjectDuplicate)
-	registerEditionRule(ruleProjectUpdate, teams, decideTeamsProjectUpdate)
-	registerEditionRule(ruleProjectDelete, teams, decideTeamsProjectDelete)
-	registerEditionRule(ruleProjectShare, teams, decideTeamsProjectShare)
-	registerEditionRule(ruleLinkShare, teams, decideTeamsLinkShare)
-	registerEditionRule(ruleTeamsOnly, teams, decideTeamsMembership)
-	registerEditionRule(ruleTaskMove, teams, decideTeamsTaskMove)
+func registerTeamsLikeRules(edition string, membership managedRuleFunc) {
+	registerEditionRule(ruleProjectCreate, edition, decideTeamsProjectCreate)
+	registerEditionRule(ruleProjectDuplicate, edition, decideTeamsProjectDuplicate)
+	registerEditionRule(ruleProjectUpdate, edition, decideTeamsProjectUpdate)
+	registerEditionRule(ruleProjectDelete, edition, decideTeamsProjectDelete)
+	registerEditionRule(ruleProjectShare, edition, decideTeamsProjectShare)
+	registerEditionRule(ruleLinkShare, edition, decideTeamsLinkShare)
+	registerEditionRule(ruleTeamsOnly, edition, membership)
+	registerEditionRule(ruleTaskMove, edition, decideTeamsTaskMove)
 }
 
 // decideTeamsProjectCreate requires a home. Creating, duplicating and importing
@@ -191,6 +187,15 @@ func decideTeamsMembership(e *managedEval) error {
 	return e.requireEntitledTarget()
 }
 
+// decideCollaborationMembership is Teams membership plus the BRA-1064 roster
+// ceiling: owner + max_collaborators outsiders on the primary team.
+func decideCollaborationMembership(e *managedEval) error {
+	if err := e.requireEntitledTarget(); err != nil {
+		return err
+	}
+	return e.requireCollaboratorCapacity()
+}
+
 // decideTeamsTaskMove allows a task into the member's own Inbox, into the
 // member's own Percy Feedback sub-project, or anywhere inside the
 // collaborative topology - and nowhere else.
@@ -310,13 +315,16 @@ func (e *managedEval) requireManagedRoot(projectID int64) error {
 }
 
 // requireEntitledTarget refuses when the account being given access is not an
-// active Teams account.
+// active Teams or Collaboration account.
 //
 // This is the receiving half of "a personal account can neither send nor
 // receive project or team shares": a personal account cannot be invited, and
 // the refusal happens where the invitation is issued, so every alternate route
 // - project share, team membership, admin promotion, either API version -
 // closes at the same point.
+//
+// Collaboration invitees may hold Collaboration or Teams (BRA-1064): each
+// collaborator pays for their own account. Personal stays refused.
 //
 // THE ORGANIZATION IS DELIBERATELY NOT CHECKED. "An active member of a Teams
 // organization" means any Teams organization, not the caller's own: two Teams
@@ -364,8 +372,62 @@ func (e *managedEval) requireEntitledTarget() error {
 	if err != nil {
 		return e.refuse("the named account has no valid entitlement projection")
 	}
-	if !projection.Active() || projection.State.Edition != entitlement.EditionTeams {
+	if !projection.Active() {
 		return e.refuse("the named account is not an active member of a Teams organization")
+	}
+	edition := projection.State.Edition
+	if edition != entitlement.EditionTeams && edition != entitlement.EditionCollaboration {
+		return e.refuse("the named account is not an active member of a Teams organization")
+	}
+	return nil
+}
+
+// requireCollaboratorCapacity refuses a team-member add that would push a
+// Collaboration primary-team roster past owner + max_collaborators (BRA-1064).
+//
+// CHEAP CHECK: deleting this guard (or the count comparison) must make the
+// eleventh-outsider test fail. Absence of max_collaborators refuses rather
+// than admitting unlimited adds.
+func (e *managedEval) requireCollaboratorCapacity() error {
+	if !e.targetsAnAccount() {
+		return nil
+	}
+	// Only expanding membership — rename / remove do not grow the roster.
+	method := e.c.Request().Method
+	if method != http.MethodPost && method != http.MethodPut {
+		return nil
+	}
+
+	acting, err := models.GetEntitlement(e.s, e.user.ID)
+	if err != nil || acting == nil || !acting.Active() {
+		return e.refuse("the acting account has no valid entitlement projection")
+	}
+	if acting.State.Edition != entitlement.EditionCollaboration {
+		return nil
+	}
+	ceiling := acting.State.MaxCollaborators
+	if ceiling == nil {
+		// Fail closed: a Collaboration admin projection without the ceiling
+		// must not admit collaborators until commercial delivers one.
+		return e.refuse("collaborator_limit: the collaborator ceiling is not configured")
+	}
+
+	teamID, err := strconv.ParseInt(e.c.Param("id"), 10, 64)
+	if err != nil || teamID <= 0 {
+		// v1 uses the same param name on /teams/:id/members.
+		teamID, err = strconv.ParseInt(e.c.Param("team"), 10, 64)
+		if err != nil || teamID <= 0 {
+			return e.refuse("the request does not name the team it would enlarge")
+		}
+	}
+
+	count, err := e.s.Where("team_id = ?", teamID).Count(&models.TeamMember{})
+	if err != nil {
+		return e.refuse("the team roster could not be counted")
+	}
+	// Roster ceiling is 1 (owner) + max_collaborators outsiders.
+	if count >= int64(1+*ceiling) {
+		return e.refuse("collaborator_limit: the collaborator list is full")
 	}
 	return nil
 }
