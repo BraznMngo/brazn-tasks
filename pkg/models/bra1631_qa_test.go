@@ -709,3 +709,71 @@ func TestBRA1631AFiredReminderIsNeverLeftWaitingOnANotificationNothingWillWrite(
 		assert.Empty(t, qaDue(t, s, person))
 	})
 }
+
+// qaTaskReminderActions is what the one reminder on a task does, read straight from its row.
+func qaTaskReminderActions(t *testing.T, s *xorm.Session, taskID int64) string {
+	t.Helper()
+
+	var stored string
+	has, err := s.SQL("SELECT actions FROM task_reminders WHERE task_id = ?", taskID).Get(&stored)
+	require.NoError(t, err)
+	require.True(t, has, "the task must still have its reminder")
+	return stored
+}
+
+// S2, from the coordinator's integration review on 24 September 2026: only a reminder's owner may set
+// or change what it does. A task save by anyone else - through either version of the API, which
+// both save through Task.Update after Task.CanUpdate - leaves a reminder's actions exactly as they
+// were: a toast's opens and buttons, and any run-one somebody else adds. A reminder about a task is
+// in front of everybody who can write that task, and what it does acts on its owner's machine.
+//
+// Mutation claim: letting a save by anyone replace a reminder's actions fails it.
+func TestBRA1631OnlyAReminderOwnerSetsWhatItDoes(t *testing.T) {
+	s := asHostileAsProduction(t)
+	// User 1 can write task 19 through a share of project 10, and user 6 owns that project.
+	owner := reminderTestUser()
+	other := &user.User{ID: 6, Username: "user6", Email: "user6@example.com"}
+	moment := time.Now().UTC().Add(time.Hour).Truncate(time.Second)
+
+	save := func(t *testing.T, who *user.User, actions ...ReminderAction) {
+		t.Helper()
+		task := &Task{ID: 19, Reminders: []*TaskReminder{{Reminder: moment, Actions: actions}}}
+		can, err := task.CanUpdate(s, who)
+		require.NoError(t, err)
+		require.True(t, can, "user %d must be able to save task 19, or this proves nothing", who.ID)
+		require.NoError(t, task.Update(s, who))
+	}
+
+	ownersToast := ReminderAction{
+		"kind":  "toast",
+		"opens": "https://tasks.brazn.one/tasks/19",
+		"buttons": []any{
+			map[string]any{"label": "Open the offer", "opens": "file:///C:/Users/sebastian/Documents/offer-acme.pdf"},
+		},
+	}
+	save(t, owner, ownersToast)
+	const asTheOwnerSetIt = `[{"kind":"toast","opens":"https://tasks.brazn.one/tasks/19",` +
+		`"buttons":[{"label":"Open the offer","opens":"file:///C:/Users/sebastian/Documents/offer-acme.pdf"}]}]`
+	require.JSONEq(t, asTheOwnerSetIt, qaTaskReminderActions(t, s, 19))
+
+	for _, change := range []struct {
+		what    string
+		actions []ReminderAction
+	}{
+		{"a toast that opens something else", []ReminderAction{{"kind": "toast", "opens": "https://example.com/pay"}}},
+		{"other buttons", []ReminderAction{{"kind": "toast", "buttons": []any{
+			map[string]any{"label": "Pay now", "opens": "https://example.com/pay"},
+		}}}},
+		{"running ONE added", []ReminderAction{ownersToast, {"kind": runONE}}},
+		{"nothing but the bell", []ReminderAction{{"kind": "notification"}}},
+		{"nothing said about what it does", nil},
+	} {
+		save(t, other, change.actions...)
+		assert.JSONEq(t, asTheOwnerSetIt, qaTaskReminderActions(t, s, 19),
+			"a save by somebody else changed what the reminder does: %s", change.what)
+	}
+
+	// And its owner still may.
+	save(t, owner, ReminderAction{"kind": "toast"})
+	assert.JSONEq(t, `[{"kind":"toast"}]`, qaTaskReminderActions(t, s, 19), "the owner changes what it does")
+}
