@@ -97,6 +97,15 @@ func (n *ReminderDueNotification) Name() string {
 	return "task.reminder"
 }
 
+// SubjectID names the reminder this notification is about (BRA-1631). It is what links the
+// two: settling the reminder reads this notification, and reading it settles the reminder.
+func (n *ReminderDueNotification) SubjectID() int64 {
+	if n.TaskReminder == nil {
+		return 0
+	}
+	return n.TaskReminder.ID
+}
+
 // TaskCommentNotification represents a TaskCommentNotification notification
 type TaskCommentNotification struct {
 	Doer      *user.User   `json:"doer"`

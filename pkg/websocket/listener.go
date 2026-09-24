@@ -106,12 +106,42 @@ func (l *TimeEntryListener) Handle(msg *message.Message) error {
 	return nil
 }
 
+// ReminderDueListener tells a person's connected clients that one of their reminders has
+// fallen due, carrying its words and what it does (BRA-1631). A client that performs its
+// actions acts the moment it falls due rather than at its next check, and reads the list of
+// reminders that fell due when it was not connected to catch up on those.
+type ReminderDueListener struct{}
+
+// Name returns the listener name.
+func (l *ReminderDueListener) Name() string { return "websocket.push.reminder.due" }
+
+// Handle pushes the reminder to the connections of the person it belongs to.
+func (l *ReminderDueListener) Handle(msg *message.Message) error {
+	var event models.ReminderDueEvent
+	if err := json.Unmarshal(msg.Payload, &event); err != nil {
+		return err
+	}
+	if event.Reminder == nil {
+		return nil
+	}
+
+	hub := GetHub()
+	if hub == nil {
+		log.Warningf("WebSocket: hub not initialized, skipping reminder push")
+		return nil
+	}
+
+	hub.PublishForUser(event.UserID, event.Name(), event.Reminder)
+	return nil
+}
+
 // RegisterListeners registers WebSocket event listeners.
 func RegisterListeners() {
 	events.RegisterListener(
 		(&notifications.NotificationCreatedEvent{}).Name(),
 		&NotificationListener{},
 	)
+	events.RegisterListener((&models.ReminderDueEvent{}).Name(), &ReminderDueListener{})
 	events.RegisterListener((&models.TimeEntryCreatedEvent{}).Name(), &TimeEntryListener{wsEvent: "timer.created"})
 	events.RegisterListener((&models.TimeEntryUpdatedEvent{}).Name(), &TimeEntryListener{wsEvent: "timer.updated"})
 	events.RegisterListener((&models.TimeEntryDeletedEvent{}).Name(), &TimeEntryListener{wsEvent: "timer.deleted"})

@@ -1235,6 +1235,63 @@ func (err ErrReminderMomentMissing) HTTPError() web.HTTPError {
 	}
 }
 
+// ErrReminderActionsInvalid represents an error where what a reminder should do when it falls
+// due cannot be stored as given (BRA-1631).
+type ErrReminderActionsInvalid struct {
+	Reason string
+}
+
+// IsErrReminderActionsInvalid checks if an error is ErrReminderActionsInvalid.
+func IsErrReminderActionsInvalid(err error) bool {
+	_, ok := err.(ErrReminderActionsInvalid)
+	return ok
+}
+
+func (err ErrReminderActionsInvalid) Error() string {
+	return fmt.Sprintf("Reminder actions are invalid: %s", err.Reason)
+}
+
+// ErrCodeReminderActionsInvalid holds the unique world-error code of this error
+const ErrCodeReminderActionsInvalid = 4032
+
+// HTTPError holds the http error description
+func (err ErrReminderActionsInvalid) HTTPError() web.HTTPError {
+	return web.HTTPError{
+		HTTPCode: http.StatusBadRequest,
+		Code:     ErrCodeReminderActionsInvalid,
+		Message:  "The reminder's actions are invalid: " + err.Reason + ".",
+	}
+}
+
+// ErrReminderActionNotCarried represents an error where somebody records as done an action
+// that the reminder does not carry (BRA-1631).
+type ErrReminderActionNotCarried struct {
+	ID   int64
+	Kind string
+}
+
+// IsErrReminderActionNotCarried checks if an error is ErrReminderActionNotCarried.
+func IsErrReminderActionNotCarried(err error) bool {
+	_, ok := err.(ErrReminderActionNotCarried)
+	return ok
+}
+
+func (err ErrReminderActionNotCarried) Error() string {
+	return fmt.Sprintf("Reminder does not carry this action [ID: %v, Kind: %s]", err.ID, err.Kind)
+}
+
+// ErrCodeReminderActionNotCarried holds the unique world-error code of this error
+const ErrCodeReminderActionNotCarried = 4033
+
+// HTTPError holds the http error description
+func (err ErrReminderActionNotCarried) HTTPError() web.HTTPError {
+	return web.HTTPError{
+		HTTPCode: http.StatusBadRequest,
+		Code:     ErrCodeReminderActionNotCarried,
+		Message:  "This reminder does not do that, so it cannot be recorded as done.",
+	}
+}
+
 // ErrTaskRelationCycle represents an error where the user tries to create an already existing relation
 type ErrTaskRelationCycle struct {
 	Kind        RelationKind

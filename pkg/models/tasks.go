@@ -28,6 +28,7 @@ import (
 	"code.vikunja.io/api/pkg/events"
 	"code.vikunja.io/api/pkg/files"
 	"code.vikunja.io/api/pkg/log"
+	"code.vikunja.io/api/pkg/notifications"
 	"code.vikunja.io/api/pkg/user"
 	"code.vikunja.io/api/pkg/utils"
 	"code.vikunja.io/api/pkg/web"
@@ -1833,6 +1834,14 @@ func updateRelativeReminderDates(task *Task) (err error) {
 // The parameter is a slice which holds the new reminders.
 func (t *Task) updateReminders(s *xorm.Session, task *Task, a web.Auth) (err error) {
 
+	// What a reminder does when it falls due is checked before anything is rewritten, so a
+	// configuration that cannot be stored costs the task none of its reminders (BRA-1631).
+	for _, r := range task.Reminders {
+		if err = validateReminderActions(r.Actions); err != nil {
+			return err
+		}
+	}
+
 	// Rewriting the rows must not lose which reminders already fired, or editing a task
 	// would make every reminder on it that has already gone off fire a second time. Nor
 	// must it lose who a reminder belongs to, or saving somebody else's task would hand
@@ -1847,14 +1856,47 @@ func (t *Task) updateReminders(s *xorm.Session, task *Task, a web.Auth) (err err
 	// of a moment, so moving a task's due date moves the firing, which is the point of a
 	// relative reminder. "Whose is this?" is asked of the reminder, which stays the same
 	// person's however its moment moves.
+	//
+	// Which of its actions were done since it fired, and whether that settled it, go with
+	// the firing, and so does the notification that fired it, which names the reminder by
+	// its row and has to follow the rewrite. What a reminder does goes with the reminder: a
+	// client that saves the task without saying, as the task pages do, leaves it doing what
+	// ONE set it to do (BRA-1631).
 	firedAt := make(map[int64]time.Time, len(existingReminders))
+	doneActions := make(map[int64][]string, len(existingReminders))
+	settledAt := make(map[int64]time.Time, len(existingReminders))
+	firedRow := make(map[int64]int64, len(existingReminders))
 	owner := make(map[string]int64, len(existingReminders))
+	actions := make(map[string][]ReminderAction, len(existingReminders))
 	for _, r := range existingReminders {
 		if !r.FiredAt.IsZero() {
 			firedAt[r.Reminder.UTC().Unix()] = r.FiredAt
+			doneActions[r.Reminder.UTC().Unix()] = r.DoneActions
+			settledAt[r.Reminder.UTC().Unix()] = r.SettledAt
+			firedRow[r.ID] = r.Reminder.UTC().Unix()
 		}
 		if r.CreatedByID != 0 {
 			owner[reminderIdentity(r)] = r.CreatedByID
+		}
+		if r.Actions != nil {
+			actions[reminderIdentity(r)] = r.Actions
+		}
+	}
+
+	// The notifications that fired these reminders, read before the rows go and repointed by
+	// their own ids afterwards, so that no repointing can overtake another.
+	firedNotifications := []*notifications.DatabaseNotification{}
+	if len(firedRow) > 0 {
+		rows := make([]int64, 0, len(firedRow))
+		for id := range firedRow {
+			rows = append(rows, id)
+		}
+		err = s.
+			Where("name = ?", (&ReminderDueNotification{}).Name()).
+			In("subject_id", rows).
+			Find(&firedNotifications)
+		if err != nil {
+			return
 		}
 	}
 
@@ -1884,6 +1926,7 @@ func (t *Task) updateReminders(s *xorm.Session, task *Task, a web.Auth) (err err
 	}
 
 	t.Reminders = make([]*TaskReminder, 0, len(reminderMap))
+	replacedBy := make(map[int64]int64, len(reminderMap))
 
 	// Loop through all reminders and add them
 	for _, r := range reminderMap {
@@ -1892,6 +1935,12 @@ func (t *Task) updateReminders(s *xorm.Session, task *Task, a web.Auth) (err err
 			belongsTo = savedBy
 		}
 
+		does := r.Actions
+		if does == nil {
+			does = actions[reminderIdentity(r)]
+		}
+
+		moment := r.Reminder.UTC().Unix()
 		taskReminder := &TaskReminder{
 			TaskID:         t.ID,
 			Reminder:       r.Reminder,
@@ -1899,12 +1948,30 @@ func (t *Task) updateReminders(s *xorm.Session, task *Task, a web.Auth) (err err
 			RelativeTo:     r.RelativeTo,
 			SubjectKind:    ReminderSubjectTask,
 			CreatedByID:    belongsTo,
-			FiredAt:        firedAt[r.Reminder.UTC().Unix()]}
+			FiredAt:        firedAt[moment],
+			DoneActions:    doneActions[moment],
+			SettledAt:      settledAt[moment],
+			Actions:        does,
+		}
 		_, err = s.Insert(taskReminder)
 		if err != nil {
 			return err
 		}
+		replacedBy[moment] = taskReminder.ID
 		t.Reminders = append(t.Reminders, taskReminder)
+	}
+
+	// A notification that fired a reminder which is still there now names the row that
+	// replaced it, so reading it in the bell still deals with that reminder's toast.
+	for _, n := range firedNotifications {
+		row, stands := replacedBy[firedRow[n.SubjectID]]
+		if !stands || row == n.SubjectID {
+			continue
+		}
+		_, err = s.ID(n.ID).Cols("subject_id").Update(&notifications.DatabaseNotification{SubjectID: row})
+		if err != nil {
+			return err
+		}
 	}
 
 	// sort reminders
