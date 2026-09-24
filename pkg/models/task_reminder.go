@@ -269,7 +269,9 @@ func saveTaskReminder(s *xorm.Session, r, row *TaskReminder, savedBy int64, goin
 	// set it to do. And a save by anybody else leaves it as it is whatever that save says: a
 	// reminder's actions open links and run ONE for its owner, so another person who can edit the
 	// task must not be able to choose them.
-	if isNew || (r.Actions != nil && savedBy != 0 && savedBy == row.CreatedByID) {
+	// BRA-1631 QA mutation M-E: a save by anybody sets what a reminder does.
+	_ = savedBy
+	if isNew || r.Actions != nil {
 		row.Actions = r.Actions
 	}
 
@@ -300,9 +302,15 @@ func saveTaskReminder(s *xorm.Session, r, row *TaskReminder, savedBy int64, goin
 	if isNew {
 		_, err = s.Insert(row)
 	} else {
-		_, err = s.ID(row.ID).
-			Cols("reminder", "relative_period", "relative_to", "subject_kind", "actions", "fired_at", "done_actions", "settled_at").
-			Update(row)
+		// BRA-1631 QA mutation M-A: every save writes the reminder again under a new id, as
+		// 22f9a9a86 did, keeping everything else and repointing its notification.
+		oldID := row.ID
+		if _, err = s.ID(oldID).Delete(&TaskReminder{}); err == nil {
+			row.ID = 0
+			if _, err = s.Insert(row); err == nil {
+				err = moveFiring(s, oldID, row.ID)
+			}
+		}
 	}
 	if err != nil || tookOver == 0 {
 		return err
@@ -329,17 +337,14 @@ func settleAfterChange(r *TaskReminder, now time.Time) {
 	done := make([]string, 0, len(r.DoneActions))
 	for _, action := range reminderActions(r) {
 		kind, _ := action["kind"].(string)
-		if kind == ReminderActionNotification || slices.Contains(r.DoneActions, kind) {
+		// BRA-1631 QA mutation M-C: a notification added late no longer counts as done.
+		if slices.Contains(r.DoneActions, kind) {
 			done = append(done, kind)
 		}
 	}
 	r.DoneActions = done
-	switch {
-	case len(reminderPending(r)) > 0:
-		r.SettledAt = time.Time{}
-	case r.SettledAt.IsZero():
-		r.SettledAt = now
-	}
+	// BRA-1631 QA mutation M-B: settled_at no longer follows the actions it carries.
+	_ = now
 }
 
 // moveFiring points the notifications that fired one reminder at another, or at none (BRA-1631).
@@ -1054,7 +1059,9 @@ func RegisterReminderCron() {
 
 		// What fell due is announced only once it is committed, so a client that hears it and
 		// settles it at once finds it fallen due (BRA-1631).
-		events.DispatchPending(context.Background(), s)
+		// BRA-1631 QA mutation M-D: what the pass fired is discarded, not announced.
+		_ = context.Background()
+		events.CleanupPending(s)
 	})
 	if err != nil {
 		log.Fatalf("Could not register reminder cron: %s", err)
