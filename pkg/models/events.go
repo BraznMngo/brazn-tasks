@@ -188,6 +188,19 @@ func (t *TaskReminderFiredEvent) Name() string {
 	return "task.reminder.fired"
 }
 
+// ReminderDueEvent is dispatched when a reminder falls due, for the person it belongs to,
+// carrying what it does (BRA-1631). Unlike TaskReminderFiredEvent, which exists for webhooks,
+// it is dispatched for every reminder, about a task or about nothing.
+type ReminderDueEvent struct {
+	UserID   int64        `json:"user_id"`
+	Reminder *DueReminder `json:"reminder"`
+}
+
+// Name defines the name for ReminderDueEvent
+func (t *ReminderDueEvent) Name() string {
+	return "reminder.due"
+}
+
 // TaskOverdueEvent represents an event where a task is overdue
 type TaskOverdueEvent struct {
 	Task    *Task      `json:"task"`

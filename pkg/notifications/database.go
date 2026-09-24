@@ -136,7 +136,10 @@ func MarkNotificationAsRead(s *xorm.Session, notification *DatabaseNotification,
 		Where("id = ?", notification.ID).
 		Cols("read_at").
 		Update(notification)
-	return
+	if err != nil {
+		return err
+	}
+	return readChanged(s, notification.NotifiableID)
 }
 
 func MarkAllNotificationsAsRead(s *xorm.Session, userID int64) (err error) {
@@ -144,5 +147,31 @@ func MarkAllNotificationsAsRead(s *xorm.Session, userID int64) (err error) {
 		Where("notifiable_id = ?", userID).
 		Cols("read_at").
 		Update(&DatabaseNotification{ReadAt: time.Now()})
-	return
+	if err != nil {
+		return err
+	}
+	return readChanged(s, userID)
+}
+
+// readChangedListeners are told whenever notifications are marked read or unread: see
+// OnReadChanged.
+var readChangedListeners []func(s *xorm.Session, notifiableID int64) error
+
+// OnReadChanged registers a function that is told, inside the same session, whenever some of
+// one person's notifications were marked read or unread. It is how a record that follows a
+// notification's read state stays in step with it however the notification was marked: a
+// reminder's toast follows the reminder's notification in the bell (BRA-1631). It is meant to
+// be called while the program starts, before any notification is marked.
+func OnReadChanged(listener func(s *xorm.Session, notifiableID int64) error) {
+	readChangedListeners = append(readChangedListeners, listener)
+}
+
+// readChanged tells every listener that some of one person's notifications changed.
+func readChanged(s *xorm.Session, notifiableID int64) error {
+	for _, listener := range readChangedListeners {
+		if err := listener(s, notifiableID); err != nil {
+			return err
+		}
+	}
+	return nil
 }

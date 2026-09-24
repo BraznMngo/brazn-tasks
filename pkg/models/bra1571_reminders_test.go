@@ -373,54 +373,88 @@ func TestBRA1571AFiredReminderSendsNoMailAndOtherKindsStillDo(t *testing.T) {
 		"turning reminder mail off must not turn mail off for every other kind")
 }
 
-// Target state 7, and the server half of acceptance 9: whether the person has seen a reminder
-// is held on the notification record and nowhere else.
+// BRA-1571 target state 7 held whether the person has seen a reminder in one place, the
+// notification, and this test — then TestBRA1571SeenIsHeldOnlyOnTheNotificationRecord — pinned that
+// by checking that the reminder table had no column whose name contained "read" or "seen".
 //
-// The desktop half of acceptance 9 — that the bell's unseen count falls when ONE marks the
-// reminder seen — needs two processes against one instance and is recorded UNPROVEN.
-func TestBRA1571SeenIsHeldOnlyOnTheNotificationRecord(t *testing.T) {
+// BRA-1631 changed that rule on purpose, and the column check went on passing. A reminder is now
+// settled once every action it carries is done, and a reminder whose only action is to run ONE
+// has no notification at all, so the reminder table holds which of its actions are done
+// (done_actions) and when the last one was (settled_at) — names the old check could not see.
+// Worse, the old fixture marked the notification read with raw SQL, which bypasses the listener
+// that keeps a reminder's toast in step with its notification: it left the two records
+// disagreeing, and the test stayed green while demonstrating the disagreement it existed to forbid.
+//
+// Re-pinned by BRA-1631 QA to the rule as it now stands. Firing a reminder still does not make it
+// seen (target state 8a). For a reminder with a notification in the bell, the notification and the
+// reminder's toast never disagree, however the notification is marked through the application. A
+// reminder that only runs ONE has nothing in the bell, and its state is the reminder's own. A raw
+// SQL write to read_at still bypasses the listener: that is a limit of the design, recorded in the
+// QA ledger in BraznMngo/one-apps, and nothing here pretends it away.
+//
+// The desktop half of BRA-1571 acceptance 9 — that the bell's unseen count falls when ONE marks the
+// reminder seen — needs two processes against one instance and is still recorded UNPROVEN.
+//
+// Mutation claim: removing notifications.OnReadChanged(reminderToastsFollowTheBell) from the
+// package's init leaves the reminder listed after its notification is read, and the test fails.
+func TestBRA1571And1631TheBellAndTheToastNeverDisagree(t *testing.T) {
 	s := asHostileAsProduction(t)
 	person := reminderTestUser()
 
 	_, err := CreateStandaloneReminder(s, person, time.Now().UTC().Add(-time.Minute), "have I seen this")
 	require.NoError(t, err)
+	forONE, err := CreateStandaloneReminder(s, person, time.Now().UTC().Add(-time.Minute), "for ONE only",
+		ReminderAction{"kind": "run-one"})
+	require.NoError(t, err)
 	require.NoError(t, fireDueReminders(s, time.Now(), false))
 
-	unread := countReminderRows(t, s,
-		"SELECT COUNT(*) FROM notifications WHERE notifiable_id = ? AND name = ? AND read_at IS NULL",
-		person.ID, "task.reminder")
-	require.Equal(t, int64(1), unread, "a fired reminder must start out unseen")
-
-	// Firing it did not make it seen. That is target state 8a from the other side: the
-	// server never marks a reminder seen on the person's behalf.
-	fired := []*TaskReminder{}
-	require.NoError(t, s.Where("fired_at IS NOT NULL").Find(&fired))
-	require.Len(t, fired, 1)
-	assert.Equal(t, int64(1), unread,
-		"a reminder that has fired is not thereby seen")
-
-	// Marking the notification read is what makes it seen, and the reminder record itself
-	// carries no seen state of its own: the sweep must not find it again either way.
-	_, err = s.Exec("UPDATE notifications SET read_at = ? WHERE notifiable_id = ? AND name = ?",
-		time.Now().UTC().Format(dbTimeFormat), person.ID, "task.reminder")
-	require.NoError(t, err)
-
-	assert.Equal(t, int64(0), countReminderRows(t, s,
-		"SELECT COUNT(*) FROM notifications WHERE notifiable_id = ? AND name = ? AND read_at IS NULL",
-		person.ID, "task.reminder"),
-		"marking the notification read must take it out of the unseen set")
-
-	// No second home for seen state: the reminder table must carry no read/seen column, or
-	// the two could disagree and the ticket says there is one place.
-	columns, err := s.QueryString("SELECT * FROM task_reminders LIMIT 1")
-	require.NoError(t, err)
-	require.NotEmpty(t, columns)
-	for name := range columns[0] {
-		assert.NotContains(t, name, "read",
-			"seen state must live on the notification record, not on the reminder")
-		assert.NotContains(t, name, "seen",
-			"seen state must live on the notification record, not on the reminder")
+	unread := func() int64 {
+		return countReminderRows(t, s,
+			"SELECT COUNT(*) FROM notifications WHERE notifiable_id = ? AND name = ? AND read_at IS NULL",
+			person.ID, "task.reminder")
 	}
+	waiting := func() int64 {
+		return countReminderRows(t, s,
+			"SELECT COUNT(*) FROM task_reminders WHERE created_by_id = ? AND reminder_text = ? AND fired_at IS NOT NULL AND settled_at IS NULL",
+			person.ID, "have I seen this")
+	}
+
+	// Firing it did not make it seen: the bell says unread, and the reminder says its toast waits.
+	require.Equal(t, int64(1), unread(), "a fired reminder must start out unseen")
+	require.Equal(t, int64(1), waiting(), "and not settled either")
+
+	var bellID int64
+	has, err := s.SQL("SELECT id FROM notifications WHERE notifiable_id = ? AND name = ?", person.ID, "task.reminder").Get(&bellID)
+	require.NoError(t, err)
+	require.True(t, has)
+	// Marked exactly as the v2 route marks one: a body holding only the id and the flag, through
+	// CanUpdate — which loads whose notification it is — and then Update.
+	markAsTheRouteDoes := func(read bool) {
+		body := &DatabaseNotifications{Read: read}
+		body.ID = bellID
+		can, err := body.CanUpdate(s, person)
+		require.NoError(t, err)
+		require.True(t, can)
+		require.NoError(t, body.Update(s, person))
+	}
+
+	// Read in the bell: both records say so.
+	markAsTheRouteDoes(true)
+	assert.Equal(t, int64(0), unread())
+	assert.Equal(t, int64(0), waiting(), "the reminder must not disagree with the bell about whether it was seen")
+
+	// Marked unread again: both records say it waits.
+	markAsTheRouteDoes(false)
+	assert.Equal(t, int64(1), unread())
+	assert.Equal(t, int64(1), waiting(), "nor about whether it still waits")
+
+	// A reminder that only runs ONE wrote nothing to the bell, so the one place its state can live
+	// is the reminder itself.
+	assert.Equal(t, int64(1), countReminderRows(t, s,
+		"SELECT COUNT(*) FROM notifications WHERE notifiable_id = ? AND name = ?", person.ID, "task.reminder"),
+		"only the reminder with a notification wrote one")
+	assert.Equal(t, int64(1), countReminderRows(t, s,
+		"SELECT COUNT(*) FROM task_reminders WHERE id = ? AND settled_at IS NULL", forONE.ID))
 }
 
 // The sweep must read the reminder's own columns.

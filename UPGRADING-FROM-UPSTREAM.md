@@ -109,6 +109,15 @@ Specifically confirm:
   also has to be synced in `pkg/models/setup_tests.go` or the test schema has no such table.
   Two edits in two upstream files, either of which a merge can drop on its own.
   `TestDeleteUserErasesEveryCategoryOfTheirData` is the check for all of them.
+- A reminder's toast still follows its notification in the bell (BRA-1631). `MarkNotificationAsRead`
+  and `MarkAllNotificationsAsRead` in `pkg/notifications/database.go` still end by calling
+  `readChanged`. Both are upstream functions and a merge resolves them by taking upstream's side;
+  with the call gone nothing complains, and a reminder read on the task pages comes back as a toast.
+  `TestBRA1631ReadingTheBellDealsWithTheToastAndMarkingItUnreadBringsItBack` and
+  `TestBRA1571And1631TheBellAndTheToastNeverDisagree` are the checks. The same pull request also
+  added to upstream's `updateReminders` in `pkg/models/tasks.go`, which
+  `TestBRA1631SavingATaskWithoutActionsKeepsWhatItsRemindersDo` checks, and to `validEvents` and
+  `RegisterListeners` in `pkg/websocket`, which the two `TestBRA1631Story11…` tests there check.
 
 ### 4. Assert the removals held
 
