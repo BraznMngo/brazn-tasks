@@ -43,8 +43,8 @@ func TestCollaborationCollaboratorCap(t *testing.T) {
 	env := newManagedEnv(t)
 
 	const maxOutsiders = 10
-	cap := maxOutsiders
-	env.grantCollaboration(testuser1.ID, true, &cap)
+	ceiling := maxOutsiders
+	env.grantCollaboration(testuser1.ID, true, &ceiling)
 
 	teamID := int64(1)
 
@@ -98,8 +98,8 @@ func TestCollaborationCollaboratorCap(t *testing.T) {
 // not by the roster count (BRA-1064).
 func TestCollaborationPersonalInviteeRefusedBySharingRule(t *testing.T) {
 	env := newManagedEnv(t)
-	cap := 10
-	env.grantCollaboration(testuser1.ID, true, &cap)
+	ceiling := 10
+	env.grantCollaboration(testuser1.ID, true, &ceiling)
 	env.grant(testuser2.ID, entitlement.EditionPersonal, false)
 
 	rec := env.request(http.MethodPost, "/api/v2/teams/1/members",

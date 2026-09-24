@@ -44,10 +44,10 @@ import (
 // contract's enum has three members and the ingest endpoint must be able to
 // tell "an edition this contract defines" from "a value nobody has agreed on".
 const (
-	EditionCommunity      = "community"
-	EditionPersonal       = "personal-cloud"
-	EditionTeams          = "teams-cloud"
-	EditionCollaboration  = "collaboration-cloud"
+	EditionCommunity     = "community"
+	EditionPersonal      = "personal-cloud"
+	EditionTeams         = "teams-cloud"
+	EditionCollaboration = "collaboration-cloud"
 )
 
 // KnownEdition reports whether a value is one of the editions the v2 contract

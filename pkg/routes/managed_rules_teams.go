@@ -405,8 +405,8 @@ func (e *managedEval) requireCollaboratorCapacity() error {
 	if acting.State.Edition != entitlement.EditionCollaboration {
 		return nil
 	}
-	cap := acting.State.MaxCollaborators
-	if cap == nil {
+	ceiling := acting.State.MaxCollaborators
+	if ceiling == nil {
 		// Fail closed: a Collaboration admin projection without the ceiling
 		// must not admit collaborators until commercial delivers one.
 		return e.refuse("collaborator_limit: the collaborator ceiling is not configured")
@@ -426,7 +426,7 @@ func (e *managedEval) requireCollaboratorCapacity() error {
 		return e.refuse("the team roster could not be counted")
 	}
 	// Roster ceiling is 1 (owner) + max_collaborators outsiders.
-	if count >= int64(1+*cap) {
+	if count >= int64(1+*ceiling) {
 		return e.refuse("collaborator_limit: the collaborator list is full")
 	}
 	return nil

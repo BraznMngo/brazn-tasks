@@ -265,10 +265,10 @@ func TestForTokenCarriesTheWriteRestriction(t *testing.T) {
 	})
 
 	t.Run("a Collaboration admin carries max_collaborators (COLLAB-5)", func(t *testing.T) {
-		cap := 10
+		ceiling := 10
 		state := live
 		state.Edition = EditionCollaboration
-		state.MaxCollaborators = &cap
+		state.MaxCollaborators = &ceiling
 
 		got := (&Signed{State: state}).ForToken(now, 0)
 		require.NotNil(t, got)
