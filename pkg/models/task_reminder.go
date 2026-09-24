@@ -82,7 +82,9 @@ type TaskReminder struct {
 	// The words this reminder fires with. Only a reminder with no subject carries them;
 	// a task reminder takes its words from the task.
 	Text string `xorm:"'reminder_text' longtext null" json:"-"`
-	// Who is reminded. Only set for a reminder with no subject.
+	// Who the reminder belongs to: the only person it reminds, and the only person who sets
+	// what it does. That is whoever set it, or for a reminder on a task from before reminders
+	// had an owner, the task's creator (migration 20260913120000).
 	CreatedByID int64 `xorm:"bigint null" json:"-"`
 	// When this reminder fired. Stamped after the notification is written, which is what
 	// makes the sweep idempotent: a restart, or a minute nothing was running, cannot fire
