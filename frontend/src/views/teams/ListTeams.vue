@@ -4,6 +4,7 @@
 		:class="{ 'is-loading': teamService.loading}"
 	>
 		<XButton
+			v-if="capabilities.teamCreate"
 			:to="{name:'teams.create'}"
 			class="is-pulled-end"
 			icon="plus"
@@ -35,9 +36,11 @@
 			class="has-text-centered has-text-grey is-italic"
 		>
 			{{ $t('team.noTeams') }}
-			<RouterLink :to="{name: 'teams.create'}">
-				{{ $t('team.create.title') }}.
-			</RouterLink>
+			<template v-if="capabilities.teamCreate">
+				<RouterLink :to="{name: 'teams.create'}">
+					{{ $t('team.create.title') }}.
+				</RouterLink>
+			</template>
 		</p>
 	</div>
 </template>
@@ -49,9 +52,11 @@ import { useI18n } from 'vue-i18n'
 import Card from '@/components/misc/Card.vue'
 import TeamService from '@/services/team'
 import { useTitle } from '@/composables/useTitle'
+import {useManagedCapabilities} from '@/composables/useManagedCapabilities'
 
 const { t } = useI18n({useScope: 'global'})
 useTitle(() => t('team.title'))
+const {capabilities} = useManagedCapabilities()
 
 const teams = ref([])
 const teamService = shallowReactive(new TeamService())

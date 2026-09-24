@@ -64,6 +64,8 @@ describe('useManagedCapabilities', () => {
 			projectDuplicate: false,
 			projectShare: false,
 			linkShare: false,
+			teamsSurface: false,
+			teamCreate: false,
 		})
 	})
 
@@ -77,6 +79,8 @@ describe('useManagedCapabilities', () => {
 			projectDuplicate: true,
 			projectShare: true,
 			linkShare: true,
+			teamsSurface: true,
+			teamCreate: true,
 		})
 	})
 
