@@ -57,8 +57,8 @@ const (
 	// ReminderSubjectNone is a reminder about nothing in particular. It carries its own
 	// words, belongs to one person, and nothing can complete or delete it out from under it.
 	ReminderSubjectNone ReminderSubject = `none`
-	// ReminderSubjectTask is a reminder about a task. Its words are the task's title and
-	// it reaches everybody who can see that task.
+	// ReminderSubjectTask is a reminder about a task. Its words are the task's title, and
+	// like every reminder it reaches only the person who set it.
 	ReminderSubjectTask ReminderSubject = `task`
 )
 
@@ -253,18 +253,21 @@ func matchReminders(existing, wanted []*TaskReminder) (rows []*TaskReminder, goi
 }
 
 // saveTaskReminder writes one reminder given for a task over the row it matched, or as a new row
-// when that row has no id yet (BRA-1631).
+// when that row has no id yet (BRA-1631). savedBy is the person saving the task.
 //
 // "Has this already fired?" is asked of a moment, so moving a reminder moves its firing: one whose
 // moment moved falls due again at the new one. A reminder arriving at the moment of one that is
 // going, and had fired, takes that firing over, as the whole rewrite used to.
-func saveTaskReminder(s *xorm.Session, r, row *TaskReminder, going map[int64]*TaskReminder, now time.Time) error {
+func saveTaskReminder(s *xorm.Session, r, row *TaskReminder, savedBy int64, going map[int64]*TaskReminder, now time.Time) error {
 	isNew := row.ID == 0
 	moment := r.Reminder.UTC().Unix()
 
-	// What a reminder does goes with the reminder: a client that saves the task without saying,
-	// as the task pages do, leaves it doing what ONE set it to do.
-	if isNew || r.Actions != nil {
+	// What a reminder does goes with the reminder, and only the person it belongs to sets it. A
+	// client that saves the task without saying, as the task pages do, leaves it doing what ONE
+	// set it to do. And a save by anybody else leaves it as it is whatever that save says: a
+	// reminder's actions open links and run ONE for its owner, so another person who can edit the
+	// task must not be able to choose them.
+	if isNew || (r.Actions != nil && savedBy != 0 && savedBy == row.CreatedByID) {
 		row.Actions = r.Actions
 	}
 

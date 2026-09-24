@@ -1883,7 +1883,7 @@ func (t *Task) updateReminders(s *xorm.Session, task *Task, a web.Auth) (err err
 		if row == nil {
 			row = &TaskReminder{TaskID: t.ID, CreatedByID: savedBy}
 		}
-		err = saveTaskReminder(s, r, row, going, now)
+		err = saveTaskReminder(s, r, row, savedBy, going, now)
 		if err != nil {
 			return err
 		}
