@@ -660,3 +660,52 @@ func TestBRA1631Story11TheCronCommitsAFiringBeforeItAnnouncesIt(t *testing.T) {
 	assert.Contains(t, afterCommit, "return", "and returns before anything could announce it")
 	assert.NotContains(t, cron[:commit], "events.Dispatch(", "nothing is announced before the commit")
 }
+
+// Challenged at the coordinator's request on 24 September 2026: the fix counts a notification added
+// to a reminder after it fell due as done, because the server adds a notification to the bell only
+// at the moment a reminder falls due. The ticket does not say what that addition means. What it does
+// settle is the outcome pinned here, whichever way that choice goes: a reminder is settled once every
+// action it carries is done, so it must never be left waiting on an action nothing will perform,
+// listed by checking for good with a kind no client performs. Whether the bell then shows a
+// notification for it is the part the ticket leaves open, and this does not pin it.
+//
+// Mutation claim: leaving a notification gained after falling due among what is still to do fails
+// both cases.
+func TestBRA1631AFiredReminderIsNeverLeftWaitingOnANotificationNothingWillWrite(t *testing.T) {
+	moment := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+	saveWith := func(t *testing.T, s *xorm.Session, person *user.User, actions ...ReminderAction) {
+		t.Helper()
+		require.NoError(t, (&Task{ID: 1, Reminders: []*TaskReminder{{Reminder: moment, Actions: actions}}}).Update(s, person))
+	}
+
+	t.Run("one still waiting on its toast waits on that alone", func(t *testing.T) {
+		s := asHostileAsProduction(t)
+		person := reminderTestUser()
+
+		saveWith(t, s, person, ReminderAction{"kind": "toast"})
+		require.NoError(t, fireDueReminders(s, time.Now(), false))
+		saveWith(t, s, person, ReminderAction{"kind": "toast"}, ReminderAction{"kind": "notification"})
+
+		due := qaDue(t, s, person)
+		require.Len(t, due, 1)
+		for _, pending := range due {
+			assert.Equal(t, []string{"toast"}, pending)
+		}
+	})
+
+	t.Run("one already settled stays settled", func(t *testing.T) {
+		s := asHostileAsProduction(t)
+		person := reminderTestUser()
+
+		saveWith(t, s, person, ReminderAction{"kind": "toast"})
+		require.NoError(t, fireDueReminders(s, time.Now(), false))
+		due := qaDue(t, s, person)
+		require.Len(t, due, 1)
+		for id := range due {
+			require.NoError(t, CompleteReminderAction(s, person, id, "toast"))
+		}
+		saveWith(t, s, person, ReminderAction{"kind": "notification"}, ReminderAction{"kind": "toast"})
+
+		assert.Empty(t, qaDue(t, s, person))
+	})
+}
