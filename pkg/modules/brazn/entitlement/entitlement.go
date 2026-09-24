@@ -44,16 +44,20 @@ import (
 // contract's enum has three members and the ingest endpoint must be able to
 // tell "an edition this contract defines" from "a value nobody has agreed on".
 const (
-	EditionCommunity = "community"
-	EditionPersonal  = "personal-cloud"
-	EditionTeams     = "teams-cloud"
+	EditionCommunity      = "community"
+	EditionPersonal       = "personal-cloud"
+	EditionTeams          = "teams-cloud"
+	EditionCollaboration  = "collaboration-cloud"
 )
 
-// KnownEdition reports whether a value is one of the three the v2 contract
+// KnownEdition reports whether a value is one of the editions the v2 contract
 // defines. Anything else is refused rather than interpreted, in exactly the
 // same way an unsupported contract version is.
 func KnownEdition(edition string) bool {
-	return edition == EditionCommunity || edition == EditionPersonal || edition == EditionTeams
+	return edition == EditionCommunity ||
+		edition == EditionPersonal ||
+		edition == EditionTeams ||
+		edition == EditionCollaboration
 }
 
 // The values the v2 contract's optional `state.write_access` may carry.
@@ -264,6 +268,10 @@ type Subject struct {
 // have no defined tie-break. models.OrganizationFor reads it from the acting
 // administrator only.
 //
+// MaxCollaborators is a POINTER for the reason SeatsPurchased is (BRA-1064).
+// Absence refuses an expanding team-member add on Collaboration — fail closed.
+// Carried only on a Collaboration administrator's projection.
+//
 // `omitempty` is what keeps this additive, exactly as it does for WriteAccess:
 // the producer omits the member until its projectOrganizationName flag is
 // turned on, no existing projection's signed bytes move, and this struct must
@@ -276,6 +284,7 @@ type State struct {
 	OrganizationAdmin bool       `json:"organization_admin"`
 	EffectiveState    string     `json:"effective_state"`
 	SeatsPurchased    *int       `json:"seats_purchased"`
+	MaxCollaborators  *int       `json:"max_collaborators,omitempty"`
 	OrganizationName  *string    `json:"organization_name,omitempty"`
 	WriteAccess       *string    `json:"write_access,omitempty"`
 	ValidFrom         time.Time  `json:"valid_from"`
