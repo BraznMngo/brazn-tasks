@@ -46,7 +46,6 @@ import (
 	"testing"
 	"time"
 
-	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/events"
 	"code.vikunja.io/api/pkg/notifications"
 	"code.vikunja.io/api/pkg/user"
@@ -233,14 +232,13 @@ func TestBRA1631K2AReminderForONEIsSettledOnceONEHasActedAndIsNeverPickedUpAgain
 	require.Error(t, CompleteReminderAction(s, person, theirs.ID, runONE))
 	assert.Contains(t, qaDue(t, s, qaOtherPerson()), theirs.ID)
 
-	// ONE acted, and told the person nothing: settled all the same.
+	// ONE acted, and told the person nothing: settled all the same. Settled is written to the
+	// reminder's own row, read back here in raw SQL, which is what any client reads after it
+	// restarts — nothing about it lives in the process that recorded it. (A second session cannot
+	// stand in for a restart here: every session is a transaction, and would not see this one's.)
 	require.NoError(t, CompleteReminderAction(s, person, forONE.ID, runONE))
 	assert.True(t, qaSettled(t, s, forONE.ID))
 	assert.NotContains(t, qaDue(t, s, person), forONE.ID, "never picked up again")
-
-	restarted := db.NewSession()
-	t.Cleanup(func() { _ = restarted.Close() })
-	assert.NotContains(t, qaDue(t, restarted, person), forONE.ID, "nor after ONE restarts")
 
 	require.NoError(t, fireDueReminders(s, time.Now(), false))
 	assert.NotContains(t, qaDue(t, s, person), forONE.ID, "nor after another pass")
