@@ -383,7 +383,7 @@ const availableCmds = computed(() => {
 	return [
 		commands.value.newTask,
 		...(capabilities.value.projectCreate ? [commands.value.newProject] : []),
-		commands.value.newTeam,
+		...(capabilities.value.teamCreate ? [commands.value.newTeam] : []),
 	]
 })
 

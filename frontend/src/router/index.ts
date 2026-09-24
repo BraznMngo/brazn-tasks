@@ -505,6 +505,9 @@ const router = createRouter({
 			path: '/teams',
 			name: 'teams.index',
 			component: () => import('@/views/teams/ListTeams.vue'),
+			meta: {
+				requiresTeamsSurface: true,
+			},
 		},
 		{
 			path: '/teams/new',
@@ -512,12 +515,16 @@ const router = createRouter({
 			component: () =>  import('@/views/teams/NewTeam.vue'),
 			meta: {
 				showAsModal: true,
+				requiresTeamsSurface: true,
 			},
 		},
 		{
 			path: '/teams/:id/edit',
 			name: 'teams.edit',
 			component: () => import('@/views/teams/EditTeam.vue'),
+			meta: {
+				requiresTeamsSurface: true,
+			},
 		},
 		{
 			path: '/labels',
@@ -842,6 +849,15 @@ router.beforeEach(async (to, from) => {
 		// gate (ruleProjectCreate) is what actually refuses the create call.
 		const {capabilities} = useManagedCapabilities()
 		if (!capabilities.value.projectCreate) {
+			return {name: 'not-found'}
+		}
+	}
+
+	if (to.meta?.requiresTeamsSurface) {
+		// BRA-1066: Personal has no team — hide the menu and refuse a direct
+		// /teams* URL the same way project-create does. Server still enforces.
+		const {capabilities} = useManagedCapabilities()
+		if (!capabilities.value.teamsSurface) {
 			return {name: 'not-found'}
 		}
 	}

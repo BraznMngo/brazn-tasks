@@ -18,6 +18,10 @@ export interface ManagedCapabilities {
 	projectDuplicate: boolean
 	projectShare: boolean
 	linkShare: boolean
+	/** Teams nav + /teams* routes (BRA-1066). False on Personal — they have no team. */
+	teamsSurface: boolean
+	/** Create-team affordances (BRA-1066 / COLLAB-5). */
+	teamCreate: boolean
 }
 
 // Mirrors entitlement.EditionPersonal (pkg/modules/brazn/entitlement/entitlement.go).
@@ -33,17 +37,23 @@ const PERSONAL_CAPABILITIES: ManagedCapabilities = {
 	projectDuplicate: false,
 	projectShare: false,
 	linkShare: false,
+	teamsSurface: false,
+	teamCreate: false,
 }
 
 // Every edition other than Personal - Teams, community/self-hosted, or no
 // entitlement at all - defaults every capability to true (permissive). Teams
 // has its own fixed rules too (managed_rules_teams.go), but giving them their
 // own capability values is BRA-1343 and explicitly out of scope here.
+// Collaboration keeps teamsSurface (COLLAB-5 retitles it); teamCreate flips
+// false there in a later ticket.
 const PERMISSIVE_CAPABILITIES: ManagedCapabilities = {
 	projectCreate: true,
 	projectDuplicate: true,
 	projectShare: true,
 	linkShare: true,
+	teamsSurface: true,
+	teamCreate: true,
 }
 
 /**

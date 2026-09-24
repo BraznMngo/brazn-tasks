@@ -63,7 +63,7 @@
 						{{ $t('label.title') }}
 					</RouterLink>
 				</li>
-				<li>
+				<li v-if="capabilities.teamsSurface">
 					<RouterLink
 						v-shortcut="'KeyG KeyM'"
 						:to="{ name: 'teams.index'}"
@@ -154,10 +154,12 @@ import {PRO_FEATURE} from '@/constants/proFeatures'
 import ProjectsNavigation from '@/components/home/ProjectsNavigation.vue'
 import type {IProject} from '@/modelTypes/IProject'
 import {useSidebarResize} from '@/composables/useSidebarResize'
+import {useManagedCapabilities} from '@/composables/useManagedCapabilities'
 
 const baseStore = useBaseStore()
 const projectStore = useProjectStore()
 const configStore = useConfigStore()
+const {capabilities} = useManagedCapabilities()
 
 const timeTrackingEnabled = computed(() => configStore.isProFeatureEnabled(PRO_FEATURE.TIME_TRACKING))
 
