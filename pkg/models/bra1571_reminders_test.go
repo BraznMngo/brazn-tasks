@@ -423,18 +423,28 @@ func TestBRA1571And1631TheBellAndTheToastNeverDisagree(t *testing.T) {
 	require.Equal(t, int64(1), unread(), "a fired reminder must start out unseen")
 	require.Equal(t, int64(1), waiting(), "and not settled either")
 
-	bell := &notifications.DatabaseNotification{}
-	has, err := s.Where("notifiable_id = ? AND name = ?", person.ID, "task.reminder").Get(bell)
+	var bellID int64
+	has, err := s.SQL("SELECT id FROM notifications WHERE notifiable_id = ? AND name = ?", person.ID, "task.reminder").Get(&bellID)
 	require.NoError(t, err)
 	require.True(t, has)
+	// Marked exactly as the v2 route marks one: a body holding only the id and the flag, through
+	// CanUpdate — which loads whose notification it is — and then Update.
+	markAsTheRouteDoes := func(read bool) {
+		body := &DatabaseNotifications{Read: read}
+		body.ID = bellID
+		can, err := body.CanUpdate(s, person)
+		require.NoError(t, err)
+		require.True(t, can)
+		require.NoError(t, body.Update(s, person))
+	}
 
-	// Read in the bell, the way the notification routes mark one: both records say so.
-	require.NoError(t, (&DatabaseNotifications{DatabaseNotification: *bell, Read: true}).Update(s, person))
+	// Read in the bell: both records say so.
+	markAsTheRouteDoes(true)
 	assert.Equal(t, int64(0), unread())
 	assert.Equal(t, int64(0), waiting(), "the reminder must not disagree with the bell about whether it was seen")
 
 	// Marked unread again: both records say it waits.
-	require.NoError(t, (&DatabaseNotifications{DatabaseNotification: *bell, Read: false}).Update(s, person))
+	markAsTheRouteDoes(false)
 	assert.Equal(t, int64(1), unread())
 	assert.Equal(t, int64(1), waiting(), "nor about whether it still waits")
 

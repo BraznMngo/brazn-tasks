@@ -110,23 +110,41 @@ func qaSettled(t *testing.T, s *xorm.Session, id int64) bool {
 		"SELECT COUNT(*) FROM task_reminders WHERE id = ? AND settled_at IS NOT NULL", id) == 1
 }
 
-// qaBellFor finds the notification a reminder wrote by the words it carries, in raw SQL, rather
-// than by the subject the implementation records on it: a lookup through that subject would agree
-// with the implementation whatever it recorded.
-func qaBellFor(t *testing.T, s *xorm.Session, who *user.User, words string) *notifications.DatabaseNotification {
+// qaCarries reports whether a notification carries these words as its text. Compared in Go on the
+// decoded notification, because the column is native JSON on some databases and text on others,
+// and no one SQL comparison reads both.
+func qaCarries(t *testing.T, n *notifications.DatabaseNotification, words string) bool {
 	t.Helper()
 
-	var id int64
-	has, err := s.SQL("SELECT id FROM notifications WHERE notifiable_id = ? AND name = ? AND notification LIKE ?",
-		who.ID, "task.reminder", "%"+words+"%").Get(&id)
+	encoded, err := json.Marshal(n.Notification)
 	require.NoError(t, err)
-	require.True(t, has, "the reminder must have written its notification")
+	var written struct {
+		Text string `json:"text"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &written))
+	return written.Text == words
+}
 
-	n := &notifications.DatabaseNotification{}
-	has, err = s.ID(id).Get(n)
-	require.NoError(t, err)
-	require.True(t, has)
-	return n
+// qaBellsCarrying lists one person's reminder notifications that carry these words, by the words
+// rather than by the subject the implementation records on them: a lookup through that subject
+// would agree with the implementation whatever it recorded. unreadOnly narrows it to the bell's
+// unread ones.
+func qaBellsCarrying(t *testing.T, s *xorm.Session, who *user.User, words string, unreadOnly bool) []*notifications.DatabaseNotification {
+	t.Helper()
+
+	query := s.Where("notifiable_id = ? AND name = ?", who.ID, "task.reminder")
+	if unreadOnly {
+		query = query.And("read_at IS NULL")
+	}
+	all := []*notifications.DatabaseNotification{}
+	require.NoError(t, query.Find(&all))
+	carrying := []*notifications.DatabaseNotification{}
+	for _, n := range all {
+		if qaCarries(t, n, words) {
+			carrying = append(carrying, n)
+		}
+	}
+	return carrying
 }
 
 // qaStoredActions reads a reminder's configuration from its row, as stored.
@@ -293,9 +311,7 @@ func TestBRA1631Story2DoneOnTheToastSettlesItAndTakesTheBellDownByOne(t *testing
 	require.NoError(t, CompleteReminderAction(s, person, pressed.ID, "toast"))
 
 	assert.Equal(t, int64(1), qaUnreadBell(t, s, person), "the bell goes down by one")
-	assert.Equal(t, int64(1), countReminderRows(t, s,
-		"SELECT COUNT(*) FROM notifications WHERE notifiable_id = ? AND name = ? AND read_at IS NULL AND notification LIKE ?",
-		person.ID, "task.reminder", "%A second reminder nobody has dealt with.%"),
+	assert.Len(t, qaBellsCarrying(t, s, person, "A second reminder nobody has dealt with.", true), 1,
 		"and the one still unread is the other reminder's")
 	assert.True(t, qaSettled(t, s, pressed.ID))
 	due := qaDue(t, s, person)
@@ -307,7 +323,9 @@ func TestBRA1631Story2DoneOnTheToastSettlesItAndTakesTheBellDownByOne(t *testing
 // disagree about whether the person has dealt with a reminder: reading the notification on the
 // task pages deals with the toast, marking it unread brings the toast back, and reading every
 // notification at once deals with every toast — while a reminder that still has ONE to run keeps
-// waiting for ONE. The notification is marked the way the notification routes mark one.
+// waiting for ONE. The notification is marked exactly as the v2 route marks one: from a body holding
+// only its id and the flag, through CanUpdate and then Update, so that the step that loads whose
+// notification it is — which is what tells the reminder's person apart — is the production one.
 //
 // Mutation claim: removing notifications.OnReadChanged(reminderToastsFollowTheBell) from the
 // package's init leaves the reminder listed after its notification was read.
@@ -320,12 +338,23 @@ func TestBRA1631ReadingTheBellDealsWithTheToastAndMarkingItUnreadBringsItBack(t 
 		ReminderAction{"kind": "notification"}, ReminderAction{"kind": "toast"}, ReminderAction{"kind": runONE})
 	require.NoError(t, fireDueReminders(s, time.Now(), false))
 
-	bell := qaBellFor(t, s, person, "Pay the Acme invoice.")
-	require.NoError(t, (&DatabaseNotifications{DatabaseNotification: *bell, Read: true}).Update(s, person))
+	bells := qaBellsCarrying(t, s, person, "Pay the Acme invoice.", false)
+	require.Len(t, bells, 1, "the reminder must have written its notification")
+	bell := bells[0]
+	markAsTheRouteDoes := func(read bool) {
+		body := &DatabaseNotifications{Read: read}
+		body.ID = bell.ID
+		can, err := body.CanUpdate(s, person)
+		require.NoError(t, err)
+		require.True(t, can)
+		require.NoError(t, body.Update(s, person))
+	}
+
+	markAsTheRouteDoes(true)
 	assert.True(t, qaSettled(t, s, paid.ID), "read on the task pages, it does not come back as a toast")
 	assert.NotContains(t, qaDue(t, s, person), paid.ID)
 
-	require.NoError(t, (&DatabaseNotifications{DatabaseNotification: *bell, Read: false}).Update(s, person))
+	markAsTheRouteDoes(false)
 	assert.False(t, qaSettled(t, s, paid.ID))
 	assert.Equal(t, []string{"toast"}, qaDue(t, s, person)[paid.ID], "marked unread, its toast waits again")
 
