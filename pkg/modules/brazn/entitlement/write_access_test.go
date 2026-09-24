@@ -264,6 +264,18 @@ func TestForTokenCarriesTheWriteRestriction(t *testing.T) {
 		assert.False(t, got.WriteRestricted)
 	})
 
+	t.Run("a Collaboration admin carries max_collaborators (COLLAB-5)", func(t *testing.T) {
+		ceiling := 10
+		state := live
+		state.Edition = EditionCollaboration
+		state.MaxCollaborators = &ceiling
+
+		got := (&Signed{State: state}).ForToken(now, 0)
+		require.NotNil(t, got)
+		require.NotNil(t, got.MaxCollaborators)
+		assert.Equal(t, 10, *got.MaxCollaborators)
+	})
+
 	// The AC5 trap at the level it originates. A cancelled subject past their
 	// paid period is not active, so nothing is minted for them at all - and
 	// nothing must be, because they owe nothing and a restriction keyed on

@@ -3,7 +3,11 @@ import {setActivePinia, createPinia} from 'pinia'
 import {defineComponent, h} from 'vue'
 import {mount} from '@vue/test-utils'
 
-import {useManagedCapabilities, type ManagedCapabilities} from './useManagedCapabilities'
+import {
+	collaborationDetailTeamId,
+	useManagedCapabilities,
+	type ManagedCapabilities,
+} from './useManagedCapabilities'
 import {useAuthStore} from '@/stores/auth'
 import {saveToken, removeToken} from '@/helpers/auth'
 import {AUTH_TYPES} from '@/modelTypes/IUser'
@@ -32,17 +36,33 @@ async function setManagedClaims(claims: Record<string, unknown>) {
 	await useAuthStore().checkAuth()
 }
 
-function runComposable(): {capabilities: ManagedCapabilities, writeRestricted: boolean} {
-	let result: {capabilities: ManagedCapabilities, writeRestricted: boolean} | undefined
+function runComposable(): {
+	capabilities: ManagedCapabilities
+	writeRestricted: boolean
+	maxCollaborators: number | null
+} {
+	let result: {
+		capabilities: ManagedCapabilities
+		writeRestricted: boolean
+		maxCollaborators: number | null
+	} | undefined
 	const Comp = defineComponent({
 		setup() {
-			const {capabilities, writeRestricted} = useManagedCapabilities()
-			result = {capabilities: capabilities.value, writeRestricted: writeRestricted.value}
+			const {capabilities, writeRestricted, maxCollaborators} = useManagedCapabilities()
+			result = {
+				capabilities: capabilities.value,
+				writeRestricted: writeRestricted.value,
+				maxCollaborators: maxCollaborators.value,
+			}
 			return () => h('div')
 		},
 	})
 	mount(Comp)
-	return result as {capabilities: ManagedCapabilities, writeRestricted: boolean}
+	return result as {
+		capabilities: ManagedCapabilities
+		writeRestricted: boolean
+		maxCollaborators: number | null
+	}
 }
 
 describe('useManagedCapabilities', () => {
@@ -84,6 +104,25 @@ describe('useManagedCapabilities', () => {
 		})
 	})
 
+	it('keeps the teams surface but refuses team create for Collaboration (COLLAB-5)', async () => {
+		await setManagedClaims({
+			brazn_edition: 'collaboration-cloud',
+			brazn_max_collaborators: 10,
+		})
+
+		const {capabilities, maxCollaborators} = runComposable()
+
+		expect(capabilities).toEqual({
+			projectCreate: true,
+			projectDuplicate: true,
+			projectShare: true,
+			linkShare: true,
+			teamsSurface: true,
+			teamCreate: false,
+		})
+		expect(maxCollaborators).toBe(10)
+	})
+
 	it('is permissive when the session token carries no edition at all', async () => {
 		await setManagedClaims({})
 
@@ -101,5 +140,20 @@ describe('useManagedCapabilities', () => {
 		// Reverting the `writeRestricted: computed(() => authStore.writeRestricted)`
 		// line (e.g. hardcoding false) makes this go red.
 		expect(writeRestricted).toBe(true)
+	})
+})
+
+describe('collaborationDetailTeamId (COLLAB-5)', () => {
+	it('sends Collaboration to the first team detail id', () => {
+		expect(collaborationDetailTeamId('collaboration-cloud', [{id: 7}, {id: 9}])).toBe(7)
+	})
+
+	it('leaves Teams on the list even when they have exactly one team', () => {
+		// CHEAP CHECK: gating on team count === 1 instead of edition makes this fail.
+		expect(collaborationDetailTeamId('teams-cloud', [{id: 7}])).toBeNull()
+	})
+
+	it('does nothing when Collaboration has no team yet', () => {
+		expect(collaborationDetailTeamId('collaboration-cloud', [])).toBeNull()
 	})
 })

@@ -115,6 +115,9 @@ export const useAuthStore = defineStore('auth', () => {
 	// own fail-open reasoning for a token minted with no entitlement.
 	const managedEdition = ref<string | null>(null)
 	const writeRestricted = ref(false)
+	// Collaboration roster ceiling from JWT (COLLAB-5). Null when the token
+	// carries none — Personal, Teams, ordinary Collaboration members.
+	const maxCollaborators = ref<number | null>(null)
 
 	const authUser = computed(() => {
 		return authenticated.value && (
@@ -217,6 +220,10 @@ export const useAuthStore = defineStore('auth', () => {
 			? payload.brazn_edition
 			: null
 		writeRestricted.value = payload.brazn_write_restricted === true
+		const rawMax = payload.brazn_max_collaborators
+		maxCollaborators.value = typeof rawMax === 'number' && Number.isFinite(rawMax) && rawMax >= 1
+			? Math.trunc(rawMax)
+			: null
 	}
 
 	// Logs a user in with a set of credentials.
@@ -452,6 +459,7 @@ export const useAuthStore = defineStore('auth', () => {
 			setUser(null)
 			managedEdition.value = null
 			writeRestricted.value = false
+			maxCollaborators.value = null
 			redirectToSpecifiedProvider()
 		}
 		
@@ -646,6 +654,7 @@ export const useAuthStore = defineStore('auth', () => {
 
 		managedEdition: readonly(managedEdition),
 		writeRestricted: readonly(writeRestricted),
+		maxCollaborators: readonly(maxCollaborators),
 
 		authUser,
 		authLinkShare,

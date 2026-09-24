@@ -67,9 +67,15 @@
 
 		<Card
 			class="is-fullwidth has-overflow"
-			:title="$t('team.edit.members')"
+			:title="membersCardTitle"
 			:padding="false"
 		>
+			<p
+				v-if="collaboratorUsageLabel"
+				class="p-4 pb-0 has-text-grey"
+			>
+				{{ collaboratorUsageLabel }}
+			</p>
 			<form
 				v-if="userIsAdmin && !team.oidcId"
 				class="p-4"
@@ -253,6 +259,10 @@ import UserService from '@/services/user'
 import {PERMISSIONS as Permissions} from '@/constants/permissions'
 
 import {useTitle} from '@/composables/useTitle'
+import {
+	COLLABORATION_EDITION,
+	useManagedCapabilities,
+} from '@/composables/useManagedCapabilities'
 import {success} from '@/message'
 import {useAuthStore} from '@/stores/auth'
 import {useConfigStore} from '@/stores/config'
@@ -266,6 +276,19 @@ const configStore = useConfigStore()
 const route = useRoute()
 const router = useRouter()
 const {t} = useI18n({useScope: 'global'})
+const {maxCollaborators} = useManagedCapabilities()
+
+const isCollaboration = computed(() => authStore.managedEdition === COLLABORATION_EDITION)
+const membersCardTitle = computed(() =>
+	isCollaboration.value ? t('team.edit.collaborators') : t('team.edit.members'),
+)
+const collaboratorUsageLabel = computed(() => {
+	if (!isCollaboration.value || maxCollaborators.value === null || !team.value?.members) {
+		return null
+	}
+	const used = Math.max(0, team.value.members.length - 1)
+	return t('team.edit.collaboratorsOf', {used, max: maxCollaborators.value})
+})
 
 const userIsAdmin = computed(() => {
 	return (
