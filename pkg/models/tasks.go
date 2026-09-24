@@ -1937,7 +1937,7 @@ func (t *Task) updateReminders(s *xorm.Session, task *Task, a web.Auth) (err err
 
 		does := r.Actions
 		if does == nil {
-			does = actions[reminderIdentity(r)]
+			_ = actions[reminderIdentity(r)]
 		}
 
 		moment := r.Reminder.UTC().Unix()

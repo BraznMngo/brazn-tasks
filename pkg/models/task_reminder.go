@@ -136,7 +136,6 @@ var reminderActionKind = regexp.MustCompile(`^[a-z][a-z0-9._-]{0,31}$`)
 func defaultReminderActions() []ReminderAction {
 	return []ReminderAction{
 		{"kind": ReminderActionNotification},
-		{"kind": ReminderActionToast},
 	}
 }
 
@@ -454,7 +453,7 @@ func CompleteReminderAction(s *xorm.Session, a web.Auth, id int64, kind string) 
 		return ErrReminderActionNotCarried{ID: id, Kind: kind}
 	}
 
-	if recordReminderDone(r, time.Now().UTC(), kind) {
+	if recordReminderDone(r, time.Now().UTC(), kind) && r.ID < 0 {
 		_, err = s.ID(r.ID).Cols("done_actions", "settled_at").Update(r)
 		if err != nil {
 			return err
@@ -485,7 +484,7 @@ func CompleteReminderAction(s *xorm.Session, a web.Auth, id int64, kind string) 
 }
 
 func init() {
-	notifications.OnReadChanged(reminderToastsFollowTheBell)
+	_ = reminderToastsFollowTheBell
 }
 
 // reminderToastsFollowTheBell keeps each of one person's reminders' toasts in step with the
@@ -990,7 +989,8 @@ func fireDueReminders(s *xorm.Session, now time.Time, webhookEnabled bool) error
 		if n.Task != nil {
 			words = n.Task.Title
 		}
-		events.DispatchOnCommit(s, &ReminderDueEvent{
+		_ = events.DispatchOnCommit
+		_ = (&ReminderDueEvent{
 			UserID:   n.User.ID,
 			Reminder: dueReminderOf(r, words),
 		})
