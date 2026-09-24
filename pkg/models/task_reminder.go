@@ -202,6 +202,152 @@ func recordReminderUndone(r *TaskReminder, kind string) (changed bool) {
 	return true
 }
 
+// oneReminderPerMoment keeps one reminder per moment, the later one given winning: two at one
+// moment would fall due as one.
+func oneReminderPerMoment(given []*TaskReminder) []*TaskReminder {
+	wanted := make([]*TaskReminder, 0, len(given))
+	atMoment := make(map[int64]int, len(given))
+	for _, r := range given {
+		moment := r.Reminder.UTC().Unix()
+		if at, seen := atMoment[moment]; seen {
+			wanted[at] = r
+			continue
+		}
+		atMoment[moment] = len(wanted)
+		wanted = append(wanted, r)
+	}
+	return wanted
+}
+
+// matchReminders pairs each reminder given for a task with the row already there that has its
+// identity, each row answering for one (BRA-1631). It answers with the row for each reminder
+// given, nil for one that is new, and for the rows nothing matched, their ids and, by moment, those
+// of them that had fired.
+func matchReminders(existing, wanted []*TaskReminder) (rows []*TaskReminder, going map[int64]*TaskReminder, removed []int64) {
+	byIdentity := make(map[string][]*TaskReminder, len(existing))
+	for _, r := range existing {
+		identity := reminderIdentity(r)
+		byIdentity[identity] = append(byIdentity[identity], r)
+	}
+	rows = make([]*TaskReminder, len(wanted))
+	kept := make(map[int64]bool, len(existing))
+	for i, r := range wanted {
+		identity := reminderIdentity(r)
+		if candidates := byIdentity[identity]; len(candidates) > 0 {
+			rows[i] = candidates[0]
+			byIdentity[identity] = candidates[1:]
+			kept[candidates[0].ID] = true
+		}
+	}
+	going = make(map[int64]*TaskReminder, len(existing))
+	for _, r := range existing {
+		if kept[r.ID] {
+			continue
+		}
+		removed = append(removed, r.ID)
+		if !r.FiredAt.IsZero() {
+			going[r.Reminder.UTC().Unix()] = r
+		}
+	}
+	return rows, going, removed
+}
+
+// saveTaskReminder writes one reminder given for a task over the row it matched, or as a new row
+// when that row has no id yet (BRA-1631).
+//
+// "Has this already fired?" is asked of a moment, so moving a reminder moves its firing: one whose
+// moment moved falls due again at the new one. A reminder arriving at the moment of one that is
+// going, and had fired, takes that firing over, as the whole rewrite used to.
+func saveTaskReminder(s *xorm.Session, r, row *TaskReminder, going map[int64]*TaskReminder, now time.Time) error {
+	isNew := row.ID == 0
+	moment := r.Reminder.UTC().Unix()
+
+	// What a reminder does goes with the reminder: a client that saves the task without saying,
+	// as the task pages do, leaves it doing what ONE set it to do.
+	if isNew || r.Actions != nil {
+		row.Actions = r.Actions
+	}
+
+	tookOver := int64(0)
+	if isNew || row.Reminder.UTC().Unix() != moment {
+		if !row.FiredAt.IsZero() {
+			// Its last firing is over, so the notification that firing wrote no longer answers
+			// for it: reading that one must not deal with the next.
+			if err := moveFiring(s, row.ID, 0); err != nil {
+				return err
+			}
+		}
+		row.FiredAt, row.DoneActions, row.SettledAt = time.Time{}, nil, time.Time{}
+		if previous, fired := going[moment]; fired {
+			row.FiredAt, row.DoneActions, row.SettledAt = previous.FiredAt, previous.DoneActions, previous.SettledAt
+			delete(going, moment)
+			tookOver = previous.ID
+		}
+	}
+
+	row.Reminder = r.Reminder
+	row.RelativePeriod = r.RelativePeriod
+	row.RelativeTo = r.RelativeTo
+	row.SubjectKind = ReminderSubjectTask
+	settleAfterChange(row, now)
+
+	var err error
+	if isNew {
+		_, err = s.Insert(row)
+	} else {
+		_, err = s.ID(row.ID).
+			Cols("reminder", "relative_period", "relative_to", "subject_kind", "actions", "fired_at", "done_actions", "settled_at").
+			Update(row)
+	}
+	if err != nil || tookOver == 0 {
+		return err
+	}
+	// The notification that fired the reminder names it by its row, and follows it.
+	return moveFiring(s, tookOver, row.ID)
+}
+
+// settleAfterChange brings what a reminder records as done into line with the actions it now
+// carries, after they changed (BRA-1631): it is settled exactly when every action it carries is
+// done. A settled reminder that gains an action is waiting again, and one that loses the last
+// action it was waiting on is settled.
+//
+// The server's own kind is performed at the moment the reminder falls due, so for a reminder that
+// has already fallen due there is nothing left of it to do: a notification added afterwards counts
+// as done, rather than leaving the reminder waiting on something nothing will ever perform. One
+// that has not fallen due yet has nothing done.
+func settleAfterChange(r *TaskReminder, now time.Time) {
+	if r.FiredAt.IsZero() {
+		r.DoneActions = nil
+		r.SettledAt = time.Time{}
+		return
+	}
+	done := make([]string, 0, len(r.DoneActions))
+	for _, action := range reminderActions(r) {
+		kind, _ := action["kind"].(string)
+		if kind == ReminderActionNotification || slices.Contains(r.DoneActions, kind) {
+			done = append(done, kind)
+		}
+	}
+	r.DoneActions = done
+	switch {
+	case len(reminderPending(r)) > 0:
+		r.SettledAt = time.Time{}
+	case r.SettledAt.IsZero():
+		r.SettledAt = now
+	}
+}
+
+// moveFiring points the notifications that fired one reminder at another, or at none (BRA-1631).
+// A reminder's notification in the bell names it by its row, and whether its toast is done
+// follows that notification.
+func moveFiring(s *xorm.Session, from, to int64) error {
+	_, err := s.
+		Where("name = ? AND subject_id = ?", (&ReminderDueNotification{}).Name(), from).
+		Cols("subject_id").
+		Update(&notifications.DatabaseNotification{SubjectID: to})
+	return err
+}
+
 // validateReminderActions checks a configuration somebody is setting. Nil means none was
 // given, which is always valid. Only the shape is checked and never the kind: the set of
 // kinds is open, and a kind the server does not perform is somebody else's to read.
