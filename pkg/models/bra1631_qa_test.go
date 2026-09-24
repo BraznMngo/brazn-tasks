@@ -43,6 +43,8 @@ package models
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -520,4 +522,141 @@ func TestBRA1631Story11AReminderThatFellDueIsAnnouncedToItsPersonOnceItsPassIsCo
 	assert.Equal(t, forONE.ID, due.Reminder.ID)
 	assert.Equal(t, sebastiansExample, due.Reminder.Text)
 	assert.Equal(t, []string{runONE}, due.Reminder.Pending)
+}
+
+// qaTaskReminderWaiting counts the reminders on task 1 that fell due and are not settled, read
+// straight from the rows and keyed by the task rather than by a reminder's id, so that the tests
+// about what a save does to a reminder's state do not depend on what it does to its identity.
+func qaTaskReminderWaiting(t *testing.T, s *xorm.Session) int64 {
+	t.Helper()
+
+	return countReminderRows(t, s,
+		"SELECT COUNT(*) FROM task_reminders WHERE task_id = ? AND fired_at IS NOT NULL AND settled_at IS NULL", 1)
+}
+
+// The outcome, confirmed by the coordinator from an independent reviewer's finding on 24 September
+// 2026: a reminder keeps its identity when its task is saved. A client learns a reminder's id from
+// reminder.due or from checking, and records its actions as done by that id, which is how the
+// ticket's "pressing any of a reminder's buttons settles it" reaches the server. So saving the task,
+// as the task pages do with the reminder untouched, must leave that id naming the same reminder:
+// recording done by it still settles it, and checking does not list the same reminder a second time
+// under another id with its toast waiting again, which a client would show as a second toast.
+//
+// Mutation claim: rewriting a task's reminders under new ids on every save fails the listing and
+// the recording.
+func TestBRA1631AReminderKeepsItsIdentityWhenItsTaskIsSaved(t *testing.T) {
+	s := asHostileAsProduction(t)
+	person := reminderTestUser()
+	moment := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+
+	require.NoError(t, (&Task{ID: 1, Reminders: []*TaskReminder{{Reminder: moment}}}).Update(s, person))
+	require.NoError(t, fireDueReminders(s, time.Now(), false))
+	before := qaDue(t, s, person)
+	require.Len(t, before, 1, "the task's reminder fell due, and its toast is waiting")
+	var held int64
+	for id := range before {
+		held = id
+	}
+
+	// Saved the way the task pages save a task whose reminder they did not touch.
+	require.NoError(t, (&Task{ID: 1, Title: "task #1, renamed", Reminders: []*TaskReminder{{Reminder: moment}}}).Update(s, person))
+
+	assert.Equal(t, map[int64][]string{held: {"toast"}}, qaDue(t, s, person),
+		"the same reminder, under the id the client holds, and not a second time under another")
+	require.NoError(t, CompleteReminderAction(s, person, held, "toast"),
+		"recording done by the id the client holds must still reach the reminder")
+	assert.Empty(t, qaDue(t, s, person))
+
+	// And a later save leaves it settled: the person dealt with it once.
+	require.NoError(t, (&Task{ID: 1, Title: "task #1, renamed again", Reminders: []*TaskReminder{{Reminder: moment}}}).Update(s, person))
+	assert.Empty(t, qaDue(t, s, person), "saving the task does not bring back a reminder the person dealt with")
+}
+
+// The outcome, confirmed by the coordinator from an independent reviewer's finding on 24 September
+// 2026, is the ticket's settling rule held after the actions change: "A reminder is settled once
+// every action it carries is done." A fired reminder whose actions a task save changes is settled
+// exactly when every action it now carries is done, not when every action it used to carry was.
+//
+// Mutation claim: carrying done_actions and settled_at across a save unchanged leaves the first
+// case settled with its new action never done, and the second listed for ever with nothing pending.
+func TestBRA1631AfterItsActionsChangeAFiredReminderIsSettledExactlyWhenEveryActionItCarriesIsDone(t *testing.T) {
+	moment := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+	saveWith := func(t *testing.T, s *xorm.Session, person *user.User, actions ...ReminderAction) {
+		t.Helper()
+		require.NoError(t, (&Task{ID: 1, Reminders: []*TaskReminder{{Reminder: moment, Actions: actions}}}).Update(s, person))
+	}
+	onlyDue := func(t *testing.T, s *xorm.Session, person *user.User) (int64, []string) {
+		t.Helper()
+		due := qaDue(t, s, person)
+		require.Len(t, due, 1)
+		for id, pending := range due {
+			return id, pending
+		}
+		return 0, nil
+	}
+
+	t.Run("a settled reminder that gains an action waits for that action", func(t *testing.T) {
+		s := asHostileAsProduction(t)
+		person := reminderTestUser()
+
+		saveWith(t, s, person, ReminderAction{"kind": "toast"})
+		require.NoError(t, fireDueReminders(s, time.Now(), false))
+		id, _ := onlyDue(t, s, person)
+		require.NoError(t, CompleteReminderAction(s, person, id, "toast"))
+		require.Equal(t, int64(0), qaTaskReminderWaiting(t, s), "settled: the one action it carried is done")
+
+		saveWith(t, s, person, ReminderAction{"kind": "toast"}, ReminderAction{"kind": runONE, "instruction": sebastiansExample})
+
+		assert.Equal(t, int64(1), qaTaskReminderWaiting(t, s), "it now carries an action nothing has done")
+		_, pending := onlyDue(t, s, person)
+		assert.Equal(t, []string{runONE}, pending, "and checking lists it for that action alone")
+	})
+
+	t.Run("a waiting reminder that loses its last pending action is settled", func(t *testing.T) {
+		s := asHostileAsProduction(t)
+		person := reminderTestUser()
+
+		saveWith(t, s, person, ReminderAction{"kind": "toast"}, ReminderAction{"kind": runONE, "instruction": sebastiansExample})
+		require.NoError(t, fireDueReminders(s, time.Now(), false))
+		id, _ := onlyDue(t, s, person)
+		require.NoError(t, CompleteReminderAction(s, person, id, runONE))
+		require.Equal(t, int64(1), qaTaskReminderWaiting(t, s), "waiting: the toast is not dealt with")
+
+		saveWith(t, s, person, ReminderAction{"kind": runONE, "instruction": sebastiansExample})
+
+		assert.Equal(t, int64(0), qaTaskReminderWaiting(t, s), "every action it now carries is done")
+		assert.Empty(t, qaDue(t, s, person), "so checking no longer lists it, with nothing pending or otherwise")
+	})
+}
+
+// Story 11: a client that hears reminder.due and records it as done at once must find the reminder
+// fallen due, so the pass that fired it is committed before it is announced. The announcement test
+// above calls fireDueReminders and DispatchPending itself, and proves what is announced and that
+// nothing is announced during the pass. The order that decides the outcome, though, is in
+// RegisterReminderCron's closure, which runs only on the cron's schedule and which no test can call.
+// This pins that order where it is written. It is a reading of the source, and the weakest test in
+// this file; a pass extracted into a callable function would let it be a behavioural one.
+//
+// Mutation claim: dispatching before the commit, or dispatching after a commit that failed, fails it.
+func TestBRA1631Story11TheCronCommitsAFiringBeforeItAnnouncesIt(t *testing.T) {
+	written, err := os.ReadFile("task_reminder.go")
+	require.NoError(t, err)
+	source := strings.ReplaceAll(string(written), "\r\n", "\n")
+
+	start := strings.Index(source, "func RegisterReminderCron() {")
+	require.GreaterOrEqual(t, start, 0, "RegisterReminderCron must still be findable")
+	end := strings.Index(source[start:], "\n}\n")
+	require.Positive(t, end)
+	cron := source[start : start+end]
+
+	commit := strings.Index(cron, "s.Commit()")
+	dispatch := strings.Index(cron, "events.DispatchPending(")
+	require.GreaterOrEqual(t, commit, 0, "the pass is committed")
+	require.GreaterOrEqual(t, dispatch, 0, "and what it fired is announced")
+	require.Less(t, commit, dispatch, "the announcement comes after the commit")
+	afterCommit := cron[commit:dispatch]
+	assert.Contains(t, afterCommit, "events.CleanupPending(s)",
+		"a commit that fails discards what was waiting to be announced")
+	assert.Contains(t, afterCommit, "return", "and returns before anything could announce it")
+	assert.NotContains(t, cron[:commit], "events.Dispatch(", "nothing is announced before the commit")
 }
