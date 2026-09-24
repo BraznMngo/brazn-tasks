@@ -305,6 +305,10 @@ type TokenEntitlement struct {
 	// by a build that predates this member carries, which is the transitional
 	// behaviour the contract asks for.
 	WriteRestricted bool
+	// MaxCollaborators is the Collaboration roster ceiling from the admin
+	// projection (BRA-1064 / COLLAB-5). Nil when the projection carries none
+	// — ordinary members, Teams, Personal. Stamped into the JWT only when set.
+	MaxCollaborators *int
 }
 
 // Signed is the signed half of the envelope, and the only half a policy
@@ -403,8 +407,9 @@ func (s *Signed) ForToken(at time.Time, grace time.Duration) *TokenEntitlement {
 	}
 	if s.State.ValidTo == nil {
 		return &TokenEntitlement{
-			Edition:         s.State.Edition,
-			WriteRestricted: s.WriteRestricted(),
+			Edition:          s.State.Edition,
+			WriteRestricted:  s.WriteRestricted(),
+			MaxCollaborators: s.State.MaxCollaborators,
 		}
 	}
 	endsAt := s.State.ValidTo.Add(grace)
@@ -412,9 +417,10 @@ func (s *Signed) ForToken(at time.Time, grace time.Duration) *TokenEntitlement {
 		return nil
 	}
 	return &TokenEntitlement{
-		Edition:         s.State.Edition,
-		EndsAt:          endsAt,
-		WriteRestricted: s.WriteRestricted(),
+		Edition:          s.State.Edition,
+		EndsAt:           endsAt,
+		WriteRestricted:  s.WriteRestricted(),
+		MaxCollaborators: s.State.MaxCollaborators,
 	}
 }
 

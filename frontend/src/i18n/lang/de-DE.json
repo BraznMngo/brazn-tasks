@@ -1342,6 +1342,7 @@
 	},
 	"team": {
 		"title": "Teams",
+		"collaboratorsTitle": "Ihre Kollaborateure",
 		"noTeams": "Du bist derzeit in keinem Team.",
 		"create": {
 			"title": "Team erstellen",
@@ -1350,6 +1351,8 @@
 		"edit": {
 			"title": "Team „{team}“ bearbeiten",
 			"members": "Teammitglieder",
+			"collaborators": "Kollaborateure",
+			"collaboratorsOf": "{used} von {max} Kollaborateuren",
 			"search": "Beginne zu schreiben, um einen Benutzer zu suchen…",
 			"addUser": "Zum Team hinzufügen",
 			"makeMember": "Zum Mitglied machen",

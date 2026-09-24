@@ -7,11 +7,7 @@ import {useAuthStore} from '@/stores/auth'
  * 1:1 from the rule names route-classification.json and managed_gate.go use:
  * ruleProjectCreate, ruleProjectDuplicate, ruleProjectShare and ruleLinkShare.
  *
- * Only these four exist here because these are the only rules any component
- * currently consumes (ProjectSettingsDropdown, LinkSharing and the four
- * New-Project entry points). Add a field only when a consumer needs it -
- * mirroring the rest of the vocabulary speculatively would be a policy table
- * with no reader.
+ * teamsSurface / teamCreate are BRA-1066 / COLLAB-5 hints for the teams nav.
  */
 export interface ManagedCapabilities {
 	projectCreate: boolean
@@ -24,14 +20,12 @@ export interface ManagedCapabilities {
 	teamCreate: boolean
 }
 
-// Mirrors entitlement.EditionPersonal (pkg/modules/brazn/entitlement/entitlement.go).
-// Not imported from anywhere: the Go constant lives server-side and the JWT
-// carries its value as a plain string, so this is the frontend's one copy of it.
-const PERSONAL_EDITION = 'personal-cloud'
+// Mirrors entitlement.EditionPersonal / EditionCollaboration
+// (pkg/modules/brazn/entitlement/entitlement.go). Not imported: JWT carries
+// plain strings, so these are the frontend's one copy of each.
+export const PERSONAL_EDITION = 'personal-cloud'
+export const COLLABORATION_EDITION = 'collaboration-cloud'
 
-// The Personal edition's policy table (pkg/routes/managed_rules_personal.go,
-// BRA-782) is a flat, unconditional denyPersonal(...) for every one of these
-// routes - there is no per-request decision to mirror, only a fixed "no".
 const PERSONAL_CAPABILITIES: ManagedCapabilities = {
 	projectCreate: false,
 	projectDuplicate: false,
@@ -41,12 +35,17 @@ const PERSONAL_CAPABILITIES: ManagedCapabilities = {
 	teamCreate: false,
 }
 
-// Every edition other than Personal - Teams, community/self-hosted, or no
-// entitlement at all - defaults every capability to true (permissive). Teams
-// has its own fixed rules too (managed_rules_teams.go), but giving them their
-// own capability values is BRA-1343 and explicitly out of scope here.
-// Collaboration keeps teamsSurface (COLLAB-5 retitles it); teamCreate flips
-// false there in a later ticket.
+// Collaboration keeps the teams surface (retitled "Your Collaborators") but
+// cannot create a second team (COLLAB-5).
+const COLLABORATION_CAPABILITIES: ManagedCapabilities = {
+	projectCreate: true,
+	projectDuplicate: true,
+	projectShare: true,
+	linkShare: true,
+	teamsSurface: true,
+	teamCreate: false,
+}
+
 const PERMISSIVE_CAPABILITIES: ManagedCapabilities = {
 	projectCreate: true,
 	projectDuplicate: true,
@@ -70,13 +69,33 @@ export function useManagedCapabilities() {
 	const authStore = useAuthStore()
 
 	const capabilities = computed<ManagedCapabilities>(() => {
-		return authStore.managedEdition === PERSONAL_EDITION
-			? PERSONAL_CAPABILITIES
-			: PERMISSIVE_CAPABILITIES
+		if (authStore.managedEdition === PERSONAL_EDITION) {
+			return PERSONAL_CAPABILITIES
+		}
+		if (authStore.managedEdition === COLLABORATION_EDITION) {
+			return COLLABORATION_CAPABILITIES
+		}
+		return PERMISSIVE_CAPABILITIES
 	})
 
 	return {
 		writeRestricted: computed(() => authStore.writeRestricted),
+		maxCollaborators: computed(() => authStore.maxCollaborators),
 		capabilities,
 	}
+}
+
+/**
+ * Collaboration landing on teams.index opens the single team's detail — not
+ * the list. Teams with exactly one team still gets the list (COLLAB-5).
+ * Gate on edition, never on team count alone.
+ */
+export function collaborationDetailTeamId(
+	edition: string | null,
+	teams: {id: number}[],
+): number | null {
+	if (edition !== COLLABORATION_EDITION || teams.length === 0) {
+		return null
+	}
+	return teams[0].id
 }

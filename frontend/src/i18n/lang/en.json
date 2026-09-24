@@ -1388,6 +1388,7 @@
   },
   "team": {
     "title": "Teams",
+    "collaboratorsTitle": "Your Collaborators",
     "noTeams": "You are currently not part of any teams.",
     "create": {
       "title": "Create a team",
@@ -1396,6 +1397,8 @@
     "edit": {
       "title": "Edit Team \"{team}\"",
       "members": "Team Members",
+      "collaborators": "Collaborators",
+      "collaboratorsOf": "{used} of {max} collaborators",
       "search": "Type to search a user…",
       "addUser": "Add to team",
       "makeMember": "Make Member",

@@ -71,7 +71,7 @@
 						<span class="menu-item-icon icon">
 							<Icon icon="users" />
 						</span>
-						{{ $t('team.title') }}
+						{{ teamsNavLabel }}
 					</RouterLink>
 				</li>
 				<li v-if="timeTrackingEnabled">
@@ -154,14 +154,26 @@ import {PRO_FEATURE} from '@/constants/proFeatures'
 import ProjectsNavigation from '@/components/home/ProjectsNavigation.vue'
 import type {IProject} from '@/modelTypes/IProject'
 import {useSidebarResize} from '@/composables/useSidebarResize'
-import {useManagedCapabilities} from '@/composables/useManagedCapabilities'
+import {
+	COLLABORATION_EDITION,
+	useManagedCapabilities,
+} from '@/composables/useManagedCapabilities'
+import {useAuthStore} from '@/stores/auth'
+import {useI18n} from 'vue-i18n'
 
 const baseStore = useBaseStore()
 const projectStore = useProjectStore()
 const configStore = useConfigStore()
+const authStore = useAuthStore()
 const {capabilities} = useManagedCapabilities()
+const {t} = useI18n({useScope: 'global'})
 
 const timeTrackingEnabled = computed(() => configStore.isProFeatureEnabled(PRO_FEATURE.TIME_TRACKING))
+const teamsNavLabel = computed(() =>
+	authStore.managedEdition === COLLABORATION_EDITION
+		? t('team.collaboratorsTitle')
+		: t('team.title'),
+)
 
 const {sidebarWidth, isResizing, startResize, isMobile} = useSidebarResize()
 

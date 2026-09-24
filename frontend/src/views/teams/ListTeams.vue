@@ -12,7 +12,7 @@
 			{{ $t('team.create.title') }}
 		</XButton>
 
-		<h1>{{ $t('team.title') }}</h1>
+		<h1>{{ surfaceTitle }}</h1>
 		<Card
 			v-if="teams.length > 0"
 			:padding="false"
@@ -46,21 +46,39 @@
 </template>
 
 <script setup lang="ts">
-import {ref, shallowReactive} from 'vue'
-import { useI18n } from 'vue-i18n'
+import {computed, ref, shallowReactive} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {useRouter} from 'vue-router'
 
 import Card from '@/components/misc/Card.vue'
 import TeamService from '@/services/team'
-import { useTitle } from '@/composables/useTitle'
-import {useManagedCapabilities} from '@/composables/useManagedCapabilities'
+import {useTitle} from '@/composables/useTitle'
+import {
+	COLLABORATION_EDITION,
+	collaborationDetailTeamId,
+	useManagedCapabilities,
+} from '@/composables/useManagedCapabilities'
+import {useAuthStore} from '@/stores/auth'
 
-const { t } = useI18n({useScope: 'global'})
-useTitle(() => t('team.title'))
+const {t} = useI18n({useScope: 'global'})
+const router = useRouter()
+const authStore = useAuthStore()
 const {capabilities} = useManagedCapabilities()
 
-const teams = ref([])
+const isCollaboration = computed(() => authStore.managedEdition === COLLABORATION_EDITION)
+const surfaceTitle = computed(() =>
+	isCollaboration.value ? t('team.collaboratorsTitle') : t('team.title'),
+)
+useTitle(() => surfaceTitle.value)
+
+const teams = ref<{id: number, name: string}[]>([])
 const teamService = shallowReactive(new TeamService())
 teamService.getAll().then((result) => {
+	const detailId = collaborationDetailTeamId(authStore.managedEdition, result)
+	if (detailId !== null) {
+		router.replace({name: 'teams.edit', params: {id: detailId}})
+		return
+	}
 	teams.value = result
 })
 </script>
@@ -85,13 +103,14 @@ ul.teams {
       transition: background-color $transition;
 
       &:hover {
-        background: var(--grey-100);
+        background: var(--white);
+        transition: background-color $transition;
       }
     }
-  }
 
-  li:last-child {
-    border-inline-end: none;
+    &:not(:last-child) {
+      border-block-end: 1px solid var(--grey-200);
+    }
   }
 }
 </style>

@@ -182,6 +182,10 @@ func NewUserAuthTokenResponse(u *user.User, c *echo.Context, long bool, oidc *mo
 // decide without a query - see routes.RequireManagedPolicy.
 const BraznEditionClaim = "brazn_edition"
 
+// BraznMaxCollaboratorsClaim carries the Collaboration roster ceiling for the
+// UI "N of max" label (COLLAB-5). Stamped only when the projection carries one.
+const BraznMaxCollaboratorsClaim = "brazn_max_collaborators"
+
 // BraznWriteRestrictedClaim carries the entitlement's `write_access` answer, as
 // the one bit the enforcement point needs: true when this holder's writes are
 // cut back to the payment method, their own credentials, export and deletion.
@@ -266,6 +270,9 @@ func newUserJWTAuthtoken(u *user.User, sessionID string, entitled *entitlement.T
 		// shape of every token this instance has ever issued for no gain.
 		if entitled.WriteRestricted {
 			claims[BraznWriteRestrictedClaim] = true
+		}
+		if entitled.MaxCollaborators != nil {
+			claims[BraznMaxCollaboratorsClaim] = *entitled.MaxCollaborators
 		}
 	}
 	claims["exp"] = expires.Unix()
