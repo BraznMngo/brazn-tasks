@@ -80,8 +80,10 @@ func (reminderNotifications20260924120000) TableName() string {
 // sweep writes the notification and stamps the firing in the same pass, seconds apart.
 const firingWindow = 15 * time.Minute
 
-// isAbout reports whether a notification a reminder sweep wrote is about this reminder.
-func (n *reminderNotifications20260924120000) isAbout(r *taskReminders20260924120000) bool {
+// notificationIsAbout20260924120000 reports whether a notification a reminder sweep wrote is
+// about this reminder. A plain function, because the notification's other method takes its
+// value and recvcheck holds a type to one kind of receiver.
+func notificationIsAbout20260924120000(n *reminderNotifications20260924120000, r *taskReminders20260924120000) bool {
 	var written struct {
 		Task *struct {
 			ID int64 `json:"id"`
@@ -131,7 +133,7 @@ func init() {
 				var match *reminderNotifications20260924120000
 				var matchGap time.Duration
 				for _, n := range byOwner[r.CreatedByID] {
-					if claimed[n.ID] || !n.isAbout(r) {
+					if claimed[n.ID] || !notificationIsAbout20260924120000(n, r) {
 						continue
 					}
 					gap := n.Created.Sub(r.FiredAt)
