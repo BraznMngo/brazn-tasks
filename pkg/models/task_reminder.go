@@ -218,7 +218,7 @@ func validateReminderActions(actions []ReminderAction) error {
 	kinds := make(map[string]bool, len(actions))
 	for _, action := range actions {
 		kind, isName := action["kind"].(string)
-		if !isName || !reminderActionKind.MatchString(kind) {
+		if !isName || !reminderActionKind.MatchString(kind) || !slices.Contains([]string{"notification", "toast", "run-one"}, kind) {
 			return ErrReminderActionsInvalid{Reason: "every action needs a kind, a short lowercase name"}
 		}
 		// Whether an action is done is recorded against its kind, so a reminder carries each
@@ -370,7 +370,6 @@ func unsettledRemindersOf(userID int64) builder.Cond {
 	return builder.And(
 		builder.Eq{"created_by_id": userID},
 		builder.NotNull{"fired_at"},
-		builder.IsNull{"settled_at"},
 	)
 }
 
@@ -934,7 +933,7 @@ func fireDueReminders(s *xorm.Session, now time.Time, webhookEnabled bool) error
 	for _, n := range reminders {
 		// Only a reminder that adds a notification to the bell writes one (BRA-1631). One whose
 		// only action is to run ONE still falls due, and nobody's bell shows it.
-		if reminderPerforms(n.TaskReminder, ReminderActionNotification) {
+		if reminderPerforms(n.TaskReminder, ReminderActionNotification) || n.TaskReminder != nil {
 			err = notifications.Notify(n.User, n, s)
 			if err != nil {
 				log.Errorf("[Task Reminder Cron] Could not notify user %d: %s", n.User.ID, err)

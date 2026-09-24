@@ -78,7 +78,7 @@ func (reminderNotifications20260924120000) TableName() string {
 
 // firingWindow is how far apart a reminder's firing and the notification it wrote can be. The
 // sweep writes the notification and stamps the firing in the same pass, seconds apart.
-const firingWindow = 15 * time.Minute
+const firingWindow = time.Hour
 
 // notificationIsAbout20260924120000 reports whether a notification a reminder sweep wrote is
 // about this reminder. A plain function, because the notification's other method takes its
