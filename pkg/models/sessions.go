@@ -40,8 +40,8 @@ type Session struct {
 	UserID int64 `xorm:"bigint not null index" json:"-"`
 	// SHA-256 hash of the refresh token. Used for lookup on refresh.
 	TokenHash string `xorm:"varchar(64) not null unique index" json:"-"`
-	// Hash of the refresh token TokenHash replaced. It stays accepted until TokenHash is used
-	// once, so a client whose refresh reply was lost is not signed out by it (BRA-1670).
+	// Hash of the refresh token that was presented to obtain TokenHash. It stays accepted until
+	// TokenHash is used once, so a client whose refresh reply was lost is not signed out (BRA-1670).
 	PreviousTokenHash string `xorm:"varchar(64) null index" json:"-"`
 	// The cleartext refresh token. Only populated on session creation, never stored.
 	RefreshToken string `xorm:"-" json:"refresh_token,omitempty" readOnly:"true" doc:"The cleartext refresh token; returned only once by the login flow, never on listing."`
@@ -208,8 +208,8 @@ func UpdateSessionLastActive(s *xorm.Session, sessionID string) error {
 // second sees 0 affected rows and returns ErrSessionNotFound.
 //
 // presentedToken is the refresh token the client sent. When it is the current one, it
-// becomes the previous one. When it is the previous one, the client never received the
-// current one, so only the current one is replaced (BRA-1670).
+// becomes the previous one. When it is the previous one, it stays the previous one, and
+// only the unused current one is replaced (BRA-1670).
 func RotateRefreshToken(s *xorm.Session, session *Session, presentedToken string) (newRawToken string, err error) {
 	newRawToken, newHash, err := generateHashedToken()
 	if err != nil {

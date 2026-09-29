@@ -146,6 +146,10 @@ func TestBraznLostRefreshReplyDoesNotEndTheSession(t *testing.T) {
 		// ONE retries with what it holds, and again after another lost reply.
 		retry := mustOAuthRefresh(t, e, held)
 		assert.Equal(t, sid, sessionOf(t, retry.AccessToken))
+
+		// The retry replaced the token the lost reply carried, so it is refused.
+		assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, lost.RefreshToken).Code)
+
 		retryAgain := mustOAuthRefresh(t, e, held)
 		assert.Equal(t, sid, sessionOf(t, retryAgain.AccessToken))
 
@@ -215,10 +219,27 @@ func TestBraznOAuthSignInIsALongSession(t *testing.T) {
 }
 
 func TestBraznDeadSessionStaysDead(t *testing.T) {
-	// In each case `held` is the previous token, still in its grace (its
-	// successor `current` has never been used), so both tokens are live
-	// until the session ends.
+	// Before returning, the session has shown both kinds of token working: a
+	// previous token retried and a current token used. `held` is the previous
+	// token, and was last presented successfully as the final step; `current`
+	// is the token that final reply carried, not yet used.
 	oneLostReply := func(t *testing.T, e *echo.Echo) (sid, held, current string) {
+		t.Helper()
+		signIn := oauthSignIn(t, e)
+		sid = sessionOf(t, signIn.AccessToken)
+
+		mustOAuthRefresh(t, e, signIn.RefreshToken) // reply lost
+		successor := mustOAuthRefresh(t, e, signIn.RefreshToken).RefreshToken
+		held = mustOAuthRefresh(t, e, successor).RefreshToken
+
+		mustOAuthRefresh(t, e, held) // reply lost
+		current = mustOAuthRefresh(t, e, held).RefreshToken
+		return sid, held, current
+	}
+
+	// The same state without the demonstration, for a case that needs two
+	// sessions inside the unauthenticated rate limit.
+	lostReply := func(t *testing.T, e *echo.Echo) (sid, held, current string) {
 		t.Helper()
 		signIn := oauthSignIn(t, e)
 		return sessionOf(t, signIn.AccessToken), signIn.RefreshToken, mustOAuthRefresh(t, e, signIn.RefreshToken).RefreshToken
@@ -257,8 +278,8 @@ func TestBraznDeadSessionStaysDead(t *testing.T) {
 		e, err := setupTestEnv()
 		require.NoError(t, err)
 
-		sidA, heldA, currentA := oneLostReply(t, e)
-		sidB, heldB, _ := oneLostReply(t, e)
+		sidA, heldA, currentA := lostReply(t, e)
+		sidB, heldB, _ := lostReply(t, e)
 		require.NotEqual(t, sidA, sidB)
 
 		deleteSession(t, sidA)
