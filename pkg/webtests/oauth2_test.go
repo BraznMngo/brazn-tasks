@@ -371,8 +371,19 @@ func TestOAuth2TokenEndpoint(t *testing.T) {
 		rec2 := doTokenRequest(e, refreshParams)
 		require.Equal(t, http.StatusOK, rec2.Code)
 
+		// The successor is used once (BRA-1670: until then the old token is
+		// still honoured, in case the reply above never reached the client).
+		var refreshResp oauth2server.TokenResponse
+		require.NoError(t, json.Unmarshal(rec2.Body.Bytes(), &refreshResp))
+		rec3 := doTokenRequest(e, map[string]string{
+			"grant_type":    "refresh_token",
+			"refresh_token": refreshResp.RefreshToken,
+			"client_id":     "vikunja",
+		})
+		require.Equal(t, http.StatusOK, rec3.Code)
+
 		// Replay the same old refresh token — should fail
-		rec3 := doTokenRequest(e, refreshParams)
-		assert.Equal(t, http.StatusUnauthorized, rec3.Code)
+		rec4 := doTokenRequest(e, refreshParams)
+		assert.Equal(t, http.StatusUnauthorized, rec4.Code)
 	})
 }

@@ -113,8 +113,10 @@ func exchangeAuthorizationCode(ctx context.Context, req *TokenRequest, deviceInf
 		return nil, &models.ErrOAuthPKCEVerifyFailed{}
 	}
 
-	// Create a session (reuses existing session infrastructure)
-	session, err := models.CreateSession(s, oauthCode.UserID, deviceInfo, ipAddress, false, nil)
+	// Create a session (reuses existing session infrastructure). It is a long one: an app
+	// signed in here keeps no browser open to sign in again after a short session's idle
+	// limit, so a few days closed would otherwise sign the person out (BRA-1670).
+	session, err := models.CreateSession(s, oauthCode.UserID, deviceInfo, ipAddress, true, nil)
 	if err != nil {
 		_ = s.Rollback()
 		return nil, err
