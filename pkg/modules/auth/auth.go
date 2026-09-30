@@ -527,7 +527,7 @@ func RefreshSession(rawRefreshToken string) (*RefreshResult, error) {
 		return nil, err
 	}
 
-	newRawToken, err := models.RotateRefreshToken(s, session)
+	newRawToken, err := models.RotateRefreshToken(s, session, rawRefreshToken)
 	if err != nil {
 		_ = s.Rollback()
 		if models.IsErrSessionNotFound(err) {

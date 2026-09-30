@@ -40,6 +40,9 @@ type Session struct {
 	UserID int64 `xorm:"bigint not null index" json:"-"`
 	// SHA-256 hash of the refresh token. Used for lookup on refresh.
 	TokenHash string `xorm:"varchar(64) not null unique index" json:"-"`
+	// Hash of the refresh token that was presented to obtain TokenHash. It stays accepted until
+	// TokenHash is used once, so a client whose refresh reply was lost is not signed out (BRA-1670).
+	PreviousTokenHash string `xorm:"varchar(64) null index" json:"-"`
 	// The cleartext refresh token. Only populated on session creation, never stored.
 	RefreshToken string `xorm:"-" json:"refresh_token,omitempty" readOnly:"true" doc:"The cleartext refresh token; returned only once by the login flow, never on listing."`
 	// User-Agent string from the login request.
@@ -122,11 +125,12 @@ func CreateSession(s *xorm.Session, userID int64, deviceInfo, ipAddress string, 
 	return session, nil
 }
 
-// GetSessionByRefreshToken finds a session by the SHA-256 hash of the provided token.
+// GetSessionByRefreshToken finds a session by the SHA-256 hash of the provided token,
+// which may be the session's current refresh token or the one it replaced.
 func GetSessionByRefreshToken(s *xorm.Session, token string) (*Session, error) {
 	hash := HashSessionToken(token)
 	session := &Session{}
-	has, err := s.Where("token_hash = ?", hash).Get(session)
+	has, err := s.Where("token_hash = ? OR previous_token_hash = ?", hash, hash).Get(session)
 	if err != nil {
 		return nil, err
 	}
@@ -202,15 +206,19 @@ func UpdateSessionLastActive(s *xorm.Session, sessionID string) error {
 // The WHERE clause includes the old hash so that concurrent refreshes with the
 // same token cannot both succeed — only the first UPDATE matches a row; the
 // second sees 0 affected rows and returns ErrSessionNotFound.
-func RotateRefreshToken(s *xorm.Session, session *Session) (newRawToken string, err error) {
+//
+// presentedToken is the refresh token the client sent. When it is the current one, it
+// becomes the previous one. When it is the previous one, it stays the previous one, and
+// only the unused current one is replaced (BRA-1670).
+func RotateRefreshToken(s *xorm.Session, session *Session, presentedToken string) (newRawToken string, err error) {
 	newRawToken, newHash, err := generateHashedToken()
 	if err != nil {
 		return "", err
 	}
 
 	affected, err := s.Where("id = ? AND token_hash = ?", session.ID, session.TokenHash).
-		Cols("token_hash").
-		Update(&Session{TokenHash: newHash})
+		Cols("token_hash", "previous_token_hash").
+		Update(&Session{TokenHash: newHash, PreviousTokenHash: HashSessionToken(presentedToken)})
 	if err != nil {
 		return "", err
 	}

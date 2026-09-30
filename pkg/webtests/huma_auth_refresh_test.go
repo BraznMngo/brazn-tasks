@@ -44,8 +44,9 @@ func refreshRequest(e *echo.Echo, refreshToken string) *httptest.ResponseRecorde
 }
 
 // TestHumaRefreshToken ports the v1 refresh-token coverage to /api/v2: a valid
-// cookie yields a new JWT and a rotated HttpOnly cookie, the old token then stops
-// working, and missing/invalid cookies map to the same 401 v1 returns.
+// cookie yields a new JWT and a rotated HttpOnly cookie, the old token stops
+// working once its successor has been used, and missing/invalid cookies map to
+// the same 401 v1 returns.
 func TestHumaRefreshToken(t *testing.T) {
 	e, err := setupTestEnv()
 	require.NoError(t, err)
@@ -71,13 +72,20 @@ func TestHumaRefreshToken(t *testing.T) {
 		newCookie := refreshCookie(first)
 		require.NotNil(t, newCookie)
 
-		// Replaying the now-rotated token must fail.
+		// The freshly rotated token works. Until it has been used, the old
+		// token is still honoured (BRA-1670), in case the reply above was lost.
+		next := refreshRequest(e, newCookie.Value)
+		require.Equal(t, http.StatusOK, next.Code, next.Body.String())
+		nextCookie := refreshCookie(next)
+		require.NotNil(t, nextCookie)
+
+		// Its successor has been used, so replaying the old token must fail.
 		replay := refreshRequest(e, "testtoken_session2")
 		assert.Equal(t, http.StatusUnauthorized, replay.Code)
 
-		// The freshly rotated token still works.
-		next := refreshRequest(e, newCookie.Value)
-		assert.Equal(t, http.StatusOK, next.Code, next.Body.String())
+		// The refused replay does not end the session.
+		after := refreshRequest(e, nextCookie.Value)
+		assert.Equal(t, http.StatusOK, after.Code, after.Body.String())
 	})
 
 	t.Run("missing cookie", func(t *testing.T) {
