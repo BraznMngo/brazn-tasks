@@ -462,6 +462,7 @@
       "addMember": "Mitglied hinzufügen",
       "newAdministrator": "Neuer Administrator",
       "selectMember": "Teammitglied auswählen…",
+      "successorUnnamed": "Die Angaben zu dieser Person konnten nicht angezeigt werden, deshalb kann sie nicht gewählt werden.",
       "teamNameExample": "z. B. Produkt",
       "organizationMembers": "Mitglieder der Organisation",
       "noOrganizationMembers": "Keine Mitglieder der Organisation verfügbar.",

@@ -462,6 +462,7 @@
       "addMember": "メンバーを追加",
       "newAdministrator": "新しい管理者",
       "selectMember": "チームメンバーを選択…",
+      "successorUnnamed": "この人の情報を表示できなかったため、選択できません。",
       "teamNameExample": "例: プロダクト",
       "organizationMembers": "組織のメンバー",
       "noOrganizationMembers": "追加できる組織のメンバーがいません。",

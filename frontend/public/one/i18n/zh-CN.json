@@ -462,6 +462,7 @@
       "addMember": "添加成员",
       "newAdministrator": "新管理员",
       "selectMember": "选择一位团队成员…",
+      "successorUnnamed": "无法显示此人的信息，因此无法选择。",
       "teamNameExample": "例如：产品",
       "organizationMembers": "组织成员",
       "noOrganizationMembers": "没有可添加的组织成员。",

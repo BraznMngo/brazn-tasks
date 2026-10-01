@@ -618,6 +618,10 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
 .member-meta strong{font-size:11px;display:block}
 .member-meta span{font-size:10px;color:var(--text-muted)}
 .member-actions{display:flex;align-items:center;gap:8px}
+.handover-list{display:grid;gap:8px}
+.handover-choice{display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--border);border-radius:12px;background:var(--scheme-main);font-size:11px;cursor:pointer;overflow-wrap:anywhere}
+.handover-choice.unnamed{cursor:default;color:var(--text-muted)}
+.handover-email{color:var(--text-muted)}
 .role-badge{font-size:10px;border-radius:999px;padding:4px 7px;background:var(--grey-100);color:var(--text-muted)}
 .role-badge.admin{background:hsla(var(--primary-hsl), .08);color:var(--primary)}
 .role-badge.external{background:hsla(200, 18%, 46%, .12);color:hsl(200, 18%, 32%)}

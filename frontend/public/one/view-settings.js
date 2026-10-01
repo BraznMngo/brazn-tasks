@@ -1418,15 +1418,15 @@ function installChangeListeners() {
       requestRender();
       return;
     }
-    if (target.id === 'deleteSuccessor') {
+    if (target.name === 'deleteSuccessor') {
       // The prototype's :1489 — the confirm button stays disabled until a successor is chosen.
       const button = document.getElementById('confirmDeleteAccountBtn');
       if (button !== null) button.disabled = target.value === '';
       return;
     }
-    if (target.id === 'newAdmin') {
-      // The same guard on the other irreversible handover. Both selects open on an empty
-      // placeholder, so neither confirm button can fire against a successor nobody chose.
+    if (target.name === 'newAdmin') {
+      // The same guard on the other irreversible handover. Both pickers open with nobody
+      // chosen, so neither confirm button can fire against a successor nobody chose.
       const button = document.getElementById('confirmTransferBtn');
       if (button !== null) button.disabled = target.value === '';
       return;
@@ -1920,7 +1920,7 @@ registerActions({
    *   * `!ok`                           → the picker with the refusal on it, confirm disabled.
    *
    * `deleteTransfer` carries the decision to `confirm-delete-account`, which must not re-derive it
-   * from an empty `<select>`: an absent picker and an unanswered one look identical in the DOM.
+   * from the picker: an absent picker and an unanswered one look identical in the DOM.
    */
   'delete-account-second': async () => {
     if (getOrganization() === null) {
@@ -1937,15 +1937,12 @@ registerActions({
     }
 
     setViewState(NS, {deleteTransfer: 'required'});
-    const options = candidates.map((candidate) =>
-      `<option value="${esc(candidate.id)}">${esc(candidate.label)}</option>`).join('');
 
     modal(t('one.settings.deleteAccount.confirmTitle'), `<div class="notice">
       <strong>${tx('one.settings.deleteAccount.successorTitle')}</strong>${
         tx('one.settings.deleteAccount.successorText')}</div>
       <label class="label">${tx('one.org.newAdministrator')}</label>
-      <select class="select" id="deleteSuccessor">
-        <option value="">${tx('one.org.selectMember')}</option>${options}</select>`,
+      ${successorPicker('deleteSuccessor', candidates)}`,
       `${footCancel()}<button class="btn danger" id="confirmDeleteAccountBtn"
         data-action="confirm-delete-account" disabled>${tx('one.settings.deleteAccount.title')}</button>`);
 
@@ -1970,7 +1967,7 @@ registerActions({
     // handover. Failing the other way would erase an administrator's account without transferring
     // the role — the state `OrganizationFor` refuses to serve, and irreversible.
     if (organization !== null && scratch().deleteTransfer !== 'none') {
-      const successor = fieldValue('deleteSuccessor');
+      const successor = chosenSuccessor('deleteSuccessor');
       if (successor === '') return;
       // A STRING, and deliberately so: `to_user_id` is declared `string`
       // (client-service-27c95232:537) and `isId` rejects anything that is not one
@@ -2244,11 +2241,10 @@ registerActions({
    *
    * THE PICKER OPENS UNANSWERED, AND CONFIRM STARTS DISABLED. This modal's own copy is
    * `organization.administration.transfer.text` — "You lose every administrative control the
-   * moment it completes and cannot take the role back yourself" — so a `<select>` whose first
-   * option is already a real person, sitting under an enabled Transfer, hands the organization to
-   * whoever `readCandidates` happened to order first. The sibling irreversible path
-   * (`delete-account-second`) has always emitted the empty placeholder and the disabled button,
-   * and `#newAdmin` now takes the same two guards, released by the same kind of `change` listener.
+   * moment it completes and cannot take the role back yourself" — so a picker that opens on a real
+   * person, under an enabled Transfer, hands the organization to whoever `readCandidates` happened
+   * to order first. Both handovers draw `successorPicker`, which opens with nobody chosen, under a
+   * disabled button that only the `change` listener releases.
    */
   'transfer-admin': async () => {
     const result = await api.listSuccessorCandidates();
@@ -2267,14 +2263,10 @@ registerActions({
       return;
     }
 
-    const options = candidates.map((candidate) =>
-      `<option value="${esc(candidate.id)}">${esc(candidate.label)}</option>`).join('');
-
     modal(t('organization.administration.transfer.action'), `<div class="notice">${
       tx('organization.administration.transfer.text')}</div>
       <label class="label">${tx('one.org.newAdministrator')}</label>
-      <select class="select" id="newAdmin">
-        <option value="">${tx('one.org.selectMember')}</option>${options}</select>`,
+      ${successorPicker('newAdmin', candidates)}`,
       `${footCancel()}<button class="btn primary" id="confirmTransferBtn"
         data-action="confirm-transfer" disabled>${
         tx('organization.administration.transfer.action')}</button>`);
@@ -2289,7 +2281,7 @@ registerActions({
 
   'confirm-transfer': async () => {
     const organization = getOrganization();
-    const successor = fieldValue('newAdmin');
+    const successor = chosenSuccessor('newAdmin');
     if (organization === null || successor === '') return;
 
     const result = await api.transferAdministrator(organization.id, successor);
@@ -2701,33 +2693,8 @@ function memberPickerRow(member, teamId, alreadyInTeam) {
  * unusable row is dropped rather than guessed at. Reading a response defensively is not the same
  * as inventing a request field (ruling C17): nothing here is sent.
  *
- * THE FORK-ROSTER JOIN IS GONE, AND REMOVING IT IS THE FIX. It read:
- *
- *     members.find((row) => String(row?.id ?? row?.user_id ?? '') === String(id))
- *
- * and its comment blamed a type difference — string on the commercial side, number on the fork's
- * rows — which is true and is not the problem. The two values are from DIFFERENT ID SPACES, so
- * stringifying both cannot make them meet:
- *
- *   * `GET /v1/account/successor-candidates` projects the COMMERCIAL account id
- *     (client-http-27c95232:2986-2988), and client-service-27c95232:522 says of the sibling
- *     field "A commercial id, never the fork's."
- *   * `Organization.Members[].user_id` is `u.ID`, this instance's own row id
- *     (pkg/models/brazn_organization.go:478 — `UserID: u.ID`, `json:"user_id"`, an int64). The
- *     `OrganizationMember` struct has no `id` field at all, so the `row?.id` half of that
- *     expression was always `undefined` and every comparison fell through to the fork row id.
- *
- * So the join missed on every row and each label already fell back to `String(id)` — while the
- * code claimed a resolution it could not perform. Worse in the tail: `opaqueID` admits a bare
- * numeric string (`^[A-Za-z0-9_-]{1,64}$`, pkg/modules/auth/entitlement.go:191), so a coincidental
- * collision would have put the WRONG PERSON'S NAME against a stranger's id — on the two most
- * irreversible flows this page has, administrator handover and pre-erasure handover.
- *
- * A wrong name is worse than an opaque one here, so the id is what is shown. THE REAL FIX IS NOT
- * IN THIS FILE and is not available inside bar 1: nothing the browser holds maps a commercial
- * account id to a fork row. `Subject.UserID` — the fork's own copy of the commercial id — is never
- * put on a member row (pkg/modules/auth/entitlement.go:193-195 states the distinction outright),
- * and surfacing it on `OrganizationMember` is a fork change. Reported, not built.
+ * Only the id is read here. The name comes from the organization's own roster, in
+ * `successorPicker` below.
  */
 function readCandidates(body) {
   // `{candidates: [{user_id}]}` is the documented shape; the two array fallbacks cost nothing and
@@ -2742,8 +2709,48 @@ function readCandidates(body) {
     // `user_id` AND NOTHING ELSE is projected (client-http-27c95232:2986-2988) — `AccountRecord`
     // carries no name and no mailbox, which is also why erasure genuinely destroys an address
     // rather than leaving a copy there. There is nothing else on the row to label it with.
-    return {id, label: String(id)};
+    return {id};
   }).filter(Boolean);
+}
+
+/**
+ * The successor list for both irreversible handovers, administrator transfer and pre-erasure
+ * handover (BRA-1636 item 1): each person as "Full name (email)", the email in grey.
+ *
+ * THE COMMERCIAL ID AND THE ROSTER'S `user_id` ARE ONE VALUE for every registered member. The
+ * commercial service opens an account under a provisional `acct_…` key and REKEYS it to the fork's
+ * `users.id` when the person registers (`adoptAccountUserId`, one-apps
+ * cloud/service/src/postgres-repository.ts), and the roster's `user_id` is that same `users.id`
+ * (pkg/models/brazn_organization.go). An earlier revision of this file held that the two were
+ * different id spaces and printed the bare id instead, which is the number BRA-1636 reports. A
+ * provisional key begins `acct_` and can never equal a numeric `users.id`, so it matches nobody.
+ *
+ * A candidate the roster cannot name is shown and NOT selectable. It never falls back to its id:
+ * the person choosing has nothing to recognise in a number, and the handover cannot be undone.
+ *
+ * A list the page draws, not a `<select>`: an `<option>` cannot colour half of its own text. It
+ * opens with nothing chosen, like the placeholder it replaces, so the confirm button stays
+ * disabled until somebody picks (the `change` listener in `mount`).
+ */
+function successorPicker(name, candidates) {
+  const members = organizationMembers();
+  const rows = candidates.map((candidate) => {
+    const member = members.find((row) => String(memberUserId(row) ?? '') === String(candidate.id));
+    const label = member === undefined ? '' : displayName(member);
+    if (label === '') {
+      return `<div class="handover-choice unnamed">${tx('one.org.successorUnnamed')}</div>`;
+    }
+    const email = member.email ? ` <span class="handover-email">(${esc(member.email)})</span>` : '';
+    return `<label class="handover-choice">
+      <input type="radio" name="${name}" value="${esc(candidate.id)}">
+      <span><strong>${esc(label)}</strong>${email}</span></label>`;
+  }).join('');
+  return `<div class="handover-list" role="radiogroup" aria-label="${tx('one.org.newAdministrator')}">${rows}</div>`;
+}
+
+/** The id of the successor chosen in a `successorPicker`, or '' while nobody is. */
+function chosenSuccessor(name) {
+  return String(document.querySelector(`input[name="${name}"]:checked`)?.value ?? '');
 }
 
 /* ------------------------------------------------------------------ *
