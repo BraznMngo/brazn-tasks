@@ -495,6 +495,18 @@ type RefreshResult struct {
 // On user status errors (disabled/locked), the session is deleted before
 // returning the error so the caller can handle cleanup (e.g. clearing cookies).
 func RefreshSession(rawRefreshToken string) (*RefreshResult, error) {
+	return refreshSession(rawRefreshToken, true)
+}
+
+// RefreshSessionKeepingToken is RefreshSession without the rotation: the
+// session keeps its refresh token and NewRefreshToken is empty. The OAuth
+// refresh grant uses it, so an app that loses or fails to save a renewal's
+// answer still holds a working token (BRA-1768).
+func RefreshSessionKeepingToken(rawRefreshToken string) (*RefreshResult, error) {
+	return refreshSession(rawRefreshToken, false)
+}
+
+func refreshSession(rawRefreshToken string, rotate bool) (*RefreshResult, error) {
 	s := db.NewSession()
 	defer s.Close()
 
@@ -527,13 +539,16 @@ func RefreshSession(rawRefreshToken string) (*RefreshResult, error) {
 		return nil, err
 	}
 
-	newRawToken, err := models.RotateRefreshToken(s, session, rawRefreshToken)
-	if err != nil {
-		_ = s.Rollback()
-		if models.IsErrSessionNotFound(err) {
-			return nil, echo.NewHTTPError(http.StatusUnauthorized, "Refresh token already used.")
+	var newRawToken string
+	if rotate {
+		newRawToken, err = models.RotateRefreshToken(s, session, rawRefreshToken)
+		if err != nil {
+			_ = s.Rollback()
+			if models.IsErrSessionNotFound(err) {
+				return nil, echo.NewHTTPError(http.StatusUnauthorized, "Refresh token already used.")
+			}
+			return nil, err
 		}
-		return nil, err
 	}
 
 	u, err := user.GetUserByID(s, session.UserID)
