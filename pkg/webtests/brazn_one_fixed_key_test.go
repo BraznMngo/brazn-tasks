@@ -28,6 +28,7 @@ import (
 	"strings"
 	"testing"
 
+	"code.vikunja.io/api/pkg/db"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/auth"
 
@@ -189,10 +190,43 @@ func fixedKeyHash(key string) string {
 func fixedKeyStoredHash(t *testing.T, sid string) string {
 	t.Helper()
 
-	rows, err := dbSessionForTest(t).QueryString("SELECT token_hash FROM sessions WHERE id = ?", sid)
+	// Closed before returning: on SQLite an open read keeps the sessions table
+	// locked, and the next renewal would fail with 500 instead of answering.
+	s := db.NewSession()
+	defer s.Close()
+	rows, err := s.QueryString("SELECT token_hash FROM sessions WHERE id = ?", sid)
 	require.NoError(t, err)
 	require.Len(t, rows, 1, "the session must still exist")
 	return rows[0]["token_hash"]
+}
+
+// fixedKeyLeaveTwoKeys gives the session a current key and the previous key it
+// replaced, as a renewal before BRA-1768 did.
+func fixedKeyLeaveTwoKeys(t *testing.T, sid, current, previous string) {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+	res, err := s.Exec("UPDATE sessions SET token_hash = ?, previous_token_hash = ? WHERE id = ?",
+		fixedKeyHash(current), fixedKeyHash(previous), sid)
+	require.NoError(t, err)
+	affected, err := res.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), affected)
+	require.NoError(t, s.Commit())
+}
+
+// fixedKeyIsLong reports whether the session holding the key is a long one.
+func fixedKeyIsLong(t *testing.T, key string) bool {
+	t.Helper()
+
+	s := db.NewSession()
+	defer s.Close()
+	var row models.Session
+	has, err := s.Where("token_hash = ?", fixedKeyHash(key)).Get(&row)
+	require.NoError(t, err)
+	require.True(t, has, "the key must name a session")
+	return row.IsLongSession
 }
 
 // fixedKeyUsable requires the access token to authenticate an API call.
@@ -270,14 +304,7 @@ func TestBraznOneInstallationsSignedInBeforeTheDeployKeepTheirSignIn(t *testing.
 			// replaced the sign-in key with a new current key and kept the one it
 			// replaced as the previous key.
 			currentKey := strings.Repeat("7d", 128)
-			s := dbSessionForTest(t)
-			res, err := s.Exec("UPDATE sessions SET token_hash = ?, previous_token_hash = ? WHERE id = ?",
-				fixedKeyHash(currentKey), fixedKeyHash(signInKey), sid)
-			require.NoError(t, err)
-			affected, err := res.RowsAffected()
-			require.NoError(t, err)
-			require.Equal(t, int64(1), affected)
-			require.NoError(t, s.Commit())
+			fixedKeyLeaveTwoKeys(t, sid, currentKey, signInKey)
 
 			key := currentKey
 			if held == "previous" {
@@ -311,11 +338,7 @@ func TestBraznBrowserRenewalStillChangesTheKey(t *testing.T) {
 			k0 := signedIn.Value
 			require.NotEmpty(t, k0)
 
-			var row models.Session
-			has, err := dbSessionForTest(t).Where("token_hash = ?", fixedKeyHash(k0)).Get(&row)
-			require.NoError(t, err)
-			require.True(t, has)
-			require.True(t, row.IsLongSession, "the browser session must be long, like ONE's")
+			require.True(t, fixedKeyIsLong(t, k0), "the browser session must be long, like ONE's")
 
 			renew := func(key string) *httptest.ResponseRecorder {
 				req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(""))
