@@ -335,11 +335,12 @@ func TestOAuth2TokenEndpoint(t *testing.T) {
 		err = json.Unmarshal(rec2.Body.Bytes(), &refreshResp)
 		require.NoError(t, err)
 		assert.NotEmpty(t, refreshResp.AccessToken)
-		assert.NotEmpty(t, refreshResp.RefreshToken)
-		assert.NotEqual(t, tokenResp.RefreshToken, refreshResp.RefreshToken)
+		// BRA-1768: the refresh token is issued once, at sign-in, and a refresh
+		// gives out no new one.
+		assert.NotContains(t, rec2.Body.String(), "refresh_token")
 	})
 
-	t.Run("refresh token rotation prevents replay", func(t *testing.T) {
+	t.Run("refresh token is not rotated", func(t *testing.T) {
 		e, err := setupTestEnv()
 		require.NoError(t, err)
 
@@ -367,23 +368,12 @@ func TestOAuth2TokenEndpoint(t *testing.T) {
 			"client_id":     "vikunja",
 		}
 
-		// First refresh succeeds
-		rec2 := doTokenRequest(e, refreshParams)
-		require.Equal(t, http.StatusOK, rec2.Code)
-
-		// The successor is used once (BRA-1670: until then the old token is
-		// still honoured, in case the reply above never reached the client).
-		var refreshResp oauth2server.TokenResponse
-		require.NoError(t, json.Unmarshal(rec2.Body.Bytes(), &refreshResp))
-		rec3 := doTokenRequest(e, map[string]string{
-			"grant_type":    "refresh_token",
-			"refresh_token": refreshResp.RefreshToken,
-			"client_id":     "vikunja",
-		})
-		require.Equal(t, http.StatusOK, rec3.Code)
-
-		// Replay the same old refresh token — should fail
-		rec4 := doTokenRequest(e, refreshParams)
-		assert.Equal(t, http.StatusUnauthorized, rec4.Code)
+		// BRA-1768: a refresh does not replace the refresh token, so the one
+		// issued at sign-in keeps working.
+		for range 3 {
+			rec2 := doTokenRequest(e, refreshParams)
+			require.Equal(t, http.StatusOK, rec2.Code, rec2.Body.String())
+			assert.NotContains(t, rec2.Body.String(), "refresh_token")
+		}
 	})
 }

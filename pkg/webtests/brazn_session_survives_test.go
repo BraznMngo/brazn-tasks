@@ -35,9 +35,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// BRA-1670: a session made by ONE's OAuth sign-in survives a lost refresh
-// reply and a few idle days, and still ends when it is deleted, revoked or
-// idle past its limit.
+// BRA-1670: a session survives a lost refresh reply and a few idle days, and
+// still ends when it is deleted, revoked or idle past its limit.
+//
+// BRA-1768: ONE's OAuth refresh no longer replaces the key, so a lost reply
+// costs ONE nothing and only a browser renewal still has a previous key. The
+// lost-reply and previous-key cases run on the browser renewal for that reason.
 
 // oauthSignIn runs ONE's sign-in (authorize + authorization-code exchange) for
 // user 1 and returns the token reply.
@@ -71,17 +74,53 @@ func oauthRefresh(e *echo.Echo, refreshToken string) *httptest.ResponseRecorder 
 	})
 }
 
-// mustOAuthRefresh refreshes and requires success, returning the new reply.
+// mustOAuthRefresh refreshes and requires success with no new key in the
+// reply (BRA-1768), returning the reply.
 func mustOAuthRefresh(t *testing.T, e *echo.Echo, refreshToken string) oauth2server.TokenResponse {
 	t.Helper()
 
 	rec := oauthRefresh(e, refreshToken)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.NotContains(t, rec.Body.String(), "refresh_token")
 
 	var resp oauth2server.TokenResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	require.NotEmpty(t, resp.RefreshToken)
+	require.NotEmpty(t, resp.AccessToken)
 	return resp
+}
+
+// browserSignIn signs user 1 in with "remember me", as the web app does, and
+// returns the session and the refresh key the cookie carries.
+func browserSignIn(t *testing.T, e *echo.Echo) (sid, key string) {
+	t.Helper()
+
+	rec := humaRequest(t, e, http.MethodPost, "/api/v2/login",
+		`{"username":"user1","password":"12345678","long_token":true}`, "", "")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	return browserReply(t, rec)
+}
+
+// mustBrowserRefresh renews with the given key and requires success, returning
+// the session the new access token names and the new key.
+func mustBrowserRefresh(t *testing.T, e *echo.Echo, key string) (sid, next string) {
+	t.Helper()
+
+	rec := refreshRequest(e, key)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	return browserReply(t, rec)
+}
+
+func browserReply(t *testing.T, rec *httptest.ResponseRecorder) (sid, key string) {
+	t.Helper()
+
+	var body struct {
+		Token string `json:"token"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	cookie := refreshCookie(rec)
+	require.NotNil(t, cookie)
+	require.NotEmpty(t, cookie.Value)
+	return sessionOf(t, body.Token), cookie.Value
 }
 
 // sessionOf reads the `sid` claim out of an access token, so a test can say
@@ -135,51 +174,49 @@ func TestBraznLostRefreshReplyDoesNotEndTheSession(t *testing.T) {
 		e, err := setupTestEnv()
 		require.NoError(t, err)
 
-		signIn := oauthSignIn(t, e)
-		sid := sessionOf(t, signIn.AccessToken)
-		held := signIn.RefreshToken
+		sid, held := browserSignIn(t, e)
 
-		// The server rotates, the reply never arrives: ONE still holds `held`.
-		lost := mustOAuthRefresh(t, e, held)
-		assert.Equal(t, sid, sessionOf(t, lost.AccessToken))
+		// The server rotates, the reply never arrives: the client still holds `held`.
+		lostSID, lost := mustBrowserRefresh(t, e, held)
+		assert.Equal(t, sid, lostSID)
 
-		// ONE retries with what it holds, and again after another lost reply.
-		retry := mustOAuthRefresh(t, e, held)
-		assert.Equal(t, sid, sessionOf(t, retry.AccessToken))
+		// The client retries with what it holds, and again after another lost reply.
+		retrySID, _ := mustBrowserRefresh(t, e, held)
+		assert.Equal(t, sid, retrySID)
 
 		// The retry replaced the token the lost reply carried, so it is refused.
-		assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, lost.RefreshToken).Code)
+		assert.Equal(t, http.StatusUnauthorized, refreshRequest(e, lost).Code)
 
-		retryAgain := mustOAuthRefresh(t, e, held)
-		assert.Equal(t, sid, sessionOf(t, retryAgain.AccessToken))
+		retryAgainSID, retryAgain := mustBrowserRefresh(t, e, held)
+		assert.Equal(t, sid, retryAgainSID)
 
-		// This reply arrives, and ONE uses the token it carried.
-		next := mustOAuthRefresh(t, e, retryAgain.RefreshToken)
-		assert.Equal(t, sid, sessionOf(t, next.AccessToken))
+		// This reply arrives, and the client uses the token it carried.
+		nextSID, next := mustBrowserRefresh(t, e, retryAgain)
+		assert.Equal(t, sid, nextSID)
 
 		// Its successor has now been used once, so the old token is refused.
-		assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, held).Code)
+		assert.Equal(t, http.StatusUnauthorized, refreshRequest(e, held).Code)
 
 		// A refused replay does not sign the real client out.
-		mustOAuthRefresh(t, e, next.RefreshToken)
+		mustBrowserRefresh(t, e, next)
 	})
 
 	t.Run("a token two rotations back is refused and the session carries on", func(t *testing.T) {
 		e, err := setupTestEnv()
 		require.NoError(t, err)
 
-		r0 := oauthSignIn(t, e).RefreshToken
-		r1 := mustOAuthRefresh(t, e, r0).RefreshToken
-		r2 := mustOAuthRefresh(t, e, r1).RefreshToken
+		_, r0 := browserSignIn(t, e)
+		_, r1 := mustBrowserRefresh(t, e, r0)
+		_, r2 := mustBrowserRefresh(t, e, r1)
 
-		assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, r0).Code,
+		assert.Equal(t, http.StatusUnauthorized, refreshRequest(e, r0).Code,
 			"r0's successor r1 was used, so r0 must be refused")
 
-		r3 := mustOAuthRefresh(t, e, r2).RefreshToken
-		assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, r1).Code,
+		_, r3 := mustBrowserRefresh(t, e, r2)
+		assert.Equal(t, http.StatusUnauthorized, refreshRequest(e, r1).Code,
 			"r1's successor r2 was used, so r1 must be refused")
 
-		mustOAuthRefresh(t, e, r3)
+		mustBrowserRefresh(t, e, r3)
 	})
 }
 
@@ -225,24 +262,15 @@ func TestBraznDeadSessionStaysDead(t *testing.T) {
 	// is the token that final reply carried, not yet used.
 	oneLostReply := func(t *testing.T, e *echo.Echo) (sid, held, current string) {
 		t.Helper()
-		signIn := oauthSignIn(t, e)
-		sid = sessionOf(t, signIn.AccessToken)
+		sid, signedIn := browserSignIn(t, e)
 
-		mustOAuthRefresh(t, e, signIn.RefreshToken) // reply lost
-		successor := mustOAuthRefresh(t, e, signIn.RefreshToken).RefreshToken
-		held = mustOAuthRefresh(t, e, successor).RefreshToken
+		mustBrowserRefresh(t, e, signedIn) // reply lost
+		_, successor := mustBrowserRefresh(t, e, signedIn)
+		_, held = mustBrowserRefresh(t, e, successor)
 
-		mustOAuthRefresh(t, e, held) // reply lost
-		current = mustOAuthRefresh(t, e, held).RefreshToken
+		mustBrowserRefresh(t, e, held) // reply lost
+		_, current = mustBrowserRefresh(t, e, held)
 		return sid, held, current
-	}
-
-	// The same state without the demonstration, for a case that needs two
-	// sessions inside the unauthenticated rate limit.
-	lostReply := func(t *testing.T, e *echo.Echo) (sid, held, current string) {
-		t.Helper()
-		signIn := oauthSignIn(t, e)
-		return sessionOf(t, signIn.AccessToken), signIn.RefreshToken, mustOAuthRefresh(t, e, signIn.RefreshToken).RefreshToken
 	}
 
 	for _, presented := range []string{"previous", "current"} {
@@ -260,7 +288,7 @@ func TestBraznDeadSessionStaysDead(t *testing.T) {
 			sid, held, current := oneLostReply(t, e)
 			deleteSession(t, sid)
 
-			assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, pick(held, current)).Code)
+			assert.Equal(t, http.StatusUnauthorized, refreshRequest(e, pick(held, current)).Code)
 		})
 
 		t.Run("idle-expired session refuses the "+presented+" token", func(t *testing.T) {
@@ -270,26 +298,51 @@ func TestBraznDeadSessionStaysDead(t *testing.T) {
 			sid, held, current := oneLostReply(t, e)
 			idleSession(t, sid, longIdleLimit()+time.Hour)
 
-			assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, pick(held, current)).Code)
+			assert.Equal(t, http.StatusUnauthorized, refreshRequest(e, pick(held, current)).Code)
 		})
 	}
+
+	// ONE's session has the one key from sign-in (BRA-1768), shown working
+	// before the session ends.
+	t.Run("deleted OAuth session refuses the key from sign-in", func(t *testing.T) {
+		e, err := setupTestEnv()
+		require.NoError(t, err)
+
+		signIn := oauthSignIn(t, e)
+		mustOAuthRefresh(t, e, signIn.RefreshToken)
+		deleteSession(t, sessionOf(t, signIn.AccessToken))
+
+		assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, signIn.RefreshToken).Code)
+	})
+
+	t.Run("idle-expired OAuth session refuses the key from sign-in", func(t *testing.T) {
+		e, err := setupTestEnv()
+		require.NoError(t, err)
+
+		signIn := oauthSignIn(t, e)
+		mustOAuthRefresh(t, e, signIn.RefreshToken)
+		idleSession(t, sessionOf(t, signIn.AccessToken), longIdleLimit()+time.Hour)
+
+		assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, signIn.RefreshToken).Code)
+	})
 
 	t.Run("a token from another session never acts on this one", func(t *testing.T) {
 		e, err := setupTestEnv()
 		require.NoError(t, err)
 
-		sidA, heldA, currentA := lostReply(t, e)
-		sidB, heldB, _ := lostReply(t, e)
+		sidA, heldA, currentA := oneLostReply(t, e)
+		sidB, heldB, _ := oneLostReply(t, e)
 		require.NotEqual(t, sidA, sidB)
 
 		deleteSession(t, sidA)
 
-		assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, heldA).Code)
-		assert.Equal(t, http.StatusUnauthorized, oauthRefresh(e, currentA).Code)
+		assert.Equal(t, http.StatusUnauthorized, refreshRequest(e, heldA).Code)
+		assert.Equal(t, http.StatusUnauthorized, refreshRequest(e, currentA).Code)
 
 		// B's tokens still work, and only ever on B.
-		retried := mustOAuthRefresh(t, e, heldB)
-		assert.Equal(t, sidB, sessionOf(t, retried.AccessToken))
-		assert.Equal(t, sidB, sessionOf(t, mustOAuthRefresh(t, e, retried.RefreshToken).AccessToken))
+		retriedSID, retried := mustBrowserRefresh(t, e, heldB)
+		assert.Equal(t, sidB, retriedSID)
+		nextSID, _ := mustBrowserRefresh(t, e, retried)
+		assert.Equal(t, sidB, nextSID)
 	})
 }

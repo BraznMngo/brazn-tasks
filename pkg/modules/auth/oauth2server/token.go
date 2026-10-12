@@ -32,12 +32,14 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// TokenResponse is the OAuth 2.0 token response.
+// TokenResponse is the OAuth 2.0 token response. A refresh grant's answer
+// leaves RefreshToken out: the client keeps the one it was given at sign-in
+// (RFC 6749 §6, BRA-1768).
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int64  `json:"expires_in"`
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 }
 
 // TokenRequest holds the parameters of a POST /oauth/token request. v1 binds it
@@ -157,15 +159,14 @@ func exchangeAuthorizationCode(ctx context.Context, req *TokenRequest, deviceInf
 }
 
 func exchangeRefreshToken(req *TokenRequest) (*TokenResponse, error) {
-	result, err := auth.RefreshSession(req.RefreshToken)
+	result, err := auth.RefreshSessionKeepingToken(req.RefreshToken)
 	if err != nil {
 		return nil, err
 	}
 
 	return &TokenResponse{
-		AccessToken:  result.AccessToken,
-		TokenType:    "bearer",
-		ExpiresIn:    result.ExpiresIn,
-		RefreshToken: result.NewRefreshToken,
+		AccessToken: result.AccessToken,
+		TokenType:   "bearer",
+		ExpiresIn:   result.ExpiresIn,
 	}, nil
 }
