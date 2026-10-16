@@ -43,6 +43,7 @@ import {t, currentLocale} from './i18n.js';
 // builds an address to navigate to, so a control here can never send somebody
 // into the old application (BRA-1475).
 import {oneUrl} from './pages.js';
+import {timezoneOptions, zoneLabel} from './timezones.js';
 import {
   DENY,
   closeModal,
@@ -787,7 +788,7 @@ function otherCard() {
         <div class="setting-desc">${tx('one.settings.timezoneHelp')}</div>
       </div>
       <select class="select setting-control" id="timezone" data-requires="write">
-        <option selected>${esc(timezone)}</option>
+        <option value="${esc(timezone)}" selected>${esc(timezone === '' ? '' : zoneLabel(timezone, new Date()))}</option>
       </select>
     </div>
   </div>`;
@@ -1378,11 +1379,12 @@ function fillTimezones(root) {
   const zones = scratch().timezones;
   if (select === null || !Array.isArray(zones) || zones.length === 0) return;
   const current = getSettings()?.timezone ?? '';
-  // A stored zone the server no longer lists is kept as an option rather than dropped: without it
-  // the select would silently display someone else's first zone as if it were this account's.
-  const options = current !== '' && !zones.includes(current) ? [current, ...zones] : zones;
-  select.innerHTML = options.map((zone) =>
-    `<option${zone === current ? ' selected' : ''}>${esc(zone)}</option>`).join('');
+  // BRA-1636 item 2: the standard list, "(UTC+01:00) Berlin", sorted by today's offset. The value
+  // stays the zone id. A stored zone outside the list is kept as an option rather than dropped:
+  // without it the select would silently display someone else's first zone as if it were this
+  // account's.
+  select.innerHTML = timezoneOptions(zones, current, new Date()).map(({id, label}) =>
+    `<option value="${esc(id)}"${id === current ? ' selected' : ''}>${esc(label)}</option>`).join('');
 }
 
 /**
