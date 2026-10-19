@@ -207,8 +207,14 @@
     },
     "seats": {
       "title": "Licences",
-      "add": "Ajouter des licences",
-      "explanation": "Une licence se libère dès qu’une personne est retirée, et une invitation ne peut être envoyée que s’il reste une licence disponible."
+      "adapt": "Ajuster les licences",
+      "fewer": "Une licence de moins",
+      "more": "Une licence de plus",
+      "lowestFloor": "Vous ne pouvez pas avoir moins de {count} licences.",
+      "lowestTeams": "Vos équipes ont besoin d’au moins {count} licences.",
+      "lowestMembers": "{count} personnes utilisent une licence en ce moment. Retirez d’abord des membres pour descendre plus bas.",
+      "highest": "Vous ne pouvez pas avoir plus de {count} licences.",
+      "explanation": "Une licence se libère dès qu’une personne est retirée. Envoyer une invitation n’utilise aucune licence. Quand la personne rejoint l’organisation, elle prend une licence libre, ou une nouvelle licence est ajoutée pour elle."
     },
     "teams": {
       "create": "Créer une équipe",
@@ -494,7 +500,9 @@
         "members": "{count} membre | {count} membres",
         "pending": "{count} invitation en attente | {count} invitations en attente",
         "teams": "{count} équipe | {count} équipes",
-        "prorationDue": "Ce changement coûte {amount} pour le reste de cette période de facturation."
+        "prorationDue": "Ce changement coûte {amount} pour le reste de cette période de facturation.",
+        "nothingNow": "Vous ne payez rien maintenant.",
+        "decrease": "Ce changement s’applique à partir de votre prochaine facture. Rien n’est remboursé. Les factures que vous avez déjà ne changent pas. Personne ne perd son accès."
       },
       "tile": {
         "privateKind": "Privé",
@@ -633,7 +641,7 @@
       "favoriteAdded": "Ajouté aux favoris.",
       "favoriteRemoved": "Retiré des favoris.",
       "colorUpdated": "La couleur de la tâche a bien été mise à jour.",
-      "seatAdded": "Une licence a été ajoutée.",
+      "seatsChanged": "Le nombre de licences a été modifié.",
       "invitationSent": "Invitation envoyée.",
       "alreadyMember": "Cette personne fait déjà partie de votre organisation. Rien n’a été envoyé et aucune licence n’a été utilisée.",
       "invitationRevoked": "L’invitation a bien été révoquée.",

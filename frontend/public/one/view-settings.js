@@ -65,6 +65,7 @@ import {
   reloadUser,
   renderRefusal,
   requestRender,
+  requiredSeatsForTeams,
   setViewState,
   toast,
 } from './app.js';
@@ -1101,16 +1102,93 @@ function seatsCard(meter) {
     <div class="card-sub">${esc(subtitle)}</div>
     <div class="seat-meter"><span id="seatMeterFill"></span></div>
     <div class="help">${esc(help)}</div>
-    <div class="profile-actions">
-      ${meter.purchased === null
-        ? `<div ${refusedGroup(DENY.SERVER)} style="display:flex;flex-wrap:wrap">
-             <button class="btn small" data-action="add-seat" aria-disabled="true">${
-               tx('organization.seats.add')}</button>
-             ${refusalNote(t('organization.teams.capped.unknown'))}
-           </div>`
-        : `<button class="btn small" data-action="add-seat" data-requires="admin write">
-             ${tx('organization.seats.add')}</button>`}
+    ${meter.purchased === null
+      ? `<div class="profile-actions"><div ${refusedGroup(DENY.SERVER)} style="display:flex;flex-wrap:wrap">
+           <button class="btn small" data-action="adapt-seats" aria-disabled="true">${
+             tx('organization.seats.adapt')}</button>
+           ${refusalNote(t('organization.teams.capped.unknown'))}
+         </div></div>`
+      : seatAdapter(meter)}
+  </div>`;
+}
+
+/*
+ * BRA-1636 item 4 — the "Adapt seats" control.
+ *
+ * THE LIMITS ARE THE SERVER'S RULES, READ FROM THE FORK ORGANIZATION READ. The commercial service
+ * refuses a seat count below 3 or above 100 (`seat_count_out_of_range`, Commercial-Rules §3.1 and
+ * §3.4), below the people already seated (`below_users`, §3.3), and below what the existing teams
+ * need (`below_active_teams`, §3.2: `seats_per_team × teams`). The fork read carries the people
+ * (`seats_occupied`), the teams (`teams_used`) and the ratio (`seats_per_team`); it carries no
+ * floor or ceiling, so those two are the contract literals below. A refusal the page did not
+ * foresee still arrives from the server and is shown with its own sentence.
+ */
+const SEAT_FLOOR = 3;
+const SEAT_CEILING = 100;
+
+/** The sentence that says why − cannot go lower, by the rule that sets the lowest number. */
+const LOWEST_SEATS_KEY = Object.freeze({
+  floor: 'organization.seats.lowestFloor',
+  teams: 'organization.seats.lowestTeams',
+  members: 'organization.seats.lowestMembers',
+});
+
+/**
+ * The lowest and highest seat count the server accepts. On a tie the rule listed first names the
+ * reason: the floor first, because nothing lowers it, then the teams, because removing members
+ * does not lower what a team needs. An unreadable number drops out and the server stays the judge.
+ */
+function seatLimits(meter) {
+  const rules = [
+    ['floor', SEAT_FLOOR],
+    ['teams', meter.teamsUsed === null || meter.seatsPerTeam === null
+      ? null
+      : requiredSeatsForTeams(meter.teamsUsed, meter.seatsPerTeam)],
+    ['members', meter.occupied],
+  ];
+  let lowest = {reason: 'floor', seats: SEAT_FLOOR};
+  for (const [reason, seats] of rules) {
+    if (seats !== null && seats > lowest.seats) lowest = {reason, seats};
+  }
+  return {lowest, highest: SEAT_CEILING};
+}
+
+/** The number on screen: the administrator's unconfirmed choice, or the seats purchased today. */
+function draftSeats(meter) {
+  return scratch().seatDraft ?? meter.purchased;
+}
+
+/**
+ * − / the number / +, then one "Adapt seats" button that opens the confirm step. A press on − or +
+ * changes only the number on screen. Nothing is quoted or bought until the confirm step.
+ *
+ * `disabled`, not `aria-disabled`, on the buttons at a limit: `applyGates` releases a gated group by
+ * clearing `aria-disabled` and `.is-refused` on its children, and must not release a limit.
+ *
+ * BRA-1636 item 5 (the total cost and the next invoice) goes directly under this control, after the
+ * limit sentences. Nothing here shows a price.
+ */
+function seatAdapter(meter) {
+  const {lowest, highest} = seatLimits(meter);
+  const seats = draftSeats(meter);
+  const atLowest = seats <= lowest.seats;
+  const atHighest = seats >= highest;
+  const limits = [
+    atLowest ? t(LOWEST_SEATS_KEY[lowest.reason], {count: lowest.seats}) : '',
+    atHighest ? t('organization.seats.highest', {count: highest}) : '',
+  ].filter(Boolean).map((sentence) => `<p class="help seat-limit">${esc(sentence)}</p>`).join('');
+  return `<div data-requires="admin write">
+    <div class="profile-actions" role="group" aria-label="${tx('organization.seats.adapt')}">
+      <button class="btn small" data-action="seat-step" data-step="-1"
+        aria-label="${tx('organization.seats.fewer')}"${atLowest ? ' disabled' : ''}>−</button>
+      <strong class="seat-draft" aria-live="polite"
+        style="align-self:center;min-inline-size:3ch;text-align:center">${esc(seats)}</strong>
+      <button class="btn small" data-action="seat-step" data-step="1"
+        aria-label="${tx('organization.seats.more')}"${atHighest ? ' disabled' : ''}>+</button>
+      <button class="btn small primary" data-action="adapt-seats"${seats === meter.purchased ? ' disabled' : ''}>${
+        tx('organization.seats.adapt')}</button>
     </div>
+    ${limits}
   </div>`;
 }
 
@@ -1578,6 +1656,19 @@ function secretValue(id) {
  * could add — per-operation context — is precisely the thing the shared table is careful not to
  * assert. So the call sites below pass the result straight through.
  */
+
+/**
+ * BRA-1636 item 4. The one confirm step for a seat change: the number the subscription will hold,
+ * and one sentence on what the change costs or does. `confirm-seats` sends `seats`.
+ */
+function openSeatConfirm(seats, sentence) {
+  setViewState(NS, {seatPurchase: {seats}});
+  modal(t('organization.seats.title'),
+    `<div class="notice">${tx('one.org.seats.inSubscription', {count: seats})}</div>
+     <div class="notice">${esc(sentence)}</div>`,
+    `${footCancel()}<button class="btn primary" data-action="confirm-seats">${
+      tx('organization.seats.adapt')}</button>`);
+}
 
 /**
  * Put a refusal on the modal's footer so the numbers and the sentence stay on screen with the
@@ -2164,17 +2255,46 @@ registerActions({
   },
 
   /**
-   * M2. Quote first, then purchase. Both routes are contract-only and answer today with the SPA's
-   * index.html at HTTP 200 — which `readCommercialResult` refuses as `not-json` rather than
-   * treating as success (ruling C14, bar 8), so the purchase never fires behind a quote that did
-   * not arrive. Where the commercial service IS routed but does not yet serve these, the 404
-   * reaches `one.commercial.notFound` through app.js's status table rather than a status code.
+   * BRA-1636 item 4. − and + change only the number on screen. Nothing is quoted or bought here.
+   * The limit is checked again on the press, so a stale button cannot step past it.
    */
-  'add-seat': async (event, el) => {
+  'seat-step': (event, el) => {
+    const meter = readSeatMeter(getOrganization());
+    if (meter.purchased === null) return;
+    const {lowest, highest} = seatLimits(meter);
+    const step = Number(el.getAttribute('data-step'));
+    const seats = draftSeats(meter) + step;
+    if (!Number.isInteger(seats) || seats < lowest.seats || seats > highest) return;
+    setViewState(NS, {seatDraft: seats});
+    requestRender();
+    // The render replaced the button, so focus goes back to its replacement for the next press.
+    document.querySelector(`[data-action="seat-step"][data-step="${step}"]`)?.focus();
+  },
+
+  /**
+   * M2 / BRA-1636 item 4. Opens the one confirm step for the number on screen.
+   *
+   * AN INCREASE IS QUOTED FIRST, then bought. Both routes are contract-only and answer today with
+   * the SPA's index.html at HTTP 200 — which `readCommercialResult` refuses as `not-json` rather
+   * than treating as success (ruling C14, bar 8), so the purchase never fires behind a quote that
+   * did not arrive. Where the commercial service IS routed but does not yet serve these, the 404
+   * reaches `one.commercial.notFound` through app.js's status table rather than a status code.
+   *
+   * A DECREASE IS NOT QUOTED. It moves no money (Commercial-Rules §3.3: nothing is refunded, no
+   * invoice is restated, nobody loses access, and the next invoice reads the new number), so there
+   * is no figure to ask for. Its confirm step says those facts instead. A decrease the service
+   * refuses (`below_users`, `below_active_teams`) is refused at `confirm-seats`, with its sentence.
+   */
+  'adapt-seats': async (event, el) => {
     const organization = getOrganization();
     const meter = readSeatMeter(organization);
     if (organization === null || meter.purchased === null) return;
-    const seats = meter.purchased + 1;
+    const seats = draftSeats(meter);
+    if (seats === meter.purchased) return;
+    if (seats < meter.purchased) {
+      openSeatConfirm(seats, t('one.org.seats.decrease'));
+      return;
+    }
 
     const quote = await api.quoteSeats(organization.id, seats);
     if (!quote.ok) {
@@ -2194,19 +2314,14 @@ registerActions({
     //
     // `proration` is rendered from `base_minor` + `currency` (BRA-1442) via Intl — the same
     // fields `SeatProration` declares in the commercial billing module. `null` remains an
-    // ordinary "costs nothing now" answer and is never treated as a failure.
+    // ordinary "costs nothing now" answer (a trial, an exempt organization, no invoiced period)
+    // and is never treated as a failure. The confirm step says so in words.
     const body = quote.body ?? {};
     const seatsAfter = Number.isInteger(body.seats_after) ? body.seats_after : seats;
-    setViewState(NS, {seatPurchase: {seats: seatsAfter}});
     const due = formatSeatProrationDue(body.proration);
-    const notice = due === null
-      ? `<div class="notice">${tx('one.org.seats.inSubscription', {count: seatsAfter})}</div>`
-      : `<div class="notice">${tx('one.org.seats.inSubscription', {count: seatsAfter})}</div>
-         <div class="notice">${tx('one.org.seats.prorationDue', {amount: due})}</div>`;
-    modal(t('organization.seats.title'),
-      notice,
-      `${footCancel()}<button class="btn primary" data-action="confirm-seats">${
-        tx('organization.seats.add')}</button>`);
+    openSeatConfirm(seatsAfter, due === null
+      ? t('one.org.seats.nothingNow')
+      : t('one.org.seats.prorationDue', {amount: due}));
   },
 
   'confirm-seats': async () => {
@@ -2219,8 +2334,9 @@ registerActions({
       refuseModal(describeCommercialRefusal(result));
       return;
     }
+    setViewState(NS, {seatDraft: null, seatPurchase: null});
     closeModal();
-    toast(t('one.toast.seatAdded'));
+    toast(t('one.toast.seatsChanged'));
     // The meter's source is the FORK endpoint, never the commercial response (brief).
     await reloadOrganization();
   },

@@ -207,8 +207,14 @@
     },
     "seats": {
       "title": "Seats",
-      "add": "Add seats",
-      "explanation": "A seat frees the moment someone is removed, and an invitation needs a free one before it can be sent."
+      "adapt": "Adapt seats",
+      "fewer": "One seat fewer",
+      "more": "One seat more",
+      "lowestFloor": "{count} seats is the fewest you can have.",
+      "lowestTeams": "Your teams need at least {count} seats.",
+      "lowestMembers": "{count} people use a seat now. Remove members first to go lower.",
+      "highest": "{count} seats is the most you can have.",
+      "explanation": "A seat is free again as soon as someone is removed. Sending an invitation does not use a seat. When the person joins, they take a free seat, or a new seat is added for them."
     },
     "teams": {
       "create": "Create a team",
@@ -494,7 +500,9 @@
         "members": "{count} member | {count} members",
         "pending": "{count} pending invitation | {count} pending invitations",
         "teams": "{count} team | {count} teams",
-        "prorationDue": "This change costs {amount} for the rest of this billing period."
+        "prorationDue": "This change costs {amount} for the rest of this billing period.",
+        "nothingNow": "You pay nothing now.",
+        "decrease": "This change starts with your next invoice. Nothing is refunded. Invoices you already have stay the same. Nobody loses access."
       },
       "tile": {
         "privateKind": "Private",
@@ -641,7 +649,7 @@
       "favoriteAdded": "Added to favorites.",
       "favoriteRemoved": "Removed from favorites.",
       "colorUpdated": "The task color was updated.",
-      "seatAdded": "A seat was added.",
+      "seatsChanged": "The number of seats was changed.",
       "invitationSent": "Invitation sent.",
       "alreadyMember": "That person is already in your organization. Nothing was sent and no seat was used.",
       "invitationRevoked": "The invitation was revoked.",
