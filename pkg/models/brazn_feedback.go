@@ -69,6 +69,26 @@ func FeedbackProject(s *xorm.Session) (*ProtectedEntity, error) {
 	return protected, nil
 }
 
+// IsFeedbackStaff reports whether u is a member of a team that holds a grant on
+// this instance's Feedback project (BRA-1848: ONE loads its admin functions only
+// for such an account).
+//
+// THE TEAM IS FOUND THROUGH ITS GRANT, NOT ITS NAME, for the reason
+// ensureStaffTeam gives: a title is neither unique nor stable, and the grant is
+// the relationship that actually gives a person every customer's feedback. So
+// the answer here is true exactly when the account can read that feedback, and
+// false on an instance that has no Feedback project at all.
+func IsFeedbackStaff(s *xorm.Session, u *user.User) (bool, error) {
+	root, err := FeedbackProject(s)
+	if err != nil || root == nil {
+		return false, err
+	}
+	return s.Table("team_projects").
+		Join("INNER", "team_members", "team_members.team_id = team_projects.team_id").
+		Where("team_projects.project_id = ? AND team_members.user_id = ?", root.ProjectID, u.ID).
+		Exist()
+}
+
 // ProvisionFeedbackAccess makes sure this instance has its Feedback project
 // and that u can submit into a project of their own beneath it, returning that
 // sub-project's id.
