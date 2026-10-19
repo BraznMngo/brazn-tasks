@@ -1,6 +1,6 @@
 import {describe, it, expect, beforeAll, beforeEach, afterEach, vi} from 'vitest'
 
-import {init as initI18n} from '../../../public/one/i18n.js'
+import {init as initI18n, t as translate} from '../../../public/one/i18n.js'
 import {applyGates, isRefused, setViewState} from '../../../public/one/app.js'
 import enRaw from '../../../public/one/i18n/en.json?raw'
 import settingsHtml from '../../../public/one/settings.html?raw'
@@ -29,9 +29,37 @@ import {
  *   * no press buys or removes a seat: only the confirm does;
  *   * a member who is not the administrator sees no control.
  *
- * Every expected string and number is written out by hand from the fixtures and from
- * public/one/i18n/en.json, never computed by the code under test.
+ * Every expected number is written out by hand from the fixtures, never computed by the code
+ * under test. Every sentence a person reads is compared through the catalogue lookup of a
+ * literally named key, never as copied words (Testing-Rules: "Never assert a sentence a customer
+ * reads"). Where the ticket demands that a sentence SAYS something (nothing refunded, next
+ * invoice, nobody loses access), the property is checked on the English catalogue value by a
+ * loose pattern, so a writer can still reword it.
  */
+
+const k = (...parts: string[]) => parts.join('.')
+
+/**
+ * The catalogue sentence for a key. The real t() answers a missing key with the key itself, which
+ * the page would then show too, so a lookup that fails here fails loudly instead.
+ */
+function t(key: string, params?: Parameters<typeof translate>[1]): string {
+	const sentence = translate(key, params)
+	if (sentence === key) throw new Error(`missing key: ${key}`)
+	return sentence
+}
+
+const EN: Record<string, unknown> = JSON.parse(enRaw)
+
+/**
+ * A key's English sentence with any value in its placeholders, so a check that a sentence is
+ * absent catches it whatever number or amount it was drawn with.
+ */
+function anyValue(key: string): RegExp {
+	const raw = key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], EN)
+	if (typeof raw !== 'string') throw new Error(`no English sentence for ${key}`)
+	return new RegExp(raw.split(/\{\w+\}/).map((piece) => piece.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.+?'))
+}
 
 type Handler = (event: Event, el: Element) => void | Promise<void>
 
@@ -168,20 +196,22 @@ function button(label: string): HTMLButtonElement {
 	return el
 }
 
-const FEWER = 'One seat fewer'
-const MORE = 'One seat more'
-const ADAPT = 'Adapt seats'
+// Functions, because the catalogue loads in beforeAll, after this module runs.
+const FEWER = () => t(k('organization', 'seats', 'fewer'))
+const MORE = () => t(k('organization', 'seats', 'more'))
+const ADAPT = () => t(k('organization', 'seats', 'adapt'))
 
 /** The control as a person reads it: −, the number, +, and the button. */
 function control(): string {
-	const group = document.querySelector('#app [role="group"][aria-label="Adapt seats"]')
+	const group = [...document.querySelectorAll('#app [role="group"]')]
+		.find((candidate) => candidate.getAttribute('aria-label') === ADAPT()) ?? null
 	if (group === null) throw new Error('no Adapt seats control')
 	return norm(group.textContent)
 }
 
 /** The text of the Seats card. */
 function seatsCardText(): string {
-	const card = button(FEWER).closest('.card')
+	const card = button(FEWER()).closest('.card')
 	return norm(card?.textContent)
 }
 
@@ -210,8 +240,11 @@ async function pressTimes(label: string, times: number): Promise<void> {
 	for (let i = 0; i < times; i++) await press(button(label))
 }
 
-const NOT_REFUNDED = 'Nothing is refunded.'
-const NEXT_INVOICE = 'This change starts with your next invoice.'
+/** The control as it reads with `n` seats chosen: −, the number, +, and the button. */
+const shows = (n: number) => `− ${n} + ${ADAPT()}`
+
+const DECREASE = () => t(k('one', 'org', 'seats', 'decrease'))
+const inSubscription = (count: number) => t(k('one', 'org', 'seats', 'inSubscription'), {count})
 
 /* ------------------------------------------------------------------ *
  * Decrease.
@@ -222,35 +255,37 @@ describe('BRA-1636 item 4 — reducing seats', () => {
 		fixture.organization = organization({purchased: 5, occupied: 3, teams: 1})
 		draw()
 
-		expect(control()).toBe('− 5 + Adapt seats')
+		expect(control()).toBe(shows(5))
 		// Nothing to confirm while the number is what the organization already holds.
-		expect(isDisabled(button(ADAPT))).toBe(true)
+		expect(isDisabled(button(ADAPT()))).toBe(true)
 
-		await pressTimes(FEWER, 2)
+		await pressTimes(FEWER(), 2)
 
-		expect(control()).toBe('− 3 + Adapt seats')
+		expect(control()).toBe(shows(3))
 		// MUTATION: buying on each press (calling purchaseSeats or quoteSeats from `seat-step`)
 		// makes this red. No press may reach the server.
 		expect(requests()).toHaveLength(0)
 
-		await press(button(ADAPT))
+		await press(button(ADAPT()))
 		// A decrease moves no money, so there is no quote to ask for.
 		expect(requests()).toHaveLength(0)
-		expect(modalText()).toContain('3 seats in your subscription')
-		// MUTATION: dropping `one.org.seats.decrease` from the decrease confirm makes these red.
-		expect(modalText()).toContain(NOT_REFUNDED)
-		expect(modalText()).toContain(NEXT_INVOICE)
-		expect(modalText()).toContain('Nobody loses access.')
+		expect(modalText()).toContain(inSubscription(3))
+		// MUTATION: dropping `one.org.seats.decrease` from the decrease confirm makes this red.
+		expect(modalText()).toContain(DECREASE())
+		// The ticket requires these facts in plain words. Loose patterns, not frozen copy.
+		expect(DECREASE()).toMatch(/refund/i)
+		expect(DECREASE()).toMatch(/next invoice/i)
+		expect(DECREASE()).toMatch(/access/i)
 
 		enqueue(json({organization_id: 'org-1', outcome: 'changed', seats: 3, previous_seats: 5, users: 3, active_teams: 1}))
-		await press(footButton(ADAPT))
+		await press(footButton(ADAPT()))
 
 		expect(requests()).toHaveLength(1)
 		expect(requests()[0]?.url).toBe(`${ORIGIN}/v1/organizations/seats`)
 		// Absolute, never a delta.
 		expect(requests()[0]?.body).toEqual({organization_id: 'org-1', seats: 3, idempotency_key: 'idem-1'})
 		expect(modalText()).toBe('')
-		expect(norm(document.getElementById('toastRoot')?.textContent)).toBe('The number of seats was changed.')
+		expect(norm(document.getElementById('toastRoot')?.textContent)).toBe(t(k('one', 'toast', 'seatsChanged')))
 		expect(reloadOrganization).toHaveBeenCalledTimes(1)
 	})
 
@@ -258,47 +293,47 @@ describe('BRA-1636 item 4 — reducing seats', () => {
 		fixture.organization = organization({purchased: 5, occupied: 3, teams: 1})
 		draw()
 		// Not at the limit yet: no sentence.
-		expect(seatsCardText()).not.toContain('fewest')
+		expect(seatsCardText()).not.toMatch(anyValue(k('organization', 'seats', 'lowestFloor')))
 
-		await pressTimes(FEWER, 2)
+		await pressTimes(FEWER(), 2)
 
 		// MUTATION: dropping `disabled` from − at the lowest number makes this red.
-		expect(isDisabled(button(FEWER))).toBe(true)
+		expect(isDisabled(button(FEWER()))).toBe(true)
 		// 3 is the floor and 3 is the people: the floor names the reason, because removing members
 		// would not let the number go lower.
-		expect(seatsCardText()).toContain('3 seats is the fewest you can have.')
+		expect(seatsCardText()).toContain(t(k('organization', 'seats', 'lowestFloor'), {count: 3}))
 
 		// Pressing it anyway changes nothing.
-		await press(button(FEWER))
-		expect(control()).toBe('− 3 + Adapt seats')
+		await press(button(FEWER()))
+		expect(control()).toBe(shows(3))
 	})
 
 	it('− stops at the people already seated and says to remove members first', async () => {
 		fixture.organization = organization({purchased: 6, occupied: 4, teams: 1})
 		draw()
 
-		await press(button(FEWER))
-		await press(button(FEWER))
+		await press(button(FEWER()))
+		await press(button(FEWER()))
 
 		// MUTATION: leaving `seats_occupied` out of the lowest number makes this red — the
 		// number would go on down to 3 and the server would refuse with `below_users`.
-		expect(control()).toBe('− 4 + Adapt seats')
-		expect(isDisabled(button(FEWER))).toBe(true)
-		expect(seatsCardText()).toContain('4 people use a seat now. Remove members first to go lower.')
+		expect(control()).toBe(shows(4))
+		expect(isDisabled(button(FEWER()))).toBe(true)
+		expect(seatsCardText()).toContain(t(k('organization', 'seats', 'lowestMembers'), {count: 4}))
 	})
 
 	it('− stops at what the existing teams need and says so', async () => {
 		fixture.organization = organization({purchased: 8, occupied: 2, teams: 2})
 		draw()
 
-		await pressTimes(FEWER, 3)
+		await pressTimes(FEWER(), 3)
 
 		// 2 teams × 3 seats per team = 6, written out by hand.
 		// MUTATION: leaving the teams rule out of the lowest number makes this red — the number
 		// would go on down to 5 and the server would refuse with `below_active_teams`.
-		expect(control()).toBe('− 6 + Adapt seats')
-		expect(isDisabled(button(FEWER))).toBe(true)
-		expect(seatsCardText()).toContain('Your teams need at least 6 seats.')
+		expect(control()).toBe(shows(6))
+		expect(isDisabled(button(FEWER()))).toBe(true)
+		expect(seatsCardText()).toContain(t(k('organization', 'seats', 'lowestTeams'), {count: 6}))
 	})
 
 	it('a stale − at the limit cannot step past it', async () => {
@@ -312,24 +347,24 @@ describe('BRA-1636 item 4 — reducing seats', () => {
 		await captured.actions['seat-step']?.(new Event('click'), stale)
 
 		// MUTATION: deleting the limit check in `seat-step` makes this red — the number reads 2.
-		expect(control()).toBe('− 3 + Adapt seats')
+		expect(control()).toBe(shows(3))
 	})
 
 	it.each([
-		['below_users', 'That is fewer seats than the people already using them. Remove members first, then reduce the number of seats.'],
-		['below_active_teams', 'That is fewer seats than your existing teams need, so nothing was changed.'],
-	])('a reduction the server refuses (%s) shows its sentence and changes nothing', async (outcome, sentence) => {
+		['below_users', k('one', 'commercial', 'belowUsers')],
+		['below_active_teams', k('one', 'commercial', 'belowActiveTeams')],
+	])('a reduction the server refuses (%s) shows its sentence and changes nothing', async (outcome, key) => {
 		fixture.organization = organization({purchased: 5, occupied: 3, teams: 1})
 		draw()
-		await press(button(FEWER))
-		await press(button(ADAPT))
+		await press(button(FEWER()))
+		await press(button(ADAPT()))
 
 		enqueue(json({organization_id: 'org-1', outcome, seats: 5, previous_seats: 5, users: 4, active_teams: 1}))
-		await press(footButton(ADAPT))
+		await press(footButton(ADAPT()))
 
 		expect(requests()).toHaveLength(1)
 		// The confirm stays open with the refusal in it.
-		expect(modalText()).toContain(sentence)
+		expect(modalText()).toContain(t(key))
 		expect(norm(document.getElementById('toastRoot')?.textContent)).toBe('')
 		expect(reloadOrganization).not.toHaveBeenCalled()
 	})
@@ -344,9 +379,9 @@ describe('BRA-1636 item 4 — adding seats', () => {
 		fixture.organization = organization({purchased: 5, occupied: 3, teams: 1})
 		draw()
 
-		await pressTimes(MORE, 3)
+		await pressTimes(MORE(), 3)
 
-		expect(control()).toBe('− 8 + Adapt seats')
+		expect(control()).toBe(shows(8))
 		// MUTATION: quoting or buying on each press makes this red.
 		expect(requests()).toHaveLength(0)
 
@@ -356,17 +391,17 @@ describe('BRA-1636 item 4 — adding seats', () => {
 			seats_after: 8,
 			proration: {base_minor: 1234, currency: 'EUR', days_remaining: 12, days_in_period: 30},
 		}))
-		await press(button(ADAPT))
+		await press(button(ADAPT()))
 
 		expect(requests()).toHaveLength(1)
 		expect(requests()[0]?.url).toBe(`${ORIGIN}/v1/organizations/seats/quote?organization_id=org-1&seats=8`)
-		expect(modalText()).toContain('8 seats in your subscription')
-		expect(modalText()).toContain('This change costs €12.34 for the rest of this billing period.')
-		expect(modalText()).not.toContain('You pay nothing now.')
-		expect(modalText()).not.toContain(NOT_REFUNDED)
+		expect(modalText()).toContain(inSubscription(8))
+		expect(modalText()).toContain(t(k('one', 'org', 'seats', 'prorationDue'), {amount: '€12.34'}))
+		expect(modalText()).not.toContain(t(k('one', 'org', 'seats', 'nothingNow')))
+		expect(modalText()).not.toContain(DECREASE())
 
 		enqueue(json({organization_id: 'org-1', outcome: 'changed', seats: 8, previous_seats: 5, users: 3, active_teams: 1}))
-		await press(footButton(ADAPT))
+		await press(footButton(ADAPT()))
 
 		expect(requests()).toHaveLength(2)
 		expect(requests()[1]?.body).toEqual({organization_id: 'org-1', seats: 8, idempotency_key: 'idem-1'})
@@ -377,31 +412,31 @@ describe('BRA-1636 item 4 — adding seats', () => {
 	it('in a trial the quote has no amount, and the confirm says nothing is paid now', async () => {
 		fixture.organization = organization({purchased: 5, occupied: 3, teams: 1})
 		draw()
-		await press(button(MORE))
+		await press(button(MORE()))
 
 		enqueue(json({organization_id: 'org-1', seats: 5, seats_after: 6, proration: null}))
-		await press(button(ADAPT))
+		await press(button(ADAPT()))
 
-		expect(modalText()).toContain('6 seats in your subscription')
+		expect(modalText()).toContain(inSubscription(6))
 		// MUTATION: dropping `one.org.seats.nothingNow` from the increase confirm makes this red.
-		expect(modalText()).toContain('You pay nothing now.')
-		expect(modalText()).not.toContain('This change costs')
+		expect(modalText()).toContain(t(k('one', 'org', 'seats', 'nothingNow')))
+		expect(modalText()).not.toMatch(anyValue(k('one', 'org', 'seats', 'prorationDue')))
 	})
 
 	it('+ is disabled at 100 and the page says why', async () => {
 		fixture.organization = organization({purchased: 99, occupied: 3, teams: 1})
 		draw()
-		expect(seatsCardText()).not.toContain('the most you can have')
+		expect(seatsCardText()).not.toMatch(anyValue(k('organization', 'seats', 'highest')))
 
-		await press(button(MORE))
+		await press(button(MORE()))
 
-		expect(control()).toBe('− 100 + Adapt seats')
+		expect(control()).toBe(shows(100))
 		// MUTATION: raising or dropping the ceiling of 100 makes this red.
-		expect(isDisabled(button(MORE))).toBe(true)
-		expect(seatsCardText()).toContain('100 seats is the most you can have.')
+		expect(isDisabled(button(MORE()))).toBe(true)
+		expect(seatsCardText()).toContain(t(k('organization', 'seats', 'highest'), {count: 100}))
 
-		await press(button(MORE))
-		expect(control()).toBe('− 100 + Adapt seats')
+		await press(button(MORE()))
+		expect(control()).toBe(shows(100))
 	})
 
 	it('a stale + at 100 cannot step past it', async () => {
@@ -413,7 +448,7 @@ describe('BRA-1636 item 4 — adding seats', () => {
 		await captured.actions['seat-step']?.(new Event('click'), stale)
 
 		// MUTATION: deleting the ceiling check in `seat-step` makes this red — the number reads 101.
-		expect(control()).toBe('− 100 + Adapt seats')
+		expect(control()).toBe(shows(100))
 	})
 })
 
@@ -427,13 +462,13 @@ describe('BRA-1636 item 4 — only the administrator sees the control', () => {
 		fixture.facts = MEMBER_FACTS
 		draw()
 
-		const fewer = button(FEWER)
+		const fewer = button(FEWER())
 		// The control's own gate, inside the Seats card, hides it — not only the tab around it.
 		// MUTATION: dropping `data-requires="admin write"` from the control makes this red.
 		const gate = fewer.closest('[data-requires]')
 		expect(gate?.closest('.card')).not.toBeNull()
 		expect(gate?.classList.contains('hidden')).toBe(true)
-		for (const label of [FEWER, MORE, ADAPT]) {
+		for (const label of [FEWER(), MORE(), ADAPT()]) {
 			expect(button(label).closest('.hidden'), label).not.toBeNull()
 		}
 	})
@@ -442,7 +477,7 @@ describe('BRA-1636 item 4 — only the administrator sees the control', () => {
 		fixture.organization = organization({purchased: 5, occupied: 3, teams: 1})
 		draw()
 
-		for (const label of [FEWER, MORE, ADAPT]) {
+		for (const label of [FEWER(), MORE(), ADAPT()]) {
 			expect(button(label).closest('.hidden'), label).toBeNull()
 		}
 	})
@@ -460,10 +495,11 @@ describe('BRA-1636 item 6 — the Add member dialog says an invitation uses no s
 
 		// Commercial-Rules §3.5: an invitation reserves nothing, and accepting it adds a seat when
 		// none is free.
-		// MUTATION: restoring the old `organization.seats.explanation` makes both lines red.
+		// MUTATION: restoring the old `organization.seats.explanation` makes these lines red.
+		// The old words are a removal check, not frozen copy: any honest rewording passes.
 		expect(modalText()).not.toContain('needs a free one')
-		expect(modalText()).toContain(
-			'Sending an invitation does not use a seat. When the person joins, they take a free seat, or a new seat is added for them.',
-		)
+		const explanation = t(k('organization', 'seats', 'explanation'))
+		expect(modalText()).toContain(explanation)
+		expect(explanation).toMatch(/invitation[^.]*(does not|doesn't) use a seat/i)
 	})
 })
