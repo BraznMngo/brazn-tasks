@@ -691,7 +691,10 @@ button.is-refused:hover,.btn.is-refused:hover,button[aria-disabled="true"]:hover
    Everything else on the page is sized by the mechanism documented above; this is the one string
    that needed a shorter sentence instead. */
 .label-inline-input{inline-size:auto;min-inline-size:12ch;flex:1 1 12ch;border:0;background:transparent;color:var(--primary);font:inherit;padding:2px 0}
-.team-selector{min-inline-size:210px}
+/* BRA-1636 item 3: `.select` is `width:100%`, so the team dropdown filled the row and pushed
+   "Add member" onto a line of its own. It is as wide as its longest team name now, so the button
+   sits beside it. The row still wraps where there is no room, as at phone width. */
+.team-selector{min-inline-size:210px;inline-size:auto;max-inline-size:100%}
 .member-add-tabs{flex-wrap:wrap}
 .member-add-tabs button{flex:1 1 auto}
 .settings-nav{flex-wrap:wrap}
