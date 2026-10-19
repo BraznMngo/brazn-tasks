@@ -99,6 +99,9 @@ var staffUsernames = []string{
 	// repository records as the one used for user resolution, in
 	// docs/tickets/TICKET-vikunja-pilot-config.md.
 	"sebastian@braznmngo.com",
+	// Naoya, who runs the Feedback project with Sebastian (BRA-1848: an admin's
+	// ONE turns new customer feedback into tickets and prepares the answers).
+	"naoya@braznmngo.com",
 	// Add colleagues here, one per line, as a username or an email address.
 }
 
