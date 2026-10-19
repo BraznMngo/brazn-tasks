@@ -207,8 +207,14 @@
     },
     "seats": {
       "title": "席位",
-      "add": "添加席位",
-      "explanation": "移除成员后，其席位会立即释放；发送邀请前需要有一个空闲席位。"
+      "adapt": "调整席位",
+      "fewer": "减少一个席位",
+      "more": "增加一个席位",
+      "lowestFloor": "席位数不能少于 {count} 个。",
+      "lowestTeams": "你现有的团队至少需要 {count} 个席位。",
+      "lowestMembers": "目前有 {count} 人在使用席位。要继续减少，请先移除成员。",
+      "highest": "席位数不能超过 {count} 个。",
+      "explanation": "移除成员后，其席位会立即释放。发送邀请不会占用席位。对方加入时会使用一个空闲席位。如果没有空闲席位，系统会为其新增一个。"
     },
     "teams": {
       "create": "创建团队",
@@ -494,7 +500,9 @@
         "members": "{count} 位成员 | {count} 位成员",
         "pending": "{count} 个待处理的邀请 | {count} 个待处理的邀请",
         "teams": "{count} 个团队 | {count} 个团队",
-        "prorationDue": "此变更在本计费周期剩余时间内需支付 {amount}。"
+        "prorationDue": "此变更在本计费周期剩余时间内需支付 {amount}。",
+        "nothingNow": "现在无需支付任何费用。",
+        "decrease": "此变更从你的下一张账单开始生效。不会退款。你已有的账单不会改变。没有人会失去访问权限。"
       },
       "tile": {
         "privateKind": "私人",
@@ -633,7 +641,7 @@
       "favoriteAdded": "已添加至收藏。",
       "favoriteRemoved": "已从收藏中移除。",
       "colorUpdated": "任务颜色已更新。",
-      "seatAdded": "已添加一个席位。",
+      "seatsChanged": "席位数量已更改。",
       "invitationSent": "邀请已发送。",
       "alreadyMember": "该用户已在你的组织中。未发送邀请，也未占用席位。",
       "invitationRevoked": "邀请已撤销。",

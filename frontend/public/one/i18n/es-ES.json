@@ -207,8 +207,14 @@
     },
     "seats": {
       "title": "Puestos",
-      "add": "Añadir puestos",
-      "explanation": "Un puesto queda libre en cuanto quitas a alguien, y una invitación necesita uno libre para poder enviarse."
+      "adapt": "Ajustar puestos",
+      "fewer": "Un puesto menos",
+      "more": "Un puesto más",
+      "lowestFloor": "No puedes tener menos de {count} puestos.",
+      "lowestTeams": "Tus equipos necesitan al menos {count} puestos.",
+      "lowestMembers": "{count} personas usan un puesto ahora. Quita primero a algunos miembros para bajar más.",
+      "highest": "No puedes tener más de {count} puestos.",
+      "explanation": "Un puesto queda libre en cuanto quitas a alguien. Enviar una invitación no usa ningún puesto. Cuando la persona se une, ocupa un puesto libre o se añade uno nuevo para ella."
     },
     "teams": {
       "create": "Crear un equipo",
@@ -494,7 +500,9 @@
         "members": "{count} miembro | {count} miembros",
         "pending": "{count} invitación pendiente | {count} invitaciones pendientes",
         "teams": "{count} equipo | {count} equipos",
-        "prorationDue": "Este cambio cuesta {amount} por el resto de este periodo de facturación."
+        "prorationDue": "Este cambio cuesta {amount} por el resto de este periodo de facturación.",
+        "nothingNow": "No pagas nada ahora.",
+        "decrease": "Este cambio empieza con tu próxima factura. No se devuelve dinero. Las facturas que ya tienes no cambian. Nadie pierde el acceso."
       },
       "tile": {
         "privateKind": "Privado",
@@ -633,7 +641,7 @@
       "favoriteAdded": "Se ha añadido a favoritos.",
       "favoriteRemoved": "Se ha quitado de favoritos.",
       "colorUpdated": "El color de la tarea se ha actualizado.",
-      "seatAdded": "Se ha añadido un puesto.",
+      "seatsChanged": "Se ha cambiado el número de puestos.",
       "invitationSent": "Invitación enviada.",
       "alreadyMember": "Esa persona ya está en tu organización. No se ha enviado nada ni se ha usado ningún puesto.",
       "invitationRevoked": "La invitación se ha revocado.",

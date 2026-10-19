@@ -207,8 +207,14 @@
     },
     "seats": {
       "title": "Sitzplätze",
-      "add": "Sitzplätze hinzufügen",
-      "explanation": "Ein Sitzplatz wird frei, sobald jemand entfernt wird, und eine Einladung braucht einen freien Platz, bevor sie verschickt werden kann."
+      "adapt": "Sitzplätze anpassen",
+      "fewer": "Ein Sitzplatz weniger",
+      "more": "Ein Sitzplatz mehr",
+      "lowestFloor": "Weniger als {count} Sitzplätze geht nicht.",
+      "lowestTeams": "Eure Teams brauchen mindestens {count} Sitzplätze.",
+      "lowestMembers": "{count} Personen nutzen gerade einen Sitzplatz. Entferne zuerst Mitglieder, um weiter zu verringern.",
+      "highest": "Mehr als {count} Sitzplätze geht nicht.",
+      "explanation": "Ein Sitzplatz wird wieder frei, sobald jemand entfernt wird. Eine Einladung belegt keinen Sitzplatz. Wenn die Person beitritt, nimmt sie einen freien Sitzplatz, oder es kommt ein neuer für sie dazu."
     },
     "teams": {
       "create": "Team erstellen",
@@ -494,7 +500,9 @@
         "members": "{count} Mitglied | {count} Mitglieder",
         "pending": "{count} ausstehende Einladung | {count} ausstehende Einladungen",
         "teams": "{count} Team | {count} Teams",
-        "prorationDue": "Diese Änderung kostet {amount} für den Rest dieses Abrechnungszeitraums."
+        "prorationDue": "Diese Änderung kostet {amount} für den Rest dieses Abrechnungszeitraums.",
+        "nothingNow": "Du zahlst jetzt nichts.",
+        "decrease": "Diese Änderung gilt ab deiner nächsten Rechnung. Es wird nichts erstattet. Rechnungen, die du schon hast, bleiben gleich. Niemand verliert den Zugang."
       },
       "tile": {
         "privateKind": "Privat",
@@ -641,7 +649,7 @@
       "favoriteAdded": "Zu Favoriten hinzugefügt.",
       "favoriteRemoved": "Aus Favoriten entfernt.",
       "colorUpdated": "Die Farbe der Aufgabe wurde aktualisiert.",
-      "seatAdded": "Ein Sitzplatz wurde hinzugefügt.",
+      "seatsChanged": "Die Zahl der Sitzplätze wurde geändert.",
       "invitationSent": "Einladung verschickt.",
       "alreadyMember": "Diese Person ist bereits in eurer Organisation. Es wurde nichts verschickt und kein Sitzplatz belegt.",
       "invitationRevoked": "Die Einladung wurde zurückgezogen.",
