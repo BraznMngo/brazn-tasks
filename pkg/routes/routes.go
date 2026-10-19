@@ -672,6 +672,9 @@ func registerAPIRoutes(a *echo.Group) {
 	// by authentication only. On an instance whose staff account has not been
 	// seeded it answers available=false rather than inventing a project.
 	a.GET("/brazn/feedback/project", apiv1.BraznGetFeedbackProject)
+	// Whether the caller is Brazn staff, which ONE asks before it loads the
+	// functions that answer every customer's feedback (BRA-1848). A plain read.
+	a.GET("/brazn/staff", apiv1.BraznGetStaff)
 
 	// Avatar endpoint
 	a.GET("/avatar/:username", apiv1.GetAvatar)

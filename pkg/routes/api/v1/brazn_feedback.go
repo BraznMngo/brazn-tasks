@@ -42,6 +42,49 @@ type BraznFeedbackProjectResponse struct {
 
 const braznFeedbackUnavailable = "Feedback is not available on this instance."
 
+// BraznStaffResponse says whether the caller is Brazn staff on this instance:
+// a member of the team that reaches every customer's Feedback (BRA-1848).
+type BraznStaffResponse struct {
+	Staff bool `json:"staff"`
+}
+
+// BraznGetStaff answers whether the authenticated user is Brazn staff.
+//
+// ONE asks this to decide whether to load its admin functions, which read and
+// answer every customer's feedback. The answer is the same fact the permission
+// checks act on, so it can never offer the functions to somebody who could not
+// use them, or withhold them from somebody who could.
+//
+// @Summary Whether the caller is Brazn staff
+// @Description Returns staff=true when the caller is a member of the team that holds the grant on this instance's Feedback project.
+// @tags brazn
+// @Produce json
+// @Security JWTKeyAuth
+// @Success 200 {object} v1.BraznStaffResponse "Whether the caller is staff."
+// @Failure 403 {object} web.HTTPError "The caller is not an authenticated user."
+// @Failure 500 {object} web.HTTPError "The answer could not be read."
+// @Router /brazn/staff [get]
+func BraznGetStaff(c *echo.Context) error {
+	a, err := auth.GetAuthFromClaims(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusForbidden, "You are not signed in.")
+	}
+	u, isUser := a.(*user.User)
+	if !isUser {
+		// A link share is never staff, and saying so is a plain answer, not a refusal.
+		return c.JSON(http.StatusOK, BraznStaffResponse{Staff: false})
+	}
+
+	s := db.NewSession()
+	defer s.Close()
+
+	staff, err := models.IsFeedbackStaff(s, u)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Staff membership could not be read.").Wrap(err)
+	}
+	return c.JSON(http.StatusOK, BraznStaffResponse{Staff: staff})
+}
+
 // BraznGetFeedbackProject resolves the authenticated user's Feedback
 // sub-project, ensuring it exists first (idempotent ProvisionFeedbackAccess).
 //
