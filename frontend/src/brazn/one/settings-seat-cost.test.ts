@@ -217,6 +217,31 @@ async function open(): Promise<void> {
 	await settle()
 }
 
+const costReads = () => requests().filter((call) => call.url === COST_URL).length
+
+/**
+ * Holds every cost read until the test lets it answer, so the card can be read while a read is
+ * under way. Each request still goes through the harness, which records it and binds its queued
+ * answer when it is sent. The returned function lets the NEWEST held read answer.
+ */
+async function holdCostReads(): Promise<() => Promise<void>> {
+	const held: Array<() => void> = []
+	const api = await import('../../../public/one/api.js')
+	api.configure({
+		fetch: (async (url: string, init?: RequestInit) => {
+			const answer = await fetchStub(url, init)
+			if (String(url) === COST_URL) await new Promise<void>((resolve) => held.push(resolve))
+			return answer
+		}) as unknown as typeof fetch,
+		origin: ORIGIN,
+		randomUUID: () => 'idem-1',
+	})
+	return async () => {
+		held.pop()?.()
+		await settle()
+	}
+}
+
 const monthly = (amount: string) => t(k('one', 'org', 'seats', 'costMonthly'), {amount})
 const annual = (amount: string) => t(k('one', 'org', 'seats', 'costAnnual'), {amount})
 const UNREADABLE = () => t(k('one', 'org', 'seats', 'costUnreadable'))
@@ -396,6 +421,48 @@ describe('BRA-1636 item 5 — next invoice', () => {
 		// MUTATION: dropping the `seatCostFor` comparison from `ensureSeatCost` makes this red — the
 		// card would keep the figures read before the change.
 		expect(requests().filter((call) => call.url === COST_URL)).toHaveLength(2)
+		expect(nextInvoice()).toBe(t(k('one', 'org', 'seats', 'nextInvoiceBeta'), {amount: '€20.00'}))
+	})
+
+	it('while the cost is read again after a seat change, the card shows neither figure', async () => {
+		const answer = await holdCostReads()
+		fixture.organization = organization({purchased: 3, occupied: 3, teams: 1})
+		enqueue(json(cost({seats: 3, billed_seats: 3, total_minor: 1500})))
+		await open()
+		await answer()
+		expect(nextInvoice()).toBe(t(k('one', 'org', 'seats', 'nextInvoiceBeta'), {amount: '€15.00'}))
+
+		fixture.organization = organization({purchased: 6, occupied: 3, teams: 2})
+		enqueue(json(cost({seats: 6, billed_seats: 6, total_minor: 3000})))
+		await open()
+
+		// MUTATION: dropping the `seatCostFor` check from `seatCostBlock` makes this red — until the
+		// new read answers, the card would read "€30.00 per month" beside "first invoice will be €15.00".
+		expect(document.getElementById('seatTotal')).toBeNull()
+		expect(document.getElementById('seatNextInvoice')).toBeNull()
+		await answer()
+		expect(total()).toBe(monthly('€30.00'))
+		expect(nextInvoice()).toBe(t(k('one', 'org', 'seats', 'nextInvoiceBeta'), {amount: '€30.00'}))
+	})
+
+	it('one read at a time: a seat change during a read waits for it, and the card ends on the new figures', async () => {
+		const answer = await holdCostReads()
+		fixture.organization = organization({purchased: 5, occupied: 3, teams: 1})
+		enqueue(json(cost()))
+		await open()
+
+		// The seats change to 4 before the read for 5 has answered.
+		fixture.organization = organization({purchased: 4, occupied: 3, teams: 1})
+		enqueue(json(cost({seats: 4, billed_seats: 4, total_minor: 2000})))
+		await open()
+
+		// MUTATION: dropping the one-read-at-a-time check from `ensureSeatCost` makes this red — a
+		// second read would go out beside the first, and the older answer, landing last, would stay.
+		expect(costReads()).toBe(1)
+		await answer()
+		expect(costReads()).toBe(2)
+		await answer()
+		expect(total()).toBe(monthly('€20.00'))
 		expect(nextInvoice()).toBe(t(k('one', 'org', 'seats', 'nextInvoiceBeta'), {amount: '€20.00'}))
 	})
 })
