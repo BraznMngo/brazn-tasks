@@ -1204,7 +1204,11 @@ function seatAdapter(meter) {
  * no price and never turns a yearly price into a monthly one. The total is that price × the billed
  * seats for the number on screen (`max(3, seats)`, Commercial-Rules §3.1), so it moves with − and +
  * before anything is confirmed. "Next invoice" is for the seats held today, because the number on
- * screen is not held until it is confirmed, and the read is repeated after a confirmed change.
+ * screen is not held until it is confirmed; `ensureSeatCost` reads again when the seats change.
+ *
+ * AN ORGANIZATION THAT IS NOT CHARGED (BRA-1672) IS SHOWN NO TOTAL. The service still answers a
+ * catalogue price for it, but nothing will ever be billed, and the ticket's rule is that the amount
+ * shown is what the organization will actually be charged. It sees only that it is not charged.
  *
  * NEVER A ZERO OR A GUESS. While the read is under way the block is empty. A failed read, or a body
  * `readSeatCost` cannot read whole, shows one sentence saying the figures cannot be read. A 403 is
@@ -1229,11 +1233,16 @@ function seatCostBlock(meter) {
     ? t('one.org.seats.costAnnual', {amount: total})
     : t('one.org.seats.costMonthly', {amount: total});
   const next = cost.nextInvoice;
+  if (next.status === 'not_charged') {
+    return `<div class="seat-cost" data-requires="admin" style="margin-top:12px">
+    <div class="setting-name">${tx('one.org.seats.nextInvoice')}</div>
+    <div class="help" id="seatNextInvoice">${tx('one.org.seats.nextInvoiceNotCharged')}</div>
+  </div>`;
+  }
   const nextLine = {
     scheduled: () => t('one.org.seats.nextInvoiceOn', {date: formatDate(next.date), amount: invoiceAmount}),
     not_scheduled_beta: () => t('one.org.seats.nextInvoiceBeta', {amount: invoiceAmount}),
     awaiting_purchase: () => t('one.org.seats.nextInvoiceAwaiting', {amount: invoiceAmount}),
-    not_charged: () => t('one.org.seats.nextInvoiceNotCharged'),
   }[next.status]();
   return `<div class="seat-cost" data-requires="admin" style="margin-top:12px">
     <div class="setting-name" id="seatTotal" aria-live="polite">${esc(totalLine)}</div>
@@ -1483,15 +1492,23 @@ function ensurePendingInvitations() {
 }
 
 /**
- * BRA-1636 item 5: read the seat cost once per visit, for the administrator only — a member is
- * refused by the server and would see nothing anyway. `confirm-seats` clears the status, so the
- * render after a confirmed change reads it again.
+ * BRA-1636 item 5: read the seat cost for the administrator only — a member is refused by the
+ * server and would see nothing anyway.
+ *
+ * ONE READ PER SEAT COUNT, NOT PER VISIT. The read is remembered with the fork's purchased seats
+ * it was made for (`seatCostFor`), and a render that finds a different count reads again. Every
+ * path that moves the seats ends in `reloadOrganization()` and its render — Adapt seats, and a
+ * team creation that raises them (BRA-1439 Story 9) — so "Next invoice" never keeps the amount
+ * of a seat count the organization no longer holds while the total shows the new one.
  */
 function ensureSeatCost() {
-  if (scratch().seatCostStatus !== undefined) return;
   const organization = getOrganization();
   if (organization === null) return;
-  setViewState(NS, {seatCostStatus: 'loading', seatCost: null});
+  const state = scratch();
+  const purchased = readSeatMeter(organization).purchased;
+  if (state.seatCostStatus === 'loading') return;
+  if (state.seatCostStatus !== undefined && state.seatCostFor === purchased) return;
+  setViewState(NS, {seatCostStatus: 'loading', seatCost: null, seatCostFor: purchased});
   api.seatCost(organization.id).then((result) => {
     const cost = api.readSeatCost(result);
     const status = cost !== null ? 'ready' : result.status === 403 ? 'forbidden' : 'failed';
@@ -2410,8 +2427,7 @@ registerActions({
       refuseModal(describeCommercialRefusal(result));
       return;
     }
-    // The cost is read again by the render `reloadOrganization` ends with (BRA-1636 item 5).
-    setViewState(NS, {seatDraft: null, seatPurchase: null, seatCostStatus: undefined});
+    setViewState(NS, {seatDraft: null, seatPurchase: null});
     closeModal();
     toast(t('one.toast.seatsChanged'));
     // The meter's source is the FORK endpoint, never the commercial response (brief).

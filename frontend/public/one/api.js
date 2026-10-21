@@ -1696,6 +1696,9 @@ export function readSeatCost(result) {
   if (body === null) return null;
   const counts = [body.seats, body.billed_seats, body.per_seat_minor, body.total_minor];
   if (!counts.every((value) => Number.isInteger(value) && value >= 0)) return null;
+  // A price of nothing is a catalogue that could not be read right, never a seat that is free:
+  // the service raises `price_unreadable` rather than answer one, so a zero here is not shown.
+  if (body.per_seat_minor === 0 || body.total_minor === 0) return null;
   if (body.cadence !== 'monthly' && body.cadence !== 'annual') return null;
   if (typeof body.currency !== 'string' || !/^[A-Za-z]{3}$/.test(body.currency)) return null;
   if (typeof body.tax_inclusive !== 'boolean') return null;

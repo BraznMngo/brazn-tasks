@@ -335,10 +335,43 @@ describe('BRA-1636 item 5 — next invoice', () => {
 
 	it('an organization that is not charged says so and shows no amount', async () => {
 		fixture.organization = organization({purchased: 5, occupied: 3, teams: 1})
+		// The service still answers a catalogue price for it; nothing will ever be billed.
 		enqueue(json(cost({next_invoice: {status: 'not_charged'}})))
 		await open()
 
 		expect(nextInvoice()).toBe(t(k('one', 'org', 'seats', 'nextInvoiceNotCharged')))
+		// MUTATION: dropping the `not_charged` branch from `seatCostBlock` makes this red — the card
+		// would read "Total: €25.00 per month" beside "not charged".
+		expect(document.getElementById('seatTotal')).toBeNull()
+		expect(seatsCard()).not.toMatch(/€/)
+	})
+
+	it('reads again when a team creation raises the seats, so the total and the next invoice agree', async () => {
+		fixture.organization = organization({purchased: 3, occupied: 3, teams: 1})
+		enqueue(json(cost({seats: 3, billed_seats: 3, total_minor: 1500})))
+		await open()
+		expect(nextInvoice()).toBe(t(k('one', 'org', 'seats', 'nextInvoiceBeta'), {amount: '€15.00'}))
+
+		// A second team raises the purchased seats to 6 (BRA-1439 Story 9). `confirm-add-team` ends in
+		// `reloadOrganization()`, whose render this file draws.
+		fixture.organization = organization({purchased: 6, occupied: 3, teams: 2})
+		enqueue(json(cost({seats: 6, billed_seats: 6, total_minor: 3000})))
+		await open()
+
+		// MUTATION: dropping the `seatCostFor` comparison from `ensureSeatCost` makes this red — the
+		// card would read "€30.00 per month" beside "first invoice will be €15.00".
+		expect(requests().filter((call) => call.url === COST_URL)).toHaveLength(2)
+		expect(total()).toBe(monthly('€30.00'))
+		expect(nextInvoice()).toBe(t(k('one', 'org', 'seats', 'nextInvoiceBeta'), {amount: '€30.00'}))
+	})
+
+	it('a render with the same seats does not read again', async () => {
+		fixture.organization = organization({purchased: 5, occupied: 3, teams: 1})
+		enqueue(json(cost()))
+		await open()
+		await open()
+
+		expect(requests().filter((call) => call.url === COST_URL)).toHaveLength(1)
 	})
 
 	it('reads the cost again after a confirmed change', async () => {
@@ -360,8 +393,8 @@ describe('BRA-1636 item 5 — next invoice', () => {
 		enqueue(json(cost({seats: 4, billed_seats: 4, total_minor: 2000})))
 		await open()
 
-		// MUTATION: not clearing `seatCostStatus` in `confirm-seats` makes this red — the card
-		// would keep the figures read before the change.
+		// MUTATION: dropping the `seatCostFor` comparison from `ensureSeatCost` makes this red — the
+		// card would keep the figures read before the change.
 		expect(requests().filter((call) => call.url === COST_URL)).toHaveLength(2)
 		expect(nextInvoice()).toBe(t(k('one', 'org', 'seats', 'nextInvoiceBeta'), {amount: '€20.00'}))
 	})
@@ -411,23 +444,48 @@ describe('BRA-1636 item 5 — never a zero or a guess', () => {
 		expect(seatsCard()).not.toMatch(/€/)
 	})
 
-	it.each([
+	const PARTIAL: Array<[string, Record<string, unknown>]> = [
 		['no per-seat price', {per_seat_minor: undefined}],
 		['a per-seat price that is not a whole number of cents', {per_seat_minor: 4.5}],
+		['a per-seat price of nothing', {per_seat_minor: 0, total_minor: 0}],
 		['an unknown billing period', {cadence: 'weekly'}],
 		['no currency', {currency: ''}],
 		['no answer about tax', {tax_inclusive: undefined}],
 		['an unknown invoice state', {next_invoice: {status: 'soon'}}],
 		['a scheduled invoice with no date', {next_invoice: {status: 'scheduled'}}],
-	])('a body with %s says the figures cannot be read, and shows no amount', async (_label, overrides) => {
+	]
+
+	it.each(PARTIAL)('a body with %s says the figures cannot be read, and shows no amount', async (_label, overrides) => {
 		fixture.organization = organization({purchased: 5, occupied: 3, teams: 1})
 		enqueue(json(cost(overrides)))
 		await open()
 
-		// MUTATION: dropping the matching check from `readSeatCost` makes this row red — the card
-		// would draw a total from a part of the answer.
 		expect(seatsCard()).toContain(UNREADABLE())
 		expect(document.getElementById('seatTotal')).toBeNull()
+	})
+
+	// The card rows above can stay green with a reader check removed: a body the card cannot draw
+	// throws in the render, and `ensureSeatCost`'s catch then shows the same sentence. So each check
+	// is held here, on the reader itself.
+	it.each(PARTIAL)('the reader refuses a body with %s', async (_label, overrides) => {
+		const api = await import('../../../public/one/api.js')
+		// MUTATION: dropping the matching check from `readSeatCost` makes this row red.
+		expect(api.readSeatCost({ok: true, status: 200, body: cost(overrides)} as never)).toBeNull()
+	})
+
+	it('the reader accepts a whole body, and only an affirmative one', async () => {
+		const api = await import('../../../public/one/api.js')
+		expect(api.readSeatCost({ok: true, status: 200, body: cost({next_invoice: {status: 'scheduled', date: '2026-11-15T12:00:00Z'}})} as never)).toEqual({
+			cadence: 'monthly',
+			seats: 5,
+			billedSeats: 5,
+			perSeatMinor: 500,
+			currency: 'EUR',
+			taxInclusive: true,
+			totalMinor: 2500,
+			nextInvoice: {status: 'scheduled', date: '2026-11-15T12:00:00Z'},
+		})
+		expect(api.readSeatCost({ok: false, status: 503, body: cost()} as never)).toBeNull()
 	})
 
 	it('shows nothing while the read is under way', async () => {
