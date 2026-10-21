@@ -502,7 +502,16 @@
         "teams": "{count} equipo | {count} equipos",
         "prorationDue": "Este cambio cuesta {amount} por el resto de este periodo de facturación.",
         "nothingNow": "No pagas nada ahora.",
-        "decrease": "Este cambio empieza con tu próxima factura. No se devuelve dinero. Las facturas que ya tienes no cambian. Nadie pierde el acceso."
+        "decrease": "Este cambio empieza con tu próxima factura. No se devuelve dinero. Las facturas que ya tienes no cambian. Nadie pierde el acceso.",
+        "costMonthly": "Total: {amount} al mes",
+        "costAnnual": "Total: {amount} al año",
+        "taxAdded": "Los impuestos se suman a estos importes.",
+        "nextInvoice": "Próxima factura",
+        "nextInvoiceOn": "{date}: {amount}",
+        "nextInvoiceBeta": "No hay ninguna factura prevista durante la beta. La primera factura será de {amount} cuando se abra la compra.",
+        "nextInvoiceAwaiting": "Todavía no hay ninguna factura prevista. La primera factura, de {amount}, se emite cuando pagas.",
+        "nextInvoiceNotCharged": "Tu organización no paga nada.",
+        "costUnreadable": "No se pueden leer el coste ni la próxima factura en este momento. Inténtalo más tarde."
       },
       "tile": {
         "privateKind": "Privado",

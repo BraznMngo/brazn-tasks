@@ -148,8 +148,9 @@ beforeEach(async () => {
 	api.resetSession()
 	api.configure({fetch: fetchStub as unknown as typeof fetch, origin: ORIGIN, randomUUID: () => 'idem-1'})
 	api.setToken('access-1')
-	// The pending-invitations read is not under test: mark it done so mount starts no request.
-	setViewState('settings', {pendingInvitesStatus: 'ready', pendingInvites: [], seatDraft: null, seatPurchase: null})
+	// The pending-invitations read and the seat cost read (BRA-1636 item 5, its own file) are not
+	// under test: mark them started so mount starts no request.
+	setViewState('settings', {pendingInvitesStatus: 'ready', pendingInvites: [], seatDraft: null, seatPurchase: null, seatCostStatus: 'loading'})
 	fixture.facts = ADMIN_FACTS
 })
 

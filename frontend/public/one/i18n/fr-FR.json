@@ -502,7 +502,16 @@
         "teams": "{count} équipe | {count} équipes",
         "prorationDue": "Ce changement coûte {amount} pour le reste de cette période de facturation.",
         "nothingNow": "Vous ne payez rien maintenant.",
-        "decrease": "Ce changement s’applique à partir de votre prochaine facture. Rien n’est remboursé. Les factures que vous avez déjà ne changent pas. Personne ne perd son accès."
+        "decrease": "Ce changement s’applique à partir de votre prochaine facture. Rien n’est remboursé. Les factures que vous avez déjà ne changent pas. Personne ne perd son accès.",
+        "costMonthly": "Total : {amount} par mois",
+        "costAnnual": "Total : {amount} par an",
+        "taxAdded": "Les taxes s’ajoutent à ces montants.",
+        "nextInvoice": "Prochaine facture",
+        "nextInvoiceOn": "{date} : {amount}",
+        "nextInvoiceBeta": "Aucune facture n’est prévue pendant la bêta. La première facture sera de {amount} dès l’ouverture des achats.",
+        "nextInvoiceAwaiting": "Aucune facture n’est encore prévue. La première facture, de {amount}, est émise lors de votre paiement.",
+        "nextInvoiceNotCharged": "Votre organisation n’est pas facturée.",
+        "costUnreadable": "Le coût et la prochaine facture ne peuvent pas être lus pour le moment. Réessayez plus tard."
       },
       "tile": {
         "privateKind": "Privé",

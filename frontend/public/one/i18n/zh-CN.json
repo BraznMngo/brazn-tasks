@@ -502,7 +502,16 @@
         "teams": "{count} 个团队 | {count} 个团队",
         "prorationDue": "此变更在本计费周期剩余时间内需支付 {amount}。",
         "nothingNow": "现在无需支付任何费用。",
-        "decrease": "此变更从你的下一张账单开始生效。不会退款。你已有的账单不会改变。没有人会失去访问权限。"
+        "decrease": "此变更从你的下一张账单开始生效。不会退款。你已有的账单不会改变。没有人会失去访问权限。",
+        "costMonthly": "总计：每月 {amount}",
+        "costAnnual": "总计：每年 {amount}",
+        "taxAdded": "税费另计。",
+        "nextInvoice": "下一张账单",
+        "nextInvoiceOn": "{date}：{amount}",
+        "nextInvoiceBeta": "测试期间没有安排账单。开放购买后，第一张账单为 {amount}。",
+        "nextInvoiceAwaiting": "目前还没有安排账单。第一张账单（{amount}）会在你付款时开具。",
+        "nextInvoiceNotCharged": "你的组织无需付费。",
+        "costUnreadable": "目前无法读取费用和下一张账单。请稍后再试。"
       },
       "tile": {
         "privateKind": "私人",

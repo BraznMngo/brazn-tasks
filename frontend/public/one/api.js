@@ -1192,6 +1192,16 @@ export const COMMERCIAL_OPS = Object.freeze({
   QUOTE_SEATS: commercialOp(OUTCOME_ABSENT, [], {contractOnly: true}),
 
   /**
+   * GET /v1/organizations/seats/cost (BRA-1636 item 5).
+   * `readSeatCost` answers `SeatCost | null` (one-apps cloud/service/src/service.ts, `SeatCost`):
+   * `{organization_id, cadence, seats, billed_seats, per_seat_minor, currency, tax_inclusive,
+   * total_minor, next_invoice}`. No `outcome`. Null from the method is the non-administrator
+   * case, answered as a bare 403; a price the service cannot read is `503 {error:
+   * "price_unreadable"}` and never a zero.
+   */
+  SEAT_COST: commercialOp(OUTCOME_ABSENT),
+
+  /**
    * POST /v1/organizations/seats.
    * `changeOrganizationSeats` answers `SeatPurchaseResult | null`
    * (client-service-27c95232:5455-5501), declared at :865-885 with
@@ -1662,6 +1672,49 @@ export function readSeatQuote(result) {
     seats: numberOrNull(body.seats),
     seats_after: numberOrNull(body.seats_after),
     proration: objectOrNull(body.proration),
+  };
+}
+
+/** The four answers `SeatCost.next_invoice.status` can carry (one-apps `NextInvoice`). */
+const NEXT_INVOICE_STATUSES = Object.freeze(['scheduled', 'not_scheduled_beta', 'awaiting_purchase', 'not_charged']);
+
+/**
+ * The seat cost, off `GET /v1/organizations/seats/cost` (BRA-1636 item 5).
+ *
+ * **ALL OR NOTHING.** Money on this card is shown only when every figure it is drawn from arrived
+ * and is the right kind of value. A missing price, an unknown cadence, a currency that is not a
+ * code or a `scheduled` invoice without a readable date answers null, so the page says the figures
+ * cannot be read rather than showing a zero or a part of the answer (the ticket's no-guess rule).
+ *
+ * @returns {{cadence: 'monthly'|'annual', seats: number, billedSeats: number, perSeatMinor: number,
+ *   currency: string, taxInclusive: boolean, totalMinor: number,
+ *   nextInvoice: {status: string, date: string|null}}|null}
+ */
+export function readSeatCost(result) {
+  if (result?.ok !== true) return null;
+  const body = objectOrNull(result.body);
+  if (body === null) return null;
+  const counts = [body.seats, body.billed_seats, body.per_seat_minor, body.total_minor];
+  if (!counts.every((value) => Number.isInteger(value) && value >= 0)) return null;
+  // A price of nothing is a catalogue that could not be read right, never a seat that is free:
+  // the service raises `price_unreadable` rather than answer one, so a zero here is not shown.
+  if (body.per_seat_minor === 0 || body.total_minor === 0) return null;
+  if (body.cadence !== 'monthly' && body.cadence !== 'annual') return null;
+  if (typeof body.currency !== 'string' || !/^[A-Za-z]{3}$/.test(body.currency)) return null;
+  if (typeof body.tax_inclusive !== 'boolean') return null;
+  const next = objectOrNull(body.next_invoice);
+  if (next === null || !NEXT_INVOICE_STATUSES.includes(next.status)) return null;
+  const date = next.status === 'scheduled' ? stringOrNull(next.date) : null;
+  if (next.status === 'scheduled' && (date === null || Number.isNaN(Date.parse(date)))) return null;
+  return {
+    cadence: body.cadence,
+    seats: body.seats,
+    billedSeats: body.billed_seats,
+    perSeatMinor: body.per_seat_minor,
+    currency: body.currency.toUpperCase(),
+    taxInclusive: body.tax_inclusive,
+    totalMinor: body.total_minor,
+    nextInvoice: {status: next.status, date},
   };
 }
 
@@ -3453,6 +3506,17 @@ export function quoteSeats(organizationId, seats) {
   return commercialGet('organizations/seats/quote', COMMERCIAL_OPS.QUOTE_SEATS, {
     organization_id: organizationId,
     seats,
+  });
+}
+
+/**
+ * GET /v1/organizations/seats/cost?organization_id= — the administrator's seat price, total and
+ * next invoice (BRA-1636 item 5). Charges nobody and writes nothing. READ IT THROUGH
+ * `readSeatCost()`, which answers null for any body it cannot read whole.
+ */
+export function seatCost(organizationId) {
+  return commercialGet('organizations/seats/cost', COMMERCIAL_OPS.SEAT_COST, {
+    organization_id: organizationId,
   });
 }
 

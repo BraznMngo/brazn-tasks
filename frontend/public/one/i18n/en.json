@@ -502,7 +502,16 @@
         "teams": "{count} team | {count} teams",
         "prorationDue": "This change costs {amount} for the rest of this billing period.",
         "nothingNow": "You pay nothing now.",
-        "decrease": "This change starts with your next invoice. Nothing is refunded. Invoices you already have stay the same. Nobody loses access."
+        "decrease": "This change starts with your next invoice. Nothing is refunded. Invoices you already have stay the same. Nobody loses access.",
+        "costMonthly": "Total: {amount} per month",
+        "costAnnual": "Total: {amount} per year",
+        "taxAdded": "Tax is added on top of these amounts.",
+        "nextInvoice": "Next invoice",
+        "nextInvoiceOn": "{date}: {amount}",
+        "nextInvoiceBeta": "No invoice is scheduled during the beta. The first invoice will be {amount} once buying opens.",
+        "nextInvoiceAwaiting": "No invoice is scheduled yet. The first invoice, {amount}, is raised when you pay.",
+        "nextInvoiceNotCharged": "Your organization is not charged.",
+        "costUnreadable": "The cost and the next invoice cannot be read right now. Try again later."
       },
       "tile": {
         "privateKind": "Private",

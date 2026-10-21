@@ -126,11 +126,13 @@ function formatSeatProrationDue(proration) {
   const currency = proration.currency;
   if (!Number.isInteger(minor) || minor <= 0) return null;
   if (typeof currency !== 'string' || currency.trim() === '') return null;
+  return formatMinor(minor, currency.trim());
+}
+
+/** An amount in minor units, written as money in the reader's language, or null when it cannot be. */
+function formatMinor(minor, currency) {
   try {
-    return new Intl.NumberFormat(currentLocale(), {
-      style: 'currency',
-      currency: currency.trim(),
-    }).format(minor / 100);
+    return new Intl.NumberFormat(currentLocale(), {style: 'currency', currency}).format(minor / 100);
   } catch {
     return null;
   }
@@ -1110,6 +1112,7 @@ function seatsCard(meter) {
            ${refusalNote(t('organization.teams.capped.unknown'))}
          </div></div>`
       : seatAdapter(meter)}
+    ${seatCostBlock(meter)}
   </div>`;
 }
 
@@ -1166,8 +1169,8 @@ function draftSeats(meter) {
  * `disabled`, not `aria-disabled`, on the buttons at a limit: `applyGates` releases a gated group by
  * clearing `aria-disabled` and `.is-refused` on its children, and must not release a limit.
  *
- * BRA-1636 item 5 (the total cost and the next invoice) goes directly under this control, after the
- * limit sentences. Nothing here shows a price.
+ * BRA-1636 item 5 (the total cost and the next invoice) is `seatCostBlock`, directly under this
+ * control. Nothing here shows a price.
  */
 function seatAdapter(meter) {
   const {lowest, highest} = seatLimits(meter);
@@ -1190,6 +1193,62 @@ function seatAdapter(meter) {
         tx('organization.seats.adapt')}</button>
     </div>
     ${limits}
+  </div>`;
+}
+
+/**
+ * BRA-1636 item 5 — the total cost and "Next invoice", under the Adapt seats control.
+ *
+ * THE PRICE IS THE SERVER'S, READ NOW. `GET /v1/organizations/seats/cost` answers the per-seat price
+ * for the organization's own billing period from the payment provider's catalogue. The page writes
+ * no price and never turns a yearly price into a monthly one. The total is that price × the billed
+ * seats for the number on screen (`max(3, seats)`, Commercial-Rules §3.1), so it moves with − and +
+ * before anything is confirmed. "Next invoice" is for the seats held today, because the number on
+ * screen is not held until it is confirmed; `ensureSeatCost` reads again when the seats change.
+ *
+ * AN ORGANIZATION THAT IS NOT CHARGED (BRA-1672) IS SHOWN NO TOTAL. The service still answers a
+ * catalogue price for it, but nothing will ever be billed, and the ticket's rule is that the amount
+ * shown is what the organization will actually be charged. It sees only that it is not charged.
+ *
+ * NEVER A ZERO OR A GUESS. While the read is under way the block is empty. A failed read, or a body
+ * `readSeatCost` cannot read whole, shows one sentence saying the figures cannot be read. A 403 is
+ * a non-administrator, who sees neither figure (Commercial-Rules §2.6) and no sentence either.
+ *
+ * WHEN TAX IS ADDED ON TOP (`tax_inclusive: false`, the dollar prices), the amounts are before tax,
+ * so the block says tax is added rather than presenting them as what the invoice will total.
+ */
+function seatCostBlock(meter) {
+  const {seatCostStatus: status, seatCost: cost} = scratch();
+  if (status === undefined || status === 'loading' || status === 'forbidden') return '';
+  const unreadable = `<div class="seat-cost" data-requires="admin" style="margin-top:12px">
+    <p class="help">${tx('one.org.seats.costUnreadable')}</p></div>`;
+  if (status !== 'ready' || cost === null || cost === undefined) return unreadable;
+
+  const seats = meter.purchased === null ? cost.seats : draftSeats(meter);
+  const total = formatMinor(cost.perSeatMinor * Math.max(SEAT_FLOOR, seats), cost.currency);
+  const invoiceAmount = formatMinor(cost.totalMinor, cost.currency);
+  if (total === null || invoiceAmount === null) return unreadable;
+
+  const totalLine = cost.cadence === 'annual'
+    ? t('one.org.seats.costAnnual', {amount: total})
+    : t('one.org.seats.costMonthly', {amount: total});
+  const next = cost.nextInvoice;
+  if (next.status === 'not_charged') {
+    return `<div class="seat-cost" data-requires="admin" style="margin-top:12px">
+    <div class="setting-name">${tx('one.org.seats.nextInvoice')}</div>
+    <div class="help" id="seatNextInvoice">${tx('one.org.seats.nextInvoiceNotCharged')}</div>
+  </div>`;
+  }
+  const nextLine = {
+    scheduled: () => t('one.org.seats.nextInvoiceOn', {date: formatDate(next.date), amount: invoiceAmount}),
+    not_scheduled_beta: () => t('one.org.seats.nextInvoiceBeta', {amount: invoiceAmount}),
+    awaiting_purchase: () => t('one.org.seats.nextInvoiceAwaiting', {amount: invoiceAmount}),
+  }[next.status]();
+  return `<div class="seat-cost" data-requires="admin" style="margin-top:12px">
+    <div class="setting-name" id="seatTotal" aria-live="polite">${esc(totalLine)}</div>
+    ${cost.taxInclusive ? '' : `<div class="help">${tx('one.org.seats.taxAdded')}</div>`}
+    <div class="setting-name" style="margin-top:8px">${tx('one.org.seats.nextInvoice')}</div>
+    <div class="help" id="seatNextInvoice">${esc(nextLine)}</div>
   </div>`;
 }
 
@@ -1385,6 +1444,7 @@ function mount(root, ctx) {
 
   if (ctx.route.tab === 'team') {
     ensurePendingInvitations();
+    if (ctx.facts?.orgAdmin === true) ensureSeatCost();
     const meter = readSeatMeter(getOrganization());
     const fill = root.querySelector('#seatMeterFill');
     // A null denominator gets a zero-width bar, never a full one: "we cannot read how many seats
@@ -1427,6 +1487,37 @@ function ensurePendingInvitations() {
     if (err instanceof api.SessionLostError) throw err;
     console.error('[one/settings] pending invitations list failed', err);
     setViewState(NS, {pendingInvitesStatus: 'failed'});
+    requestRender();
+  });
+}
+
+/**
+ * BRA-1636 item 5: read the seat cost for the administrator only — a member is refused by the
+ * server and would see nothing anyway.
+ *
+ * ONE READ PER SEAT COUNT, NOT PER VISIT. The read is remembered with the fork's purchased seats
+ * it was made for (`seatCostFor`), and a render that finds a different count reads again. Every
+ * path that moves the seats ends in `reloadOrganization()` and its render — Adapt seats, and a
+ * team creation that raises them (BRA-1439 Story 9) — so "Next invoice" never keeps the amount
+ * of a seat count the organization no longer holds while the total shows the new one.
+ */
+function ensureSeatCost() {
+  const organization = getOrganization();
+  if (organization === null) return;
+  const state = scratch();
+  const purchased = readSeatMeter(organization).purchased;
+  if (state.seatCostStatus === 'loading') return;
+  if (state.seatCostStatus !== undefined && state.seatCostFor === purchased) return;
+  setViewState(NS, {seatCostStatus: 'loading', seatCost: null, seatCostFor: purchased});
+  api.seatCost(organization.id).then((result) => {
+    const cost = api.readSeatCost(result);
+    const status = cost !== null ? 'ready' : result.status === 403 ? 'forbidden' : 'failed';
+    setViewState(NS, {seatCostStatus: status, seatCost: cost});
+    requestRender();
+  }).catch((err) => {
+    if (err instanceof api.SessionLostError) throw err;
+    console.error('[one/settings] seat cost read failed', err);
+    setViewState(NS, {seatCostStatus: 'failed', seatCost: null});
     requestRender();
   });
 }
