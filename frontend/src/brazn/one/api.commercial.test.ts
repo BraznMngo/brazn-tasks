@@ -526,6 +526,29 @@ const OPERATIONS: OpCase[] = [
 		refusal: {label: 'an unread outcome vocabulary', body: {organization_id: 'org-1', outcome: 'quoted'}},
 	},
 	{
+		// BRA-1636 item 5. `SeatCost` (one-apps cloud/service/src/service.ts) carries no `outcome`.
+		name: 'read seat cost (GET /v1/organizations/seats/cost)',
+		op: api.COMMERCIAL_OPS.SEAT_COST,
+		shape: 'absent',
+		affirmative: [
+			{
+				label: 'a SeatCost for a trial while buying is closed',
+				body: {
+					organization_id: 'org-1',
+					cadence: 'monthly',
+					seats: 3,
+					billed_seats: 3,
+					per_seat_minor: 500,
+					currency: 'eur',
+					tax_inclusive: true,
+					total_minor: 1500,
+					next_invoice: {status: 'not_scheduled_beta'},
+				},
+			},
+		],
+		refusal: {label: 'an unread outcome vocabulary', body: {organization_id: 'org-1', outcome: 'priced'}},
+	},
+	{
 		/*
 		 * BRA-1475. THE SUMMARY IS `absent`-SHAPED AND THAT IS THE WHOLE POINT OF THE ROW: its
 		 * verdict is a `state`, not an `outcome`, and every one of the five states arrives at HTTP
@@ -664,9 +687,10 @@ describe('one/api.js commercial guard - the per-operation outcome vocabulary', (
 		// ABSENT side is the load-bearing half of that pair, because its verdict is a `state`
 		// rather than an `outcome`. INVITATION_USERNAME is the sixteenth absent row, on the same
 		// side and for the same reason: it answers a `status`. ISSUE_CONVERSION_CLAIM is the
-		// seventeenth (BRA-1442): claim mint answers fields with no `outcome`.
+		// seventeenth (BRA-1442): claim mint answers fields with no `outcome`. SEAT_COST is the
+		// eighteenth (BRA-1636 item 5): `SeatCost` answers figures with no `outcome`.
 		expect(OPERATIONS.filter(entry => entry.shape === 'required')).toHaveLength(6)
-		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(17)
+		expect(OPERATIONS.filter(entry => entry.shape === 'absent')).toHaveLength(18)
 	})
 
 	for (const entry of OPERATIONS) {

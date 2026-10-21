@@ -120,7 +120,8 @@ beforeEach(async () => {
 	api.resetSession()
 	api.configure({fetch: fetchStub as unknown as typeof fetch, origin: ORIGIN, randomUUID: () => 'qa-key'})
 	api.setToken('access-qa')
-	setViewState('settings', {pendingInvitesStatus: 'ready', pendingInvites: [], seatDraft: null, seatPurchase: null})
+	// The seat cost read (BRA-1636 item 5) has its own tests; marked started so mount sends nothing.
+	setViewState('settings', {pendingInvitesStatus: 'ready', pendingInvites: [], seatDraft: null, seatPurchase: null, seatCostStatus: 'loading'})
 })
 
 afterEach(async () => {
@@ -170,6 +171,14 @@ function confirmButton(name: string): HTMLButtonElement {
 const MINUS = () => pageButton(t(k('organization', 'seats', 'fewer')))
 const PLUS = () => pageButton(t(k('organization', 'seats', 'more')))
 const ADAPT = () => pageButton(t(k('organization', 'seats', 'adapt')))
+
+/**
+ * Every request but the seat cost read. BRA-1636 item 5 reads the cost again in the render after
+ * a confirmed change; it is a read, has its own tests, and is not what these counts are about.
+ */
+function seatRequests() {
+	return requests().filter((call) => !call.url.startsWith(`${ORIGIN}/v1/organizations/seats/cost`))
+}
 
 /** The number between − and +, as read on screen. */
 function shownNumber(): string {
@@ -234,7 +243,7 @@ describe('QA BRA-1636 item 4 — acceptance: decrease 5 → 3 with 3 members', (
 
 		// Confirmed once: exactly one write, absolute.
 		// MUTATION: sending `meter.purchased - 1` (a delta-style step) in confirm-seats makes this red.
-		expect(requests()).toHaveLength(1)
+		expect(seatRequests()).toHaveLength(1)
 		expect(requests()[0]?.url).toBe(`${ORIGIN}/v1/organizations/seats`)
 		expect(requests()[0]?.init.method).toBe('POST')
 		expect((requests()[0]?.body as {seats?: number}).seats).toBe(3)
@@ -356,7 +365,7 @@ describe('QA BRA-1636 item 4 — acceptance: increase by three', () => {
 		fixture.afterReload = org(8, 3, 1)
 		await click(confirmButton(t(k('organization', 'seats', 'adapt'))))
 
-		expect(requests()).toHaveLength(2)
+		expect(seatRequests()).toHaveLength(2)
 		expect(requests()[1]?.url).toBe(`${ORIGIN}/v1/organizations/seats`)
 		expect((requests()[1]?.body as {seats?: number}).seats).toBe(8)
 		expect(modalText()).toBe('')

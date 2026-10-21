@@ -502,7 +502,16 @@
         "teams": "{count} Team | {count} Teams",
         "prorationDue": "Diese Änderung kostet {amount} für den Rest dieses Abrechnungszeitraums.",
         "nothingNow": "Du zahlst jetzt nichts.",
-        "decrease": "Diese Änderung gilt ab deiner nächsten Rechnung. Es wird nichts erstattet. Rechnungen, die du schon hast, bleiben gleich. Niemand verliert den Zugang."
+        "decrease": "Diese Änderung gilt ab deiner nächsten Rechnung. Es wird nichts erstattet. Rechnungen, die du schon hast, bleiben gleich. Niemand verliert den Zugang.",
+        "costMonthly": "Gesamt: {amount} pro Monat",
+        "costAnnual": "Gesamt: {amount} pro Jahr",
+        "taxAdded": "Die Steuer kommt zu diesen Beträgen hinzu.",
+        "nextInvoice": "Nächste Rechnung",
+        "nextInvoiceOn": "{date}: {amount}",
+        "nextInvoiceBeta": "Während der Beta ist keine Rechnung geplant. Die erste Rechnung beträgt {amount}, sobald der Kauf möglich ist.",
+        "nextInvoiceAwaiting": "Noch ist keine Rechnung geplant. Die erste Rechnung über {amount} wird bei der Zahlung erstellt.",
+        "nextInvoiceNotCharged": "Für diese Organisation fallen keine Kosten an.",
+        "costUnreadable": "Die Kosten und die nächste Rechnung können gerade nicht gelesen werden. Bitte später erneut versuchen."
       },
       "tile": {
         "privateKind": "Privat",

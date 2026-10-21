@@ -155,6 +155,8 @@ export interface CommercialOps {
 	readonly ERASE_ACCOUNT: CommercialOp
 	readonly REVOKE_INVITATION: CommercialOp
 	readonly QUOTE_SEATS: CommercialOp
+	/** GET /v1/organizations/seats/cost — the administrator's seat cost and next invoice (BRA-1636). */
+	readonly SEAT_COST: CommercialOp
 	readonly PURCHASE_SEATS: CommercialOp
 	readonly TRANSFER_ADMINISTRATOR: CommercialOp
 	/**
@@ -251,6 +253,22 @@ export interface SeatQuote {
 	proration: Record<string, any> | null
 }
 
+/** Off `GET /v1/organizations/seats/cost`, read whole or not at all (BRA-1636 item 5). */
+export interface SeatCost {
+	cadence: 'monthly' | 'annual'
+	seats: number
+	billedSeats: number
+	perSeatMinor: number
+	currency: string
+	taxInclusive: boolean
+	totalMinor: number
+	nextInvoice: {
+		status: 'scheduled' | 'not_scheduled_beta' | 'awaiting_purchase' | 'not_charged'
+		/** Set for `scheduled` only. */
+		date: string | null
+	}
+}
+
 /** Off an INVITE result. Null when nothing was offered, or utilisation was unreadable. */
 export function readSeatNotice(result: CommercialResult): SeatNotice | null
 /** Off an INVITE result. Null is the honest "nothing recorded, nothing to withdraw". */
@@ -258,6 +276,8 @@ export function readInvitationRecord(result: CommercialResult): InvitationRecord
 export function readInvitedUserId(result: CommercialResult): string | null
 /** Null when the result was not affirmative — distinct from a quote of nothing. */
 export function readSeatQuote(result: CommercialResult): SeatQuote | null
+/** Null for any answer that is not affirmative or not readable whole. Never a partial figure. */
+export function readSeatCost(result: CommercialResult): SeatCost | null
 /**
  * `null` = no answer. `[]` = an ordinary answer meaning no choice has to be
  * offered; the sole-member administrator may still erase. Do not collapse them.
@@ -509,6 +529,7 @@ export function revokeOrganizationInvitation(
 	invitationId: string,
 ): Promise<CommercialResult>
 export function quoteSeats(organizationId: string, seats: number): Promise<CommercialResult>
+export function seatCost(organizationId: string): Promise<CommercialResult>
 export function purchaseSeats(
 	organizationId: string,
 	seats: number,

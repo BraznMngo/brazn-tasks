@@ -502,7 +502,16 @@
         "teams": "チーム {count} 件 | チーム {count} 件",
         "prorationDue": "この変更は、本請求期間の残りについて {amount} かかります。",
         "nothingNow": "今お支払いいただく金額はありません。",
-        "decrease": "この変更は次回の請求書から適用されます。返金はありません。発行済みの請求書は変わりません。アクセスを失う人はいません。"
+        "decrease": "この変更は次回の請求書から適用されます。返金はありません。発行済みの請求書は変わりません。アクセスを失う人はいません。",
+        "costMonthly": "合計：月額 {amount}",
+        "costAnnual": "合計：年額 {amount}",
+        "taxAdded": "これらの金額に税金が加算されます。",
+        "nextInvoice": "次回の請求書",
+        "nextInvoiceOn": "{date}：{amount}",
+        "nextInvoiceBeta": "ベータ期間中は請求書の予定はありません。購入が始まると、最初の請求書は {amount} になります。",
+        "nextInvoiceAwaiting": "まだ請求書の予定はありません。最初の請求書（{amount}）はお支払い時に発行されます。",
+        "nextInvoiceNotCharged": "この組織には料金がかかりません。",
+        "costUnreadable": "現在、料金と次回の請求書を読み込めません。しばらくしてからもう一度お試しください。"
       },
       "tile": {
         "privateKind": "プライベート",
