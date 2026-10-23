@@ -1218,8 +1218,11 @@ function seatAdapter(meter) {
  * so the block says tax is added rather than presenting them as what the invoice will total.
  */
 function seatCostBlock(meter) {
-  const {seatCostStatus: status, seatCost: cost} = scratch();
+  const {seatCostStatus: status, seatCost: cost, seatCostFor} = scratch();
   if (status === undefined || status === 'loading' || status === 'forbidden') return '';
+  // An answer read for another seat count is about to be read again (`ensureSeatCost`): drawing it
+  // would put the new total beside the old "Next invoice" until the new answer lands.
+  if (seatCostFor !== meter.purchased) return '';
   const unreadable = `<div class="seat-cost" data-requires="admin" style="margin-top:12px">
     <p class="help">${tx('one.org.seats.costUnreadable')}</p></div>`;
   if (status !== 'ready' || cost === null || cost === undefined) return unreadable;
