@@ -19,6 +19,8 @@ package oauth2server
 import (
 	"testing"
 
+	"code.vikunja.io/api/pkg/config"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -106,5 +108,57 @@ func TestValidateRedirectURI(t *testing.T) {
 	})
 	t.Run("rejects empty URI", func(t *testing.T) {
 		assert.False(t, ValidateRedirectURI(""))
+	})
+}
+
+// The https allowance is an exact string match against a configured list. The
+// expectations below are written out as literals, not derived from the listed
+// value. Deleting the exact-equality loop in ValidateRedirectURI makes "accepts
+// a listed https address" fail; replacing it with strings.HasPrefix makes the
+// "another path" and "a query" cases fail.
+func TestValidateRedirectURIHTTPSAllowList(t *testing.T) {
+	const listed = "https://dev.brazn.one/runtime/v1/web/"
+	set := func(t *testing.T, uris []string) {
+		config.ServiceOAuthHTTPSRedirectURIs.Set(uris)
+		t.Cleanup(func() { config.ServiceOAuthHTTPSRedirectURIs.Set([]string{}) })
+	}
+
+	t.Run("accepts a listed https address", func(t *testing.T) {
+		set(t, []string{listed})
+		assert.True(t, ValidateRedirectURI("https://dev.brazn.one/runtime/v1/web/"))
+	})
+	t.Run("accepts any one of several listed addresses", func(t *testing.T) {
+		set(t, []string{"https://other.example/cb", listed})
+		assert.True(t, ValidateRedirectURI("https://dev.brazn.one/runtime/v1/web/"))
+	})
+	t.Run("rejects another path", func(t *testing.T) {
+		set(t, []string{listed})
+		assert.False(t, ValidateRedirectURI("https://dev.brazn.one/runtime/v1/web/evil"))
+		assert.False(t, ValidateRedirectURI("https://dev.brazn.one/runtime/v1/other/"))
+	})
+	t.Run("rejects the listed address without its trailing slash", func(t *testing.T) {
+		set(t, []string{listed})
+		assert.False(t, ValidateRedirectURI("https://dev.brazn.one/runtime/v1/web"))
+	})
+	t.Run("rejects a query", func(t *testing.T) {
+		set(t, []string{listed})
+		assert.False(t, ValidateRedirectURI("https://dev.brazn.one/runtime/v1/web/?next=https://evil.com"))
+	})
+	t.Run("rejects another host", func(t *testing.T) {
+		set(t, []string{listed})
+		assert.False(t, ValidateRedirectURI("https://evil.com/runtime/v1/web/"))
+		assert.False(t, ValidateRedirectURI("https://dev.brazn.one.evil.com/runtime/v1/web/"))
+	})
+	t.Run("rejects http for a listed https address", func(t *testing.T) {
+		set(t, []string{listed})
+		assert.False(t, ValidateRedirectURI("http://dev.brazn.one/runtime/v1/web/"))
+	})
+	t.Run("an empty list refuses every https address", func(t *testing.T) {
+		set(t, []string{})
+		assert.False(t, ValidateRedirectURI("https://dev.brazn.one/runtime/v1/web/"))
+	})
+	t.Run("a listed https address does not open other https addresses", func(t *testing.T) {
+		set(t, []string{listed})
+		assert.False(t, ValidateRedirectURI("https://localhost/callback"))
 	})
 }

@@ -20,6 +20,8 @@ import (
 	"net"
 	"net/url"
 	"strings"
+
+	"code.vikunja.io/api/pkg/config"
 )
 
 // forkAllowedSchemes are the native-app redirect schemes this fork accepts in
@@ -47,9 +49,10 @@ var forkAllowedSchemes = []string{"one", "percy"}
 // of the fork-allowed schemes (see forkAllowedSchemes above) — or a loopback
 // http URL as recommended by RFC 8252 for native apps that cannot register a
 // custom scheme. Any address in 127.0.0.0/8, the IPv6 loopback (::1, in any
-// notation), and the literal hostname "localhost" are accepted; dangerous
-// schemes like javascript:, data:, https://, or non-loopback http:// targets
-// are rejected.
+// notation), and the literal hostname "localhost" are accepted, and so is an
+// https URL that exactly equals an entry of service.oauthhttpsredirecturis
+// (empty by default); dangerous schemes like javascript:, data:, any other
+// https://, or non-loopback http:// targets are rejected.
 func ValidateRedirectURI(redirectURI string) bool {
 	u, err := url.Parse(redirectURI)
 	if err != nil || u.Scheme == "" {
@@ -73,6 +76,17 @@ func ValidateRedirectURI(redirectURI string) bool {
 		}
 		if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
 			return true
+		}
+	}
+
+	// An https callback only when it is exactly one the configuration lists
+	// (BRA-1886). The authorize page has no consent step, so a prefix, host or
+	// pattern match would let another site collect a code.
+	if u.Scheme == "https" {
+		for _, allowed := range config.ServiceOAuthHTTPSRedirectURIs.GetStringSlice() {
+			if redirectURI == allowed {
+				return true
+			}
 		}
 	}
 
