@@ -74,6 +74,7 @@ const (
 	ServiceEnableOpenIDTeamUserOnlySearch Key = `service.enableopenidteamusersearch`
 	ServiceIPExtractionMethod             Key = `service.ipextractionmethod`
 	ServiceTrustedProxies                 Key = `service.trustedproxies`
+	ServiceOAuthHTTPSRedirectURIs         Key = `service.oauthhttpsredirecturis` // BRA-1886
 
 	SentryEnabled         Key = `sentry.enabled`
 	SentryDsn             Key = `sentry.dsn`
@@ -397,6 +398,7 @@ func InitDefaultConfig() {
 	ServiceEnableOpenIDTeamUserOnlySearch.setDefault(false)
 	ServiceIPExtractionMethod.setDefault("direct")
 	ServiceTrustedProxies.setDefault("")
+	ServiceOAuthHTTPSRedirectURIs.setDefault([]string{})
 
 	// Sentry
 	SentryDsn.setDefault("https://440eedc957d545a795c17bbaf477497c@o1047380.ingest.sentry.io/4504254983634944")
